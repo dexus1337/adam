@@ -30,8 +30,8 @@ namespace adam
     {
     public:
 
-        typedef const adam::module* (*get_module_fn)();                 /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
-        static constexpr const char* entry_point_name = "get_module";   /**< The name of the entry point function that modules must export to provide access to their module instance. */
+        typedef const adam::module* (*get_adam_module_fn)();                 /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
+        static constexpr const char* entry_point_name = "get_adam_module";   /**< The name of the entry point function that modules must export to provide access to their module instance. */
 
         using data_format_map = std::unordered_map<string_hashed, const data_format&>; /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
 

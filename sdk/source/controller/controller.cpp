@@ -67,12 +67,12 @@ namespace adam
             if (!handle)
                 continue;
             
-            auto fn_get_module  = (module::get_module_fn)dlsym(handle, module::entry_point_name);
+            auto fn_get_adam_module  = (module::get_adam_module_fn)dlsym(handle, module::entry_point_name);
 
-            if (!fn_get_module)
+            if (!fn_get_adam_module)
                 goto UNLOAD_AND_CONTINUE;
             
-            mod = fn_get_module();
+            mod = fn_get_adam_module();
 
             if (!mod)
                 goto UNLOAD_AND_CONTINUE;
