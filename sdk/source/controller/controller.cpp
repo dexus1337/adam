@@ -1,9 +1,14 @@
 #include "controller/controller.hpp"
 
-#include <dlfcn.h>
 #include <filesystem>
 #include <vector>
 #include <iostream>
+
+#ifdef   ADAM_PLATFORM_LINUX
+#include <dlfcn.h>
+#elifdef ADAM_PLATFORM_WINDOWS
+#include <windows.h>
+#endif
 
 #include "module/module.hpp"
 
@@ -57,11 +62,10 @@ namespace adam
             return false;
         }
 
-        #ifdef      ADAM_PLATFORM_WINDOWS
-        #elifdef    ADAM_PLATFORM_LINUX
-        for (auto& path : possible_module_paths)
+        for (const auto& path : possible_module_paths)
         {
             const module* mod   = nullptr;
+            #ifdef ADAM_PLATFORM_LINUX
             auto handle         = dlopen(std::filesystem::absolute(path).c_str(), RTLD_LAZY);
 
             if (!handle)
@@ -90,8 +94,38 @@ namespace adam
         UNLOAD_AND_CONTINUE:
             dlclose(handle);
             continue;
-        }
-        #endif            
+            #elifdef ADAM_PLATFORM_WINDOWS
+            auto handle = LoadLibraryW(std::filesystem::absolute(path).c_str());
+
+            if (!handle)
+                continue;
+
+            // GetProcAddress uses LPCSTR (char*), even in Unicode builds
+            auto fn_get_adam_module = (module::get_adam_module_fn)GetProcAddress(handle, module::entry_point_name);
+
+            if (!fn_get_adam_module)
+                goto UNLOAD_AND_CONTINUE;
+
+            mod = fn_get_adam_module();
+
+            if (!mod)
+                goto UNLOAD_AND_CONTINUE;
+
+            if (m_modules.contains(mod->get_name()))
+                goto UNLOAD_AND_CONTINUE;
+
+            if (mod->get_required_sdk_version() > ADAM_SDK_VERSION)
+                goto UNLOAD_AND_CONTINUE;
+
+            m_modules.emplace(mod->get_name(), mod);
+
+            continue;
+
+        UNLOAD_AND_CONTINUE:
+            FreeLibrary(handle);
+            continue;
+            #endif 
+        }        
 
         return true;
     }
