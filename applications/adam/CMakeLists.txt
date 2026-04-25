@@ -11,6 +11,10 @@ add_executable(adam ${adam_app_source_files})
 # Link libraries
 target_link_libraries(adam PRIVATE adam-sdk)  # Link against the SDK library
 
+# Set the output directory for the executable
+set_target_properties(adam PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
 
 # Create the test application
 add_executable(adam-test ${adam_app_test_source_files})

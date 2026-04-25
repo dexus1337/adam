@@ -11,9 +11,15 @@
  
 #include "api/api.hpp"
 
+#include <unordered_map>
+
+#include "string/string-hashed.hpp"
+
 
 namespace adam 
 {
+    class module;
+
     /**
      * @class controller
      * @brief The main controller class for the ADAM system, responsible for managing all components and orchestrating their interactions.
@@ -31,6 +37,16 @@ namespace adam
          * @brief Destroys the controller object and cleans up resources.
          */
         ~controller();
+
+        /** @brief Retrieves a pointer to a loaded module by its hashed name. */
+        const module* get_module(const string_hashed& name) const;
+
+        /** @brief Scans the specified directory for module shared libraries, loads them, and registers their modules in the system. */
+        bool scan_for_modules(std::string_view directory = "");
+
+    protected:
+
+        std::unordered_map<string_hashed, const module*> m_modules; /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
 
     };
 }

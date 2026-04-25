@@ -1,1 +1,1 @@
-#add_subdirectory(adam)
+add_subdirectory(asterix)

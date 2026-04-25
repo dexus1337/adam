@@ -25,6 +25,8 @@
   #endif
 #endif
 
+#define ADAM_SDK_VERSION 0x0100 // Version 1.0.0
+
 #pragma once
 
 // Use the compiler's built-in knowledge
