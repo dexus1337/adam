@@ -46,13 +46,13 @@ namespace adam
         ~module();
 
         const string_hashed& get_name()             const { return m_str_name; }
-        int get_required_sdk_version()              const { return m_i_require_sdk_version; }
+        int get_required_sdk_version()              const { return m_i_required_sdk_version; }
         const data_format_map& get_data_formats()   const { return m_data_formats; }
 
     protected:
 
         string_hashed   m_str_name;                 /**< The name of the module, used for identification and lookup in the ADAM system. */
-        int             m_i_require_sdk_version;    /**< The minimum SDK version required for this module to function correctly. */
+        int             m_i_required_sdk_version;    /**< The minimum SDK version required for this module to function correctly. */
         data_format_map m_data_formats;             /**< A map of data formats supported by this module, indexed by their hashed string names for efficient lookup. */
     };
 }
