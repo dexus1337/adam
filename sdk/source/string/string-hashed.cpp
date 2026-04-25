@@ -14,14 +14,14 @@ namespace adam
     void string_hashed::calculate_hash() 
     {
         // Simple hash function (FNV-1a)
-        static constexpr uint64_t fnv_offset_basis = 14695981039346656037ULL;
-        static constexpr uint64_t fnv_prime = 1099511628211ULL;
+        static constexpr hash_datatype fnv_offset_basis = 14695981039346656037ULL;
+        static constexpr hash_datatype fnv_prime = 1099511628211ULL;
 
         m_ui64_hash = fnv_offset_basis;
 
         for (auto c : *this) 
         {
-            m_ui64_hash ^= static_cast<uint64_t>(c);
+            m_ui64_hash ^= static_cast<hash_datatype>(c);
             m_ui64_hash *= fnv_prime;
         }
     }
