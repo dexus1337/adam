@@ -1,0 +1,28 @@
+#include "string/string-hashed.hpp"
+
+namespace adam 
+{
+    string_hashed::string_hashed() : m_ui64_hash(0) {}
+
+    string_hashed::string_hashed(std::string_view name) : std::string(name), m_ui64_hash(0) 
+    {
+        calculate_hash();
+    }
+
+    string_hashed::~string_hashed() {}
+
+    void string_hashed::calculate_hash() 
+    {
+        // Simple hash function (FNV-1a)
+        static constexpr uint64_t fnv_offset_basis = 14695981039346656037ULL;
+        static constexpr uint64_t fnv_prime = 1099511628211ULL;
+
+        m_ui64_hash = fnv_offset_basis;
+
+        for (auto c : *this) 
+        {
+            m_ui64_hash ^= static_cast<uint64_t>(c);
+            m_ui64_hash *= fnv_prime;
+        }
+    }
+}
