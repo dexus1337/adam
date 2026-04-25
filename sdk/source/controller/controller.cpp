@@ -77,6 +77,9 @@ namespace adam
             if (!mod)
                 goto UNLOAD_AND_CONTINUE;
 
+            if (m_modules.contains(mod->get_name()))
+                continue;
+
             if (mod->get_required_sdk_version() > ADAM_SDK_VERSION)
                 goto UNLOAD_AND_CONTINUE;
 
