@@ -18,11 +18,11 @@ namespace adam
 
     controller::~controller() {}
 
-    const module* controller::get_module(const string_hashed& name) const 
+    const module* controller::get_loaded_module(const string_hashed& name) const 
     {
-        auto it = m_modules.find(name);
+        auto it = m_loaded_modules.find(name);
 
-        if (it != m_modules.end()) 
+        if (it != m_loaded_modules.end()) 
         {
             return it->second;
         }
@@ -82,24 +82,19 @@ namespace adam
             if (!mod)
                 goto UNLOAD_AND_CONTINUE;
 
-            if (m_modules.contains(mod->get_name()))
+            if (m_loaded_modules.contains(mod->get_name()))
                 continue;
 
             if (mod->get_required_sdk_version() > ADAM_SDK_VERSION)
                 goto UNLOAD_AND_CONTINUE;
 
-            m_modules.emplace(mod->get_name(), mod);
-
-            mod->m_mod_handle   = reinterpret_cast<uintptr_t>(handle);
-            mod->m_str_filepath = string_hashed(path_str);
-
-            continue;
+            m_available_modules.emplace(mod->get_name(), path_str);
 
         UNLOAD_AND_CONTINUE:
             dlclose(handle);
             continue;
             #elifdef ADAM_PLATFORM_WINDOWS
-            auto handle = LoadLibraryW(std::filesystem::absolute(path).c_str());
+            auto handle = LoadLibraryA(std::filesystem::absolute(path).c_str());
 
             if (!handle)
                 continue;
@@ -115,21 +110,99 @@ namespace adam
             if (!mod)
                 goto UNLOAD_AND_CONTINUE;
 
-            if (m_modules.contains(mod->get_name()))
+            if (m_loaded_modules.contains(mod->get_name()))
                 goto UNLOAD_AND_CONTINUE;
 
             if (mod->get_required_sdk_version() > ADAM_SDK_VERSION)
                 goto UNLOAD_AND_CONTINUE;
 
-            m_modules.emplace(mod->get_name(), mod);
-
-            continue;
+            m_available_modules.emplace(mod->get_name(), path_str);
 
         UNLOAD_AND_CONTINUE:
             FreeLibrary(handle);
             continue;
             #endif 
         }        
+
+        return true;
+    }
+
+    bool controller::load_module(const string_hashed& name, const module** out_module)
+    {
+        auto it = m_available_modules.find(name);
+
+        if (it == m_available_modules.end())
+            return false;
+
+        const auto& path_str = it->second;
+        module* mod         = nullptr;
+
+        #ifdef ADAM_PLATFORM_LINUX
+        auto handle         = dlopen(path_str.c_str(), RTLD_LAZY);
+
+        if (!handle)
+            return false;
+
+        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
+
+        if (!fn_get_adam_module)
+            goto UNLOAD_AND_RETURN;
+        
+        mod = fn_get_adam_module();
+
+        if (!mod)
+            goto UNLOAD_AND_RETURN;
+
+        if (m_loaded_modules.contains(mod->get_name()))
+            goto UNLOAD_AND_RETURN;
+
+        if (mod->get_required_sdk_version() > ADAM_SDK_VERSION)
+            goto UNLOAD_AND_RETURN;
+
+        goto SUCCESS;
+
+    UNLOAD_AND_RETURN:
+        dlclose(handle);
+        #elifdef ADAM_PLATFORM_WINDOWS
+        
+        auto handle = LoadLibraryA(std::filesystem::absolute(path).c_str());
+
+        if (!handle)
+            return false;
+
+        // GetProcAddress uses LPCSTR (char*), even in Unicode builds
+            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
+
+        if (!fn_get_adam_module)
+                goto UNLOAD_AND_CONTINUE;
+
+        mod = fn_get_adam_module();
+
+        if (!mod)
+                goto UNLOAD_AND_CONTINUE;
+
+        if (m_loaded_modules.contains(mod->get_name()))
+                goto UNLOAD_AND_CONTINUE;
+
+        if (mod->get_required_sdk_version() > ADAM_SDK_VERSION)
+                goto UNLOAD_AND_CONTINUE;
+
+        goto SUCCESS;
+
+    UNLOAD_AND_RETURN:
+        FreeLibrary(handle);
+        return false;
+        #endif
+
+    SUCCESS:
+
+        mod->m_mod_handle   = reinterpret_cast<uintptr_t>(handle);
+        mod->m_str_filepath = path_str;
+
+        m_loaded_modules.emplace(mod->get_name(), mod);
+
+        if (out_module)
+            *out_module = mod;
 
         return true;
     }

@@ -12,6 +12,10 @@
 #include "api/api.hpp"
 
 
+#include <atomic>
+#include <cstdint>
+
+
 namespace adam 
 {
     /**
@@ -31,5 +35,12 @@ namespace adam
          * @brief Destroys the memory_buffer object and cleans up resources.
          */
         ~memory_buffer();
+
+    protected:
+
+        std::atomic<uint32_t> m_ref_count;  /**< Reference count for managing the lifetime of the memory buffer across multiple users. */
+        uint64_t m_size;                    /**< The size of the memory buffer in bytes. */
+        void* m_data;                       /**< Pointer to the actual memory buffer data. */
+
     };
 }

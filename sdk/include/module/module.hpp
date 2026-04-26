@@ -56,7 +56,7 @@ namespace adam
         string_hashed   m_str_filepath;             /**< The file path of the module's shared library, used for loading and unloading the module. */
         uintptr_t       m_mod_handle;               /**< The handle to the loaded module's shared library, used for managing the module's lifecycle. */
         int             m_i_required_sdk_version;   /**< The minimum SDK version required for this module to function correctly. */
-        int            m_i_version;                 /**< The version of the module. */
+        int             m_i_version;                 /**< The version of the module. */
         data_format_map m_data_formats;             /**< A map of data formats supported by this module, indexed by their hashed string names for efficient lookup. */
     
     };
