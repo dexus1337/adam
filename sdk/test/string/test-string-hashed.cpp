@@ -42,6 +42,24 @@ TEST(string_hashed, hash_recalculation)
     EXPECT_EQ(str2, str3);
 }
 
+/** @brief Tests the consistency of the standard library hash function with the custom hash function. */
+TEST(string_hashed, copy) 
+{
+    adam::string_hashed sh("test_string");
+    
+    adam::string_hashed sh_copy("different_string");
+
+    EXPECT_NE(sh_copy, sh);
+
+    sh_copy = sh;
+
+    EXPECT_EQ(sh_copy, sh);
+
+    std::string std_str_copy = sh_copy;
+
+    EXPECT_EQ(std_str_copy, sh);
+}
+
 /** @brief Tests the insertion and retrieval of string_hashed objects in a std::map. */
 TEST(string_hashed, map_insertion_and_retrieval) 
 {
@@ -50,13 +68,13 @@ TEST(string_hashed, map_insertion_and_retrieval)
     adam::string_hashed key_1("param1");
     test_map[key_1] = 5000;
 
-    EXPECT_EQ(test_map.count(key_1), 1);
+    EXPECT_EQ(test_map.count(key_1), 1u);
     EXPECT_EQ(test_map[key_1], 5000);
 
     // Separate object, same content
     adam::string_hashed key_2("param1");
 
-    EXPECT_EQ(test_map.count(key_2), 1);
+    EXPECT_EQ(test_map.count(key_2), 1u);
     EXPECT_EQ(test_map[key_2], 5000);
 }
 

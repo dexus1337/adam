@@ -64,14 +64,15 @@ namespace adam
 
         for (const auto& path : possible_module_paths)
         {
-            const module* mod   = nullptr;
+            module* mod         = nullptr;
+            auto path_str       = std::string(std::filesystem::absolute(path).string());   
             #ifdef ADAM_PLATFORM_LINUX
-            auto handle         = dlopen(std::filesystem::absolute(path).c_str(), RTLD_LAZY);
+            auto handle         = dlopen(path_str.c_str(), RTLD_LAZY);
 
             if (!handle)
                 continue;
-            
-            auto fn_get_adam_module  = (module::get_adam_module_fn)dlsym(handle, module::entry_point_name);
+
+            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
 
             if (!fn_get_adam_module)
                 goto UNLOAD_AND_CONTINUE;
@@ -88,7 +89,10 @@ namespace adam
                 goto UNLOAD_AND_CONTINUE;
 
             m_modules.emplace(mod->get_name(), mod);
-            
+
+            mod->m_mod_handle   = reinterpret_cast<uintptr_t>(handle);
+            mod->m_str_filepath = string_hashed(path_str);
+
             continue;
 
         UNLOAD_AND_CONTINUE:
@@ -101,7 +105,7 @@ namespace adam
                 continue;
 
             // GetProcAddress uses LPCSTR (char*), even in Unicode builds
-            auto fn_get_adam_module = (module::get_adam_module_fn)GetProcAddress(handle, module::entry_point_name);
+            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
 
             if (!fn_get_adam_module)
                 goto UNLOAD_AND_CONTINUE;

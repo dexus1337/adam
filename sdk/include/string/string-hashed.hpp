@@ -33,6 +33,9 @@ namespace adam
         /** @brief Constructs a new string_hashed object. */
         string_hashed(std::string_view name);
 
+        /** @brief Constructs a new string_hashed object. */
+        string_hashed(const string_hashed& other);
+
         /** @brief Destroys the string_hashed object and cleans up resources. */
         ~string_hashed();
 
@@ -49,6 +52,9 @@ namespace adam
 
         /** @brief Compares two string_hashed objects for ordering based on their hash values. Used for std::set and std::map. */
         bool operator<( const string_hashed& other ) const { return m_ui64_hash < other.m_ui64_hash; }
+
+        /** @brief Assigns the value of another string_hashed object to this one. */
+        string_hashed& operator=(const string_hashed& other);
 
     private:
         hash_datatype m_ui64_hash;    /**< The hash value of the string, used for efficient comparisons. */

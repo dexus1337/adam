@@ -1,12 +1,12 @@
 #include "module/module.hpp"
 
 
-static const adam::modules::asterix::module_asterix global_instance = adam::modules::asterix::module_asterix();
+static adam::modules::asterix::module_asterix global_instance = adam::modules::asterix::module_asterix();
 
 
 namespace adam::modules::asterix
 {
-    module_asterix::module_asterix() : module("asterix")
+    module_asterix::module_asterix() : module("asterix", ADAM_ASTERIX_VERSION)
     {
         // Initialize supported data formats here
     }
@@ -17,7 +17,7 @@ namespace adam::modules::asterix
     }
 }
 
-extern "C" const adam::module* ADAM_ASTERIX_API get_adam_module() 
+extern "C" adam::module* ADAM_ASTERIX_API get_adam_module() 
 {
     return &global_instance;
 }

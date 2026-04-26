@@ -35,9 +35,9 @@ namespace adam
         /** @brief Destroys the data_format object and cleans up resources. */
         ~data_format();
 
-        string_hashed   get_name()          const { return m_str_name; }
-        parser*         get_parser()        const { return m_parser; }
-        serializer*     get_serializer()    const { return m_serializer; } 
+        const string_hashed&    get_name()          const { return m_str_name; }
+        parser*                 get_parser()        const { return m_parser; }
+        serializer*             get_serializer()    const { return m_serializer; } 
 
     protected:
 

@@ -28,31 +28,36 @@ namespace adam
      */
     class ADAM_SDK_API module 
     {
+        friend class controller;    /**< The controller class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
+
     public:
 
-        typedef const adam::module* (*get_adam_module_fn)();                 /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
+        typedef adam::module* (*get_adam_module_fn)();                       /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
         static constexpr const char* entry_point_name = "get_adam_module";   /**< The name of the entry point function that modules must export to provide access to their module instance. */
 
         using data_format_map = std::unordered_map<string_hashed, const data_format&>; /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
 
-        /**
-         * @brief Constructs a new module object.
-         */
-        module(std::string_view name);
+        /** @brief Constructs a new module object. */
+        module(std::string_view name, int version);
 
-        /**
-         * @brief Destroys the module object and cleans up resources.
-         */
+        /** @brief Destroys the module object and cleans up resources. */
         ~module();
 
-        const string_hashed& get_name()             const { return m_str_name; }
-        int get_required_sdk_version()              const { return m_i_required_sdk_version; }
-        const data_format_map& get_data_formats()   const { return m_data_formats; }
+        const string_hashed&    get_name()                  const { return m_str_name; }
+        const string_hashed&    get_filepath()              const { return m_str_filepath; }
+        uintptr_t               get_module_handle()         const { return m_mod_handle; }
+        int                     get_required_sdk_version()  const { return m_i_required_sdk_version; }
+        int                     get_version()               const { return m_i_version; }
+        const data_format_map&  get_data_formats()          const { return m_data_formats; }
 
     protected:
 
         string_hashed   m_str_name;                 /**< The name of the module, used for identification and lookup in the ADAM system. */
-        int             m_i_required_sdk_version;    /**< The minimum SDK version required for this module to function correctly. */
+        string_hashed   m_str_filepath;             /**< The file path of the module's shared library, used for loading and unloading the module. */
+        uintptr_t       m_mod_handle;               /**< The handle to the loaded module's shared library, used for managing the module's lifecycle. */
+        int             m_i_required_sdk_version;   /**< The minimum SDK version required for this module to function correctly. */
+        int            m_i_version;                 /**< The version of the module. */
         data_format_map m_data_formats;             /**< A map of data formats supported by this module, indexed by their hashed string names for efficient lookup. */
+    
     };
 }

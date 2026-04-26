@@ -24,3 +24,5 @@
     #define ADAM_ASTERIX_API
   #endif
 #endif
+
+#define ADAM_ASTERIX_VERSION 0x0100 // Version 1.0.0

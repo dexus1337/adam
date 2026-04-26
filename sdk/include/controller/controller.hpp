@@ -38,6 +38,9 @@ namespace adam
          */
         ~controller();
 
+        /** @brief Retrieves a reference to the map of all loaded modules. */
+        const std::unordered_map<string_hashed, const module*>& get_modules() const { return m_modules; }
+
         /** @brief Retrieves a pointer to a loaded module by its hashed name. */
         const module* get_module(const string_hashed& name) const;
 
