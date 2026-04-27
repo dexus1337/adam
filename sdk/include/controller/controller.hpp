@@ -36,14 +36,10 @@ namespace adam
 
         static constexpr const char* cmd_memory_name = "adam::controller_cmd"; /**< The name of the shared memory segment used for command communication between the main controller and external processes. */
 
-        /**
-         * @brief Constructs a new controller object.
-         */
+        /** @brief Constructs a new controller object.*/
         controller();
 
-        /**
-         * @brief Destroys the controller object and cleans up resources.
-         */
+        /** @brief Destroys the controller object and cleans up resources.*/
         ~controller();
 
         // COMMAND MANAGEMENT
@@ -73,6 +69,6 @@ namespace adam
         std::unordered_map<string_hashed, string_hashed> m_available_modules;   /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
         std::unordered_map<string_hashed, const module*> m_loaded_modules;      /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
 
-        //memory_manager& m_memory_manager = memory_manager::get();               /**< Reference to the memory manager singleton for managing memory buffers across modules. */
+        
     };
 }

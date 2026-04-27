@@ -50,11 +50,11 @@ namespace adam
         bool notify();
 
         /** @brief Waits for the signal activation. */
-        bool wait(int32_t timeout_ms = 0);
+        bool wait(int32_t timeout_ms = -1);
 
         /** @brief Wait for the signal activation. Compatible with std::chrono::duration */
         template <typename rep, typename period>
-        bool wait(std::chrono::duration<rep, period> timeout) { return wait(std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()); }
+        bool wait(std::chrono::duration<rep, period> timeout = std::chrono::duration<rep, period>::max()) { return wait(timeout == std::chrono::duration<rep, period>::max() ? -1 : std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()); }
 
     protected:
 

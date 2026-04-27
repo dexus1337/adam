@@ -86,15 +86,13 @@ namespace adam
     bool memory_shared_signal::wait(int32_t timeout_ms) 
     {
         #ifdef ADAM_PLATFORM_LINUX
-        if (timeout_ms < 0) {
+        if (timeout_ms < 0)
             return sem_wait(m_sem) == 0;
-        }
 
         // sem_timedwait requires an absolute end time (CLOCK_REALTIME)
         struct timespec ts;
-        if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+        if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
             return false;
-        }
 
         // Add the timeout duration to the current time
         ts.tv_sec += timeout_ms / 1000;

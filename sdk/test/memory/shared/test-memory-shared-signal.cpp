@@ -13,48 +13,50 @@ protected:
     {
         auto name = adam::string_hashed("adam::memory_shared_signal_test");
 
-        memtest = new adam::memory_shared(name);
+        memcreatetest = new adam::memory_shared(name);
+        memopentest = new adam::memory_shared(name);
     }
 
     void TearDown() override
     {
-        memtest->destroy();
+        memcreatetest->destroy();
+        memopentest->destroy();
 
-        delete memtest;
+        delete memcreatetest;
+        delete memopentest;
     }
 
-    adam::memory_shared* memtest;
+    adam::memory_shared* memcreatetest;
+    adam::memory_shared* memopentest;
 };
 
 
 /** @brief Tests the wait without being notified, also tests the timeout */
 TEST_F(memory_shared_signal_test, wait_timeout)
 {
-    ASSERT_TRUE(memtest->create(1024)); // Create a shared memory segment of 1KB
+    ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
     auto start = std::chrono::steady_clock::now();
-    bool result = memtest->signal().wait(100); // Wait for 100ms
+    bool result = memcreatetest->signal().wait(100); // Wait for 100ms
     auto end = std::chrono::steady_clock::now();
     
     EXPECT_FALSE(result); // Should timeout
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     EXPECT_GE(duration, 100); // Ensure it actually waited at least 100ms
-
-    memtest->destroy(); // Clean up the shared memory segment
 }
 
 /** @brief Tests the notification functionality of memory_shared_signal. */
-TEST_F(memory_shared_signal_test, notify_and_wait)
+TEST_F(memory_shared_signal_test, create_notify_and_wait)
 {
-    ASSERT_TRUE(memtest->create(1024)); // Create a shared memory segment of 1KB
+    ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
     std::thread notifier([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        memtest->signal().notify();
+        memcreatetest->signal().notify();
     });
 
     auto start = std::chrono::steady_clock::now();
-    bool result = memtest->signal().wait(500); // Wait for up to 500ms
+    bool result = memcreatetest->signal().wait(500); // Wait for up to 500ms
     auto end = std::chrono::steady_clock::now();
     
     EXPECT_TRUE(result); // Should be signaled, not timeout
@@ -65,17 +67,39 @@ TEST_F(memory_shared_signal_test, notify_and_wait)
 }
 
 /** @brief Tests the notification functionality of memory_shared_signal. */
-TEST_F(memory_shared_signal_test, notify_and_wait_std_chrono)
+TEST_F(memory_shared_signal_test, create_notify_and_wait_std_chrono)
 {
-    ASSERT_TRUE(memtest->create(1024)); // Create a shared memory segment of 1KB
+    ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
     std::thread notifier([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        memtest->signal().notify();
+        memcreatetest->signal().notify();
     });
 
     auto start = std::chrono::steady_clock::now();
-    bool result = memtest->signal().wait(std::chrono::milliseconds(500)); // Wait for up to 500ms
+    bool result = memcreatetest->signal().wait(std::chrono::milliseconds(500)); // Wait for up to 500ms
+    auto end = std::chrono::steady_clock::now();
+    
+    EXPECT_TRUE(result); // Should be signaled, not timeout
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    EXPECT_GE(duration, 45); // Ensure it waited until notified
+
+    notifier.join();
+}
+
+/** @brief Tests the notification functionality of memory_shared_signal. */
+TEST_F(memory_shared_signal_test, open_notify_and_wait)
+{
+    ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
+    ASSERT_TRUE(memopentest->open());
+
+    std::thread notifier([&]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        memcreatetest->signal().notify();
+    });
+
+    auto start = std::chrono::steady_clock::now();
+    bool result = memopentest->signal().wait(500); // Wait for up to 500ms
     auto end = std::chrono::steady_clock::now();
     
     EXPECT_TRUE(result); // Should be signaled, not timeout
