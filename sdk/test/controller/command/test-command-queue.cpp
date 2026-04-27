@@ -13,20 +13,20 @@ protected:
         auto name = adam::string_hashed("adam::command_queue_test");
 
         cmdcreatetest = new adam::command_queue(name);
-        memopentest = new adam::command_queue(name);
+        cmdopentest = new adam::command_queue(name);
     }
 
     void TearDown() override
     {
         cmdcreatetest->destroy();
-        memopentest->destroy();
+        cmdopentest->destroy();
 
         delete cmdcreatetest;
-        delete memopentest;
+        delete cmdopentest;
     }
 
     adam::command_queue* cmdcreatetest;
-    adam::command_queue* memopentest;
+    adam::command_queue* cmdopentest;
 };
 
 
@@ -34,16 +34,58 @@ protected:
 TEST_F(command_queue_test, create_open_command_count)
 {
     ASSERT_TRUE(cmdcreatetest->create(100));    // Create a queue with 100 max commands
-    ASSERT_TRUE(memopentest->open());           // Try to open this queue
+    ASSERT_TRUE(cmdopentest->open());           // Try to open this queue
     
-    EXPECT_GE(memopentest->get_max_command_count(), 100u);
+    EXPECT_TRUE(cmdcreatetest->is_empty());
+    EXPECT_FALSE(cmdcreatetest->is_full());
+
+    EXPECT_GE(cmdopentest->get_max_command_count(), 100u);
+    EXPECT_TRUE(cmdopentest->is_empty());
+    EXPECT_FALSE(cmdopentest->is_full());
+}
+
+/** @brief Tests if command queues is properly reacting when its full */
+TEST_F(command_queue_test, full)
+{
+    uint32_t size = 2; 
+    ASSERT_TRUE(cmdcreatetest->create(size));    
+    ASSERT_TRUE(cmdopentest->open());         
+    
+    // 1. Verify Initial State
+    EXPECT_TRUE(cmdcreatetest->is_empty());
+    EXPECT_FALSE(cmdcreatetest->is_full());
+
+    // 2. Fill the queue to its capacity
+    adam::command cmd(adam::command::login);
+    
+    // First push should succeed
+    EXPECT_TRUE(cmdcreatetest->push(cmd));
+    
+    // 3. Verify Full State
+    // Now that 1 command is in (and 1 slot is reserved for the tail), 
+    // the queue should report full.
+    EXPECT_FALSE(cmdcreatetest->is_empty());
+    EXPECT_TRUE(cmdcreatetest->is_full());
+
+    // 4. Verify Blocked Push
+    // The second push should fail because the queue is full
+    EXPECT_FALSE(cmdcreatetest->push(cmd));
+
+    // 5. Clear the queue and verify it recovers
+    adam::command out_cmd;
+    EXPECT_TRUE(cmdopentest->pop(out_cmd, std::chrono::milliseconds(100)));
+    
+    EXPECT_TRUE(cmdcreatetest->is_empty());
+    EXPECT_FALSE(cmdcreatetest->is_full());
+
+    EXPECT_EQ(out_cmd.get_type(), cmd.get_type());
 }
 
 /** @brief Tests the entire functionality with a single command */
 TEST_F(command_queue_test, single_command_send_and_recievied)
 {
     ASSERT_TRUE(cmdcreatetest->create(100));    // Create a queue with 100 max commands
-    ASSERT_TRUE(memopentest->open());           // Try to open this queue
+    ASSERT_TRUE(cmdopentest->open());           // Try to open this queue
     
     adam::command sent_cmd(adam::command::login);
     adam::command received_cmd;
@@ -52,7 +94,7 @@ TEST_F(command_queue_test, single_command_send_and_recievied)
     // We use a thread to simulate the "external process" behavior
     std::thread consumer([&]() 
     {
-        pop_success = memopentest->pop(received_cmd, std::chrono::milliseconds(500)); // Wait 500ms
+        pop_success = cmdopentest->pop(received_cmd, std::chrono::milliseconds(500)); // Wait 500ms
     });
 
     // Small sleep to prove the consumer is actually waiting/blocking
@@ -74,7 +116,7 @@ TEST_F(command_queue_test, multiple_commands_fifo_order)
     const uint32_t num_commands = 10;
     
     ASSERT_TRUE(cmdcreatetest->create(queue_size));
-    ASSERT_TRUE(memopentest->open());
+    ASSERT_TRUE(cmdopentest->open());
 
     std::vector<adam::command> received_list;
     std::atomic<bool> consumer_finished{false};
@@ -86,7 +128,7 @@ TEST_F(command_queue_test, multiple_commands_fifo_order)
         {
             adam::command cmd;
             // Using a generous timeout per command to avoid flakiness
-            if (memopentest->pop(cmd, std::chrono::seconds(1))) 
+            if (cmdopentest->pop(cmd, std::chrono::seconds(1))) 
                 received_list.push_back(cmd);
         }
         consumer_finished = true;

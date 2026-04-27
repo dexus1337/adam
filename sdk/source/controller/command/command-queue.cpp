@@ -21,9 +21,13 @@ namespace adam
         if (!h) 
             return false;
 
-        // Empty is simple: Head and Tail are at the same position.
         // to safely call this from owner and observer, use acquire for both. Slows down stuff so only use when needed
-        return h->head.load(std::memory_order_acquire) == h->tail.load(std::memory_order_acquire);
+        uint32_t head = h->head.load(std::memory_order_acquire);
+        uint32_t tail = h->tail.load(std::memory_order_acquire);
+
+        // Full is defined as: (Head + 1) % Max == Tail
+        // This is why one slot is always left empty.
+        return ((head + 1) % h->max_commands) == tail;
     }
 
     bool command_queue::is_empty() const
@@ -33,13 +37,9 @@ namespace adam
         if (!h) 
             return false;
 
+        // Empty is simple: Head and Tail are at the same position.
         // to safely call this from owner and observer, use acquire for both. Slows down stuff so only use when needed
-        uint32_t head = h->head.load(std::memory_order_acquire);
-        uint32_t tail = h->tail.load(std::memory_order_acquire);
-
-        // Full is defined as: (Head + 1) % Max == Tail
-        // This is why one slot is always left empty.
-        return ((head + 1) % h->max_commands) == tail;
+        return h->head.load(std::memory_order_acquire) == h->tail.load(std::memory_order_acquire);
     }
 
     bool command_queue::create(uint32_t max_commands)
