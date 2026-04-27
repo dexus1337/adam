@@ -20,6 +20,12 @@ namespace adam
 {
     class module;
 
+    enum command_type
+    {
+        command_type__login,
+        command_type__logout
+    };
+
     /**
      * @class controller
      * @brief The main controller class for the ADAM system, responsible for managing all components and orchestrating their interactions.
@@ -27,6 +33,8 @@ namespace adam
     class ADAM_SDK_API controller 
     {
     public:
+
+        static constexpr const char* cmd_memory_name = "adam::controller_cmd"; /**< The name of the shared memory segment used for command communication between the main controller and external processes. */
 
         /**
          * @brief Constructs a new controller object.
@@ -37,6 +45,13 @@ namespace adam
          * @brief Destroys the controller object and cleans up resources.
          */
         ~controller();
+
+        // COMMAND MANAGEMENT
+
+        /** @brief Starts the command processing loop, which continuously checks for and executes commands sent from external processes. */
+        void start_processing_commands();
+        
+        // MODULE MANAGEMENT
 
         /** @brief Retrieves a reference to the map of all available modules. */
         const std::unordered_map<string_hashed, string_hashed>& get_available_modules() const { return m_available_modules; }
@@ -58,6 +73,6 @@ namespace adam
         std::unordered_map<string_hashed, string_hashed> m_available_modules;   /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
         std::unordered_map<string_hashed, const module*> m_loaded_modules;      /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
 
-        memory_manager& m_memory_manager = memory_manager::get();               /**< Reference to the memory manager singleton for managing memory buffers across modules. */
+        //memory_manager& m_memory_manager = memory_manager::get();               /**< Reference to the memory manager singleton for managing memory buffers across modules. */
     };
 }

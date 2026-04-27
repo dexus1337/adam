@@ -42,7 +42,7 @@ namespace adam
         bool initialize(uint32_t buffer_size = default_buffer_size); /**< Initializes the memory manager, setting up necessary resources. */
 
         /** @brief Shuts down the memory manager, cleaning up resources. */
-        void shutdown();
+        void destroy();
 
         /** @brief Requests a new memory buffer with the specified size. */
         memory_buffer* request_buffer(uint64_t size);

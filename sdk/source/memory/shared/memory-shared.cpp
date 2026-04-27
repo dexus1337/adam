@@ -11,11 +11,16 @@ namespace adam
 {
     memory_shared::memory_shared(const string_hashed& name) 
      :  m_name(name), 
+        m_is_owner(false),
         m_shared_memory_base(nullptr),
         m_shared_memory_size(0)
+        #ifdef   ADAM_PLATFORM_LINUX
+        , m_signal_sem(nullptr)
+        #endif
         #ifdef ADAM_PLATFORM_WINDOWS
         , m_shared_memory_handle(nullptr)
         #endif
+        , m_signal(this)
     {
 
     }
@@ -29,11 +34,18 @@ namespace adam
         #ifdef ADAM_PLATFORM_LINUX
         // Ensure name starts with / for POSIX compliance
         std::string linux_name = (m_name.c_str()[0] == '/') ? m_name.c_str() : "/" + std::string(m_name.c_str());
+
+        // Incase earlier calls fucked shit up, remove the name
+        shm_unlink(linux_name.c_str());
         
         int fd = shm_open(linux_name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
 
         if (fd == -1) 
             return false;
+
+        // Align buffer size to page size and add space for the semaphore
+        long page_size = sysconf(_SC_PAGESIZE);
+        buffer_size = ((buffer_size + sizeof(sem_t) + page_size - 1) / page_size) * page_size;
 
         // Set the size of the shared memory segment
         if (ftruncate(fd, buffer_size) == -1) 
@@ -42,12 +54,25 @@ namespace adam
             return false;
         }
 
-        m_shared_memory_base = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        auto start = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
         close(fd); // fd is no longer needed after mmap
         
-        success = m_shared_memory_base != MAP_FAILED;
-        #elifdef ADAM_PLATFORM_WINDOWS
+        if (start == MAP_FAILED)
+            return false;
+        
+        m_signal_sem            = reinterpret_cast<sem_t*>(start);                      // Place the semaphore at the start of the shared memory
+        m_shared_memory_base    = reinterpret_cast<uint8_t*>(start) + sizeof(sem_t);    // Reserve space for the semaphore at the start of the shared memory
+
+        success = start != MAP_FAILED;
+        #elif defined(ADAM_PLATFORM_WINDOWS)
+
+        // Align buffer size to page size
+        SYSTEM_INFO sys_info;
+        GetSystemInfo(&sys_info);
+        uint64_t page_size = sys_info.dwPageSize;
+        buffer_size = ((buffer_size + page_size - 1) / page_size) * page_size;
+
         // On Windows, CreateFileMapping with INVALID_HANDLE_VALUE uses the system paging file.
         m_shared_memory_handle = CreateFileMappingA
         (
@@ -67,13 +92,19 @@ namespace adam
         success = m_shared_memory_base != nullptr;
         #endif
 
-        if (success)
+        if (!success)
+            return false;
+
+        m_is_owner              = true;
+        m_shared_memory_size    = buffer_size;
+
+        if (!m_signal.create())
         {
-            m_is_owner              = true;
-            m_shared_memory_size    = buffer_size;
+            destroy(); // Clean up if signal initialization fails
+            return false;
         }
 
-        return success;
+        return true;
     }
 
     bool memory_shared::open() 
@@ -82,7 +113,9 @@ namespace adam
         std::string linux_name = (m_name.c_str()[0] == '/') ? m_name.c_str() : "/" + std::string(m_name.c_str());
         
         int fd = shm_open(linux_name.c_str(), O_RDWR, 0666);
-        if (fd == -1) return false;
+
+        if (fd == -1) 
+            return false;
 
         struct stat shm_stats;
         if (fstat(fd, &shm_stats) == -1) 
@@ -91,33 +124,61 @@ namespace adam
             return false;
         }
 
-        m_shared_memory_size = shm_stats.st_size;
+        auto start = mmap(NULL, shm_stats.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-        m_shared_memory_base = mmap(NULL, m_shared_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-        close(fd);
+        close(fd); // fd is no longer needed after mmap
         
-        return m_shared_memory_base != MAP_FAILED;
+        if (start == MAP_FAILED)
+            return false;
+        
+        m_signal_sem            = reinterpret_cast<sem_t*>(start);                      // Place the semaphore at the start of the shared memory
+        m_shared_memory_base    = reinterpret_cast<uint8_t*>(start) + sizeof(sem_t);    // Reserve space for the semaphore at the start of the shared memory
+        m_shared_memory_size    = shm_stats.st_size;
+
         #elif defined(ADAM_PLATFORM_WINDOWS)
         m_shared_memory_handle = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, m_name.c_str());
 
         if (m_shared_memory_handle == NULL) 
             return false;
 
-        m_shared_memory_base = MapViewOfFile(m_shared_memory_handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+        auto start = MapViewOfFile(m_shared_memory_handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 
-        return m_shared_memory_base != nullptr;
+         if (start == nullptr)
+            return false;
+
+        m_shared_memory_base = start;
+
+        MEMORY_BASIC_INFORMATION mbi;
+        
+        if (VirtualQuery(ptr, &mbi, sizeof(mbi)))
+            m_shared_memory_size = mbi.RegionSize;
         #endif
+
+        m_is_owner              = false;
+
+        if (!m_signal.open())
+        {
+            destroy(); // Clean up if signal initialization fails
+            return false;
+        }
+
+        return true;
     }
 
-    void memory_shared::shutdown() 
+    bool memory_shared::destroy() 
     {
+        if (!m_signal.destroy())
+            return false;
+
         if (m_shared_memory_base) 
         {
             #ifdef ADAM_PLATFORM_LINUX
-            munmap(m_shared_memory_base, m_shared_memory_size);
-            #elifdef ADAM_PLATFORM_WINDOWS
-            UnmapViewOfFile(m_shared_memory_base);
+            if (munmap(reinterpret_cast<void*>(m_signal_sem), m_shared_memory_size) != 0)
+                return false;
+            m_signal_sem = nullptr;
+            #elif defined(ADAM_PLATFORM_WINDOWS)
+            if (!UnmapViewOfFile(m_shared_memory_base))
+                return false;
             #endif
             m_shared_memory_base = nullptr;
         }
@@ -128,12 +189,14 @@ namespace adam
             std::string linux_name = (m_name.c_str()[0] == '/') ? m_name.c_str() : "/" + std::string(m_name.c_str());
             shm_unlink(linux_name.c_str());
         }
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         if (m_shared_memory_handle) 
         {
             CloseHandle(m_shared_memory_handle);
             m_shared_memory_handle = NULL;
         }
         #endif
+
+        return true;
     }
 }

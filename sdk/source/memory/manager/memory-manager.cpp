@@ -17,7 +17,7 @@ namespace adam
         return true; // Return true if initialization is successful, false otherwise
     }
 
-    void memory_manager::shutdown() 
+    void memory_manager::destroy() 
     {
         // Clean up shared memory resources here
         m_shared_memory_base = nullptr;
