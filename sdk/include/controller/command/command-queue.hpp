@@ -34,7 +34,14 @@ namespace adam
         /** @brief Destroys the command_queue object and cleans up resources.*/
         ~command_queue();
 
+        /** @brief Gives the amount of commands being able to be queued simoultanesously */
         uint32_t get_max_command_count() const { return m_shared_memory.get() ? this->get_header()->max_commands : 0; }
+
+        /** @brief Checks wether the queue is full */
+        bool is_full() const;
+
+        /** @brief Checks wether the queue is empty, aka, can command be pulled */
+        bool is_empty() const;
 
         /** @brief Creates the command queue and the underlying shared_memory for managing a max amount of commands given */
         bool create(uint32_t max_commands);
@@ -60,6 +67,8 @@ namespace adam
         struct queue_header
         {
             uint32_t max_commands;
+
+            // We use a circular queue for max performance here
             std::atomic<uint32_t> head; /**< The index of the head of the command queue, used for tracking where new commands should be added. */
             std::atomic<uint32_t> tail; /**< The index of the tail of the command queue, used for tracking where commands should be read from. */
         

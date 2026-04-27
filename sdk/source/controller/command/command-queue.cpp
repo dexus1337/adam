@@ -14,6 +14,34 @@ namespace adam
         destroy();
     }
 
+    bool command_queue::is_full() const
+    {
+        const queue_header* h = get_header();
+
+        if (!h) 
+            return false;
+
+        // Empty is simple: Head and Tail are at the same position.
+        // to safely call this from owner and observer, use acquire for both. Slows down stuff so only use when needed
+        return h->head.load(std::memory_order_acquire) == h->tail.load(std::memory_order_acquire);
+    }
+
+    bool command_queue::is_empty() const
+    {
+        const queue_header* h = get_header();
+
+        if (!h) 
+            return false;
+
+        // to safely call this from owner and observer, use acquire for both. Slows down stuff so only use when needed
+        uint32_t head = h->head.load(std::memory_order_acquire);
+        uint32_t tail = h->tail.load(std::memory_order_acquire);
+
+        // Full is defined as: (Head + 1) % Max == Tail
+        // This is why one slot is always left empty.
+        return ((head + 1) % h->max_commands) == tail;
+    }
+
     bool command_queue::create(uint32_t max_commands)
     {
         if (max_commands == 0)
@@ -52,10 +80,10 @@ namespace adam
     {
         auto* header = this->header();
         
-        uint32_t current_head = header->head.load(std::memory_order_relaxed);
+        uint32_t current_head = header->head.load(std::memory_order_relaxed); // we own head at that moment, so use relaxed
         uint32_t next_head = (current_head + 1) % header->max_commands;
 
-        if (next_head == header->tail.load(std::memory_order_acquire))
+        if (next_head == header->tail.load(std::memory_order_acquire)) // tail is not owned by us rn, thats why he have to acquire
             return false; // Queue full
 
         header->commands[current_head] = cmd;
@@ -71,9 +99,9 @@ namespace adam
             return false; // Timeout
 
         auto* header = this->header();
-        uint32_t current_tail = header->tail.load(std::memory_order_relaxed);
+        uint32_t current_tail = header->tail.load(std::memory_order_relaxed); // we own tail at that moment, so use relaxed
         
-        if (current_tail == header->head.load(std::memory_order_acquire))
+        if (current_tail == header->head.load(std::memory_order_acquire)) // head is not owned by us rn, thats why he have to acquire
             return false; // Spurious wake-up / Empty
 
         out_cmd = header->commands[current_tail];
