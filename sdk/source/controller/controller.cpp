@@ -14,10 +14,49 @@
 
 namespace adam
 {
-    controller::controller() {}
+    controller::controller()
+     :  m_request_command_queue(string_hashed(command_request_queue_name)),
+        m_command_processing_thread(),
+        m_request_command_queue_running(false),
+        m_process_queues(),
+        m_available_modules(),
+        m_loaded_modules()
+    {
+
+    }
 
     controller::~controller() {}
 
+    bool controller::start(bool async)
+    {
+        if (!m_request_command_queue.create(1000))
+            return false;
+
+        if (async)
+        {
+            m_command_processing_thread = std::thread(&controller::run_request_command_queue, this);
+
+            return m_command_processing_thread.joinable();
+        }
+        else
+        {
+            run_request_command_queue();
+
+            return true;
+        }
+    }
+        
+    bool controller::destroy()
+    {
+        m_request_command_queue_running = false;
+
+        m_command_processing_thread.join();
+
+        m_request_command_queue.destroy();
+
+        return true;
+    }
+    
     const module* controller::get_loaded_module(const string_hashed& name) const 
     {
         auto it = m_loaded_modules.find(name);
@@ -206,4 +245,80 @@ namespace adam
 
         return true;
     }
+
+    void controller::run_request_command_queue()
+    {
+        m_request_command_queue_running = true;
+
+        while (m_request_command_queue_running)
+        {
+            command_queue_request_data req_cmd;
+
+            if (!m_request_command_queue.pop(req_cmd, 100)) // check every 100ms
+                continue;
+            
+            auto it = m_process_queues.find(req_cmd.thread_id);
+            
+            // if it already is in the queue it has be running as expected
+            if (it != m_process_queues.end())
+                continue;
+
+            command_queue_process_data* new_queue = new command_queue_process_data(string_hashed(command_queue_prefix + std::to_string(req_cmd.thread_id)));
+
+            new_queue->running = true;
+
+            if (!new_queue->queue.open())
+            {
+                delete new_queue;
+                continue;
+            }
+
+            new_queue->command_processing_thread = std::thread(&controller::run_process_command_queue, this, new_queue);
+            
+            auto ins = m_process_queues.emplace(req_cmd.thread_id, new_queue);
+            
+            if ( !ins.second )
+                continue;
+            
+            it = ins.first;
+        }
+    }
+
+    void controller::run_process_command_queue(command_queue_process_data* data)
+    {
+        while (data->running)
+        {
+            command cmd;
+
+            if (!data->queue.pop(cmd, 100)) // check every 100ms
+                continue;
+
+            switch (cmd.get_type())
+            {
+            default:
+                break;
+            }
+        }
+    }
+
+    bool controller::stop_and_remove_process_queue(uint32_t thread_id)
+    {
+        auto it = m_process_queues.find(thread_id);
+
+        if (it == m_process_queues.end())
+            return false;
+
+        it->second->running = false;
+
+        it->second->command_processing_thread.join();
+
+        bool result = it->second->queue.destroy();
+
+        delete it->second;
+
+        m_process_queues.erase(it);
+
+        return result;
+    }
+
 }
