@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        configuration-item.hpp
- * @author      dexus1337
- * @brief       Defines a base class for any configuration objects
- * @version     1.0
- * @date        25.04.2026
+ * @file    configuration-item.hpp
+ * @author  dexus1337
+ * @brief   Defines a base class for any configuration objects
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

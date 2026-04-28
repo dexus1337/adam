@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        memory-buffer.hpp
- * @author      dexus1337
- * @brief       Defines a memory buffer class. Uses shared memory for interprocess availability and efficient memory management.
- * @version     1.0
- * @date        25.04.2026
+ * @file    memory-buffer.hpp
+ * @author  dexus1337
+ * @brief   Defines a memory buffer class. Uses shared memory for interprocess availability and efficient memory management.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

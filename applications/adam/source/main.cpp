@@ -9,7 +9,9 @@ int main()
 
     for (const auto& [name, path] : controller.get_available_modules())
     {
-        printf("Available module: %s (%s)\n", name.c_str(), path.c_str());
+        auto ver = adam::decode_version(path.first);
+
+        printf("Available module: %s ver %.1d.%.1d.%.1d -> (%s)\n", name.c_str(), ver.major, ver.minor, ver.patch, path.second.c_str());
     }
     
     for (const auto& [name, path] : controller.get_available_modules())
@@ -24,6 +26,5 @@ int main()
         }
     }
     
-    
-    return 0;
+    return controller.run();
 }

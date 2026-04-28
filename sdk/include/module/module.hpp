@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        module.hpp
- * @author      dexus1337
- * @brief       A base class for any external module that can be loaded into the ADAM system, providing a common interface for initialization and cleanup.
- * @version     1.0
- * @date        25.04.2026
+ * @file    module.hpp
+ * @author  dexus1337
+ * @brief   A base class for any external module that can be loaded into the ADAM system, providing a common interface for initialization and cleanup.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  
@@ -38,7 +38,7 @@ namespace adam
         using data_format_map = std::unordered_map<string_hashed, const data_format&>; /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
 
         /** @brief Constructs a new module object. */
-        module(std::string_view name, int version);
+        module(std::string_view name, uint32_t version = 0x100);
 
         /** @brief Destroys the module object and cleans up resources. */
         ~module();
@@ -46,8 +46,8 @@ namespace adam
         const string_hashed&    get_name()                  const { return m_str_name; }
         const string_hashed&    get_filepath()              const { return m_str_filepath; }
         uintptr_t               get_module_handle()         const { return m_mod_handle; }
-        int                     get_required_sdk_version()  const { return m_i_required_sdk_version; }
-        int                     get_version()               const { return m_i_version; }
+        uint32_t                get_required_sdk_version()  const { return m_ui32_req_sdk_version; }
+        uint32_t                get_version()               const { return m_ui32_version; }
         const data_format_map&  get_data_formats()          const { return m_data_formats; }
 
     protected:
@@ -55,8 +55,8 @@ namespace adam
         string_hashed   m_str_name;                 /**< The name of the module, used for identification and lookup in the ADAM system. */
         string_hashed   m_str_filepath;             /**< The file path of the module's shared library, used for loading and unloading the module. */
         uintptr_t       m_mod_handle;               /**< The handle to the loaded module's shared library, used for managing the module's lifecycle. */
-        int             m_i_required_sdk_version;   /**< The minimum SDK version required for this module to function correctly. */
-        int             m_i_version;                 /**< The version of the module. */
+        uint32_t        m_ui32_req_sdk_version;     /**< The minimum SDK version required for this module to function correctly. */
+        uint32_t        m_ui32_version;             /**< The version of the module. */
         data_format_map m_data_formats;             /**< A map of data formats supported by this module, indexed by their hashed string names for efficient lookup. */
     
     };

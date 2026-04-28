@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        queue-shared.hpp
- * @author      dexus1337
- * @brief       Defines a interprocess queue for any datatype, based on shared memory
- * @version     1.0
- * @date        27.04.2026
+ * @file    queue-shared.hpp
+ * @author  dexus1337
+ * @brief   Defines a interprocess queue for any datatype, based on shared memory
+ * @version 1.0
+ * @date    27.04.2026
  */
 
  

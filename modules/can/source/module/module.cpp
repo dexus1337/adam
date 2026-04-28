@@ -6,7 +6,7 @@ static adam::modules::can::module_can global_instance = adam::modules::can::modu
 
 namespace adam::modules::can
 {
-    module_can::module_can() : module("can", ADAM_CAN_VERSION)
+    module_can::module_can() : module("can", version)
     {
         // Initialize supported data formats here
     }

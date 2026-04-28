@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        api.hpp
- * @author      dexus1337
- * @brief       Defines macros for controlling symbol visibility in the CAN module.
- * @version     1.0
- * @date        25.04.2026
+ * @file    api.hpp
+ * @author  dexus1337
+ * @brief   Defines macros for controlling symbol visibility in the CAN module.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
 // For windows, we have to explicitly use __declspec
@@ -24,5 +24,3 @@
     #define ADAM_CAN_API
   #endif
 #endif
-
-#define ADAM_CAN_VERSION 0x0100 // Version 1.0.0

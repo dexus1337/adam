@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        parser.hpp
- * @author      dexus1337
- * @brief       Defines a base class for data format parsers, providing a common interface for parsing data in different formats used in the ADAM system.
- * @version     1.0
- * @date        25.04.2026
+ * @file    parser.hpp
+ * @author  dexus1337
+ * @brief   Defines a base class for data format parsers, providing a common interface for parsing data in different formats used in the ADAM system.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

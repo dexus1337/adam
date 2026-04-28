@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        response.hpp
- * @author      dexus1337
- * @brief       Defines a response for the controller
- * @version     1.0
- * @date        27.04.2026
+ * @file    response.hpp
+ * @author  dexus1337
+ * @brief   Defines a response for the controller
+ * @version 1.0
+ * @date    27.04.2026
  */
 
  

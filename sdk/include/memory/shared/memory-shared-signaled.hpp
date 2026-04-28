@@ -1,12 +1,12 @@
 #pragma once
 
 /**
- * @file        memory-shared-signaled.hpp
- * @author      dexus1337
- * @brief       A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory_shared 
+ * @file    memory-shared-signaled.hpp
+ * @author  dexus1337
+ * @brief   A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory_shared 
  *              and external processes.
- * @version     1.0
- * @date        27.04.2026
+ * @version 1.0
+ * @date    27.04.2026
  */
 
  

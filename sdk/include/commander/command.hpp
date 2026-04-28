@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        command.hpp
- * @author      dexus1337
- * @brief       Defines a command for the controller
- * @version     1.0
- * @date        27.04.2026
+ * @file    command.hpp
+ * @author  dexus1337
+ * @brief   Defines a command for the controller
+ * @version 1.0
+ * @date    27.04.2026
  */
 
  

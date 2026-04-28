@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        serializer.hpp
- * @author      dexus1337
- * @brief       Defines a base class for data format serializers, providing a common interface for serializing data in different formats used in the ADAM system.
- * @version     1.0
- * @date        25.04.2026
+ * @file    serializer.hpp
+ * @author  dexus1337
+ * @brief   Defines a base class for data format serializers, providing a common interface for serializing data in different formats used in the ADAM system.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

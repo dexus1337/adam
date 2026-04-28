@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        module.hpp
- * @author      dexus1337
- * @brief       The module class
- * @version     1.0
- * @date        25.04.2026
+ * @file    module.hpp
+ * @author  dexus1337
+ * @brief   The module class
+ * @version 1.0
+ * @date    25.04.2026
  */
 
 
@@ -23,6 +23,8 @@ namespace adam::modules::asterix
     class ADAM_ASTERIX_API module_asterix : public module
     {
     public:
+
+        static constexpr uint32_t version = adam::make_version(1, 0, 0);
 
         /**
          * @brief Constructs a new module object.

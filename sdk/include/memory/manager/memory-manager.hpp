@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        memory-manager.hpp
- * @author      dexus1337
- * @brief       A singleton class responsible for managing memory buffers
- * @version     1.0
- * @date        25.04.2026
+ * @file    memory-manager.hpp
+ * @author  dexus1337
+ * @brief   A singleton class responsible for managing memory buffers
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

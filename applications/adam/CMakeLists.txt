@@ -1,5 +1,9 @@
 ﻿# CMakeLists.txt for the main application
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+
 # Grab all source files for the sdk and tests automatically
 file( GLOB_RECURSE  adam_app_source_files       "source/*cpp"   )
 file( GLOB_RECURSE  adam_app_test_source_files   "test/*cpp"    ) 

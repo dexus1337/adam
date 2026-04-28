@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        string-hashed.hpp
- * @author      dexus1337
- * @brief       Defines a class for handling hashed strings in the ADAM system.
- * @version     1.0
- * @date        25.04.2026
+ * @file    string-hashed.hpp
+ * @author  dexus1337
+ * @brief   Defines a class for handling hashed strings in the ADAM system.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

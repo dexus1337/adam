@@ -1,18 +1,18 @@
 #pragma once
 
 /**
- * @file        adam-sdk.hpp
- * @author      dexus1337
- * @brief       Umbrella header for the ADAM SDK, including all necessary headers for using the SDK in external applications and modules.
- * @version     1.0
- * @date        25.04.2026
+ * @file    adam-sdk.hpp
+ * @author  dexus1337
+ * @brief   Umbrella header for the ADAM SDK, including all necessary headers for using the SDK in external applications and modules.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
 #include "api/api.hpp"
 #include "configuration/item/configuration-item.hpp"
 #include "configuration/parameter/configuration-parameter.hpp"
 #include "controller/controller.hpp"
-#include "controller/command/command.hpp"
+#include "commander/command.hpp"
 #include "controller/response/response.hpp"
 #include "commander/commander.hpp"
 #include "data/format/data-format.hpp"
@@ -32,3 +32,7 @@
 #include "string/string-hashed.hpp"
 #include "queue/queue-shared.hpp"
 #include "queue/queue-shared-duplex.hpp"
+#include "version/version.hpp"
+#include "logger/log.hpp"
+#include "logger/logger.hpp"
+#include "os/os.hpp"

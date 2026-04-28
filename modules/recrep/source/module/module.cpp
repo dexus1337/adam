@@ -6,7 +6,7 @@ static adam::modules::recrep::module_recrep global_instance = adam::modules::rec
 
 namespace adam::modules::recrep
 {
-    module_recrep::module_recrep() : module("recrep", ADAM_RECREP_VERSION)
+    module_recrep::module_recrep() : module("recrep", version)
     {
         // Initialize supported data formats here
     }

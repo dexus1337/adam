@@ -1,12 +1,12 @@
 #pragma once
 
 /**
- * @file        memory-shared.hpp
- * @author      dexus1337
- * @brief       A singleton class responsible for managing shared memory buffers across processes and modules, 
+ * @file    memory-shared.hpp
+ * @author  dexus1337
+ * @brief   A singleton class responsible for managing shared memory buffers across processes and modules, 
  *              providing efficient memory management and interprocess communication.
- * @version     1.0
- * @date        25.04.2026
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

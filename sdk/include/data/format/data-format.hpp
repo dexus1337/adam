@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        data-format.hpp
- * @author      dexus1337
- * @brief       Defines a data format base class for any data formats used in the ADAM system, providing a common interface for handling different types of data.
- * @version     1.0
- * @date        25.04.2026
+ * @file    data-format.hpp
+ * @author  dexus1337
+ * @brief   Defines a data format base class for any data formats used in the ADAM system, providing a common interface for handling different types of data.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

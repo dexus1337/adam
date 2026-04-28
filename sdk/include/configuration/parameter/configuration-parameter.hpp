@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        configuration-parameter.hpp
- * @author      dexus1337
- * @brief       Defines a base class for any configuration parameters
- * @version     1.0
- * @date        25.04.2026
+ * @file    configuration-parameter.hpp
+ * @author  dexus1337
+ * @brief   Defines a base class for any configuration parameters
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

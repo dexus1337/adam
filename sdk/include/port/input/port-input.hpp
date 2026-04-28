@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        port-input.hpp
- * @author      dexus1337
- * @brief       Defines an input port for receiving data in the ADAM system.
- * @version     1.0
- * @date        25.04.2026
+ * @file    port-input.hpp
+ * @author  dexus1337
+ * @brief   Defines an input port for receiving data in the ADAM system.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

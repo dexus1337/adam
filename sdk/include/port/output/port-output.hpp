@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        port-output.hpp
- * @author      dexus1337
- * @brief       Defines an output port for sending data in the ADAM system.
- * @version     1.0
- * @date        25.04.2026
+ * @file    port-output.hpp
+ * @author  dexus1337
+ * @brief   Defines an output port for sending data in the ADAM system.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        port.hpp
- * @author      dexus1337
- * @brief       Defines a base class for ports, providing a common interface for handling data flow in the ADAM system.
- * @version     1.0
- * @date        25.04.2026
+ * @file    port.hpp
+ * @author  dexus1337
+ * @brief   Defines a base class for ports, providing a common interface for handling data flow in the ADAM system.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  

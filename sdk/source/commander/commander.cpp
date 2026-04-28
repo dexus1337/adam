@@ -2,40 +2,44 @@
 
 
 #include "controller/controller.hpp"
+#include "commander/command.hpp"
+#include "controller/response/response.hpp"
 
 
 namespace adam 
 {
-    commander::commander() : m_cmd_queue(string_hashed(controller::command_queue_prefix + (std::stringstream() << std::this_thread::get_id()).str())) {}
+    commander::commander() : m_queue_command(string_hashed(controller::queue_command_prefix + std::to_string(os::get_current_thread_id()))) {}
 
     commander::~commander() {}
 
     bool commander::connect() 
     {
-        if (m_cmd_queue.open())
+        if (m_queue_command.open())
         {
-            m_cmd_queue.destroy();
+            m_queue_command.destroy();
             return false;
         }
         
-        if (!m_cmd_queue.create(1000))
+        if (!m_queue_command.create(1000))
+            return false;
+
+        if (!controller::request_queue_command_access())
             return false;
             
-        
-        
-
-        // TODO: call controller::command_request_queue_name to register this created queue
-
         return true;
     }
 
     bool commander::destroy() 
     {
-        return m_cmd_queue.destroy();
+        return m_queue_command.destroy();
     }
 
-    bool commander::send_command(const command& cmd) 
+    bool commander::send_command(const command& cmd, response* resp) 
     {
-        return m_cmd_queue.push(cmd);
+        response def_resp;
+
+        auto* presp = resp ? resp : &def_resp;
+
+        return m_queue_command.post_request(cmd, *presp);
     }
 }

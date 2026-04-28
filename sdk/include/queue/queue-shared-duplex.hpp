@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        queue-shared-duplex.hpp
- * @author      dexus1337
- * @brief       Defines a bidirectional interprocess queue for any request/response datatype, based on shared memory
- * @version     1.0
- * @date        28.04.2026
+ * @file    queue-shared-duplex.hpp
+ * @author  dexus1337
+ * @brief   Defines a bidirectional interprocess queue for any request/response datatype, based on shared memory
+ * @version 1.0
+ * @date    28.04.2026
  */
 
  

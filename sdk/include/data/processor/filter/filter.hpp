@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file        filter.hpp
- * @author      dexus1337
- * @brief       Defines a base class for data filters, providing a common interface for filtering data in different formats used in the ADAM system.
- * @version     1.0
- * @date        25.04.2026
+ * @file    filter.hpp
+ * @author  dexus1337
+ * @brief   Defines a base class for data filters, providing a common interface for filtering data in different formats used in the ADAM system.
+ * @version 1.0
+ * @date    25.04.2026
  */
 
  
