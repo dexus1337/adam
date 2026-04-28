@@ -25,7 +25,8 @@ namespace adam
         uint32_t v1 = static_cast<uint32_t>(tid >> 32);
         uint32_t sum = 0;
 
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 16; i++) 
+        {
             v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + xtea_key[sum & 1]);
             sum += xtea_delta;
             v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + xtea_key[(sum >> 11) & 1]);
@@ -41,7 +42,8 @@ namespace adam
         uint32_t v1 = static_cast<uint32_t>(secret >> 32);
         uint32_t sum = xtea_delta * 16;
 
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 16; i++) 
+        {
             v1 -= (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + xtea_key[(sum >> 11) & 1]);
             sum -= xtea_delta;
             v0 -= (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + xtea_key[sum & 1]);
@@ -102,7 +104,7 @@ namespace adam
         return sys_now.time_since_epoch() - steady_now.time_since_epoch();
     }();
 
-    void controller::log(const adam::log& cr_log) 
+    void controller::stream_log(const adam::log& cr_log, std::ostream& stream)
     {
         // 1. Convert steady_clock nanoseconds to system_clock
         auto tp_steady = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(cr_log.get_timestamp()));
@@ -141,11 +143,23 @@ namespace adam
             cr_log.get_text()
         );
 
-        m_log_outstream << str;
+        stream << str;
+    }
+
+    void controller::log(const adam::log& cr_log) 
+    {
+        stream_log(cr_log, m_log_outstream);
 
         // Push the log into our sink
         for (const auto& [tid, queue] : m_queues_log_sink)
+        {
+            auto wanted_lvl = queue->get_metadata()->load(std::memory_order_relaxed);
+
+            if (cr_log.get_level() < wanted_lvl)
+                continue;
+            
             queue->push(cr_log);
+        }
     }
 
     bool controller::request_queue_command_access()

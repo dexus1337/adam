@@ -80,6 +80,8 @@ namespace adam
 
         // LOG MANAGEMENT
 
+        static void stream_log(const adam::log& cr_log, std::ostream& stream);
+
         /** @brief Outputs a log. */
         void log(const log& cr_log);
 

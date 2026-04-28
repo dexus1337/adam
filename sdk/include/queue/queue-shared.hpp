@@ -37,6 +37,9 @@ namespace adam
         /** @brief Gives the amount of items being able to be queued simoultanesously */
         uint32_t get_max_items() const { return m_shared_memory.get() ? this->get_header()->max_items : 0; }
 
+        /** @brief Const Accessor for metadata inside the header from inside the shared memory */
+        const queue_metadata_type* get_metadata() const { return get_header() ? &get_header()->metadata : nullptr; }
+
         /** @brief Checks wether the queue is full */
         bool is_full() const;
 
@@ -61,6 +64,9 @@ namespace adam
         /** @brief Pushes an object in the list and notifies the signal. Compatible with std::chrono::duration */
         template <typename rep, typename period>
         bool pop(queue_type& out_obj, std::chrono::duration<rep, period> timeout = std::chrono::duration<rep, period>::max()) { return pop(out_obj, timeout == std::chrono::duration<rep, period>::max() ? -1 : std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()); }
+
+        /** @brief Accessor for metadata inside the header from inside the shared memory */
+        queue_metadata_type* metadata() { return header() ? header()->metadata : nullptr; }
 
     protected:
 
