@@ -12,7 +12,7 @@ namespace adam
 
     bool commander::connect() 
     {
-        if ( m_cmd_queue.open() )
+        if (m_cmd_queue.open())
         {
             m_cmd_queue.destroy();
             return false;
@@ -20,6 +20,11 @@ namespace adam
         
         if (!m_cmd_queue.create(1000))
             return false;
+            
+        
+        
+
+        // TODO: call controller::command_request_queue_name to register this created queue
 
         return true;
     }

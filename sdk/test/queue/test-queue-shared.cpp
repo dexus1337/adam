@@ -31,7 +31,7 @@ protected:
 
 
 /** @brief Tests if command queues and be created and openend, and that the maximal command count is properly synched */
-TEST_F(queue_shared_test, create_open_items)
+TEST_F(queue_shared_test, create_open)
 {
     ASSERT_TRUE(queuecreatetest->create(100));    // Create a queue with 100 max commands
     ASSERT_TRUE(queueopentest->open());           // Try to open this queue

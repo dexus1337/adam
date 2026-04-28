@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file        queue_type-queue.hpp
+ * @file        queue-shared.hpp
  * @author      dexus1337
  * @brief       Defines a interprocess queue for any datatype, based on shared memory
  * @version     1.0
@@ -23,7 +23,7 @@ namespace adam
      * @class queue_shared
      * @brief Defines a interprocess queue for any datatype, based on shared memory
      */
-    template< typename queue_type >
+    template<typename queue_type>
     class ADAM_SDK_API queue_shared
     {
     public:

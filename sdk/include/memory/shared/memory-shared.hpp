@@ -12,7 +12,7 @@
  
 #include "api/api.hpp"
 #include "string/string-hashed.hpp"
-#include "memory-shared-signal.hpp"
+#include "memory-shared-signaled.hpp"
 
 #include <cstdint>
 
@@ -53,7 +53,7 @@ namespace adam
         sem_t* get_signal_semaphore()               const { return m_signal_sem; }
         #endif
 
-        memory_shared_signal& signal() { return m_signal; }
+        memory_shared_signaled& signal() { return m_signal; }
 
         /** @brief Creates the shared memory region, setting up necessary resources. */
         bool create(uint64_t buffer_size);
@@ -79,6 +79,6 @@ namespace adam
         HANDLE      m_shared_memory_handle; /**< Handle to the shared memory object on Windows. */
         #endif
 
-        memory_shared_signal m_signal;      /**< Signal object for interprocess synchronization and event notification. */
+        memory_shared_signaled m_signal;      /**< Signal object for interprocess synchronization and event notification. */
     };
 }

@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file        memory_shared-signal.hpp
+ * @file        memory-shared-signaled.hpp
  * @author      dexus1337
  * @brief       A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory_shared 
  *              and external processes.
@@ -23,21 +23,21 @@ namespace adam
     class memory_shared;
 
     /**
-     * @class   memory_shared_signal
+     * @class   memory_shared_signaled
      * @brief   A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory_shared 
      *          and external processes.
      */
-    class ADAM_SDK_API memory_shared_signal
+    class ADAM_SDK_API memory_shared_signaled
     {
     public:
 
-        /** @brief Constructs a new memory_shared_signal object.*/
-        memory_shared_signal(memory_shared* shared_memory);
+        /** @brief Constructs a new memory_shared_signaled object.*/
+        memory_shared_signaled(memory_shared* shared_memory);
 
-        /** @brief Destroys the memory_shared_signal object and cleans up resources.*/
-        ~memory_shared_signal();
+        /** @brief Destroys the memory_shared_signaled object and cleans up resources.*/
+        ~memory_shared_signaled();
 
-        /** @brief Create the memory_shared_signal backend, OS-specific initialization.*/
+        /** @brief Create the memory_shared_signaled backend, OS-specific initialization.*/
         bool create();
 
         /** @brief Open existing backend.*/
