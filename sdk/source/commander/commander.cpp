@@ -14,6 +14,7 @@ namespace adam
 
     bool commander::connect() 
     {
+        // if theres is already a queue for current thread, delete it
         if (m_queue_command.open())
         {
             m_queue_command.destroy();

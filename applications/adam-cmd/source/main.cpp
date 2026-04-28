@@ -1,6 +1,17 @@
 #include <adam-sdk.hpp>
-#include <iostream>
 
+#include <csignal>
+#include <iostream>
+#include <atomic>
+
+#ifdef ADAM_PLATFORM_LINUX
+void signal_handler(int signal) 
+{
+    if (signal == SIGINT) 
+    {
+    }
+}
+#endif
 
 int main() 
 {
@@ -23,7 +34,7 @@ int main()
     
     std::cout << "Connected to logger!" << std::endl;
 
-    if (!lg.log("hello from adam-cmd", adam::log::info))
+    if (!lg.log(adam::log::info, "hello from adam-cmd"))
     {
         std::cerr << "Failed to send log to the logger." << std::endl;
     }

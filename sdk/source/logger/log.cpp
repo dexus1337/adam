@@ -7,7 +7,7 @@
 
 namespace adam
 {
-    log::log(std::string_view txt, level t)
+    log::log(level t, std::string_view txt)
      :  m_level(t)
     {
         if (m_level != invalid)

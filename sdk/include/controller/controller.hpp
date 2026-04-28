@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <thread>
 #include <sstream>
+#include <functional>
 
 #include "string/string-hashed.hpp"
 #include "queue/queue-shared-duplex.hpp"
@@ -73,7 +74,8 @@ namespace adam
             response_success,
             response_existing,
             response_unavailable,
-            response_unauthorized
+            response_unauthorized,
+            response_unknown
         };
 
         // LOG MANAGEMENT
@@ -82,7 +84,7 @@ namespace adam
         void log(const log& cr_log);
 
         /** @brief Outputs a log. */
-        void log(std::string_view txt, log::level t) { this->log(adam::log(txt, t)); }
+        void log(log::level t, std::string_view txt) { this->log(adam::log(t, txt)); }
 
         // MODULE MANAGEMENT
 
@@ -111,20 +113,23 @@ namespace adam
         /** @brief Uses the master queue in order to request the controller to listen on the unique thread command queue. */
         static bool request_queue_command_access();
 
-        /** @brief Uses the master queue in order to request the controller to listen on the unique thread command queue. */
-        static bool request_log_queue_access();
+        /** @brief Uses the master queue in order to request the controller to listen on the unique thread log queue. */
+        static bool request_queue_log_access();
+
+        /** @brief Uses the master queue in order to request the controller to listen on the unique thread log sink queue. */
+        static bool request_queue_log_sink_access();
 
 
         // MASTER QUEUE
-        struct master_queue_request_data
+        struct queue_master_request_data
         {
             os::thread_id           tid;
             master_queue_request    queue;
             uint64_t                code;
         };
 
-        using master_queue = queue_shared_duplex<master_queue_request_data, master_queue_response>; /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
-        static constexpr const char* master_queue_name = "adam::controller_master_queue";           /**< The name of the queue which will create new "per process" command queues */
+        using master_queue = queue_shared_duplex<queue_master_request_data, master_queue_response>; /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
+        static constexpr const char* master_queue_name = "adam::controller_master_queue";           /**< The name of the queue which will create new "per thread" command queues */
         
         void run_master_queue();
 
@@ -132,44 +137,80 @@ namespace adam
         std::thread     m_master_queue_thread;
         bool            m_master_queue_running;
 
-        // REQUEST/CMD QUEUES
-
-        using queue_command = queue_shared_duplex<command, response>;                               /**< cmd/resp queue type */
-        static constexpr const char* queue_command_prefix = "adam::controller_queue_command_";      /**< Prefix for the "per process" command queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
-
-        struct queue_command_process_data
+        // SLAVE QUEUES
+        template< typename queue_type >
+        struct queue_slave_instance_data
         {
-            queue_command_process_data(const string_hashed& name) : queue(name) {}
+            queue_slave_instance_data(const string_hashed& name) : queue(name) {}
 
-            queue_command   queue;
-            bool            running;
-            std::thread     queue_thread;
-        };
-
-        void run_process_queue_command(queue_command_process_data* data);
-        bool destroy_process_queue_command(os::thread_id tid);
-
-        std::unordered_map<os::thread_id, queue_command_process_data*> m_process_queues_command;
-
-        // LOG QUEUES
-
-        using queue_log = queue_shared<adam::log>;                                                  /**< Log queue type */
-        static constexpr const char* queue_log_prefix = "adam::controller_queue_log_";              /**< Prefix for the "per process" log queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
-
-        struct queue_log_process_data
-        {
-            queue_log_process_data(const string_hashed& name) : queue(name) {}
-
-            queue_log   queue;
+            queue_type  queue;
             bool        running;
             std::thread queue_thread;
         };
 
-        void run_process_queue_log(queue_log_process_data* data);
-        bool destroy_process_queue_log(os::thread_id tid);
+        /** @brief Creates a new (slave) queue of requested template type. For queues that DONT require a worker on the controller side */
+        template<typename queue_type>
+        bool create_queue_slave
+        (
+            os::thread_id tid, 
+            std::unordered_map<os::thread_id, queue_type*>& queue_list, 
+            const char* prefix
+        );
 
-        std::unordered_map<os::thread_id, queue_log_process_data*> m_process_queues_log;
+        /** @brief Creates a new (slave) queue of requested template type. For queues that require a worker on the controller side */
+        template<typename queue_type, typename worker_fn>
+        bool create_queue_slave_with_worker
+        (
+            os::thread_id tid, 
+            std::unordered_map<os::thread_id, queue_slave_instance_data<queue_type>*>& queue_list, 
+            const char* prefix, 
+            worker_fn fn
+        );
 
+        template<typename queue_type>
+        /** @brief Destroys existing (slave) queue of template type. For queues that DONT require a worker on the controller side */
+        bool destroy_queue_slave
+        (
+            os::thread_id tid, 
+            std::unordered_map<os::thread_id, queue_type*>& queue_list
+        );
+
+        template<typename queue_type>
+        /** @brief Destroys existing (slave) queue of template type. For queues that require a worker on the controller side */
+        bool destroy_queue_slave_with_worker
+        (
+            os::thread_id tid, 
+            std::unordered_map<os::thread_id, queue_slave_instance_data<queue_type>*>& queue_list
+        );
+
+        // REQUEST/CMD QUEUES
+
+        using queue_command         = queue_shared_duplex<command, response>;                       /**< Cmd/resp queue type */
+        using queue_command_data    = queue_slave_instance_data<queue_command>;                     /**< Cmd/resp queue worker data */
+        static constexpr const char* queue_command_prefix = "adam::controller_queue_command_";      /**< Prefix for the "per thread" command queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+
+        void run_queue_command(queue_command_data* data);
+
+        std::unordered_map<os::thread_id, queue_command_data*> m_queues_command;
+
+        // LOG QUEUES
+
+        using queue_log             = queue_shared<adam::log>;                                      /**< Log queue type */
+        using queue_log_data        = queue_slave_instance_data<queue_log>;                         /**< Log queue worker data */
+        static constexpr const char* queue_log_prefix = "adam::controller_queue_log_";              /**< Prefix for the "per thread" log queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+
+        void run_queue_log(queue_log_data* data);
+
+        std::unordered_map<os::thread_id, queue_log_data*> m_queues_log;
+
+        using queue_log_sink        = queue_shared<adam::log, std::atomic<log::level>>;             /**< Log sink queue type */
+        static constexpr const char* queue_log_sink_prefix = "adam::controller_queue_log_sink";     /**< Prefix for the "per thread" log sink queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+
+        std::unordered_map<os::thread_id, queue_log_sink*> m_queues_log_sink;
+
+        // LOG MANAGEMENT
+
+        std::ostream            m_log_outstream;
 
         // MODULE MANAGEMENT
 

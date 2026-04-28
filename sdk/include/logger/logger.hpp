@@ -20,7 +20,7 @@ namespace adam
 
     /**
      * @class logger
-     * @brief   Defines the ADAM logger which allows to send logs to the controller from external processes
+     * @brief Defines the ADAM logger which allows to send logs to the controller from external processes
      */
     class ADAM_SDK_API logger
     {
@@ -42,7 +42,7 @@ namespace adam
         bool log(const log& log);
 
         /** @brief Sends a log. */
-        bool log(std::string_view txt, log::level t) { return this->log(adam::log(txt, t)); }
+        bool log(log::level t, std::string_view txt) { return this->log(adam::log(t, txt)); }
 
     protected:
 

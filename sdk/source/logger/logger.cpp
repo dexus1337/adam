@@ -13,6 +13,7 @@ namespace adam
 
     bool logger::connect() 
     {
+        // if theres is already a queue for current thread, delete it
         if (m_queue_log.open())
         {
             m_queue_log.destroy();
@@ -22,7 +23,7 @@ namespace adam
         if (!m_queue_log.create(1000))
             return false;
 
-        if (!controller::request_queue_command_access())
+        if (!controller::request_queue_log_access())
             return false;
             
         return true;

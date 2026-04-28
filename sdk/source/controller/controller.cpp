@@ -54,7 +54,9 @@ namespace adam
      :  m_master_queue(string_hashed(master_queue_name)),
         m_master_queue_thread(),
         m_master_queue_running(false),
-        m_process_queues_command(),
+        m_queues_command(),
+        m_queues_log(),
+        m_log_outstream(std::cout.rdbuf()),
         m_available_modules(),
         m_loaded_modules()
     {
@@ -114,45 +116,104 @@ namespace adam
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(tp_sys.time_since_epoch()) % 1000;
 
         // 4. Define log level labels and colors (ANSI codes)
-        const char* level_str = "UNKN";
-        const char* color_code = "\033[0m"; // Reset
+        const char* level_str   = nullptr;
+        const char* color_code  = nullptr;
 
         switch (cr_log.get_level()) 
         {
             default: return;
-            case log::level::trace:     level_str = "trac";     color_code = "\033[36m";   break; // Cyan
-            case log::level::info:      level_str = "info ";    color_code = "\033[32m";   break; // Green
-            case log::level::warning:   level_str = "warn ";    color_code = "\033[33m";   break; // Yellow
+            case log::level::trace:     level_str = "trace";    color_code = "\033[36m";   break; // Cyan
+            case log::level::info:      level_str = "info";     color_code = "\033[32m";   break; // Green
+            case log::level::warning:   level_str = "warn";     color_code = "\033[33m";   break; // Yellow
             case log::level::error:     level_str = "error";    color_code = "\033[31m";   break; // Red
             case log::level::fatal:     level_str = "fatal";    color_code = "\033[1;31m"; break; // Bold Red
         }
 
-        // 5. The "Beautified" Printf
-        // Format: [HH:MM:SS.mmm] [LEVEL] Message
-        printf("[%02d:%02d:%02d.%03d] %s[%s]\033[0m %s\n",
-            local_tm->tm_hour, local_tm->tm_min, local_tm->tm_sec, (int)ms.count(),
-            color_code, level_str, cr_log.get_text());
+        // 5. The "Beautified" Output
+        auto str = std::format
+        (   "[{:02}:{:02}:{:02}.{:03}] {}[{}]\033[0m {}\n",
+            local_tm->tm_hour,
+            local_tm->tm_min,
+            local_tm->tm_sec,
+            static_cast<int>(ms.count()),
+            color_code,
+            level_str,
+            cr_log.get_text()
+        );
+
+        m_log_outstream << str;
+
+        // Push the log into our sink
+        for (const auto& [tid, queue] : m_queues_log_sink)
+            queue->push(cr_log);
     }
 
     bool controller::request_queue_command_access()
     {
-        master_queue init_queue = master_queue(string_hashed(master_queue_name));
+        master_queue mq = master_queue(string_hashed(master_queue_name));
 
-        if (!init_queue.open())
+        if (!mq.open())
             return false;
 
-        master_queue_request_data data;
+        queue_master_request_data data;
         master_queue_response resp;
 
         data.tid    = os::get_current_thread_id();
         data.queue  = request_command;
         data.code   = calculate_secret(data.tid);
 
-        if (!init_queue.post_request(data,resp, std::chrono::milliseconds(500)))
+        if (!mq.post_request(data,resp, std::chrono::milliseconds(500)))
             return false;
+
+        mq.destroy();
 
         return resp == response_success;
     }
+
+    bool controller::request_queue_log_access()
+    {
+        master_queue mq = master_queue(string_hashed(master_queue_name));
+
+        if (!mq.open())
+            return false;
+
+        queue_master_request_data data;
+        master_queue_response resp;
+
+        data.tid    = os::get_current_thread_id();
+        data.queue  = request_log;
+        data.code   = calculate_secret(data.tid);
+
+        if (!mq.post_request(data,resp, std::chrono::milliseconds(500)))
+            return false;
+
+        mq.destroy();
+
+        return resp == response_success;
+    }
+
+    bool controller::request_queue_log_sink_access()
+    {
+        master_queue mq = master_queue(string_hashed(master_queue_name));
+
+        if (!mq.open())
+            return false;
+
+        queue_master_request_data data;
+        master_queue_response resp;
+
+        data.tid    = os::get_current_thread_id();
+        data.queue  = request_log_sink;
+        data.code   = calculate_secret(data.tid);
+
+        if (!mq.post_request(data,resp, std::chrono::milliseconds(500)))
+            return false;
+
+        mq.destroy();
+
+        return resp == response_success;
+    }
+
 
     const module* controller::get_loaded_module(const string_hashed& name) const 
     {
@@ -343,63 +404,187 @@ namespace adam
         return true;
     }
 
+    template<typename queue_type>
+    bool controller::create_queue_slave
+    (
+        os::thread_id tid, 
+        std::unordered_map<os::thread_id, queue_type*>& queue_list, 
+        const char* prefix
+    )
+    {
+        auto it = queue_list.find(tid);
+        
+        // if it already is in the queue it has be running as expected
+        if (it != queue_list.end())
+        {
+            m_master_queue.response_queue().push(response_existing);
+
+            return false;
+        }
+
+        auto* new_queue = new queue_type(string_hashed(prefix + std::to_string(tid)));
+
+        if (!new_queue->open())
+        {
+            delete new_queue;
+
+            m_master_queue.response_queue().push(response_unavailable);
+
+            return false;
+        }
+
+        auto ins = queue_list.emplace(tid, new_queue);
+        
+        if ( !ins.second )
+            return false;
+        
+        it = ins.first;
+
+        return true;
+    }
+
+    template<typename queue_type, typename worker_fn>
+    bool controller::create_queue_slave_with_worker
+    (
+        os::thread_id tid, 
+        std::unordered_map<os::thread_id, queue_slave_instance_data<queue_type>*>& queue_list, 
+        const char* prefix,
+        worker_fn fn
+    )
+    {
+        auto it = queue_list.find(tid);
+        
+        // if it already is in the queue it has be running as expected
+        if (it != queue_list.end())
+        {
+            m_master_queue.response_queue().push(response_existing);
+
+            return false;
+        }
+
+        auto* new_queue = new queue_slave_instance_data<queue_type>(string_hashed(prefix + std::to_string(tid)));
+
+        new_queue->running = true;
+
+        if (!new_queue->queue.open())
+        {
+            delete new_queue;
+
+            m_master_queue.response_queue().push(response_unavailable);
+
+            return false;
+        }
+
+        new_queue->queue_thread = std::thread(fn, this, new_queue);
+        
+        auto ins = queue_list.emplace(tid, new_queue);
+        
+        if ( !ins.second )
+            return false;
+        
+        it = ins.first;
+
+        return true;
+    }
+
+    template<typename queue_type>
+    bool controller::destroy_queue_slave
+    (
+        os::thread_id tid, 
+        std::unordered_map<os::thread_id, queue_type*>& queue_list
+    )
+    {
+        auto it = queue_list.find(tid);
+
+        if (it == queue_list.end())
+            return false;
+
+        bool result = it->second->destroy();
+
+        delete it->second;
+
+        queue_list.erase(it);
+
+        return result;
+    }
+
+    template<typename queue_type>
+    bool controller::destroy_queue_slave_with_worker
+    (
+        os::thread_id tid, 
+        std::unordered_map<os::thread_id, queue_slave_instance_data<queue_type>*>& queue_list
+    )
+    {
+        auto it = queue_list.find(tid);
+
+        if (it == queue_list.end())
+            return false;
+
+        it->second->running = false;
+
+        it->second->queue_thread.join();
+
+        bool result = it->second->queue.destroy();
+
+        delete it->second;
+
+        queue_list.erase(it);
+
+        return result;
+    }
+
     void controller::run_master_queue()
     {
         m_master_queue_running = true;
 
         while (m_master_queue_running)
         {
-            master_queue_request_data req;
+            queue_master_request_data req;
 
             if (!m_master_queue.request_queue().pop(req, 100)) // check every 100ms
                 continue;
 
-            // check master to only allow (basic) authenticated users
+            // check secret to only allow (basic) authenticated users
             if (req.tid != reverse_secret(req.code))
             {
                 m_master_queue.response_queue().push(response_unauthorized);
 
                 continue;
             }
-            
-            
-            auto it = m_process_queues_command.find(req.tid);
-            
-            // if it already is in the queue it has be running as expected
-            if (it != m_process_queues_command.end())
+
+            switch (req.queue)
             {
-                m_master_queue.response_queue().push(response_existing);
-
-                continue;
-            }
-
-            queue_command_process_data* new_queue = new queue_command_process_data(string_hashed(queue_command_prefix + std::to_string(req.tid)));
-
-            new_queue->running = true;
-
-            if (!new_queue->queue.open())
+            case request_command:
             {
-                delete new_queue;
-
-                m_master_queue.response_queue().push(response_unavailable);
-
-                continue;
+                if (!create_queue_slave_with_worker(req.tid, m_queues_command, this->queue_command_prefix, &controller::run_queue_command))
+                    continue;
+                
+                break;
             }
-
-            new_queue->queue_thread = std::thread(&controller::run_process_queue_command, this, new_queue);
-            
-            auto ins = m_process_queues_command.emplace(req.tid, new_queue);
-            
-            if ( !ins.second )
-                continue;
-            
-            it = ins.first;
+            case request_log:
+            {
+                if (!create_queue_slave_with_worker(req.tid, m_queues_log, this->queue_log_prefix, &controller::run_queue_log))
+                    continue;
+                
+                break;
+            }
+            case request_log_sink:
+            {
+                if (!create_queue_slave(req.tid, m_queues_log_sink, this->queue_log_sink_prefix))
+                    continue;
+                
+                break;
+            }
+            default:
+                m_master_queue.response_queue().push(response_unknown);
+                break;
+            }
 
             m_master_queue.response_queue().push(response_success);
         }
     }
 
-    void controller::run_process_queue_command(queue_command_process_data* data)
+    void controller::run_queue_command(queue_command_data* data)
     {
         while (data->running)
         {
@@ -420,27 +605,7 @@ namespace adam
         }
     }
 
-    bool controller::destroy_process_queue_command(os::thread_id tid)
-    {
-        auto it = m_process_queues_command.find(tid);
-
-        if (it == m_process_queues_command.end())
-            return false;
-
-        it->second->running = false;
-
-        it->second->queue_thread.join();
-
-        bool result = it->second->queue.destroy();
-
-        delete it->second;
-
-        m_process_queues_command.erase(it);
-
-        return result;
-    }
-
-    void controller::run_process_queue_log(queue_log_process_data* data)
+    void controller::run_queue_log(queue_log_data* data)
     {
         while (data->running)
         {
@@ -452,27 +617,5 @@ namespace adam
             this->log(clog);
         }
     }
-
-    bool controller::destroy_process_queue_log(os::thread_id tid)
-    {
-        auto it = m_process_queues_log.find(tid);
-
-        if (it == m_process_queues_log.end())
-            return false;
-
-        it->second->running = false;
-
-        it->second->queue_thread.join();
-
-        bool result = it->second->queue.destroy();
-
-        delete it->second;
-
-        m_process_queues_log.erase(it);
-
-        return result;
-    }
-    
-
 }
 

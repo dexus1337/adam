@@ -23,7 +23,7 @@ namespace adam
      * @class queue_shared
      * @brief Defines a interprocess queue for any datatype, based on shared memory
      */
-    template<typename queue_type>
+    template<typename queue_type, typename queue_metadata_type = uint32_t>
     class ADAM_SDK_API queue_shared
     {
     public:
@@ -68,6 +68,8 @@ namespace adam
         {
             uint32_t max_items;
 
+            queue_metadata_type metadata;
+
             // We use a circular queue for max performance here
             std::atomic<uint32_t> head; /**< The index of the head of the queue_type queue, used for tracking where new items should be added. */
             std::atomic<uint32_t> tail; /**< The index of the tail of the queue_type queue, used for tracking where items should be read from. */
@@ -84,20 +86,20 @@ namespace adam
         memory_shared m_shared_memory;
     };
 
-    template< typename queue_type >
-    queue_shared<queue_type>::queue_shared(const string_hashed& name)
+    template<typename queue_type, typename queue_metadata_type>
+    queue_shared<queue_type, queue_metadata_type>::queue_shared(const string_hashed& name)
      :  m_shared_memory(name)
     {
     }
 
-    template< typename queue_type >
-    queue_shared<queue_type>::~queue_shared()
+    template<typename queue_type, typename queue_metadata_type>
+    queue_shared<queue_type, queue_metadata_type>::~queue_shared()
     {
         destroy();
     }
 
-    template< typename queue_type >
-    bool queue_shared<queue_type>::is_full() const
+    template<typename queue_type, typename queue_metadata_type>
+    bool queue_shared<queue_type, queue_metadata_type>::is_full() const
     {
         const queue_header* h = get_header();
 
@@ -113,8 +115,8 @@ namespace adam
         return ((head + 1) % h->max_items) == tail;
     }
 
-    template< typename queue_type >
-    bool queue_shared<queue_type>::is_empty() const
+    template<typename queue_type, typename queue_metadata_type>
+    bool queue_shared<queue_type, queue_metadata_type>::is_empty() const
     {
         const queue_header* h = get_header();
 
@@ -126,8 +128,8 @@ namespace adam
         return h->head.load(std::memory_order_acquire) == h->tail.load(std::memory_order_acquire);
     }
 
-    template< typename queue_type >
-    bool queue_shared<queue_type>::create(uint32_t max_items)
+    template<typename queue_type, typename queue_metadata_type>
+    bool queue_shared<queue_type, queue_metadata_type>::create(uint32_t max_items)
     {
         if (max_items == 0)
             return false;
@@ -151,20 +153,20 @@ namespace adam
         return true;
     }
 
-    template< typename queue_type >
-    bool queue_shared<queue_type>::open()
+    template<typename queue_type, typename queue_metadata_type>
+    bool queue_shared<queue_type, queue_metadata_type>::open()
     {
         return m_shared_memory.open();
     }
 
-    template< typename queue_type >
-    bool queue_shared<queue_type>::destroy()
+    template<typename queue_type, typename queue_metadata_type>
+    bool queue_shared<queue_type, queue_metadata_type>::destroy()
     {
         return m_shared_memory.destroy();
     }
 
-    template< typename queue_type >
-    bool queue_shared<queue_type>::push(const queue_type& object)
+    template<typename queue_type, typename queue_metadata_type>
+    bool queue_shared<queue_type, queue_metadata_type>::push(const queue_type& object)
     {
         auto* header = this->header();
         
@@ -180,8 +182,8 @@ namespace adam
         return m_shared_memory.signal().notify();
     }
 
-    template< typename queue_type >
-    bool queue_shared<queue_type>::pop(queue_type& out_object, int32_t timeout)
+    template<typename queue_type, typename queue_metadata_type>
+    bool queue_shared<queue_type, queue_metadata_type>::pop(queue_type& out_object, int32_t timeout)
     {
         // Wait for a signal that data is available
         if (!m_shared_memory.signal().wait(timeout))

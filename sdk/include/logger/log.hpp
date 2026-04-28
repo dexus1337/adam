@@ -42,7 +42,7 @@ namespace adam
         static size_t get_max_text_length() { return log::max_text_length; }
 
         /** @brief Constructs a new log object.*/
-        log(std::string_view txt, level t);
+        log(level t, std::string_view txt);
 
         /** @brief Constructs a new log object.*/
         log();
