@@ -38,7 +38,7 @@ namespace adam
         using data_format_map = std::unordered_map<string_hashed, const data_format&>; /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
 
         /** @brief Constructs a new module object. */
-        module(std::string_view name, uint32_t version = 0x100);
+        module(std::string_view name, uint32_t version = adam::make_version(1, 0, 0));
 
         /** @brief Destroys the module object and cleans up resources. */
         ~module();
