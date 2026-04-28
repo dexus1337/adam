@@ -43,6 +43,7 @@ namespace adam
     {
         friend class commander;
         friend class logger;
+        friend class logger_sink;
 
     public:
 
