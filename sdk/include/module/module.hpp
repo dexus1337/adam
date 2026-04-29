@@ -14,6 +14,7 @@
 #include <unordered_map>
 
 #include "data/format/data-format.hpp"
+#include "version/version.hpp"
 
 namespace adam 
 {
