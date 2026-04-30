@@ -33,10 +33,10 @@ namespace adam
 
     public:
 
-        typedef adam::module* (*get_adam_module_fn)();                       /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
-        static constexpr const char* entry_point_name = "get_adam_module";   /**< The name of the entry point function that modules must export to provide access to their module instance. */
+        typedef adam::module* (*get_adam_module_fn)();                                  /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
+        static constexpr const char* entry_point_name = "get_adam_module";              /**< The name of the entry point function that modules must export to provide access to their module instance. */
 
-        using data_format_map = std::unordered_map<string_hashed, const data_format&>; /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
+        using data_format_map = std::unordered_map<string_hashed, const data_format&>;  /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
 
         /** @brief Constructs a new module object. */
         module(std::string_view name, uint32_t version = adam::make_version(1, 0, 0), uint32_t req_sdk_ver = adam::sdk_version);
