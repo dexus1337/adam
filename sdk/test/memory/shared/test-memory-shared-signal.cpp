@@ -50,7 +50,8 @@ TEST_F(memory_shared_signaled_test, create_notify_and_wait)
 {
     ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
-    std::thread notifier([&]() {
+    std::thread notifier([&]() 
+    {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         memcreatetest->signal().notify();
     });
@@ -71,7 +72,8 @@ TEST_F(memory_shared_signaled_test, create_notify_and_wait_std_chrono)
 {
     ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
-    std::thread notifier([&]() {
+    std::thread notifier([&]() 
+    {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         memcreatetest->signal().notify();
     });
@@ -93,7 +95,8 @@ TEST_F(memory_shared_signaled_test, open_notify_and_wait)
     ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
     ASSERT_TRUE(memopentest->open());
 
-    std::thread notifier([&]() {
+    std::thread notifier([&]() 
+    {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         memcreatetest->signal().notify();
     });

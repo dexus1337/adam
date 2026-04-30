@@ -90,7 +90,8 @@ namespace adam
     {
         m_master_queue_running = false;
 
-        m_master_queue_thread.join();
+        if (m_master_queue_thread.joinable())
+            m_master_queue_thread.join();
 
         m_master_queue.destroy();
 
@@ -326,6 +327,8 @@ namespace adam
         {
             m_master_queue.response_queue().push(response_existing);
 
+            debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue that already exists.", tid)));
+
             return false;
         }
 
@@ -335,6 +338,8 @@ namespace adam
         {
             delete new_queue;
 
+            debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to open.", tid)));
+
             m_master_queue.response_queue().push(response_unavailable);
 
             return false;
@@ -342,10 +347,16 @@ namespace adam
 
         auto ins = queue_list.emplace(tid, new_queue);
         
-        if ( !ins.second )
+        if (!ins.second)
+        {
+            delete new_queue;
+
+            debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to insert to database.", tid)));
+
+            m_master_queue.response_queue().push(response_internal_error);
+
             return false;
-        
-        it = ins.first;
+        }
 
         return true;
     }
@@ -366,6 +377,8 @@ namespace adam
         {
             m_master_queue.response_queue().push(response_existing);
 
+            debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue + worker that already exists.", tid)));
+
             return false;
         }
 
@@ -377,6 +390,8 @@ namespace adam
         {
             delete new_queue;
 
+            debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to open.", tid)));
+
             m_master_queue.response_queue().push(response_unavailable);
 
             return false;
@@ -385,11 +400,21 @@ namespace adam
         new_queue->queue_thread = std::thread(fn, this, new_queue);
         
         auto ins = queue_list.emplace(tid, new_queue);
-        
-        if ( !ins.second )
+
+        if (!ins.second)
+        {
+            new_queue->running = false;
+
+            new_queue->queue_thread.join();
+
+            delete new_queue;
+
+            debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to insert to database.", tid)));
+
+            m_master_queue.response_queue().push(response_internal_error);
+
             return false;
-        
-        it = ins.first;
+        }
 
         return true;
     }
@@ -404,15 +429,28 @@ namespace adam
         auto it = queue_list.find(tid);
 
         if (it == queue_list.end())
-            return false;
+        {
+            m_master_queue.response_queue().push(response_not_existing);
 
-        bool result = it->second->destroy();
+            debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue that doesnt exists.", tid)));
+
+            return false;
+        }
+
+        if (!it->second->destroy())
+        {
+            m_master_queue.response_queue().push(response_internal_error);
+
+            debug_statement(this->log(log::trace, std::format("Failed to destroy queue of client {:d}.", tid)));
+
+            return false;
+        }
 
         delete it->second;
 
         queue_list.erase(it);
 
-        return result;
+        return true;
     }
 
     template<typename queue_type>
@@ -425,19 +463,26 @@ namespace adam
         auto it = queue_list.find(tid);
 
         if (it == queue_list.end())
+        {
+            m_master_queue.response_queue().push(response_not_existing);
+
+            debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue + worker that doesnt exists.", tid)));
+
             return false;
+        }
 
         it->second->running = false;
 
         it->second->queue_thread.join();
 
-        bool result = it->second->queue.destroy();
+        if (!it->second->queue.destroy())
+            debug_statement(this->log(log::trace, std::format("Failed to destroy queue + worker of client {:d}. Ignoring.", tid)));
 
         delete it->second;
 
         queue_list.erase(it);
 
-        return result;
+        return true;
     }
 
     void controller::run_master_queue()
@@ -455,6 +500,8 @@ namespace adam
             if (req.tid != reverse_secret(req.code))
             {
                 m_master_queue.response_queue().push(response_unauthorized);
+
+                debug_statement(this->log(log::trace, std::format("Client {:d} did not authenticate correctly.", req.tid)));
 
                 continue;
             }
@@ -482,10 +529,36 @@ namespace adam
                 
                 break;
             }
+            case request_command_destroy:
+            {
+                if (!destroy_queue_slave_with_worker(req.tid, m_queues_command))
+                    continue;
+                
+                break;
+            }
+            case request_log_destroy:
+            {
+                if (!destroy_queue_slave_with_worker(req.tid, m_queues_log))
+                    continue;
+                
+                break;
+            }
+            case request_log_sink_destroy:
+            {
+                if (!destroy_queue_slave(req.tid, m_queues_log_sink))
+                    continue;
+                
+                break;
+            }
             default:
                 m_master_queue.response_queue().push(response_unknown);
                 break;
             }
+
+            if (req.queue % 2)
+                debug_statement(this->log(log::trace, std::format("Client {:d} successfully created queue {:d}", req.tid, static_cast<int>(req.queue))));
+            else
+                debug_statement(this->log(log::trace, std::format("Client {:d} successfully destroyed queue {:d}", req.tid, static_cast<int>(req.queue))));
 
             m_master_queue.response_queue().push(response_success);
         }

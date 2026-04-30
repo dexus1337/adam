@@ -77,8 +77,10 @@ namespace adam
             response_invalid = 0,
             response_success,
             response_existing,
+            response_not_existing,
             response_unavailable,
             response_unauthorized,
+            response_internal_error,
             response_unknown
         };
 

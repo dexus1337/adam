@@ -31,7 +31,7 @@ namespace adam
         /** @brief Constructs a new queue_shared_duplex object.*/
         queue_shared_duplex(const string_hashed& name);
 
-        /** @brief Destroys the template<typename request_type, typename response_type> object and cleans up resources.*/
+        /** @brief Destroys the queue_shared_duplex and cleans up resources.*/
         ~queue_shared_duplex();
 
         queue_shared<request_type>&     request_queue()     { return m_request_queue;   }
@@ -40,10 +40,10 @@ namespace adam
         /** @brief Gives the amount of items being able to be queued simoultanesously */
         uint32_t get_max_items() const { return m_request_queue.get_max_items(); }
 
-        /** @brief Creates the queue_type queue and the underlying shared_memory for managing a max amount of items given */
+        /** @brief Creates the queue and the underlying shared_memory for managing a max amount of items given */
         bool create(uint32_t max_items);
 
-        /** @brief Opens an existing queue_type queue */
+        /** @brief Opens an existing queue */
         bool open();
 
         /** @brief Destroys the queue and free all resources */

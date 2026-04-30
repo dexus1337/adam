@@ -15,8 +15,9 @@ void signal_handler(int signal)
 
 int main() 
 {
-    adam::commander cmd = adam::commander();
-    adam::logger lg     = adam::logger();
+    adam::commander cmd     = adam::commander();
+    adam::logger lg         = adam::logger();
+    adam::logger_sink lgsnk = adam::logger_sink();
 
     if (!cmd.connect())
     {
@@ -43,11 +44,50 @@ int main()
     {
         adam::stream_log(adam::log::info, "Successfully sent a log!", std::cout);
     }
+
+    std::thread test_heartbeat([&]()
+    {
+        while (true)
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            lg.log(adam::log::info, "adam-cmd is also alife!");
+        }
+    });
+
+    std::thread logger_sink_watcher([&]() 
+    {
+        while (lgsnk.queue().get_metadata())
+        {
+            adam::log cur_log;
+
+            if (!lgsnk.queue().pop(cur_log, 100))
+                continue;
+
+            adam::stream_log(cur_log, std::cout);
+        }
+    });
+
+    if (!lgsnk.connect())
+    {
+        adam::stream_log(adam::log::warning, "Failed to connect to the logger sink.", std::cout);
+    }
+    else
+    {
+        adam::stream_log(adam::log::info, "Connected to logger sink!", std::cout);
+    }
     
+    getchar();
+
+    if (!lgsnk.destroy())
+    {
+        adam::stream_log(adam::log::warning, "Failed to destroy the logger sink.", std::cout);
+    }
+
+    logger_sink_watcher.join();
+
     if (!lg.destroy())
     {
         adam::stream_log(adam::log::warning, "Failed to destroy the logger.", std::cout);
-        return 1;
     }
     
     if (!cmd.destroy())

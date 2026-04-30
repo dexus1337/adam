@@ -35,4 +35,5 @@
 #include "version/version.hpp"
 #include "logger/log.hpp"
 #include "logger/logger.hpp"
+#include "logger/logger-sink.hpp"
 #include "os/os.hpp"

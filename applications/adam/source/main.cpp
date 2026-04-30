@@ -56,5 +56,14 @@ int main()
 
     controller->log(adam::log::info, "adam up and running!");
     
-    return controller->run();
+    std::thread test_heartbeat([&]()
+    {
+        while (true)
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            controller->log(adam::log::info, "adam is alife!");
+        }
+    });
+
+    return controller->run() ? 0 : 1;
 }

@@ -25,8 +25,6 @@
   #endif
 #endif
 
-#pragma once
-
 // Use the compiler's built-in knowledge
 #if not defined (ADAM_PLATFORM_LINUX) && not defined (ADAM_PLATFORM_WINDOWS) && not defined (ADAM_PLATFORM_APPLE)
     #if defined(_WIN32) || defined(_WIN64)
@@ -43,4 +41,14 @@
     #define ADAM_CPU_ARM64
 #elif defined(__x86_64__) || defined(_M_X64)
     #define ADAM_CPU_X64
+#endif
+
+// Debug statement
+#if not defined (ADAM_BUILD_DEBUG) && not defined (ADAM_BUILD_RELEASE)
+#endif
+
+#if defined ADAM_BUILD_DEBUG
+#define debug_statement(x) x
+#else
+#define debug_statement(x)
 #endif
