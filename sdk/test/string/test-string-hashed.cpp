@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <string/string-hashed.hpp>
 
+#include <unordered_map>
+
 /** @brief Tests the initialization of string_hashed objects. */
 TEST(string_hashed, set)
 {

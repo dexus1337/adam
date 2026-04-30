@@ -6,7 +6,7 @@ static adam::modules::asterix::module_asterix global_instance = adam::modules::a
 
 namespace adam::modules::asterix
 {
-    module_asterix::module_asterix() : module("asterix", version)
+    module_asterix::module_asterix() : module("asterix", version, adam::make_version(2,0,0))
     {
         // Initialize supported data formats here
     }

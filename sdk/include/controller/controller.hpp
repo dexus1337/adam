@@ -91,11 +91,15 @@ namespace adam
 
         // MODULE MANAGEMENT
 
-        using map_available_modules = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
-        using map_loaded_modules    = std::unordered_map<string_hashed, const module*>;
+        using map_available_modules     = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>; /**< Stores the module version and the path.*/
+        using map_unavailable_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>; /**< Stores the incompatability reason and the path.*/
+        using map_loaded_modules        = std::unordered_map<string_hashed, const module*>;
 
         /** @brief Retrieves a reference to the map of all available modules. */
         const map_available_modules& get_available_modules() const { return m_available_modules; }
+
+        /** @brief Retrieves a reference to the map of all unavailable modules. */
+        const map_available_modules& get_unavailable_modules() const { return m_unavailable_modules; }
 
         /** @brief Retrieves a reference to the map of all loaded modules. */
         const map_loaded_modules& get_loaded_modules() const { return m_loaded_modules; }
@@ -170,16 +174,16 @@ namespace adam
             worker_fn fn
         );
 
-        template<typename queue_type>
         /** @brief Destroys existing (slave) queue of template type. For queues that DONT require a worker on the controller side */
+        template<typename queue_type>
         bool destroy_queue_slave
         (
             os::thread_id tid, 
             std::unordered_map<os::thread_id, queue_type*>& queue_list
         );
 
-        template<typename queue_type>
         /** @brief Destroys existing (slave) queue of template type. For queues that require a worker on the controller side */
+        template<typename queue_type>
         bool destroy_queue_slave_with_worker
         (
             os::thread_id tid, 
@@ -218,6 +222,7 @@ namespace adam
         // MODULE MANAGEMENT
 
         map_available_modules   m_available_modules;   /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
+        map_unavailable_modules m_unavailable_modules; /**< A map of unavailable modules in the system, indexed by their hashed string names for efficient lookup. */
         map_loaded_modules      m_loaded_modules;      /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
 
         

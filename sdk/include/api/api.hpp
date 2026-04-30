@@ -28,12 +28,14 @@
 #pragma once
 
 // Use the compiler's built-in knowledge
-#if defined(_WIN32) || defined(_WIN64)
-    #define ADAM_PLATFORM_WINDOWS
-#elif defined(__linux__)
-    #define ADAM_PLATFORM_LINUX
-#elif defined(__APPLE__)
-    #define ADAM_PLATFORM_APPLE
+#if not defined (ADAM_PLATFORM_LINUX) && not defined (ADAM_PLATFORM_WINDOWS) && not defined (ADAM_PLATFORM_APPLE)
+    #if defined(_WIN32) || defined(_WIN64)
+        #define ADAM_PLATFORM_WINDOWS
+    #elif defined(__linux__)
+        #define ADAM_PLATFORM_LINUX
+    #elif defined(__APPLE__)
+        #define ADAM_PLATFORM_APPLE
+    #endif
 #endif
 
 // Architecture detection

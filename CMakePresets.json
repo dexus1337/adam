@@ -23,7 +23,7 @@
             },
             "cacheVariables": {
                 "CMAKE_SYSTEM_NAME": "Windows",
-                "CMAKE_CXX_FLAGS": "/W4 /EHsc /MP"
+                "CMAKE_CXX_FLAGS": "/W4 /EHsc /MP /ADAM_PLATFORM_WINDOWS"
             }
         },
         {
@@ -36,7 +36,7 @@
                 "rhs": "Linux"
             },
             "cacheVariables": {
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC"
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX"
             }
         },
         {

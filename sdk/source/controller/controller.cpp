@@ -276,45 +276,25 @@ namespace adam
         for (const auto& path : possible_module_paths)
         {
             module* mod         = nullptr;
-            auto path_str       = std::string(std::filesystem::absolute(path).string());   
+            auto path_str       = std::string(path.string());
+
             #ifdef ADAM_PLATFORM_LINUX
-            auto handle         = dlopen(path_str.c_str(), RTLD_LAZY);
+            auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
 
             if (!handle)
-                continue;
+                return false;
 
             auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
-
-            if (!fn_get_adam_module)
-                goto UNLOAD_AND_CONTINUE;
-            
-            mod = fn_get_adam_module();
-
-            if (!mod)
-                goto UNLOAD_AND_CONTINUE;
-
-            if (m_loaded_modules.contains(mod->get_name()))
-                continue;
-
-            if (mod->get_required_sdk_version() > adam::sdk_version)
-                goto UNLOAD_AND_CONTINUE;
-
-            m_available_modules.emplace(mod->get_name(), std::make_pair(mod->get_version(), path_str));
-
-        UNLOAD_AND_CONTINUE:
-            dlclose(handle);
-            continue;
             #elifdef ADAM_PLATFORM_WINDOWS
+
             auto handle = LoadLibraryA(std::filesystem::absolute(path).c_str());
 
             if (!handle)
-                continue;
+                return false;
 
             // GetProcAddress uses LPCSTR (char*), even in Unicode builds
             auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
-
-            if (!fn_get_adam_module)
-                goto UNLOAD_AND_CONTINUE;
+            #endif
 
             mod = fn_get_adam_module();
 
@@ -322,17 +302,32 @@ namespace adam
                 goto UNLOAD_AND_CONTINUE;
 
             if (m_loaded_modules.contains(mod->get_name()))
-                goto UNLOAD_AND_CONTINUE;
+                continue;
 
             if (mod->get_required_sdk_version() > adam::sdk_version)
+            {
+                this->log(log::warning, std::format("Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}",
+                    path_str.c_str(), adam::get_major(mod->get_required_sdk_version()), adam::get_minor(mod->get_required_sdk_version()), adam::get_patch(mod->get_required_sdk_version()),
+                    adam::get_major(adam::sdk_version), adam::get_minor(adam::sdk_version), adam::get_patch(adam::sdk_version)));
+
+                m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
+
                 goto UNLOAD_AND_CONTINUE;
+            }
 
             m_available_modules.emplace(mod->get_name(), std::make_pair(mod->get_version(), path_str));
 
-        UNLOAD_AND_CONTINUE:
-            FreeLibrary(handle);
             continue;
-            #endif 
+
+        UNLOAD_AND_CONTINUE:
+            #ifdef ADAM_PLATFORM_LINUX
+            dlclose(handle);
+            #elifdef ADAM_PLATFORM_WINDOWS
+            FreeLibrary(handle);
+            return false;
+            #endif
+
+            continue;
         }        
 
         return true;
@@ -346,61 +341,52 @@ namespace adam
             return false;
 
         const auto& path_str = it->second.second;
-        module* mod         = nullptr;
+        module* mod          = nullptr;
 
         #ifdef ADAM_PLATFORM_LINUX
-        auto handle         = dlopen(path_str.c_str(), RTLD_LAZY);
+        auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
 
         if (!handle)
             return false;
 
         auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
-
-        if (!fn_get_adam_module)
-            goto UNLOAD_AND_RETURN;
-        
-        mod = fn_get_adam_module();
-
-        if (!mod)
-            goto UNLOAD_AND_RETURN;
-
-        if (m_loaded_modules.contains(mod->get_name()))
-            goto UNLOAD_AND_RETURN;
-
-        if (mod->get_required_sdk_version() > adam::sdk_version)
-            goto UNLOAD_AND_RETURN;
-
-        goto SUCCESS;
-
-    UNLOAD_AND_RETURN:
-        dlclose(handle);
         #elifdef ADAM_PLATFORM_WINDOWS
-        
+
         auto handle = LoadLibraryA(std::filesystem::absolute(path).c_str());
 
         if (!handle)
             return false;
 
         // GetProcAddress uses LPCSTR (char*), even in Unicode builds
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
+        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
+        #endif
 
         if (!fn_get_adam_module)
-                goto UNLOAD_AND_CONTINUE;
-
+            goto UNLOAD_AND_RETURN;
+        
         mod = fn_get_adam_module();
 
         if (!mod)
-                goto UNLOAD_AND_CONTINUE;
+            goto UNLOAD_AND_RETURN;
 
         if (m_loaded_modules.contains(mod->get_name()))
-                goto UNLOAD_AND_CONTINUE;
+            goto UNLOAD_AND_RETURN;
 
         if (mod->get_required_sdk_version() > adam::sdk_version)
-                goto UNLOAD_AND_CONTINUE;
+        {
+            this->log(log::error, std::format("Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!",
+                path_str.c_str(), adam::get_major(mod->get_required_sdk_version()), adam::get_minor(mod->get_required_sdk_version()), adam::get_patch(mod->get_required_sdk_version()),
+                adam::get_major(adam::sdk_version), adam::get_minor(adam::sdk_version), adam::get_patch(adam::sdk_version)));
+
+            return false;
+        }
 
         goto SUCCESS;
 
     UNLOAD_AND_RETURN:
+        #ifdef ADAM_PLATFORM_LINUX
+        dlclose(handle);
+        #elifdef ADAM_PLATFORM_WINDOWS
         FreeLibrary(handle);
         return false;
         #endif

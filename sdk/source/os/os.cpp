@@ -10,14 +10,4 @@
 
 namespace adam::os
 {
-    inline thread_id get_current_thread_id()
-    {
-        #ifdef      ADAM_PLATFORM_LINUX
-        return static_cast<thread_id>(syscall(SYS_gettid));
-        #elifdef    ADAM_PLATFORM_WINDOWS
-        return static_cast<thread_id>(GetCurrentThreadId());
-        #else
-        return 0;
-        #endif
-    }
 }
