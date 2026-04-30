@@ -388,8 +388,9 @@ namespace adam
         dlclose(handle);
         #elifdef ADAM_PLATFORM_WINDOWS
         FreeLibrary(handle);
-        return false;
         #endif
+
+        return false;
 
     SUCCESS:
 

@@ -81,7 +81,11 @@ namespace adam
 
         // LOG MANAGEMENT
 
+        /** @brief Static function for anyone to use to have logs display in adam style. */
         static void stream_log(const adam::log& cr_log, std::ostream& stream);
+
+        /** @brief Static function for anyone to use to have logs display in adam style. */
+        static void stream_log(log::level t, std::string_view txt, std::ostream& stream) { return stream_log(adam::log(t, txt), stream); }
 
         /** @brief Outputs a log. */
         void log(const log& cr_log);

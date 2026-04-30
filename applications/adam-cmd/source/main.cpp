@@ -20,42 +20,42 @@ int main()
 
     if (!cmd.connect())
     {
-        std::cerr << "Failed to connect to the controller." << std::endl;
+        adam::controller::stream_log(adam::log::fatal, "Cannot connect to controller", std::cerr);
         return 1;
     }
     
-    std::cout << "Connected to controller!" << std::endl;
+    adam::controller::stream_log(adam::log::info, "Connected to controller!", std::cout);
 
     if (!lg.connect())
     {
-        std::cerr << "Failed to connect to the logger." << std::endl;
-        return 1;
+        adam::controller::stream_log(adam::log::warning, "Failed to connect to the logger.", std::cout);
+    }
+    else
+    {
+        adam::controller::stream_log(adam::log::info, "Connected to logger!", std::cout);
     }
     
-    std::cout << "Connected to logger!" << std::endl;
-
     if (!lg.log(adam::log::info, "hello from adam-cmd"))
     {
-        std::cerr << "Failed to send log to the logger." << std::endl;
+        adam::controller::stream_log(adam::log::warning, "Failed to send log to the logger.", std::cout);
     }
-    
-    std::cout << "Successfully sent a log!" << std::endl;
-
-    if (!cmd.destroy())
+    else
     {
-        std::cerr << "Failed to destroy to the controller." << std::endl;
-        return 1;
+        adam::controller::stream_log(adam::log::info, "Successfully sent a log!", std::cout);
     }
-    
-    std::cout << "Commander destroyed. Done!" << std::endl;
     
     if (!lg.destroy())
     {
-        std::cerr << "Failed to destroy to the logger." << std::endl;
+        adam::controller::stream_log(adam::log::warning, "Failed to destroy the logger.", std::cout);
         return 1;
     }
     
-    std::cout << "Commander destroyed. Done!" << std::endl;
+    if (!cmd.destroy())
+    {
+        adam::controller::stream_log(adam::log::error, "Failed to destroy the logger.", std::cerr);
+    }
     
+    adam::controller::stream_log(adam::log::info, "Exiting!", std::cout);
+
     return 0;
 }
