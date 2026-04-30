@@ -23,7 +23,7 @@ namespace adam
         if (!m_queue_log.create(1000))
             return false;
 
-        if (!controller::request_queue_log_access())
+        if (!controller::request_master_queue(controller::request_log))
             return false;
             
         return true;
@@ -31,7 +31,11 @@ namespace adam
 
     bool logger::destroy() 
     {
-        return m_queue_log.destroy();
+        bool res = controller::request_master_queue(controller::request_log_destroy);
+
+        res &= m_queue_log.destroy();
+
+        return res;
     }
 
     bool logger::log(const adam::log& cmd) 

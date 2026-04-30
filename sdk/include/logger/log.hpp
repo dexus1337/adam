@@ -68,4 +68,12 @@ namespace adam
     #pragma pack(pop)
 
     static_assert(sizeof(log) == log::log_size_in_bytes, "log size must be exactly 512 bytes");
+
+    
+    /** @brief Global function for anyone to use to have logs display in adam style. */
+    void stream_log(const adam::log& cr_log, std::ostream& stream);
+
+    /** @brief Global function for anyone to use to have logs display in adam style. */
+    inline void stream_log(log::level t, std::string_view txt, std::ostream& stream) { return stream_log(adam::log(t, txt), stream); }
+
 }

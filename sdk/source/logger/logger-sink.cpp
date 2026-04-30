@@ -23,7 +23,7 @@ namespace adam
         if (!m_queue_log_sink.create(1000))
             return false;
 
-        if (!controller::request_queue_log_sink_access())
+        if (!controller::request_master_queue(controller::request_log_sink))
             return false;
             
         return true;
@@ -31,6 +31,10 @@ namespace adam
 
     bool logger_sink::destroy() 
     {
-        return m_queue_log_sink.destroy();
+        bool res = controller::request_master_queue(controller::request_log_sink_destroy);
+
+        res &= m_queue_log_sink.destroy();
+
+        return res;
     }
 }

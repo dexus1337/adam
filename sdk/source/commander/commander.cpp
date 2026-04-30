@@ -24,7 +24,7 @@ namespace adam
         if (!m_queue_command.create(1000))
             return false;
 
-        if (!controller::request_queue_command_access())
+        if (!controller::request_master_queue(controller::request_command))
             return false;
             
         return true;
@@ -32,7 +32,11 @@ namespace adam
 
     bool commander::destroy() 
     {
-        return m_queue_command.destroy();
+        bool res = controller::request_master_queue(controller::request_command_destroy);
+
+        res &= m_queue_command.destroy();
+
+        return res;
     }
 
     bool commander::send_command(const command& cmd, response* resp) 

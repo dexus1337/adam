@@ -65,8 +65,11 @@ namespace adam
         {
             request_invalid = 0,
             request_command,
+            request_command_destroy,
             request_log,
-            request_log_sink
+            request_log_destroy,
+            request_log_sink,
+            request_log_sink_destroy
         };
 
         enum master_queue_response
@@ -80,12 +83,6 @@ namespace adam
         };
 
         // LOG MANAGEMENT
-
-        /** @brief Static function for anyone to use to have logs display in adam style. */
-        static void stream_log(const adam::log& cr_log, std::ostream& stream);
-
-        /** @brief Static function for anyone to use to have logs display in adam style. */
-        static void stream_log(log::level t, std::string_view txt, std::ostream& stream) { return stream_log(adam::log(t, txt), stream); }
 
         /** @brief Outputs a log. */
         void log(const log& cr_log);
@@ -121,15 +118,8 @@ namespace adam
 
         // COMMAND MANAGEMENT
 
-        /** @brief Uses the master queue in order to request the controller to listen on the unique thread command queue. */
-        static bool request_queue_command_access();
-
-        /** @brief Uses the master queue in order to request the controller to listen on the unique thread log queue. */
-        static bool request_queue_log_access();
-
-        /** @brief Uses the master queue in order to request the controller to listen on the unique thread log sink queue. */
-        static bool request_queue_log_sink_access();
-
+        /** @brief Sends a request to the master queue. */
+        static bool request_master_queue(master_queue_request mqr);
 
         // MASTER QUEUE
         struct queue_master_request_data
