@@ -95,6 +95,7 @@ namespace adam
         if (!success)
             return false;
 
+        m_b_active              = true;
         m_is_owner              = true;
         m_shared_memory_size    = buffer_size;
 
@@ -154,6 +155,7 @@ namespace adam
             m_shared_memory_size = mbi.RegionSize;
         #endif
 
+        m_b_active              = true;
         m_is_owner              = false;
 
         if (!m_signal.open())

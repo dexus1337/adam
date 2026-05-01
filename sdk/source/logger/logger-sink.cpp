@@ -33,6 +33,8 @@ namespace adam
     {
         bool res = controller::request_master_queue(controller::request_log_sink_destroy);
 
+        m_queue_log_sink.disable();
+
         res &= m_queue_log_sink.destroy();
 
         return res;

@@ -40,11 +40,17 @@ namespace adam
         /** @brief Gives the amount of items being able to be queued simoultanesously */
         uint32_t get_max_items() const { return m_request_queue.get_max_items(); }
 
+        /** @brief Gets the memorys active flag. Can be as loop condition for threads .*/
+        bool is_active() const { return m_request_queue.is_active() && m_response_queue.is_active(); };
+
         /** @brief Creates the queue and the underlying shared_memory for managing a max amount of items given */
         bool create(uint32_t max_items);
 
         /** @brief Opens an existing queue */
         bool open();
+
+        /** @brief Unsets the active flag. Can be used to stop waiting threads. */
+        void disable() { m_request_queue.disable(); m_response_queue.disable(); }
 
         /** @brief Destroys the queue and free all resources */
         bool destroy();
@@ -110,6 +116,7 @@ namespace adam
     {
         if (!m_request_queue.push(req))
             return false;
+        }
 
         return m_response_queue.pop(resp, timeout);
     }

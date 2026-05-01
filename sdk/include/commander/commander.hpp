@@ -33,6 +33,8 @@ namespace adam
         /** @brief Destroys the commander object and cleans up resources.*/
         ~commander();
 
+        bool is_active() const { return m_queue_command.is_active(); }
+
         /** @brief Establishes a connection to the main commander. */
         bool connect();
 

@@ -13,6 +13,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <chrono>
 
 #include "string/string-hashed.hpp"
 #include "memory/shared/memory-shared.hpp"
@@ -40,25 +41,31 @@ namespace adam
         /** @brief Const Accessor for metadata inside the header from inside the shared memory */
         const queue_metadata_type* get_metadata() const { return get_header() ? &get_header()->metadata : nullptr; }
 
-        /** @brief Checks wether the queue is full */
+        /** @brief Checks wether the queue is full. */
         bool is_full() const;
 
-        /** @brief Checks wether the queue is empty, aka, anything to pull */
+        /** @brief Checks wether the queue is empty, aka, anything to pull. */
         bool is_empty() const;
 
-        /** @brief Creates the queue_type queue and the underlying shared_memory for managing a max amount of items given */
+        /** @brief Gets the memorys active flag. Can be as loop condition for threads .*/
+        bool is_active() const { return m_shared_memory.is_active(); };
+
+        /** @brief Creates the queue_type queue and the underlying shared_memory for managing a max amount of items given. */
         bool create(uint32_t max_items);
 
-        /** @brief Opens an existing queue_type queue */
+        /** @brief Opens an existing queue_type queue. */
         bool open();
 
-        /** @brief Destroys the queue and free all resources */
+        /** @brief Unsets the active flag. Can be used to stop waiting threads. */
+        void disable() { m_shared_memory.disable(); }
+
+        /** @brief Destroys the queue and free all resources. */
         bool destroy();
 
-        /** @brief Pushes a object in the list and notifies the signal */
+        /** @brief Pushes a object in the list and notifies the signal. */
         bool push(const queue_type& obj);
 
-        /** @brief Waits for available items and pops in fifo order */
+        /** @brief Waits for available items and pops in fifo order. */
         bool pop(queue_type& out_obj, int32_t timeout = -1);
 
         /** @brief Pushes an object in the list and notifies the signal. Compatible with std::chrono::duration */
@@ -176,10 +183,10 @@ namespace adam
     {
         auto* header = this->header();
         
-        uint32_t current_head = header->head.load(std::memory_order_relaxed); // we own head at that moment, so use relaxed
+        uint32_t current_head = header->head.load(std::memory_order_relaxed);
         uint32_t next_head = (current_head + 1) % header->max_items;
 
-        if (next_head == header->tail.load(std::memory_order_acquire)) // tail is not owned by us rn, thats why he have to acquire
+        if (next_head == header->tail.load(std::memory_order_acquire))
             return false; // Queue full
 
         header->items[current_head] = object;
@@ -191,16 +198,35 @@ namespace adam
     template<typename queue_type, typename queue_metadata_type>
     bool queue_shared<queue_type, queue_metadata_type>::pop(queue_type& out_object, int32_t timeout)
     {
-        // Wait for a signal that data is available
-        if (!m_shared_memory.signal().wait(timeout))
-            return false; // Timeout
-
         auto* header = this->header();
-        uint32_t current_tail = header->tail.load(std::memory_order_relaxed); // we own tail at that moment, so use relaxed
         
-        if (current_tail == header->head.load(std::memory_order_acquire)) // head is not owned by us rn, thats why he have to acquire
-            return false; // Spurious wake-up / Empty
+        if (timeout >= 0)
+        {
+            auto end_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
+            
+            while (header->tail.load(std::memory_order_relaxed) == header->head.load(std::memory_order_acquire)) // Wait while queue empty
+            {
+                auto now = std::chrono::steady_clock::now();
+                if (now >= end_time)
+                    return false; // Timeout reached
 
+                int32_t remaining = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - now).count());
+                
+                if (!m_shared_memory.signal().wait(remaining))
+                    return false; // OS level timeout or failure
+            }
+        }
+        else
+        {
+            // Infinite wait
+            while (header->tail.load(std::memory_order_relaxed) == header->head.load(std::memory_order_acquire)) // Wait while queue empty
+            {
+                if (!m_shared_memory.signal().wait(-1))
+                    return false; // Error during wait
+            }
+        }
+
+        uint32_t current_tail = header->tail.load(std::memory_order_relaxed);
         out_object = header->items[current_tail];
         header->tail.store((current_tail + 1) % header->max_items, std::memory_order_release);
         

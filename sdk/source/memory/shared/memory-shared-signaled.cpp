@@ -99,7 +99,8 @@ namespace adam
         ts.tv_nsec += (timeout_ms % 1000) * 1000000;
 
         // Handle nanosecond overflow
-        if (ts.tv_nsec >= 1000000000) {
+        if (ts.tv_nsec >= 1000000000) 
+        {
             ts.tv_sec += 1;
             ts.tv_nsec -= 1000000000;
         }

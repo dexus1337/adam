@@ -55,7 +55,6 @@ namespace adam
     controller::controller()
      :  m_master_queue(string_hashed(master_queue_name)),
         m_master_queue_thread(),
-        m_master_queue_running(false),
         m_queues_command(),
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
@@ -88,7 +87,7 @@ namespace adam
         
     bool controller::destroy()
     {
-        m_master_queue_running = false;
+        m_master_queue.disable();
 
         if (m_master_queue_thread.joinable())
             m_master_queue_thread.join();
@@ -119,18 +118,25 @@ namespace adam
         master_queue mq = master_queue(string_hashed(master_queue_name));
 
         if (!mq.open())
+        {
+            adam::stream_log(log::trace, std::format("Cannot open the master queue for access to queue {:d}.", static_cast<int>(mqr)), std::cout);
             return false;
+        }
 
         queue_master_request_data data;
-        master_queue_response resp;
+        master_queue_response resp = response_unavailable;
 
         data.tid    = os::get_current_thread_id();
         data.queue  = mqr;
         data.code   = calculate_secret(data.tid);
 
-        if (!mq.post_request(data, resp, std::chrono::milliseconds(500)))
-            return false;
+        auto pres = mq.post_request(data, resp, 1000);
 
+        if (!pres)
+        {
+            adam::stream_log(log::trace, std::format("Request for queue {:d} failed, response {:d}.", static_cast<int>(mqr), static_cast<int>(resp)), std::cout);
+        }
+        
         mq.destroy();
 
         return resp == response_success;
@@ -384,8 +390,6 @@ namespace adam
 
         auto* new_queue = new queue_slave_instance_data<queue_type>(string_hashed(prefix + std::to_string(tid)));
 
-        new_queue->running = true;
-
         if (!new_queue->queue.open())
         {
             delete new_queue;
@@ -403,7 +407,7 @@ namespace adam
 
         if (!ins.second)
         {
-            new_queue->running = false;
+            new_queue->queue.disable();
 
             new_queue->queue_thread.join();
 
@@ -436,6 +440,8 @@ namespace adam
 
             return false;
         }
+
+        it->second->disable();
 
         if (!it->second->destroy())
         {
@@ -471,7 +477,7 @@ namespace adam
             return false;
         }
 
-        it->second->running = false;
+        it->second->queue.disable();
 
         it->second->queue_thread.join();
 
@@ -487,9 +493,7 @@ namespace adam
 
     void controller::run_master_queue()
     {
-        m_master_queue_running = true;
-
-        while (m_master_queue_running)
+        while (m_master_queue.is_active())
         {
             queue_master_request_data req;
 
@@ -558,7 +562,7 @@ namespace adam
             if (req.queue % 2)
                 debug_statement(this->log(log::trace, std::format("Client {:d} successfully created queue {:d}", req.tid, static_cast<int>(req.queue))));
             else
-                debug_statement(this->log(log::trace, std::format("Client {:d} successfully destroyed queue {:d}", req.tid, static_cast<int>(req.queue))));
+                debug_statement(this->log(log::trace, std::format("Client {:d} successfully destroyed queue {:d}", req.tid, static_cast<int>(req.queue) - 1)));
 
             m_master_queue.response_queue().push(response_success);
         }
@@ -566,7 +570,7 @@ namespace adam
 
     void controller::run_queue_command(queue_command_data* data)
     {
-        while (data->running)
+        while (data->queue.is_active())
         {
             command cmd;
 
@@ -587,7 +591,7 @@ namespace adam
 
     void controller::run_queue_log(queue_log_data* data)
     {
-        while (data->running)
+        while (data->queue.is_active())
         {
             adam::log clog;
 

@@ -38,6 +38,10 @@ namespace adam
      *          queue_command:          duplex queue    -> Retrieves commands, gives responses
      *          queue_log               one-way queue   -> Retrieves logs, outputs to all registered queue_log_sink
      *          queue_log_sink:         one-way queue   -> Forwards all recieved logs
+     * 
+     *          TODO: zombie shared mem leaks need to be taken care of:
+     *          find /dev/shm -name "adam*" -delete
+     *          ls -l /dev/shm
      */
     class ADAM_SDK_API controller 
     {
@@ -138,7 +142,6 @@ namespace adam
 
         master_queue    m_master_queue;
         std::thread     m_master_queue_thread;
-        bool            m_master_queue_running;
 
         // SLAVE QUEUES
         template< typename queue_type >
@@ -147,7 +150,6 @@ namespace adam
             queue_slave_instance_data(const string_hashed& name) : queue(name) {}
 
             queue_type  queue;
-            bool        running;
             std::thread queue_thread;
         };
 

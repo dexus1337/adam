@@ -39,13 +39,10 @@ namespace adam
         /** @brief Destroys the memory_shared object and cleans up resources. */
         ~memory_shared();
 
-        /** @brief Retrieves the base pointer to the shared memory region. */
+        bool is_active()                            const { return m_b_active; }
+        bool is_owner()                             const { return m_is_owner; }
         void* get()                                 const { return m_shared_memory_base; }
-
-        /** @brief Retrieves the size of the shared memory region. */
         uint64_t get_size()                         const { return m_shared_memory_size; }
-
-        /** @brief Retrieves the hashed name of the shared memory region. */
         const string_hashed& get_name()             const { return m_name; }
 
         #ifdef ADAM_PLATFORM_LINUX
@@ -61,6 +58,9 @@ namespace adam
         /** @brief Opens the shared memory region, setting up necessary resources. */
         bool open();
 
+        /** @brief Unsets the active flag. */
+        void disable() { m_b_active = false; }
+
         /** @brief Destroys down the shared memory region, cleaning up resources. */
         bool destroy();
 
@@ -68,6 +68,7 @@ namespace adam
 
         string_hashed m_name;               /**< The hashed name of the shared memory region, used for identification across processes. */
 
+        bool        m_b_active;             /**< Flag indicating whether the shared memory region is currently active. Can be used for threads as loop condition. */
         bool        m_is_owner;             /**< Flag indicating whether this instance is the owner/creator of the shared memory region, responsible for cleanup. */
 
         void*       m_shared_memory_base;   /**< Base pointer to the shared memory region used for memory buffers. */
@@ -79,6 +80,6 @@ namespace adam
         HANDLE      m_shared_memory_handle; /**< Handle to the shared memory object on Windows. */
         #endif
 
-        memory_shared_signaled m_signal;      /**< Signal object for interprocess synchronization and event notification. */
+        memory_shared_signaled m_signal;    /**< Signal object for interprocess synchronization and event notification. */
     };
 }

@@ -32,6 +32,8 @@ namespace adam
         /** @brief Destroys the logger object and cleans up resources.*/
         ~logger();
 
+        bool is_active() const { return m_queue_log.is_active(); }
+
         /** @brief Establishes a connection to the main controller. */
         bool connect();
 

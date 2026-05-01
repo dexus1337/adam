@@ -34,6 +34,8 @@ namespace adam
     {
         bool res = controller::request_master_queue(controller::request_command_destroy);
 
+        m_queue_command.disable();
+
         res &= m_queue_command.destroy();
 
         return res;
