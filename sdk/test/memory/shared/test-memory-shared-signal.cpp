@@ -1,20 +1,20 @@
 #include <gtest/gtest.h>
-#include <memory/shared/memory-shared.hpp>
-#include <memory/shared/memory-shared-signaled.hpp>
+#include <memory/memory.hpp>
+#include <memory/memory-signaled.hpp>
 
 #include <chrono>
 #include <thread>
 
-class memory_shared_signaled_test : public ::testing::Test
+class memory_signaled_test : public ::testing::Test
 {
 protected:
 
     void SetUp() override
     {
-        auto name = adam::string_hashed("adam::memory_shared_signaled_test");
+        auto name = adam::string_hashed("adam::memory_signaled_test");
 
-        memcreatetest = new adam::memory_shared(name);
-        memopentest = new adam::memory_shared(name);
+        memcreatetest = new adam::memory(name);
+        memopentest = new adam::memory(name);
     }
 
     void TearDown() override
@@ -26,13 +26,13 @@ protected:
         delete memopentest;
     }
 
-    adam::memory_shared* memcreatetest;
-    adam::memory_shared* memopentest;
+    adam::memory* memcreatetest;
+    adam::memory* memopentest;
 };
 
 
 /** @brief Tests the wait without being notified, also tests the timeout */
-TEST_F(memory_shared_signaled_test, wait_timeout)
+TEST_F(memory_signaled_test, wait_timeout)
 {
     ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
@@ -45,8 +45,8 @@ TEST_F(memory_shared_signaled_test, wait_timeout)
     EXPECT_GE(duration, 100); // Ensure it actually waited at least 100ms
 }
 
-/** @brief Tests the notification functionality of memory_shared_signaled. */
-TEST_F(memory_shared_signaled_test, create_notify_and_wait)
+/** @brief Tests the notification functionality of memory_signaled. */
+TEST_F(memory_signaled_test, create_notify_and_wait)
 {
     ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
@@ -67,8 +67,8 @@ TEST_F(memory_shared_signaled_test, create_notify_and_wait)
     notifier.join();
 }
 
-/** @brief Tests the notification functionality of memory_shared_signaled. */
-TEST_F(memory_shared_signaled_test, create_notify_and_wait_std_chrono)
+/** @brief Tests the notification functionality of memory_signaled. */
+TEST_F(memory_signaled_test, create_notify_and_wait_std_chrono)
 {
     ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
 
@@ -89,8 +89,8 @@ TEST_F(memory_shared_signaled_test, create_notify_and_wait_std_chrono)
     notifier.join();
 }
 
-/** @brief Tests the notification functionality of memory_shared_signaled. */
-TEST_F(memory_shared_signaled_test, open_notify_and_wait)
+/** @brief Tests the notification functionality of memory_signaled. */
+TEST_F(memory_signaled_test, open_notify_and_wait)
 {
     ASSERT_TRUE(memcreatetest->create(1024)); // Create a shared memory segment of 1KB
     ASSERT_TRUE(memopentest->open());

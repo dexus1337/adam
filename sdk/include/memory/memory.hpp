@@ -1,10 +1,10 @@
 #pragma once
 
 /**
- * @file    memory-shared.hpp
+ * @file    memory.hpp
  * @author  dexus1337
- * @brief   A singleton class responsible for managing shared memory buffers across processes and modules, 
- *              providing efficient memory management and interprocess communication.
+ * @brief   A singleton class responsible for managing shared memory across processes and modules, 
+ *          providing efficient memory management and interprocess communication.
  * @version 1.0
  * @date    25.04.2026
  */
@@ -12,7 +12,7 @@
  
 #include "api/api.hpp"
 #include "string/string-hashed.hpp"
-#include "memory-shared-signaled.hpp"
+#include "memory-signaled.hpp"
 
 #include <cstdint>
 
@@ -25,19 +25,19 @@
 namespace adam 
 {
     /**
-     * @class   memory_shared
-     * @brief   A class responsible for managing shared memory buffers across processes and modules, 
+     * @class   memory
+     * @brief   A class responsible for managing shared memory across processes and modules, 
      *          providing efficient memory management and interprocess communication.
      */
-    class ADAM_SDK_API memory_shared 
+    class ADAM_SDK_API memory 
     {
     public:
 
-        /** @brief Constructs a new memory_shared object. */
-        memory_shared(const string_hashed& name);
+        /** @brief Constructs a new memory object. */
+        memory(const string_hashed& name);
 
-        /** @brief Destroys the memory_shared object and cleans up resources. */
-        ~memory_shared();
+        /** @brief Destroys the memory object and cleans up resources. */
+        ~memory();
 
         bool is_active()                            const { return m_b_active; }
         bool is_owner()                             const { return m_is_owner; }
@@ -50,7 +50,7 @@ namespace adam
         sem_t* get_signal_semaphore()               const { return m_signal_sem; }
         #endif
 
-        memory_shared_signaled& signal() { return m_signal; }
+        memory_signaled& signal() { return m_signal; }
 
         /** @brief Creates the shared memory region, setting up necessary resources. */
         bool create(uint64_t buffer_size);
@@ -80,6 +80,6 @@ namespace adam
         HANDLE      m_shared_memory_handle; /**< Handle to the shared memory object on Windows. */
         #endif
 
-        memory_shared_signaled m_signal;    /**< Signal object for interprocess synchronization and event notification. */
+        memory_signaled m_signal;    /**< Signal object for interprocess synchronization and event notification. */
     };
 }

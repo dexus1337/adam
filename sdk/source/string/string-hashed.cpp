@@ -1,5 +1,7 @@
 #include "string/string-hashed.hpp"
 
+#include "hash/rapidhash.h"
+
 namespace adam 
 {
     string_hashed::string_hashed() : m_ui64_hash(0) {}
@@ -15,17 +17,7 @@ namespace adam
 
     void string_hashed::calculate_hash() 
     {
-        // Simple hash function (FNV-1a)
-        static constexpr hash_datatype fnv_offset_basis = 14695981039346656037ULL;
-        static constexpr hash_datatype fnv_prime        = 1099511628211ULL;
-
-        m_ui64_hash = fnv_offset_basis;
-
-        for (auto c : *this) 
-        {
-            m_ui64_hash ^= static_cast<hash_datatype>(c);
-            m_ui64_hash *= fnv_prime;
-        }
+        m_ui64_hash = rapidhash(data(), length());
     }
 
     string_hashed& string_hashed::operator=(const string_hashed& other) 

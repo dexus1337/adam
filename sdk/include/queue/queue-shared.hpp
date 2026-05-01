@@ -16,7 +16,7 @@
 #include <chrono>
 
 #include "string/string-hashed.hpp"
-#include "memory/shared/memory-shared.hpp"
+#include "memory/memory.hpp"
 
 namespace adam 
 {
@@ -96,7 +96,7 @@ namespace adam
         /** @brief Const Accessor for header from inside the shared memory */
         const queue_header* get_header() const { return reinterpret_cast<queue_header*>(m_shared_memory.get()); }
 
-        memory_shared m_shared_memory;
+        memory m_shared_memory;
     };
 
     template<typename queue_type, typename queue_metadata_type>

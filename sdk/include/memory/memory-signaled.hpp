@@ -1,9 +1,9 @@
 #pragma once
 
 /**
- * @file    memory-shared-signaled.hpp
+ * @file    memory-signaled.hpp
  * @author  dexus1337
- * @brief   A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory_shared 
+ * @brief   A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory 
  *              and external processes.
  * @version 1.0
  * @date    27.04.2026
@@ -20,24 +20,24 @@
 
 namespace adam 
 {
-    class memory_shared;
+    class memory;
 
     /**
-     * @class   memory_shared_signaled
-     * @brief   A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory_shared 
+     * @class   memory_signaled
+     * @brief   A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory 
      *          and external processes.
      */
-    class ADAM_SDK_API memory_shared_signaled
+    class ADAM_SDK_API memory_signaled
     {
     public:
 
-        /** @brief Constructs a new memory_shared_signaled object.*/
-        memory_shared_signaled(memory_shared* shared_memory);
+        /** @brief Constructs a new memory_signaled object.*/
+        memory_signaled(memory* shared_memory);
 
-        /** @brief Destroys the memory_shared_signaled object and cleans up resources.*/
-        ~memory_shared_signaled();
+        /** @brief Destroys the memory_signaled object and cleans up resources.*/
+        ~memory_signaled();
 
-        /** @brief Create the memory_shared_signaled backend, OS-specific initialization.*/
+        /** @brief Create the memory_signaled backend, OS-specific initialization.*/
         bool create();
 
         /** @brief Open existing backend.*/
@@ -58,7 +58,7 @@ namespace adam
 
     protected:
 
-        memory_shared* m_shared_memory;   /**< Shared memory instance used identification of the signal semaphore. */
+        memory* m_shared_memory;   /**< Shared memory instance used identification of the signal semaphore. */
 
         #ifdef   ADAM_PLATFORM_LINUX
         sem_t* m_sem;

@@ -1,4 +1,4 @@
-#include "memory/shared/memory-shared.hpp"
+#include "memory/memory.hpp"
 
 #ifdef ADAM_PLATFORM_LINUX
 #include <sys/mman.h>
@@ -9,7 +9,7 @@
 
 namespace adam 
 {
-    memory_shared::memory_shared(const string_hashed& name) 
+    memory::memory(const string_hashed& name) 
      :  m_name(name), 
         m_is_owner(false),
         m_shared_memory_base(nullptr),
@@ -25,9 +25,9 @@ namespace adam
 
     }
 
-    memory_shared::~memory_shared() {}
+    memory::~memory() {}
 
-    bool memory_shared::create(uint64_t buffer_size) 
+    bool memory::create(uint64_t buffer_size) 
     {
         bool success = false;
 
@@ -108,7 +108,7 @@ namespace adam
         return true;
     }
 
-    bool memory_shared::open() 
+    bool memory::open() 
     {
         #ifdef ADAM_PLATFORM_LINUX
         std::string linux_name = (m_name.c_str()[0] == '/') ? m_name.c_str() : "/" + std::string(m_name.c_str());
@@ -167,7 +167,7 @@ namespace adam
         return true;
     }
 
-    bool memory_shared::destroy() 
+    bool memory::destroy() 
     {
         if (!m_signal.destroy())
             return false;

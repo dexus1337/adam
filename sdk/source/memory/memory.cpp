@@ -1,10 +1,10 @@
-#include "memory/shared/memory-shared-signaled.hpp"
+#include "memory/memory-signaled.hpp"
 
-#include "memory/shared/memory-shared.hpp"
+#include "memory/memory.hpp"
 
 namespace adam 
 {
-    memory_shared_signaled::memory_shared_signaled(memory_shared* shared_memory) 
+    memory_signaled::memory_signaled(memory* shared_memory) 
      :  m_shared_memory(shared_memory),
         #ifdef ADAM_PLATFORM_LINUX
         m_sem(nullptr)
@@ -15,9 +15,9 @@ namespace adam
 
     }
 
-    memory_shared_signaled::~memory_shared_signaled() {}
+    memory_signaled::~memory_signaled() {}
 
-    bool memory_shared_signaled::create() 
+    bool memory_signaled::create() 
     {
         // OS-specific initialization of the signal backend
         #ifdef   ADAM_PLATFORM_LINUX
@@ -35,7 +35,7 @@ namespace adam
         #endif
     }
 
-    bool memory_shared_signaled::open() 
+    bool memory_signaled::open() 
     {
         // OS-specific initialization of the signal backend
         #ifdef   ADAM_PLATFORM_LINUX
@@ -49,7 +49,7 @@ namespace adam
         #endif
     }
 
-    bool memory_shared_signaled::destroy() 
+    bool memory_signaled::destroy() 
     {
         #ifdef   ADAM_PLATFORM_LINUX
         if (!m_sem)
@@ -73,7 +73,7 @@ namespace adam
         return true;
     }
 
-    bool memory_shared_signaled::notify() 
+    bool memory_signaled::notify() 
     {
         // OS-specific signal activation
         #ifdef   ADAM_PLATFORM_LINUX
@@ -83,7 +83,7 @@ namespace adam
         #endif
     }
 
-    bool memory_shared_signaled::wait(int32_t timeout_ms) 
+    bool memory_signaled::wait(int32_t timeout_ms) 
     {
         #ifdef ADAM_PLATFORM_LINUX
         if (timeout_ms < 0)

@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    memory-buffer.hpp
+ * @file    buffer.hpp
  * @author  dexus1337
  * @brief   Defines a memory buffer class. Uses shared memory for interprocess availability and efficient memory management.
  * @version 1.0
@@ -19,22 +19,22 @@
 namespace adam 
 {
     /**
-     * @class memory_buffer
+     * @class buffer
      * @brief Defines a memory buffer class. Uses shared memory for interprocess availability and efficient memory management.
      */
-    class ADAM_SDK_API memory_buffer 
+    class ADAM_SDK_API buffer 
     {
     public:
 
         /**
-         * @brief Constructs a new memory_buffer object.
+         * @brief Constructs a new buffer object.
          */
-        memory_buffer();
+        buffer();
 
         /**
-         * @brief Destroys the memory_buffer object and cleans up resources.
+         * @brief Destroys the buffer object and cleans up resources.
          */
-        ~memory_buffer();
+        ~buffer();
 
     protected:
 
