@@ -116,7 +116,6 @@ namespace adam
     {
         if (!m_request_queue.push(req))
             return false;
-        }
 
         return m_response_queue.pop(resp, timeout);
     }
