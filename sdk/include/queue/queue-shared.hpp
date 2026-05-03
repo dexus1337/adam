@@ -25,7 +25,7 @@ namespace adam
      * @brief Defines a interprocess queue for any datatype, based on shared memory
      */
     template<typename queue_type, typename queue_metadata_type = uint32_t>
-    class ADAM_SDK_API queue_shared
+    class queue_shared
     {
     public:
 

@@ -40,4 +40,4 @@ namespace adam::modules::asterix
 }
 
 /** @brief Returns a pointer to the ASTERIX module instance. This is the exported function for getting the module. */
-extern "C" adam::module* ADAM_ASTERIX_API get_adam_module();
+extern "C" ADAM_ASTERIX_API adam::module* get_adam_module();

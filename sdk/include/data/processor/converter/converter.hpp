@@ -15,22 +15,22 @@
 namespace adam 
 {
     /**
-     * @class data_processor
+     * @class converter
      * @brief A base class for data format processors, providing a common interface for processing data in different formats used in the ADAM system.
      */
-    class ADAM_SDK_API data_processor 
+    class ADAM_SDK_API converter 
     {
     public:
 
         /**
          * @brief Constructs a new data processor object.
          */
-        data_processor();
+        converter();
 
         /**
          * @brief Destroys the data processor object and cleans up resources.
          */
-        ~data_processor();
+        ~converter();
 
     };
 }

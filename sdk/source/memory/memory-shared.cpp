@@ -151,7 +151,7 @@ namespace adam
 
         MEMORY_BASIC_INFORMATION mbi;
         
-        if (VirtualQuery(ptr, &mbi, sizeof(mbi)))
+        if (VirtualQuery(start, &mbi, sizeof(mbi)))
             m_shared_memory_size = mbi.RegionSize;
         #endif
 
@@ -169,18 +169,15 @@ namespace adam
 
     bool memory::destroy() 
     {
-        if (!m_signal.destroy())
-            return false;
+        bool result = m_signal.destroy();
 
         if (m_shared_memory_base) 
         {
             #ifdef ADAM_PLATFORM_LINUX
-            if (munmap(reinterpret_cast<void*>(m_signal_sem), m_shared_memory_size) != 0)
-                return false;
+            result &= munmap(reinterpret_cast<void*>(m_signal_sem), m_shared_memory_size);
             m_signal_sem = nullptr;
             #elif defined(ADAM_PLATFORM_WINDOWS)
-            if (!UnmapViewOfFile(m_shared_memory_base))
-                return false;
+            result &= static_cast<bool>(UnmapViewOfFile(m_shared_memory_base));
             #endif
             m_shared_memory_base = nullptr;
         }
@@ -194,11 +191,11 @@ namespace adam
         #elif defined(ADAM_PLATFORM_WINDOWS)
         if (m_shared_memory_handle) 
         {
-            CloseHandle(m_shared_memory_handle);
+            result &= static_cast<bool>(CloseHandle(m_shared_memory_handle));
             m_shared_memory_handle = NULL;
         }
         #endif
 
-        return true;
+        return result;
     }
 }

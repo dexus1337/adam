@@ -40,4 +40,4 @@ namespace adam::modules::recrep
 }
 
 /** @brief Returns a pointer to the Replay/Recording module instance. This is the exported function for getting the module. */
-extern "C" adam::module* ADAM_RECREP_API get_adam_module();
+extern "C" ADAM_RECREP_API adam::module* get_adam_module();

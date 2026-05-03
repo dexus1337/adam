@@ -17,7 +17,7 @@ namespace adam::modules::recrep
     }
 }
 
-extern "C" adam::module* ADAM_RECREP_API get_adam_module() 
+extern "C" adam::module* get_adam_module() 
 {
     return &global_instance;
 }

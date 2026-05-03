@@ -32,12 +32,18 @@ namespace adam
         /** @brief Constructs a new data_format object. */
         data_format(std::string_view name, parser* parser = nullptr, serializer* serializer = nullptr);
 
+        /** @brief Constructs a new data_format object. */
+        data_format(const data_format& df);
+
         /** @brief Destroys the data_format object and cleans up resources. */
         ~data_format();
 
         const string_hashed&    get_name()          const { return m_str_name; }
         parser*                 get_parser()        const { return m_parser; }
         serializer*             get_serializer()    const { return m_serializer; } 
+
+        /** @brief Assigns the value of another data_format object to this one. */
+        data_format& operator=(const data_format& other);
 
     protected:
 

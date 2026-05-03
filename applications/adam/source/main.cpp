@@ -46,24 +46,26 @@ int main()
     {
         if (controller->load_module(name))
         {
-            controller->log(adam::log::info, std::string("loaded module \"") + name + "\" at " + std::to_string(controller->get_loaded_module(name)->get_module_handle()));
+            controller->log(adam::log::info, std::format("loaded module \"{}\" at 0x{:x}", name.c_str(), controller->get_loaded_module(name)->get_module_handle()));
         }
         else
         {
-            controller->log(adam::log::error, std::string("failed to load module \"") + name + "\"");
+            controller->log(adam::log::error, std::format("failed to load module \"{}\"", name.c_str()));
         }
     }
 
     controller->log(adam::log::info, "adam up and running!");
-    
+
     std::thread test_heartbeat([&]()
     {
-        while (true)
+        while (controller->is_active())
         {
             std::this_thread::sleep_for(std::chrono::seconds(2));
             controller->log(adam::log::info, "adam is alife!");
         }
     });
 
-    return controller->run() ? 0 : 1;
+    controller->run();
+
+    return 0;
 }

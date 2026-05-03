@@ -17,7 +17,7 @@ namespace adam::modules::asterix
     }
 }
 
-extern "C" adam::module* ADAM_ASTERIX_API get_adam_module() 
+extern "C" adam::module* get_adam_module() 
 {
     return &global_instance;
 }

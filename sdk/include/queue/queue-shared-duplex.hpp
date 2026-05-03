@@ -24,7 +24,7 @@ namespace adam
      * @brief Defines a bidirectional interprocess queue for any request/response datatype, based on shared memory
      */
     template<typename request_type, typename response_type>
-    class ADAM_SDK_API queue_shared_duplex
+    class queue_shared_duplex
     {
     public:
 

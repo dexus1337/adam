@@ -20,6 +20,10 @@ target_include_directories(adam-sdk
     PRIVATE source/     # Internal to this lib
 )
 
+target_compile_definitions(adam-sdk
+    PRIVATE ADAM_SDK_EXPORTS
+)
+
 
 # Create the test application
 add_executable(adam-sdk-test ${test_source_files})

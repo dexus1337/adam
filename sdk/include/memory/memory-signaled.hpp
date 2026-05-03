@@ -14,6 +14,8 @@
 
 #ifdef   ADAM_PLATFORM_LINUX
 #include <semaphore.h>
+#elifdef ADAM_PLATFORM_WINDOWS
+#include <windows.h>
 #endif
 #include <chrono>
 

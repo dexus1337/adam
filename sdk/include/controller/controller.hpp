@@ -62,6 +62,9 @@ namespace adam
         
         /** @brief Stops all queues and frees resources. */
         bool destroy();
+
+        /** @brief Stops all queues and frees resources. */
+        bool is_active() const { return m_master_queue.is_active(); }
         
         // COMMAND MANAGEMENT
 

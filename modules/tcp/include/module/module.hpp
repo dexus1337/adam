@@ -40,4 +40,4 @@ namespace adam::modules::tcp
 }
 
 /** @brief Returns a pointer to the TCP network module instance. This is the exported function for getting the module. */
-extern "C" adam::module* ADAM_TCP_API get_adam_module();
+extern "C" ADAM_TCP_API adam::module* get_adam_module();

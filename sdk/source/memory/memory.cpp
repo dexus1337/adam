@@ -28,7 +28,8 @@ namespace adam
 
         return true;
         #elifdef ADAM_PLATFORM_WINDOWS
-        m_handle = CreateEventA(NULL, FALSE, FALSE, m_shared_memory->get_name().c_str());
+        std::string event_name = std::string(m_shared_memory->get_name()) + "_signal";
+        m_handle = CreateEventA(NULL, FALSE, FALSE, event_name.c_str());
         return m_handle != NULL;
         #else
         return false; // Unsupported platform
@@ -42,7 +43,8 @@ namespace adam
         m_sem = m_shared_memory->get_signal_semaphore();
         return true;
         #elifdef ADAM_PLATFORM_WINDOWS
-        m_handle = OpenEventA(EVENT_ALL_ACCESS, FALSE, m_shared_memory->get_name().c_str());
+        std::string event_name = std::string(m_shared_memory->get_name()) + "_signal";
+        m_handle = OpenEventA(EVENT_ALL_ACCESS, FALSE, event_name.c_str());
         return m_handle != NULL;
         #else
         return false; // Unsupported platform

@@ -200,12 +200,11 @@ namespace adam
             auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
             #elifdef ADAM_PLATFORM_WINDOWS
 
-            auto handle = LoadLibraryA(std::filesystem::absolute(path).c_str());
+            auto handle = LoadLibraryW(std::filesystem::absolute(path).c_str());
 
             if (!handle)
                 return false;
 
-            // GetProcAddress uses LPCSTR (char*), even in Unicode builds
             auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
             #endif
 
@@ -237,7 +236,6 @@ namespace adam
             dlclose(handle);
             #elifdef ADAM_PLATFORM_WINDOWS
             FreeLibrary(handle);
-            return false;
             #endif
 
             continue;
@@ -265,7 +263,7 @@ namespace adam
         auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
         #elifdef ADAM_PLATFORM_WINDOWS
 
-        auto handle = LoadLibraryA(std::filesystem::absolute(path).c_str());
+        auto handle = LoadLibraryA(path_str.c_str());
 
         if (!handle)
             return false;

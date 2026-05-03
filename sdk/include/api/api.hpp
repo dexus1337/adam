@@ -8,31 +8,34 @@
  * @date    25.04.2026
  */
 
-// For windows, we have to explicitly use __declspec
-#if defined(_WIN32) || defined(__CYGWIN__)
-  #ifdef ADAM_SDK_EXPORTS // This should be defined when building the DLL, not when using it
-    #define ADAM_SDK_API __declspec(dllexport)
-  #else
-    #define ADAM_SDK_API __declspec(dllimport)
-  #endif
-#else
-  // Under Linux/macOS, all symbols are visible by default,
-  // unless you use special compiler flags (-fvisibility=hidden)
-  #if __GNUC__ >= 4
-    #define ADAM_SDK_API __attribute__ ((visibility ("default")))
-  #else
-    #define ADAM_SDK_API
-  #endif
-#endif
-
 // Use the compiler's built-in knowledge
 #if not defined (ADAM_PLATFORM_LINUX) && not defined (ADAM_PLATFORM_WINDOWS) && not defined (ADAM_PLATFORM_APPLE)
-    #if defined(_WIN32) || defined(_WIN64)
+    #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
         #define ADAM_PLATFORM_WINDOWS
     #elif defined(__linux__)
         #define ADAM_PLATFORM_LINUX
     #elif defined(__APPLE__)
         #define ADAM_PLATFORM_APPLE
+    #endif
+#endif
+
+// For windows, we have to explicitly use __declspec
+#if defined(ADAM_PLATFORM_WINDOWS)
+    #define NOMINMAX // so we can use std::min etc
+    #ifdef ADAM_SDK_EXPORTS // This should be defined when building the DLL, not when using it
+        #define ADAM_SDK_API __declspec(dllexport)
+    #elifdef ADAM_USE_SHARED_SDK_
+        #define ADAM_SDK_API __declspec(dllimport)
+    #else 
+        #define ADAM_SDK_API
+    #endif
+#else
+    // Under Linux/macOS, all symbols are visible by default,
+    // unless you use special compiler flags (-fvisibility=hidden)
+    #if __GNUC__ >= 4
+        #define ADAM_SDK_API __attribute__ ((visibility ("default")))
+    #else
+        #define ADAM_SDK_API
     #endif
 #endif
 

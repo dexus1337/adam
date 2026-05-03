@@ -40,4 +40,4 @@ namespace adam::modules::udp
 }
 
 /** @brief Returns a pointer to the UDP Network module instance. This is the exported function for getting the module. */
-extern "C" adam::module* ADAM_UDP_API get_adam_module();
+extern "C" ADAM_UDP_API adam::module* get_adam_module();

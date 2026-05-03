@@ -11,5 +11,21 @@ namespace adam
         m_str_name.calculate_hash();
     }
 
+    data_format::data_format(const data_format& df) 
+        : m_str_name(df.m_str_name), m_parser(df.m_parser), m_serializer(df.m_serializer) {}
+
     data_format::~data_format() {}
+
+    data_format& data_format::operator=(const data_format& df)
+    {
+        if (this != &df) 
+        {
+            m_str_name = df.m_str_name;
+            m_parser = df.m_parser;
+            m_serializer = df.m_serializer;
+        }
+
+        return *this;
+    }
+
 }

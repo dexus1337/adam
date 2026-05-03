@@ -40,4 +40,4 @@ namespace adam::modules::can
 }
 
 /** @brief Returns a pointer to the CAN module instance. This is the exported function for getting the module. */
-extern "C" adam::module* ADAM_CAN_API get_adam_module();
+extern "C" ADAM_CAN_API adam::module* get_adam_module();
