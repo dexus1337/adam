@@ -16,7 +16,7 @@
 #include <chrono>
 
 #include "string/string-hashed.hpp"
-#include "memory/memory.hpp"
+#include "memory/memory-signaled.hpp"
 
 namespace adam 
 {
@@ -96,7 +96,7 @@ namespace adam
         /** @brief Const Accessor for header from inside the shared memory */
         const queue_header* get_header() const { return reinterpret_cast<queue_header*>(m_shared_memory.get()); }
 
-        memory m_shared_memory;
+        memory_signaled m_shared_memory;
     };
 
     template<typename queue_type, typename queue_metadata_type>
@@ -192,7 +192,7 @@ namespace adam
         header->items[current_head] = object;
         header->head.store(next_head, std::memory_order_release);
         
-        return m_shared_memory.signal().notify();
+        return m_shared_memory.notify();
     }
 
     template<typename queue_type, typename queue_metadata_type>
@@ -212,7 +212,7 @@ namespace adam
 
                 int32_t remaining = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - now).count());
                 
-                if (!m_shared_memory.signal().wait(remaining))
+                if (!m_shared_memory.wait(remaining))
                     return false; // OS level timeout or failure
             }
         }
@@ -221,7 +221,7 @@ namespace adam
             // Infinite wait
             while (header->tail.load(std::memory_order_relaxed) == header->head.load(std::memory_order_acquire)) // Wait while queue empty
             {
-                if (!m_shared_memory.signal().wait(-1))
+                if (!m_shared_memory.wait(-1))
                     return false; // Error during wait
             }
         }

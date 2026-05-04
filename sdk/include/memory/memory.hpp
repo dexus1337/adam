@@ -12,7 +12,6 @@
  
 #include "api/api.hpp"
 #include "string/string-hashed.hpp"
-#include "memory-signaled.hpp"
 
 #include <cstdint>
 
@@ -41,28 +40,21 @@ namespace adam
 
         bool is_active()                            const { return m_b_active; }
         bool is_owner()                             const { return m_is_owner; }
-        void* get()                                 const { return m_shared_memory_base; }
-        uint64_t get_size()                         const { return m_shared_memory_size; }
+        void* get()                                 const { return reinterpret_cast<uint8_t*>(m_shared_memory_base) + m_memory_offset; }
+        uint64_t get_size()                         const { return m_shared_memory_size > m_memory_offset ? m_shared_memory_size - m_memory_offset : 0; }
         const string_hashed& get_name()             const { return m_name; }
 
-        #ifdef ADAM_PLATFORM_LINUX
-        /** @brief Retrieves the semaphore used for signaling on Linux. */
-        sem_t* get_signal_semaphore()               const { return m_signal_sem; }
-        #endif
-
-        memory_signaled& signal() { return m_signal; }
-
         /** @brief Creates the shared memory region, setting up necessary resources. */
-        bool create(uint64_t buffer_size);
+        virtual bool create(uint64_t buffer_size);
 
         /** @brief Opens the shared memory region, setting up necessary resources. */
-        bool open();
+        virtual bool open();
 
         /** @brief Unsets the active flag. */
         void disable() { m_b_active = false; }
 
         /** @brief Destroys down the shared memory region, cleaning up resources. */
-        bool destroy();
+        virtual bool destroy();
 
     protected:
 
@@ -73,13 +65,10 @@ namespace adam
 
         void*       m_shared_memory_base;   /**< Base pointer to the shared memory region used for memory buffers. */
         uint64_t    m_shared_memory_size;   /**< Total size of the shared memory region. */
+        uint32_t    m_memory_offset;        /**< Offset to the start of usable shared memory (used for signal placement). */
 
-        #ifdef   ADAM_PLATFORM_LINUX
-        sem_t*      m_signal_sem;           /**< On linux, we will use a memory semaphore for signaling, as its way faster than named semaphores */
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #ifdef ADAM_PLATFORM_WINDOWS
         HANDLE      m_shared_memory_handle; /**< Handle to the shared memory object on Windows. */
         #endif
-
-        memory_signaled m_signal;    /**< Signal object for interprocess synchronization and event notification. */
     };
 }

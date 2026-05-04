@@ -54,11 +54,11 @@ namespace adam
         /** @brief Retrieves the singleton instance of the controller. */
         static controller& get();
 
-        // Delete copy and move constructors and assignment operators
-        controller(const controller&) = delete;
-        controller& operator=(const controller&) = delete;
-        controller(controller&&) = delete;
-        controller& operator=(controller&&) = delete;
+        // Delete copy constructor and assignment operator to prevent copying of the singleton instance
+        controller(const controller&)               = delete;
+        controller& operator=(const controller&)    = delete;
+        controller(controller&&)                    = delete;
+        controller& operator=(controller&&)         = delete;
 
         /** @brief Runs the command processing loop, which continuously checks for new command queue requests. */
         bool run(bool async = false);

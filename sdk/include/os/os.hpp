@@ -24,6 +24,7 @@
 namespace adam::os
 {
     using thread_id = uint64_t;
+    using process_id = uint64_t;
 
     inline ADAM_SDK_API thread_id get_current_thread_id()
     {
@@ -31,6 +32,17 @@ namespace adam::os
         return static_cast<thread_id>(syscall(SYS_gettid));
         #elifdef    ADAM_PLATFORM_WINDOWS
         return static_cast<thread_id>(GetCurrentThreadId());
+        #else
+        return 0;
+        #endif
+    }
+
+    inline ADAM_SDK_API process_id get_current_process_id()
+    {
+        #ifdef      ADAM_PLATFORM_LINUX
+        return static_cast<process_id>(syscall(SYS_getpid));
+        #elifdef    ADAM_PLATFORM_WINDOWS
+        return static_cast<process_id>(GetCurrentProcessId());
         #else
         return 0;
         #endif
