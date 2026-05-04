@@ -51,11 +51,14 @@ namespace adam
 
     public:
 
-        /** @brief Constructs a new controller object.*/
-        controller();
+        /** @brief Retrieves the singleton instance of the controller. */
+        static controller& get();
 
-        /** @brief Destroys the controller object and cleans up resources.*/
-        ~controller();
+        // Delete copy and move constructors and assignment operators
+        controller(const controller&) = delete;
+        controller& operator=(const controller&) = delete;
+        controller(controller&&) = delete;
+        controller& operator=(controller&&) = delete;
 
         /** @brief Runs the command processing loop, which continuously checks for new command queue requests. */
         bool run(bool async = false);
@@ -124,6 +127,12 @@ namespace adam
         bool load_module(const string_hashed& name, const module** out_module = nullptr);
 
     protected:
+
+        /** @brief Constructs a new controller object.*/
+        controller();
+
+        /** @brief Destroys the controller object and cleans up resources.*/
+        ~controller();
 
         // COMMAND MANAGEMENT
 

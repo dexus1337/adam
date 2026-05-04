@@ -52,6 +52,12 @@ namespace adam
         return static_cast<os::thread_id>((static_cast<uint64_t>(v1) << 32) | v0);
     }
 
+    controller& controller::get()
+    {
+        static controller instance;
+        return instance;
+    }
+
     controller::controller()
      :  m_master_queue(string_hashed(master_queue_name)),
         m_master_queue_thread(),
@@ -600,4 +606,3 @@ namespace adam
         }
     }
 }
-

@@ -11,6 +11,7 @@ namespace adam
 {
     memory::memory(const string_hashed& name) 
      :  m_name(name), 
+        m_b_active(false),
         m_is_owner(false),
         m_shared_memory_base(nullptr),
         m_shared_memory_size(0)
@@ -30,6 +31,9 @@ namespace adam
     bool memory::create(uint64_t buffer_size) 
     {
         bool success = false;
+
+        if (!buffer_size)
+            return false;
 
         #ifdef ADAM_PLATFORM_LINUX
         // Ensure name starts with / for POSIX compliance
@@ -174,7 +178,7 @@ namespace adam
         if (m_shared_memory_base) 
         {
             #ifdef ADAM_PLATFORM_LINUX
-            result &= munmap(reinterpret_cast<void*>(m_signal_sem), m_shared_memory_size);
+            result &= munmap(reinterpret_cast<void*>(m_signal_sem), m_shared_memory_size) == 0;
             m_signal_sem = nullptr;
             #elif defined(ADAM_PLATFORM_WINDOWS)
             result &= static_cast<bool>(UnmapViewOfFile(m_shared_memory_base));
