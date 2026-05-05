@@ -4,9 +4,6 @@ namespace adam
 {
     configuration_parameter_list::configuration_parameter_list(const string_hashed& name)
         : configuration_parameter(name) {}
-        
-    configuration_parameter_list::configuration_parameter_list(std::string_view name)
-        : configuration_parameter(string_hashed(name)) {}
 
     configuration_parameter_list::~configuration_parameter_list() {}
 
@@ -14,6 +11,11 @@ namespace adam
     {
         if (param)
             m_children.emplace(param->get_name(), std::move(param));
+    }
+
+    void configuration_parameter_list::clear()
+    {
+        m_children.clear();
     }
 
     configuration_parameter* configuration_parameter_list::get(const string_hashed& name) const

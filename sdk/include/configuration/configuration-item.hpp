@@ -11,7 +11,6 @@
  
 #include "api/api.hpp"
 
-
 #include "configuration/parameters/configuration-parameter-list.hpp"
 
 namespace adam 

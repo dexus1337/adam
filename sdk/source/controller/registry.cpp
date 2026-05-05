@@ -142,7 +142,7 @@ namespace adam
     }
 
     registry::registry() 
-     :  m_general("general"),
+     :  m_general(string_hashed("general")),
         m_input_ports(),
         m_output_ports(),
         m_filters(),
@@ -216,9 +216,25 @@ namespace adam
         if (!loaded_root || loaded_root->get_type() != configuration_parameter::list) 
             return false;
 
+        // Clear the existing state
+        m_general.clear();
+        m_input_ports.clear();
+        m_output_ports.clear();
+        m_filters.clear();
+        m_converters.clear();
+
+        auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
+
+        // 1. Restore general settings
+        if (auto* general_mock = static_cast<configuration_parameter_list*>(root_list->get(string_hashed("general"))))
+        {
+            for (auto& [name, param] : general_mock->get_children())
+                m_general.add(std::move(param));
+        }
+
         // The tree structure is successfully loaded from the file!
         // In the future, you can implement the item instantiation logic here 
-        // by looping through static_cast<configuration_parameter_list*>(loaded_root.get())->get("input_ports")
+        // by looping through static_cast<configuration_parameter_list*>(loaded_root.get())->get(string_hashed("input_ports"))
         return ifs.good();
     }
 }

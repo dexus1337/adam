@@ -11,7 +11,6 @@
  
 #include "api/api.hpp"
 
-#include <string_view>
 #include <unordered_map>
 #include <memory>
 #include "configuration/parameters/configuration-parameter.hpp"
@@ -29,7 +28,6 @@ namespace adam
     
         /** @brief Constructs a new configuration_parameter_list object. */
         configuration_parameter_list(const string_hashed& name);
-        configuration_parameter_list(std::string_view name);
 
         /** @brief Destroys the configuration_parameter_list object and cleans up resources. */
         ~configuration_parameter_list();
@@ -41,6 +39,12 @@ namespace adam
 
         /** @brief Retrieves the list of child parameters. */
         const std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>>& get_children() const { return m_children; }
+
+        /** @brief Retrieves the mutable list of child parameters. */
+        std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>>& get_children() { return m_children; }
+
+        /** @brief Clears all child parameters. */
+        void clear();
 
         /** @brief Retrieves a child parameter by its name. Returns nullptr if not found. */
         configuration_parameter* get(const string_hashed& name) const;
