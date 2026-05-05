@@ -23,14 +23,10 @@ namespace adam
     {
     public:
 
-        /**
-         * @brief Constructs a new input port object.
-         */
+        /** @brief Constructs a new input port object. */
         port_input();
 
-        /**
-         * @brief Destroys the input port object and cleans up resources.
-         */
+        /** @brief Destroys the input port object and cleans up resources. */
         ~port_input();
 
     };

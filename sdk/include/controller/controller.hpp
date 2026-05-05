@@ -19,7 +19,7 @@
 #include "string/string-hashed.hpp"
 #include "queue/queue-shared-duplex.hpp"
 #include "commander/command.hpp"
-#include "controller/response/response.hpp"
+#include "controller/response.hpp"
 #include "logger/log.hpp"
 #include "os/os.hpp"
 #include "memory/buffer/buffer-manager.hpp"

@@ -18,7 +18,7 @@ namespace adam
      * @class converter
      * @brief A base class for data format processors, providing a common interface for processing data in different formats used in the ADAM system.
      */
-    class ADAM_SDK_API converter 
+    class ADAM_SDK_API converter : public data_processor
     {
     public:
 

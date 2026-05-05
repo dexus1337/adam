@@ -3,7 +3,7 @@
 
 #include "controller/controller.hpp"
 #include "commander/command.hpp"
-#include "controller/response/response.hpp"
+#include "controller/response.hpp"
 
 
 namespace adam 

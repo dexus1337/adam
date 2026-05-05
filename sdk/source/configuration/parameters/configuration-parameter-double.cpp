@@ -1,0 +1,9 @@
+#include "configuration/parameters/configuration-parameter-double.hpp"
+
+namespace adam
+{
+    configuration_parameter_double::configuration_parameter_double(const string_hashed& name, double value)
+        : configuration_parameter(name), m_value(value) {}
+
+    configuration_parameter_double::~configuration_parameter_double() {}
+}
