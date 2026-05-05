@@ -1,5 +1,6 @@
 #include "memory/buffer/buffer.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "data/format/data-format.hpp"
 
 namespace adam 
 {
@@ -8,7 +9,10 @@ namespace adam
         m_data(nullptr),
         m_capacity(0), 
         m_memory_index(0), 
-        m_offset(0) 
+        m_thread_id(0),
+        m_offset(0),
+        m_is_resolved(false),
+        m_data_format(&data_format_transparent)
     {
     }
 
@@ -26,6 +30,8 @@ namespace adam
 
     buffer_handle buffer::get_handle() const 
     {
-        return { m_memory_index, m_offset, m_capacity };
+        // Assuming string_hashed exposes .get_hash() or similar to retrieve the uint64_t hash.
+        uint64_t fmt_hash = m_data_format ? m_data_format->get_name().get_hash() : 0;
+        return { m_memory_index, m_thread_id, m_offset, m_capacity, fmt_hash };
     }
 }

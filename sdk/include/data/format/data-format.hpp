@@ -45,6 +45,12 @@ namespace adam
         /** @brief Assigns the value of another data_format object to this one. */
         data_format& operator=(const data_format& other);
 
+        /** @brief Checks if this data_format object is equal to another. Uses the hashed name for comparison. */
+        bool operator==(const data_format& other) const { return m_str_name == other.m_str_name; }
+
+        /** @brief Checks if this data_format object is not equal to another. Uses the hashed name for comparison. */
+        bool operator!=(const data_format& other) const { return m_str_name != other.m_str_name; }
+
     protected:
 
         string_hashed   m_str_name;     /**< The name of the data format, used for identification and lookup in the ADAM system. */

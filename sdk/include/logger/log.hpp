@@ -29,7 +29,7 @@ namespace adam
 
         static constexpr size_t log_size_in_bytes = 512;
 
-        enum level : uint64_t
+        enum level : uint32_t
         {
             invalid = 0,
             trace,

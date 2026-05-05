@@ -66,6 +66,29 @@ TEST_F(buffer_manager_test, capacity_classes)
     buf_large->release();
 }
 
+/** @brief Tests allocating a buffer larger than the default 16MB chunk size. */
+TEST_F(buffer_manager_test, oversized_buffer)
+{
+    auto& mgr = adam::buffer_manager::get();
+    
+    // Request a buffer that is larger than the default_chunk_size (16MB)
+    const uint32_t oversized_size = 32 * 1024 * 1024; // 32 MB
+    adam::buffer* buf = mgr.request_buffer(oversized_size);
+
+    ASSERT_NE(buf, nullptr);
+    EXPECT_GE(buf->get_capacity(), oversized_size);
+
+    // Verify we can write to the beginning and end of the memory safely
+    uint8_t* data = static_cast<uint8_t*>(buf->get_data());
+    data[0] = 0xAA;
+    data[oversized_size - 1] = 0xBB;
+    
+    EXPECT_EQ(data[0], 0xAA);
+    EXPECT_EQ(data[oversized_size - 1], 0xBB);
+
+    buf->release();
+}
+
 /** @brief Tests that multiple threads can request and return memory safely without race conditions. */
 TEST_F(buffer_manager_test, multithreading)
 {

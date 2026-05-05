@@ -15,41 +15,41 @@
 
 namespace adam
 {
-    static constexpr uint32_t xtea_delta    = 0x9E3779B9;
-    static constexpr uint32_t xtea_key[2]  = { 0xdeadbeef, 0x1337babe };
+    static constexpr uint16_t xtea_delta    = 0x9E37;
+    static constexpr uint16_t xtea_key[2]   = { 0xbeef, 0xbabe };
 
     /** @brief Calculates a small secret based on the XTEA-lite algorith, using ther thread id . Only this source file knows how to reverse for authorization to commands */
-    uint64_t calculate_secret(os::thread_id tid)
+    uint32_t calculate_secret(os::thread_id tid)
     {
-        uint32_t v0 = static_cast<uint32_t>(tid);
-        uint32_t v1 = static_cast<uint32_t>(tid >> 32);
-        uint32_t sum = 0;
+        uint16_t v0 = static_cast<uint16_t>(tid);
+        uint16_t v1 = static_cast<uint16_t>(tid >> 16);
+        uint16_t sum = 0;
 
         for (int i = 0; i < 16; i++) 
         {
-            v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + xtea_key[sum & 1]);
+            v0 += static_cast<uint16_t>((((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + xtea_key[sum & 1]));
             sum += xtea_delta;
-            v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + xtea_key[(sum >> 11) & 1]);
+            v1 += static_cast<uint16_t>((((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + xtea_key[(sum >> 11) & 1]));
         }
 
-        return (static_cast<uint64_t>(v1) << 32) | v0;
+        return (static_cast<uint32_t>(v1) << 16) | v0;
     }
 
     /** @brief Reverses the thread_id from the given secrete */
-    os::thread_id reverse_secret(uint64_t secret)
+    os::thread_id reverse_secret(uint32_t secret)
     {
-        uint32_t v0 = static_cast<uint32_t>(secret);
-        uint32_t v1 = static_cast<uint32_t>(secret >> 32);
-        uint32_t sum = xtea_delta * 16;
+        uint16_t v0 = static_cast<uint16_t>(secret);
+        uint16_t v1 = static_cast<uint16_t>(secret >> 16);
+        uint16_t sum = static_cast<uint16_t>(xtea_delta * 16);
 
         for (int i = 0; i < 16; i++) 
         {
-            v1 -= (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + xtea_key[(sum >> 11) & 1]);
+            v1 -= static_cast<uint16_t>((((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + xtea_key[(sum >> 11) & 1]));
             sum -= xtea_delta;
-            v0 -= (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + xtea_key[sum & 1]);
+            v0 -= static_cast<uint16_t>((((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + xtea_key[sum & 1]));
         }
 
-        return static_cast<os::thread_id>((static_cast<uint64_t>(v1) << 32) | v0);
+        return static_cast<os::thread_id>((static_cast<uint32_t>(v1) << 16) | v0);
     }
 
     controller& controller::get()

@@ -32,13 +32,15 @@ namespace adam
 
     /**
      * @class   buffer_manager
-     * @brief   A singleton class - 
+     * @brief   A singleton class for the ADAM controller
      *          Global IPC Memory Gateway - 
      *          responsible for managing buffers, allocating and freeing memory, and providing a safe interface for buffer sharing across processes.
      */
     class ADAM_SDK_API buffer_manager 
     {
     public:
+
+        friend struct buffer_thread_cache;
 
         static constexpr uint8_t num_capacity_classes   = 30;               /**< Covers up to 4GB buffers safely. */
         static constexpr uint64_t default_chunk_size    = 16 * 1024 * 1024; /**< 16 MB memory chunk allocations. */
@@ -48,14 +50,6 @@ namespace adam
 
         /** @brief Retrieves the singleton instance of the buffer_manager. */
         static buffer_manager& get();
-
-        /** @brief Defines the thread-local cache structure. */
-        struct buffer_thread_cache
-        {
-            std::vector<buffer*> free_lists[num_capacity_classes];
-            
-            ~buffer_thread_cache();
-        };
 
         // Delete copy constructor and assignment operator to prevent copying of the singleton instance
         buffer_manager(const buffer_manager&)               = delete;
@@ -112,14 +106,14 @@ namespace adam
             std::vector<buffer*> free_list;
         };
 
-        global_buffer_pool m_pools[num_capacity_classes];                       /**< Global pool indexed by power of 2 size classes. */
+        global_buffer_pool m_pools[num_capacity_classes];                           /**< Global pool indexed by power of 2 size classes. */
 
-        std::mutex m_memory_mutex;                                              /**< Protects the underlying memory and buffer vectors. */
-        std::unordered_map<uint64_t, std::unique_ptr<memory>> m_memory_blocks;  /**< Backing memory segments mapped by unique 64-bit index. */
-        std::vector<std::unique_ptr<buffer[]>> m_pool_blocks[num_capacity_classes]; /**< Contiguous blocks of buffers for the global pool. */
-        std::unordered_set<buffer*> m_resolved_buffers;                         /**< Individual buffer control blocks resolved via IPC. */
+        std::mutex m_memory_mutex;                                                  /**< Protects the underlying memory and buffer vectors. */
+        std::unordered_map<uint64_t, std::unique_ptr<memory>> m_memory_blocks;      /**< Backing memory segments mapped by unique 64-bit index. */
+        std::vector<std::unique_ptr<uint8_t[]>> m_pool_blocks[num_capacity_classes];/**< Contiguous blocks of raw memory for the global pool. */
+        std::vector<std::unique_ptr<uint8_t[]>> m_resolved_blocks;                  /**< Chunked allocations for resolved buffers. */
+        std::vector<buffer*> m_resolved_free_list;                                  /**< Free list for recycling resolved buffer objects. */
 
-        uint32_t m_pid;                                                         /**< The process ID, used to identify locally owned memory. */
-        uint32_t m_block_counter;                                               /**< Incrementing counter for generating unique shared memory names. */
+        uint32_t m_block_counter;                                                   /**< Incrementing counter for generating unique shared memory names. */
     };
 }

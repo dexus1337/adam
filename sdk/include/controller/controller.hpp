@@ -22,6 +22,7 @@
 #include "controller/response/response.hpp"
 #include "logger/log.hpp"
 #include "os/os.hpp"
+#include "memory/buffer/buffer-manager.hpp"
 
 
 namespace adam 
@@ -144,7 +145,7 @@ namespace adam
         {
             os::thread_id           tid;
             master_queue_request    queue;
-            uint64_t                code;
+            uint32_t                code;
         };
 
         using master_queue = queue_shared_duplex<queue_master_request_data, master_queue_response>; /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
@@ -234,7 +235,6 @@ namespace adam
         map_available_modules   m_available_modules;   /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
         map_unavailable_modules m_unavailable_modules; /**< A map of unavailable modules in the system, indexed by their hashed string names for efficient lookup. */
         map_loaded_modules      m_loaded_modules;      /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
-
         
     };
 }

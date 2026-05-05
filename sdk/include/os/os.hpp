@@ -23,8 +23,8 @@
 
 namespace adam::os
 {
-    using thread_id = uint64_t;
-    using process_id = uint64_t;
+    using thread_id     = uint32_t;
+    using process_id    = uint32_t;
 
     inline ADAM_SDK_API thread_id get_current_thread_id()
     {

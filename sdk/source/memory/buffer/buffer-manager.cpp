@@ -20,8 +20,16 @@
 
 namespace adam 
 {
+    /** @brief Defines the thread-local cache structure. */
+    struct buffer_thread_cache
+    {
+        std::vector<buffer*> free_lists[buffer_manager::num_capacity_classes];
+            
+        ~buffer_thread_cache();
+    };
+
     // Define the unique thread-local cache for every thread that enters the system
-    static thread_local buffer_manager::buffer_thread_cache t_cache;
+    static thread_local buffer_thread_cache t_cache;
 
     buffer_manager& buffer_manager::get()
     {
@@ -29,12 +37,12 @@ namespace adam
         return instance;
     }
 
-    buffer_manager::buffer_thread_cache::~buffer_thread_cache()
+    buffer_thread_cache::~buffer_thread_cache()
     {
         auto& manager = buffer_manager::get();
         
         // When a thread dies, dump all its hoarded buffers back into the global pool
-        for (uint8_t i = 0; i < num_capacity_classes; ++i)
+        for (uint8_t i = 0; i < buffer_manager::num_capacity_classes; ++i)
         {
             while (!free_lists[i].empty())
             {
@@ -70,12 +78,16 @@ namespace adam
         for (uint8_t i = 0; i < num_capacity_classes; ++i)
             m_pool_blocks[i].clear();
             
-        for (auto* buf : m_resolved_buffers)
-            delete buf;
-        m_resolved_buffers.clear();
+        m_resolved_blocks.clear();
+        m_resolved_free_list.clear();
         
         m_memory_blocks.clear();
         
+        // Clear the thread-local cache for the current thread to prevent returning 
+        // dangling pointers in sequentially executed tests or on thread exit.
+        for (uint8_t i = 0; i < num_capacity_classes; ++i)
+            t_cache.free_lists[i].clear();
+
         return true;
     }
 
@@ -100,12 +112,10 @@ namespace adam
 
     void buffer_manager::return_buffer(buffer* buffer)
     {
-        uint32_t owner_pid = static_cast<uint32_t>(buffer->m_memory_index >> 32);
-        
         // If this is a remote buffer, we don't try to reuse it locally.
         // We just delete our local surrogate object and leave the shared ref_count at 0.
         // The owner process will automatically scavenge it!
-        if (owner_pid != m_pid)
+        if (buffer->m_is_resolved)
         {
             destroy_resolved_buffer(buffer);
             return;
@@ -129,8 +139,10 @@ namespace adam
     {
         std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
         
+        uint64_t map_key = (static_cast<uint64_t>(handle.thread_id) << 32) | static_cast<uint32_t>(handle.memory_index);
+        
         memory* target_mem = nullptr;
-        auto it = m_memory_blocks.find(handle.memory_index);
+        auto it = m_memory_blocks.find(map_key);
         
         if (it != m_memory_blocks.end())
         {
@@ -138,24 +150,41 @@ namespace adam
         }
         else
         {
-            adam::string_hashed mem_name(memory_name_prefix + std::to_string(handle.memory_index));
+            adam::string_hashed mem_name(memory_name_prefix + std::to_string(handle.thread_id) + "_" + std::to_string(handle.memory_index));
             auto new_mem = std::make_unique<memory>(mem_name);
             
             if (!new_mem->open())
                 return nullptr;
                 
             target_mem = new_mem.get();
-            m_memory_blocks[handle.memory_index] = std::move(new_mem);
+            m_memory_blocks[map_key] = std::move(new_mem);
         }
         
-        buffer* raw_buf = new buffer();
+        if (m_resolved_free_list.empty())
+        {
+            constexpr size_t chunk_size = 1024;
+            
+            // Allocate raw memory to avoid the constructor call overhead
+            auto raw_block = std::unique_ptr<uint8_t[]>(new uint8_t[chunk_size * sizeof(buffer)]);
+            buffer* new_block = reinterpret_cast<buffer*>(raw_block.get());
+            
+            for (size_t i = 0; i < chunk_size; ++i)
+                m_resolved_free_list.push_back(&new_block[i]);
+                
+            m_resolved_blocks.push_back(std::move(raw_block));
+        }
+        
+        buffer* raw_buf = m_resolved_free_list.back();
+        m_resolved_free_list.pop_back();
+        
         raw_buf->m_memory_index = handle.memory_index;
+        raw_buf->m_thread_id = handle.thread_id;
         raw_buf->m_offset = handle.offset;
         raw_buf->m_capacity = handle.size;
         raw_buf->m_ref_count = reinterpret_cast<std::atomic<uint32_t>*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
         raw_buf->m_data = static_cast<uint8_t*>(target_mem->get()) + handle.offset + 8;
-        
-        m_resolved_buffers.insert(raw_buf);
+        raw_buf->m_is_resolved = true;
+        raw_buf->m_data_format = &data_format_transparent;
         
         return raw_buf;
     }
@@ -163,13 +192,11 @@ namespace adam
     void buffer_manager::destroy_resolved_buffer(buffer* buf)
     {
         std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
-        m_resolved_buffers.erase(buf);
-        delete buf;
+        m_resolved_free_list.push_back(buf);
     }
 
     buffer_manager::buffer_manager() : m_block_counter(0) 
     {
-        m_pid = static_cast<uint32_t>(os::get_current_process_id());
     }
 
     buffer_manager::~buffer_manager() 
@@ -179,11 +206,11 @@ namespace adam
 
     uint8_t buffer_manager::get_capacity_class(uint32_t size) const
     {
-        if (size <= 8) 
+        if (size <= 128) 
             return 0;
         
         uint8_t capacity_class = 0;
-        uint64_t current_size = 8; // 64-bit to prevent overflow when checking bounds near 4GB
+        uint64_t current_size = 128; // 64-bit to prevent overflow when checking bounds near 4GB
         
         // Find the lowest power of 2 that completely fits the requested size
         while (current_size < size && capacity_class < num_capacity_classes - 1)
@@ -196,26 +223,27 @@ namespace adam
 
     bool buffer_manager::allocate_pool_block(uint8_t capacity_class)
     {
-        // The actual size this class represents (8, 16, 32, 64...)
-        uint64_t buffer_size = 1ULL << (capacity_class + 3); 
+        // The actual size this class represents (128, 256, 512, 1024...)
+        uint64_t buffer_size = 1ULL << (capacity_class + 7); 
         
         // Heavy OS lock (mmap/CreateFileMapping are slow, don't use spinlocks here!)
         std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
         
-        m_block_counter++;
-        uint64_t mem_index = (static_cast<uint64_t>(m_pid) << 32) | m_block_counter;
-        adam::string_hashed mem_name(memory_name_prefix + std::to_string(mem_index));
+        os::thread_id tid = os::get_current_thread_id();
+        adam::string_hashed mem_name(memory_name_prefix + std::to_string(tid) + "_" + std::to_string(m_block_counter));
         
-        auto new_mem = std::make_unique<memory>(mem_name);
-        if (!new_mem->create(default_chunk_size))
-            return false;
-            
         // 8 bytes padding per buffer to store the shared reference count
         uint64_t actual_chunk_size = buffer_size + 8;
-        uint64_t chunks = default_chunk_size / actual_chunk_size;
+        uint64_t memory_size = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
+        uint64_t chunks = memory_size / actual_chunk_size;
         
-        // Allocate all buffer objects as a single perfectly contiguous memory block
-        auto block = std::unique_ptr<buffer[]>(new buffer[chunks]);
+        auto new_mem = std::make_unique<memory>(mem_name);
+        if (!new_mem->create(memory_size))
+            return false;
+        
+        // Allocate raw memory to avoid the 1-million-iteration constructor call overhead entirely
+        auto raw_block = std::unique_ptr<uint8_t[]>(new uint8_t[chunks * sizeof(buffer)]);
+        buffer* block = reinterpret_cast<buffer*>(raw_block.get());
 
         std::vector<buffer*> new_buffers;
         new_buffers.reserve(chunks);
@@ -225,7 +253,10 @@ namespace adam
             buffer* buf = &block[i];
             buf->m_capacity = static_cast<uint32_t>(buffer_size);
             buf->m_offset = static_cast<uint32_t>(i * actual_chunk_size);
-            buf->m_memory_index = mem_index;
+            buf->m_memory_index = m_block_counter;
+            buf->m_thread_id = tid;
+            buf->m_is_resolved = false;
+            buf->m_data_format = &data_format_transparent;
             
             buf->m_ref_count = reinterpret_cast<std::atomic<uint32_t>*>(static_cast<uint8_t*>(new_mem->get()) + buf->m_offset);
             new (buf->m_ref_count) std::atomic<uint32_t>(buffer_free_state); // Initialize cross-process atomic
@@ -235,8 +266,9 @@ namespace adam
             new_buffers.push_back(buf);
         }
         
-        m_memory_blocks[mem_index] = std::move(new_mem);
-        m_pool_blocks[capacity_class].push_back(std::move(block));
+        uint64_t map_key = (static_cast<uint64_t>(tid) << 32) | m_block_counter;
+        m_memory_blocks[map_key] = std::move(new_mem);
+        m_pool_blocks[capacity_class].push_back(std::move(raw_block));
         
         // Quickly acquire spinlock, push the thousands of buffers, and release
         auto& pool = m_pools[capacity_class];
@@ -251,21 +283,25 @@ namespace adam
         pool.free_list.insert(pool.free_list.end(), new_buffers.begin(), new_buffers.end());
         pool.lock.clear(std::memory_order_release);
         
+        m_block_counter++;
+
         return true;
     }
 
     bool buffer_manager::scavenge_pool_blocks(uint8_t capacity_class)
     {
-        uint64_t buffer_size = 1ULL << (capacity_class + 3); 
+        uint64_t buffer_size = 1ULL << (capacity_class + 7); 
         uint64_t actual_chunk_size = buffer_size + 8;
-        uint64_t chunks = default_chunk_size / actual_chunk_size;
+        uint64_t memory_size = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
+        uint64_t chunks = memory_size / actual_chunk_size;
         
         std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
         
         std::vector<buffer*> recovered;
         
-        for (const auto& block : m_pool_blocks[capacity_class])
+        for (const auto& raw_block : m_pool_blocks[capacity_class])
         {
+            buffer* block = reinterpret_cast<buffer*>(raw_block.get());
             for (uint64_t i = 0; i < chunks; ++i)
             {
                 buffer* buf = &block[i];
