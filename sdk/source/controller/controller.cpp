@@ -65,7 +65,8 @@ namespace adam
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
         m_available_modules(),
-        m_loaded_modules()
+        m_loaded_modules(),
+        m_registry()
     {
 
     }

@@ -25,12 +25,12 @@ namespace adam
         /**
          * @brief Constructs a new data processor object.
          */
-        data_processor();
+        data_processor() = default;
 
         /**
          * @brief Destroys the data processor object and cleans up resources.
          */
-        ~data_processor();
+        ~data_processor() = default;
 
     };
 }

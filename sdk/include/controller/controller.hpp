@@ -22,7 +22,7 @@
 #include "controller/response.hpp"
 #include "logger/log.hpp"
 #include "os/os.hpp"
-#include "memory/buffer/buffer-manager.hpp"
+#include "registry.hpp"
 
 
 namespace adam 
@@ -232,9 +232,12 @@ namespace adam
 
         // MODULE MANAGEMENT
 
-        map_available_modules   m_available_modules;   /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
-        map_unavailable_modules m_unavailable_modules; /**< A map of unavailable modules in the system, indexed by their hashed string names for efficient lookup. */
-        map_loaded_modules      m_loaded_modules;      /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
+        map_available_modules   m_available_modules;    /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
+        map_unavailable_modules m_unavailable_modules;  /**< A map of unavailable modules in the system, indexed by their hashed string names for efficient lookup. */
+        map_loaded_modules      m_loaded_modules;       /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
         
+        // REGISTRY
+
+        registry m_registry;                            /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
     };
 }

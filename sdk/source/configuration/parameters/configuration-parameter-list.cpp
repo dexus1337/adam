@@ -4,6 +4,9 @@ namespace adam
 {
     configuration_parameter_list::configuration_parameter_list(const string_hashed& name)
         : configuration_parameter(name) {}
+        
+    configuration_parameter_list::configuration_parameter_list(std::string_view name)
+        : configuration_parameter(string_hashed(name)) {}
 
     configuration_parameter_list::~configuration_parameter_list() {}
 

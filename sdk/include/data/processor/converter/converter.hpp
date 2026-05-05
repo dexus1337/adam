@@ -11,6 +11,7 @@
  
 #include "api/api.hpp"
 
+#include "data/processor/data-processor.hpp"
 
 namespace adam 
 {
@@ -25,12 +26,12 @@ namespace adam
         /**
          * @brief Constructs a new data processor object.
          */
-        converter();
+        converter() = default;
 
         /**
          * @brief Destroys the data processor object and cleans up resources.
          */
-        ~converter();
+        ~converter() = default;
 
     };
 }

@@ -24,10 +24,10 @@ namespace adam
     public:
 
         /** @brief Constructs a new input port object. */
-        port_input();
+        port_input() = default;
 
         /** @brief Destroys the input port object and cleans up resources. */
-        ~port_input();
+        ~port_input() = default;
 
     };
 }

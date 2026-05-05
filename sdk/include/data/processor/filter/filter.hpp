@@ -10,6 +10,7 @@
 
  
 #include "api/api.hpp"
+
 #include "data/processor/data-processor.hpp"
 
 
@@ -26,12 +27,12 @@ namespace adam
         /**
          * @brief Constructs a new filter object.
          */
-        filter();
+        filter() = default;
 
         /**
          * @brief Destroys the filter object and cleans up resources.
          */
-        ~filter();
+        ~filter() = default;
 
     };
 }

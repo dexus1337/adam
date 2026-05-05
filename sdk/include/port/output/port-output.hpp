@@ -26,12 +26,12 @@ namespace adam
         /**
          * @brief Constructs a new output port object.
          */
-        port_output();
+        port_output() = default;
 
         /**
          * @brief Destroys the output port object and cleans up resources.
          */
-        ~port_output();
+        ~port_output() = default;
 
     };
 }
