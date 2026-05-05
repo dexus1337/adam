@@ -66,7 +66,7 @@ namespace adam
         m_log_outstream(std::cout.rdbuf()),
         m_available_modules(),
         m_loaded_modules(),
-        m_registry()
+        m_registry(this)
     {
 
     }

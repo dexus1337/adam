@@ -19,6 +19,7 @@
 
 namespace adam
 {
+    class controller;
     class port_input;
     class port_output;
     class converter;
@@ -48,7 +49,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new registry object. */
-        registry();
+        registry(const controller* ctrl);
 
         /** @brief Destroys the registry object. */
         ~registry();
@@ -59,5 +60,7 @@ namespace adam
         std::unordered_map<string_hashed, std::unique_ptr<port_output>> m_output_ports; /**< The list of configuration parameters for output ports. */
         std::unordered_map<string_hashed, std::unique_ptr<filter>> m_filters;           /**< The list of configuration parameters for filters. */
         std::unordered_map<string_hashed, std::unique_ptr<converter>> m_converters;     /**< The list of configuration parameters for converters. */
+
+        const controller* m_controller;                                                 /**< A pointer to the controller, used for accessing shared resources and orchestrating interactions between components. */
     };
 }

@@ -9,12 +9,21 @@
 #include "port/output/port-output.hpp"
 #include "data/processor/filter/filter.hpp"
 #include "data/processor/converter/converter.hpp"
+#include "version/version.hpp"
 
 #include <fstream>
 #include <stdexcept>
 
 namespace adam
 {
+    struct registry_file_header
+    {
+        static constexpr uint32_t expected_magic = 0xadacf116; // adam ConFig
+
+        uint32_t        magic;
+        version_info    version;
+    };
+
     // Helper functions for binary I/O
     template<typename T>
     void write_binary(std::ostream& os, const T& value) 
@@ -141,12 +150,13 @@ namespace adam
         }
     }
 
-    registry::registry() 
+    registry::registry(const controller* ctrl) 
      :  m_general(string_hashed("general")),
         m_input_ports(),
         m_output_ports(),
         m_filters(),
-        m_converters()
+        m_converters(),
+        m_controller(ctrl)
     {
         
     }
@@ -161,10 +171,10 @@ namespace adam
         std::ofstream ofs(filepath.data(), std::ios::binary);
         if (!ofs) return false;
 
-        const uint32_t magic = 0xADACF116; // ADAM ConFig
-        const uint32_t version = 1;
-        write_binary(ofs, magic);
-        write_binary(ofs, version);
+        registry_file_header header{};
+        header.magic = registry_file_header::expected_magic;
+        header.version = decode_version(sdk_version);
+        write_binary(ofs, header);
 
         // Mock a root configuration_parameter_list to maintain the file format structure
         write_binary(ofs, configuration_parameter::list);
@@ -201,14 +211,19 @@ namespace adam
     bool registry::load(std::string_view filepath) 
     {
         std::ifstream ifs(filepath.data(), std::ios::binary);
+
         if (!ifs) 
             return false;
 
-        uint32_t magic, version;
-        read_binary(ifs, magic);
-        read_binary(ifs, version);
+        registry_file_header header{};
+        read_binary(ifs, header);
 
-        if (magic != 0xADACF116 || version != 1) 
+        if (header.magic != registry_file_header::expected_magic) 
+            return false;
+
+        uint32_t loaded_version = make_version(header.version.major, header.version.minor, header.version.patch);
+
+        if (get_major(loaded_version) > get_major(sdk_version))
             return false;
 
         auto loaded_root = deserialize_parameter(ifs);

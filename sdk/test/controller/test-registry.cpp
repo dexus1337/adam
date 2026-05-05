@@ -16,7 +16,7 @@ namespace adam::test
     class testable_registry : public adam::registry
     {
     public:
-        testable_registry() : adam::registry() {}
+        testable_registry() : adam::registry(nullptr) {}
         
         adam::configuration_parameter_list& get_general() { return m_general; }
     };
