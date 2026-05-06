@@ -34,8 +34,6 @@
  */
  #include <stdint.h>
  #include <string.h>
- #include <cstring>
- #include <array>
  #if defined(_MSC_VER)
  # include <intrin.h>
  # if defined(_M_X64) && !defined(_M_ARM64EC)
@@ -212,12 +210,6 @@
  /*
   *  Read functions.
   */
- template<typename T, size_t N>
- constexpr void constexpr_memcpy(T* dst, const T* src, size_t n) {
-   for (size_t i = 0; i < n; ++i) {
-     dst[i] = src[i];
-   }
- }
  #ifdef RAPIDHASH_CT_LITTLE_ENDIAN
  template<typename type>
  RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT  {
@@ -230,32 +222,68 @@
 }
  template<typename type>
  RAPIDHASH_CT_INLINE_CONSTEXPR uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
-    static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
+    static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
     uint32_t v = 0;
     for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
-        v |= static_cast<uint64_t>(p[i]) << (i * sizeof(type) * 8);
+        v |= static_cast<uint32_t>(p[i]) << (i * sizeof(type) * 8);
     }
     return v;
 }
  #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__clang__)
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT { uint64_t v; std::memcpy(&v, p, sizeof(uint64_t)); return __builtin_bswap64(v);}
+ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
+    static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
+    uint64_t v = 0;
+    for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
+        v |= static_cast<uint64_t>(p[i]) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+    }
+    return __builtin_bswap64(v);
+}
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT { uint32_t v; std::memcpy(&v, p, sizeof(uint32_t)); return __builtin_bswap32(v);}
+ RAPIDHASH_CT_INLINE_CONSTEXPR uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
+    static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
+    uint32_t v = 0;
+    for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
+        v |= static_cast<uint32_t>(p[i]) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+    }
+    return __builtin_bswap32(v);
+}
  #elif defined(_MSC_VER)
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT { uint64_t v; std::memcpy(&v, p, sizeof(uint64_t)); return _byteswap_uint64(v);}
+ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
+    static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
+    uint64_t v = 0;
+    for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
+        v |= static_cast<uint64_t>(p[i]) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+    }
+    return _byteswap_uint64(v);
+}
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT { uint32_t v; std::memcpy(&v, p, sizeof(uint32_t)); return _byteswap_ulong(v);}
+ RAPIDHASH_CT_INLINE_CONSTEXPR uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
+    static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
+    uint32_t v = 0;
+    for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
+        v |= static_cast<uint32_t>(p[i]) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+    }
+    return _byteswap_ulong(v);
+}
  #else
  template<typename type>
  RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
-   uint64_t v; std::memcpy(&v, p, 8);
+    static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
+    uint64_t v = 0;
+    for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
+        v |= static_cast<uint64_t>(p[i]) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+    }
    return (((v >> 56) & 0xff)| ((v >> 40) & 0xff00)| ((v >> 24) & 0xff0000)| ((v >>  8) & 0xff000000)| ((v <<  8) & 0xff00000000)| ((v << 24) & 0xff0000000000)| ((v << 40) & 0xff000000000000)| ((v << 56) & 0xff00000000000000));
  }
  template<typename type>
  RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
-   uint32_t v; std::memcpy(&v, p, 4);
+    static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
+    uint32_t v = 0;
+    for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
+        v |= static_cast<uint32_t>(p[i]) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+    }
    return (((v >> 24) & 0xff)| ((v >>  8) & 0xff00)| ((v <<  8) & 0xff0000)| ((v << 24) & 0xff000000));
  }
  #endif
@@ -280,17 +308,26 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
     if (len >= 4) {
       seed ^= len;
       if (len >= 8) {
-        const type* plast = p + len - 8;
+        const type* plast = p + (len - 8) / sizeof(type);
         a = rapid_ct_read64(p);
         b = rapid_ct_read64(plast);
       } else {
-        const type* plast = p + len - 4;
+        const type* plast = p + (len - 4) / sizeof(type);
         a = rapid_ct_read32(p);
         b = rapid_ct_read32(plast);
       }
     } else if (len > 0) {
-      a = (((uint64_t)p[0])<<45)|p[len-1];
-      b = p[len>>1];
+        auto get_byte = [&](size_t byte_idx) -> uint64_t {
+            size_t elem_idx = byte_idx / sizeof(type);
+#ifdef RAPIDHASH_CT_LITTLE_ENDIAN
+            size_t shift = (byte_idx % sizeof(type)) * 8;
+#else
+            size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
+#endif
+            return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
+        };
+        a = (get_byte(0) << 45) | get_byte(len - 1);
+        b = get_byte(len >> 1);
     } else
       a = b = 0;
   } else {
@@ -300,44 +337,44 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
       uint64_t see5 = seed, see6 = seed;
 #ifdef RAPIDHASH_CT_COMPACT
       do {
-        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8) ^ seed);
-        see1 = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[1], rapid_ct_read64(p + 24) ^ see1);
-        see2 = rapid_ct_mix(rapid_ct_read64(p + 32) ^ secret[2], rapid_ct_read64(p + 40) ^ see2);
-        see3 = rapid_ct_mix(rapid_ct_read64(p + 48) ^ secret[3], rapid_ct_read64(p + 56) ^ see3);
-        see4 = rapid_ct_mix(rapid_ct_read64(p + 64) ^ secret[4], rapid_ct_read64(p + 72) ^ see4);
-        see5 = rapid_ct_mix(rapid_ct_read64(p + 80) ^ secret[5], rapid_ct_read64(p + 88) ^ see5);
-        see6 = rapid_ct_mix(rapid_ct_read64(p + 96) ^ secret[6], rapid_ct_read64(p + 104) ^ see6);
-        p += 112;
+        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
+        see1 = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 24 / sizeof(type)) ^ see1);
+        see2 = rapid_ct_mix(rapid_ct_read64(p + 32 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 40 / sizeof(type)) ^ see2);
+        see3 = rapid_ct_mix(rapid_ct_read64(p + 48 / sizeof(type)) ^ secret[3], rapid_ct_read64(p + 56 / sizeof(type)) ^ see3);
+        see4 = rapid_ct_mix(rapid_ct_read64(p + 64 / sizeof(type)) ^ secret[4], rapid_ct_read64(p + 72 / sizeof(type)) ^ see4);
+        see5 = rapid_ct_mix(rapid_ct_read64(p + 80 / sizeof(type)) ^ secret[5], rapid_ct_read64(p + 88 / sizeof(type)) ^ see5);
+        see6 = rapid_ct_mix(rapid_ct_read64(p + 96 / sizeof(type)) ^ secret[6], rapid_ct_read64(p + 104 / sizeof(type)) ^ see6);
+        p += 112 / sizeof(type);
         i -= 112;
       } while(i > 112);
 #else
       while (i > 224) {
-        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8) ^ seed);
-        see1 = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[1], rapid_ct_read64(p + 24) ^ see1);
-        see2 = rapid_ct_mix(rapid_ct_read64(p + 32) ^ secret[2], rapid_ct_read64(p + 40) ^ see2);
-        see3 = rapid_ct_mix(rapid_ct_read64(p + 48) ^ secret[3], rapid_ct_read64(p + 56) ^ see3);
-        see4 = rapid_ct_mix(rapid_ct_read64(p + 64) ^ secret[4], rapid_ct_read64(p + 72) ^ see4);
-        see5 = rapid_ct_mix(rapid_ct_read64(p + 80) ^ secret[5], rapid_ct_read64(p + 88) ^ see5);
-        see6 = rapid_ct_mix(rapid_ct_read64(p + 96) ^ secret[6], rapid_ct_read64(p + 104) ^ see6);
-        seed = rapid_ct_mix(rapid_ct_read64(p + 112) ^ secret[0], rapid_ct_read64(p + 120) ^ seed);
-        see1 = rapid_ct_mix(rapid_ct_read64(p + 128) ^ secret[1], rapid_ct_read64(p + 136) ^ see1);
-        see2 = rapid_ct_mix(rapid_ct_read64(p + 144) ^ secret[2], rapid_ct_read64(p + 152) ^ see2);
-        see3 = rapid_ct_mix(rapid_ct_read64(p + 160) ^ secret[3], rapid_ct_read64(p + 168) ^ see3);
-        see4 = rapid_ct_mix(rapid_ct_read64(p + 176) ^ secret[4], rapid_ct_read64(p + 184) ^ see4);
-        see5 = rapid_ct_mix(rapid_ct_read64(p + 192) ^ secret[5], rapid_ct_read64(p + 200) ^ see5);
-        see6 = rapid_ct_mix(rapid_ct_read64(p + 208) ^ secret[6], rapid_ct_read64(p + 216) ^ see6);
-        p += 224;
+        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
+        see1 = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 24 / sizeof(type)) ^ see1);
+        see2 = rapid_ct_mix(rapid_ct_read64(p + 32 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 40 / sizeof(type)) ^ see2);
+        see3 = rapid_ct_mix(rapid_ct_read64(p + 48 / sizeof(type)) ^ secret[3], rapid_ct_read64(p + 56 / sizeof(type)) ^ see3);
+        see4 = rapid_ct_mix(rapid_ct_read64(p + 64 / sizeof(type)) ^ secret[4], rapid_ct_read64(p + 72 / sizeof(type)) ^ see4);
+        see5 = rapid_ct_mix(rapid_ct_read64(p + 80 / sizeof(type)) ^ secret[5], rapid_ct_read64(p + 88 / sizeof(type)) ^ see5);
+        see6 = rapid_ct_mix(rapid_ct_read64(p + 96 / sizeof(type)) ^ secret[6], rapid_ct_read64(p + 104 / sizeof(type)) ^ see6);
+        seed = rapid_ct_mix(rapid_ct_read64(p + 112 / sizeof(type)) ^ secret[0], rapid_ct_read64(p + 120 / sizeof(type)) ^ seed);
+        see1 = rapid_ct_mix(rapid_ct_read64(p + 128 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 136 / sizeof(type)) ^ see1);
+        see2 = rapid_ct_mix(rapid_ct_read64(p + 144 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 152 / sizeof(type)) ^ see2);
+        see3 = rapid_ct_mix(rapid_ct_read64(p + 160 / sizeof(type)) ^ secret[3], rapid_ct_read64(p + 168 / sizeof(type)) ^ see3);
+        see4 = rapid_ct_mix(rapid_ct_read64(p + 176 / sizeof(type)) ^ secret[4], rapid_ct_read64(p + 184 / sizeof(type)) ^ see4);
+        see5 = rapid_ct_mix(rapid_ct_read64(p + 192 / sizeof(type)) ^ secret[5], rapid_ct_read64(p + 200 / sizeof(type)) ^ see5);
+        see6 = rapid_ct_mix(rapid_ct_read64(p + 208 / sizeof(type)) ^ secret[6], rapid_ct_read64(p + 216 / sizeof(type)) ^ see6);
+        p += 224 / sizeof(type);
         i -= 224;
       }
       if (i > 112) {
-        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8) ^ seed);
-        see1 = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[1], rapid_ct_read64(p + 24) ^ see1);
-        see2 = rapid_ct_mix(rapid_ct_read64(p + 32) ^ secret[2], rapid_ct_read64(p + 40) ^ see2);
-        see3 = rapid_ct_mix(rapid_ct_read64(p + 48) ^ secret[3], rapid_ct_read64(p + 56) ^ see3);
-        see4 = rapid_ct_mix(rapid_ct_read64(p + 64) ^ secret[4], rapid_ct_read64(p + 72) ^ see4);
-        see5 = rapid_ct_mix(rapid_ct_read64(p + 80) ^ secret[5], rapid_ct_read64(p + 88) ^ see5);
-        see6 = rapid_ct_mix(rapid_ct_read64(p + 96) ^ secret[6], rapid_ct_read64(p + 104) ^ see6);
-        p += 112;
+        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
+        see1 = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 24 / sizeof(type)) ^ see1);
+        see2 = rapid_ct_mix(rapid_ct_read64(p + 32 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 40 / sizeof(type)) ^ see2);
+        see3 = rapid_ct_mix(rapid_ct_read64(p + 48 / sizeof(type)) ^ secret[3], rapid_ct_read64(p + 56 / sizeof(type)) ^ see3);
+        see4 = rapid_ct_mix(rapid_ct_read64(p + 64 / sizeof(type)) ^ secret[4], rapid_ct_read64(p + 72 / sizeof(type)) ^ see4);
+        see5 = rapid_ct_mix(rapid_ct_read64(p + 80 / sizeof(type)) ^ secret[5], rapid_ct_read64(p + 88 / sizeof(type)) ^ see5);
+        see6 = rapid_ct_mix(rapid_ct_read64(p + 96 / sizeof(type)) ^ secret[6], rapid_ct_read64(p + 104 / sizeof(type)) ^ see6);
+        p += 112 / sizeof(type);
         i -= 112;
       }
 #endif
@@ -349,24 +386,24 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
       seed ^= see2;
     }
     if (i > 16) {
-      seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[2], rapid_ct_read64(p + 8) ^ seed);
+      seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[2], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
       if (i > 32) {
-          seed = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[2], rapid_ct_read64(p + 24) ^ seed);
+          seed = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 24 / sizeof(type)) ^ seed);
           if (i > 48) {
-              seed = rapid_ct_mix(rapid_ct_read64(p + 32) ^ secret[1], rapid_ct_read64(p + 40) ^ seed);
+              seed = rapid_ct_mix(rapid_ct_read64(p + 32 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 40 / sizeof(type)) ^ seed);
               if (i > 64) {
-                  seed = rapid_ct_mix(rapid_ct_read64(p + 48) ^ secret[1], rapid_ct_read64(p + 56) ^ seed);
+                  seed = rapid_ct_mix(rapid_ct_read64(p + 48 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 56 / sizeof(type)) ^ seed);
                   if (i > 80) {
-                      seed = rapid_ct_mix(rapid_ct_read64(p + 64) ^ secret[2], rapid_ct_read64(p + 72) ^ seed);
+                      seed = rapid_ct_mix(rapid_ct_read64(p + 64 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 72 / sizeof(type)) ^ seed);
                       if (i > 96) {
-                          seed = rapid_ct_mix(rapid_ct_read64(p + 80) ^ secret[1], rapid_ct_read64(p + 88) ^ seed);
+                          seed = rapid_ct_mix(rapid_ct_read64(p + 80 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 88 / sizeof(type)) ^ seed);
                       }
                   }
               }
           }
       }
     }
-    a=rapid_ct_read64(p+i-16) ^ i;  b=rapid_ct_read64(p+i-8);
+    a=rapid_ct_read64(p+(i-16)/sizeof(type)) ^ i;  b=rapid_ct_read64(p+(i-8)/sizeof(type));
   }
   a ^= secret[1];
   b ^= seed;
@@ -394,17 +431,26 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
       if (len >= 4) {
         seed ^= len;
         if (len >= 8) {
-          const type* plast = p + len - 8;
+          const type* plast = p + (len - 8) / sizeof(type);
           a = rapid_ct_read64(p);
           b = rapid_ct_read64(plast);
         } else {
-          const type* plast = p + len - 4;
+          const type* plast = p + (len - 4) / sizeof(type);
           a = rapid_ct_read32(p);
           b = rapid_ct_read32(plast);
         }
       } else if (len > 0) {
-        a = (((uint64_t)p[0])<<45)|p[len-1];
-        b = p[len>>1];
+        auto get_byte = [&](size_t byte_idx) -> uint64_t {
+            size_t elem_idx = byte_idx / sizeof(type);
+#ifdef RAPIDHASH_CT_LITTLE_ENDIAN
+            size_t shift = (byte_idx % sizeof(type)) * 8;
+#else
+            size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
+#endif
+            return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
+        };
+        a = (get_byte(0) << 45) | get_byte(len - 1);
+        b = get_byte(len >> 1);
       } else
         a = b = 0;
     } else {
@@ -412,12 +458,12 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
         uint64_t see1 = seed, see2 = seed;
         uint64_t see3 = seed, see4 = seed;
         do {
-          seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8) ^ seed);
-          see1 = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[1], rapid_ct_read64(p + 24) ^ see1);
-          see2 = rapid_ct_mix(rapid_ct_read64(p + 32) ^ secret[2], rapid_ct_read64(p + 40) ^ see2);
-          see3 = rapid_ct_mix(rapid_ct_read64(p + 48) ^ secret[3], rapid_ct_read64(p + 56) ^ see3);
-          see4 = rapid_ct_mix(rapid_ct_read64(p + 64) ^ secret[4], rapid_ct_read64(p + 72) ^ see4);
-          p += 80;
+          seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
+          see1 = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 24 / sizeof(type)) ^ see1);
+          see2 = rapid_ct_mix(rapid_ct_read64(p + 32 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 40 / sizeof(type)) ^ see2);
+          see3 = rapid_ct_mix(rapid_ct_read64(p + 48 / sizeof(type)) ^ secret[3], rapid_ct_read64(p + 56 / sizeof(type)) ^ see3);
+          see4 = rapid_ct_mix(rapid_ct_read64(p + 64 / sizeof(type)) ^ secret[4], rapid_ct_read64(p + 72 / sizeof(type)) ^ see4);
+          p += 80 / sizeof(type);
           i -= 80;
         } while(i > 80);
         seed ^= see1;
@@ -426,18 +472,18 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
         seed ^= see2;
       }
       if (i > 16) {
-        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[2], rapid_ct_read64(p + 8) ^ seed);
+        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[2], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
         if (i > 32) {
-            seed = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[2], rapid_ct_read64(p + 24) ^ seed);
+            seed = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 24 / sizeof(type)) ^ seed);
             if (i > 48) {
-                seed = rapid_ct_mix(rapid_ct_read64(p + 32) ^ secret[1], rapid_ct_read64(p + 40) ^ seed);
+                seed = rapid_ct_mix(rapid_ct_read64(p + 32 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 40 / sizeof(type)) ^ seed);
                 if (i > 64) {
-                    seed = rapid_ct_mix(rapid_ct_read64(p + 48) ^ secret[1], rapid_ct_read64(p + 56) ^ seed);
+                    seed = rapid_ct_mix(rapid_ct_read64(p + 48 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 56 / sizeof(type)) ^ seed);
                 }
             }
         }
       }
-      a=rapid_ct_read64(p+i-16) ^ i;  b=rapid_ct_read64(p+i-8);
+      a=rapid_ct_read64(p+(i-16)/sizeof(type)) ^ i;  b=rapid_ct_read64(p+(i-8)/sizeof(type));
     }
     a ^= secret[1];
     b ^= seed;
@@ -465,39 +511,48 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
       if (len >= 4) {
         seed ^= len;
         if (len >= 8) {
-          const type* plast = p + len - 8;
+          const type* plast = p + (len - 8) / sizeof(type);
           a = rapid_ct_read64(p);
           b = rapid_ct_read64(plast);
         } else {
-          const type* plast = p + len - 4;
+          const type* plast = p + (len - 4) / sizeof(type);
           a = rapid_ct_read32(p);
           b = rapid_ct_read32(plast);
         }
       } else if (len > 0) {
-        a = (((uint64_t)p[0])<<45)|p[len-1];
-        b = p[len>>1];
+        auto get_byte = [&](size_t byte_idx) -> uint64_t {
+            size_t elem_idx = byte_idx / sizeof(type);
+#ifdef RAPIDHASH_CT_LITTLE_ENDIAN
+            size_t shift = (byte_idx % sizeof(type)) * 8;
+#else
+            size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
+#endif
+            return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
+        };
+        a = (get_byte(0) << 45) | get_byte(len - 1);
+        b = get_byte(len >> 1);
       } else
         a = b = 0;
     } else {
       if (i > 48) {
         uint64_t see1 = seed, see2 = seed;
         do {
-          seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8) ^ seed);
-          see1 = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[1], rapid_ct_read64(p + 24) ^ see1);
-          see2 = rapid_ct_mix(rapid_ct_read64(p + 32) ^ secret[2], rapid_ct_read64(p + 40) ^ see2);
-          p += 48;
+          seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[0], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
+          see1 = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[1], rapid_ct_read64(p + 24 / sizeof(type)) ^ see1);
+          see2 = rapid_ct_mix(rapid_ct_read64(p + 32 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 40 / sizeof(type)) ^ see2);
+          p += 48 / sizeof(type);
           i -= 48;
         } while(i > 48);
         seed ^= see1;
         seed ^= see2;
       }
       if (i > 16) {
-        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[2], rapid_ct_read64(p + 8) ^ seed);
+        seed = rapid_ct_mix(rapid_ct_read64(p) ^ secret[2], rapid_ct_read64(p + 8 / sizeof(type)) ^ seed);
         if (i > 32) {
-            seed = rapid_ct_mix(rapid_ct_read64(p + 16) ^ secret[2], rapid_ct_read64(p + 24) ^ seed);
+            seed = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 24 / sizeof(type)) ^ seed);
         }
       }
-      a=rapid_ct_read64(p+i-16) ^ i;  b=rapid_ct_read64(p+i-8);
+      a=rapid_ct_read64(p+(i-16)/sizeof(type)) ^ i;  b=rapid_ct_read64(p+(i-8)/sizeof(type));
     }
     a ^= secret[1];
     b ^= seed;

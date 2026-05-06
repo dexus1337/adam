@@ -80,7 +80,7 @@ namespace adam
 
     using string_hashed          = string_hashed_template<char>;
     using wstring_hashed         = string_hashed_template<wchar_t>;
-    #if defined (ADAM_PLATFORM_LINUX) && (_GLIBCXX_USE_CHAR8_T) || (ADAM_PLATFORM_WINDOWS)
+    #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
     using string_hashed_utf8     = string_hashed_template<char8_t>;
     #endif
     using string_hashed_utf16    = string_hashed_template<char16_t>;
@@ -117,7 +117,7 @@ namespace std
         }
     };
 
-    #if defined (ADAM_PLATFORM_LINUX) && (_GLIBCXX_USE_CHAR8_T) || (ADAM_PLATFORM_WINDOWS)
+    #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
     template<>
     struct hash<adam::string_hashed_utf8> 
     {

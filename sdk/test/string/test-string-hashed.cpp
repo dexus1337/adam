@@ -2,91 +2,76 @@
 #include <string/string-hashed.hpp>
 
 #include <unordered_map>
+#include <string_view>
 
-/** @brief Tests the initialization of string_hashed objects. */
-TEST(string_hashed, set)
-{
-    adam::string_hashed str1("Hello");
-    adam::string_hashed str2("Hello");
-    adam::string_hashed str3("World");
+#define GENERATE_STRING_HASHED_TESTS(CHAR_TYPE, PREFIX, TYPE_NAME, RT_ALIAS) \
+    /** @brief Tests the initialization of string_hashed objects. */ \
+    TEST(string_hashed, set_##TYPE_NAME) \
+    { \
+        adam::RT_ALIAS str1(PREFIX##"Hello"); \
+        adam::RT_ALIAS str2(PREFIX##"Hello"); \
+        adam::RT_ALIAS str3(PREFIX##"World"); \
+        EXPECT_TRUE(std::basic_string_view<CHAR_TYPE>(str1.c_str()) == std::basic_string_view<CHAR_TYPE>(str2.c_str())); \
+        EXPECT_TRUE(std::basic_string_view<CHAR_TYPE>(str1.c_str()) != std::basic_string_view<CHAR_TYPE>(str3.c_str())); \
+    } \
+    /** @brief Tests the comparison of string_hashed objects. */ \
+    TEST(string_hashed, comparison_##TYPE_NAME) \
+    { \
+        adam::RT_ALIAS str1(PREFIX##"Hello"); \
+        adam::RT_ALIAS str2(PREFIX##"Hello"); \
+        adam::RT_ALIAS str3(PREFIX##"World"); \
+        EXPECT_EQ(str1.get_hash(), str2.get_hash()); \
+        EXPECT_NE(str1.get_hash(), str3.get_hash()); \
+        EXPECT_TRUE(str1 == str2); \
+        EXPECT_TRUE(str1 != str3); \
+    } \
+    /** @brief Tests the recalculation of hash values after modification. */ \
+    TEST(string_hashed, hash_recalculation_##TYPE_NAME) \
+    { \
+        adam::RT_ALIAS str1(PREFIX##"Hello"); \
+        adam::RT_ALIAS str2(PREFIX##"Hello"); \
+        adam::RT_ALIAS str3(PREFIX##"Hello!"); \
+        str2.append(PREFIX##"!"); \
+        EXPECT_TRUE(str2 != str3); \
+        str2.calculate_hash(); \
+        EXPECT_TRUE(str2 == str3); \
+    } \
+    /** @brief Tests the copy constructor and string conversion. */ \
+    TEST(string_hashed, copy_##TYPE_NAME) \
+    { \
+        adam::RT_ALIAS sh(PREFIX##"test_string"); \
+        adam::RT_ALIAS sh_copy(PREFIX##"different_string"); \
+        EXPECT_TRUE(sh_copy != sh); \
+        sh_copy = sh; \
+        EXPECT_TRUE(sh_copy == sh); \
+        std::basic_string<CHAR_TYPE> std_str_copy = sh_copy; \
+        EXPECT_TRUE(std_str_copy == sh.c_str()); \
+    } \
+    /** @brief Tests the insertion and retrieval of string_hashed objects in a std::map. */ \
+    TEST(string_hashed, map_insertion_and_retrieval_##TYPE_NAME) \
+    { \
+        std::unordered_map<adam::RT_ALIAS, int> test_map; \
+        adam::RT_ALIAS key_1(PREFIX##"param1"); \
+        test_map[key_1] = 5000; \
+        EXPECT_EQ(test_map.count(key_1), 1u); \
+        EXPECT_EQ(test_map[key_1], 5000); \
+        adam::RT_ALIAS key_2(PREFIX##"param1"); \
+        EXPECT_EQ(test_map.count(key_2), 1u); \
+        EXPECT_EQ(test_map[key_2], 5000); \
+    } \
+    /** @brief Tests the consistency of the standard library hash function with the custom hash function. */ \
+    TEST(string_hashed, std_hash_consistency_##TYPE_NAME) \
+    { \
+        adam::RT_ALIAS sh(PREFIX##"test_string"); \
+        std::hash<adam::RT_ALIAS> hasher; \
+        size_t system_hash = hasher(sh); \
+        EXPECT_EQ(system_hash, static_cast<size_t>(sh.get_hash())); \
+    }
 
-    EXPECT_STREQ(str1.c_str(), str2.c_str());
-    EXPECT_STRNE(str1.c_str(), str3.c_str());
-}
-
-/** @brief Tests the comparison of string_hashed objects. */
-TEST(string_hashed, comparison)
-{
-    adam::string_hashed str1("Hello");
-    adam::string_hashed str2("Hello");
-    adam::string_hashed str3("World");
-
-    EXPECT_EQ(str1.get_hash(), str2.get_hash());
-    EXPECT_NE(str1.get_hash(), str3.get_hash());
-
-    EXPECT_EQ(str1, str2);
-    EXPECT_NE(str1, str3);
-}
-
-/** @brief Tests the recalculation of hash values after modification. */
-TEST(string_hashed, hash_recalculation)
-{
-    adam::string_hashed str1("Hello");
-    adam::string_hashed str2("Hello");
-    adam::string_hashed str3("Hello!");
-
-    str2.append("!");
-
-    EXPECT_NE(str2, str3);
-
-    str2.calculate_hash();
-
-    EXPECT_EQ(str2, str3);
-}
-
-/** @brief Tests the consistency of the standard library hash function with the custom hash function. */
-TEST(string_hashed, copy) 
-{
-    adam::string_hashed sh("test_string");
-    
-    adam::string_hashed sh_copy("different_string");
-
-    EXPECT_NE(sh_copy, sh);
-
-    sh_copy = sh;
-
-    EXPECT_EQ(sh_copy, sh);
-
-    std::string std_str_copy = sh_copy;
-
-    EXPECT_EQ(std_str_copy, sh);
-}
-
-/** @brief Tests the insertion and retrieval of string_hashed objects in a std::map. */
-TEST(string_hashed, map_insertion_and_retrieval) 
-{
-    std::unordered_map<adam::string_hashed, int> test_map;
-
-    adam::string_hashed key_1("param1");
-    test_map[key_1] = 5000;
-
-    EXPECT_EQ(test_map.count(key_1), 1u);
-    EXPECT_EQ(test_map[key_1], 5000);
-
-    // Separate object, same content
-    adam::string_hashed key_2("param1");
-
-    EXPECT_EQ(test_map.count(key_2), 1u);
-    EXPECT_EQ(test_map[key_2], 5000);
-}
-
-/** @brief Tests the consistency of the standard library hash function with the custom hash function. */
-TEST(string_hashed, std_hash_consistency) 
-{
-    adam::string_hashed sh("test_string");
-    
-    std::hash<adam::string_hashed> hasher;
-    size_t system_hash = hasher(sh);
-
-    EXPECT_EQ(system_hash, static_cast<size_t>(sh.get_hash()));
-}
+GENERATE_STRING_HASHED_TESTS(char, , char, string_hashed)
+GENERATE_STRING_HASHED_TESTS(wchar_t, L, wchar, wstring_hashed)
+#if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
+GENERATE_STRING_HASHED_TESTS(char8_t, u8, char8, string_hashed_utf8)
+#endif
+GENERATE_STRING_HASHED_TESTS(char16_t, u, char16, string_hashed_utf16)
+GENERATE_STRING_HASHED_TESTS(char32_t, U, char32, string_hashed_utf32)
