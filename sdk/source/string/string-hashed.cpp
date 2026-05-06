@@ -22,7 +22,7 @@ namespace adam
     template<typename char_type>
     void string_hashed_template<char_type>::calculate_hash() 
     {
-        m_hash = rapidhash(string_type::data(), string_type::length());
+        m_hash = rapidhash(string_type::data(), string_type::length() * sizeof(char_type));
     }
 
     template<typename char_type>

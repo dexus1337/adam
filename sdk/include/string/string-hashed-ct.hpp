@@ -14,7 +14,7 @@
 #include <string>
 #include <cstdint>
 
-#include "hash/rapidhash.h"
+#include "hash/rapidhash-ct.h"
 
 
 namespace adam 
@@ -29,10 +29,10 @@ namespace adam
     public:
 
         using hash_datatype = uint64_t;   /**< The data type used for storing the hash value of the string. */
-
+        
         /** @brief Constructs a new string_hashed_ct_template object. */
         template<size_t string_len>
-        constexpr string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(arr), m_hash(rapidhash(arr, string_len - 1)), m_length(string_len - 1) { }
+        constexpr string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(arr), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
 
         constexpr hash_datatype get_hash()  const { return m_hash; }
         constexpr size_t get_length()       const { return m_length; }
