@@ -3,6 +3,8 @@
 
 #include <unordered_map>
 #include <string_view>
+#include <chrono>
+#include <iostream>
 
 #define GENERATE_STRING_HASHED_TESTS(CHAR_TYPE, PREFIX, TYPE_NAME, RT_ALIAS) \
     /** @brief Tests the initialization of string_hashed objects. */ \
@@ -75,3 +77,52 @@ GENERATE_STRING_HASHED_TESTS(char8_t, u8, char8, string_hashed_utf8)
 #endif
 GENERATE_STRING_HASHED_TESTS(char16_t, u, char16, string_hashed_utf16)
 GENERATE_STRING_HASHED_TESTS(char32_t, U, char32, string_hashed_utf32)
+
+/** @brief Benchmark test comparing string_hashed (rapidhash) to standard FNV-1a. */
+TEST(string_hashed, benchmark_vs_fnv1a)
+{
+    const size_t num_iterations = 300000;
+    adam::string_hashed sh("This is a moderately long string to test the hashing performance of rapidhash vs fnv1a!");
+    std::string test_str(sh.c_str());
+
+    // Benchmark adam::string_hashed (rapidhash)
+    auto start_rapid = std::chrono::high_resolution_clock::now();
+    uint64_t dummy_rapid = 0;
+    for (size_t i = 0; i < num_iterations; ++i) {
+        sh[0] = static_cast<char>(i % 256);
+        sh.calculate_hash();
+        dummy_rapid ^= sh.get_hash();
+    }
+    auto end_rapid = std::chrono::high_resolution_clock::now();
+    auto duration_rapid = std::chrono::duration_cast<std::chrono::microseconds>(end_rapid - start_rapid).count();
+
+    // Benchmark FNV-1a
+    auto start_fnv = std::chrono::high_resolution_clock::now();
+    uint64_t dummy_fnv = 0;
+    for (size_t i = 0; i < num_iterations; ++i) {
+        test_str[0] = static_cast<char>(i % 256);
+        uint64_t hash = 0xcbf29ce484222325ULL;
+        for (size_t j = 0; j < test_str.length(); ++j) {
+            hash ^= static_cast<uint8_t>(test_str[j]);
+            hash *= 0x100000001b3ULL;
+        }
+        dummy_fnv ^= hash;
+    }
+    auto end_fnv = std::chrono::high_resolution_clock::now();
+    auto duration_fnv = std::chrono::duration_cast<std::chrono::microseconds>(end_fnv - start_fnv).count();
+
+    std::cout << "[          ] string_hashed (rapidhash) duration: " << duration_rapid << " us\n";
+    std::cout << "[          ] std::string (FNV-1a) duration:      " << duration_fnv << " us\n";
+
+    if (duration_rapid > 0) {
+        double times = static_cast<double>(duration_fnv) / static_cast<double>(duration_rapid);
+        std::cout << "[          ] -> string_hashed with rapidhash is " << times << " times faster than FNV-1a hash\n";
+    }
+
+    // Output dummy values to EXPECT so the compiler doesn't optimize the loop code into nothingness
+    EXPECT_NE(dummy_rapid, 0u);
+    EXPECT_NE(dummy_fnv, 0u);
+
+    // Assert that rapidhash is faster!
+    EXPECT_LT(duration_rapid, duration_fnv);
+}
