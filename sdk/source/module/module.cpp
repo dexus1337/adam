@@ -4,7 +4,7 @@
 
 namespace adam
 {
-    module::module(std::string_view name, uint32_t version, uint32_t req_sdk_ver)
+    module::module(string_hashed::view name, uint32_t version, uint32_t req_sdk_ver)
      :  m_str_name(name),
         m_str_filepath(),
         m_mod_handle(0),

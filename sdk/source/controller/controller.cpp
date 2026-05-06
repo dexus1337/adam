@@ -161,7 +161,7 @@ namespace adam
         return nullptr;
     }
 
-    bool controller::scan_for_modules(std::string_view directory) 
+    bool controller::scan_for_modules(string_hashed::view directory) 
     {
         std::vector<std::filesystem::path> possible_module_paths;
 

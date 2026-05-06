@@ -30,7 +30,7 @@ namespace adam
 
         /** @brief Constructs a new configuration_item object. */
         configuration_item(const string_hashed& name = string_hashed());
-        configuration_item(std::string_view name);
+        configuration_item(string_hashed::view name);
 
         /** @brief Destroys the configuration_item object and cleans up resources. */
         ~configuration_item();

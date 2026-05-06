@@ -46,7 +46,7 @@ namespace adam
         configuration_parameter(const string_hashed& name);
 
         /** @brief Constructs a new configuration_parameter object. */
-        configuration_parameter(std::string_view name);
+        configuration_parameter(string_hashed::view name);
 
         string_hashed m_str_name;     /**< The name of the configuration parameter, used for identification and lookup in the ADAM system. */
     };

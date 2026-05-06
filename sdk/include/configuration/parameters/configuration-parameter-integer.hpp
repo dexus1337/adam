@@ -26,7 +26,7 @@ namespace adam
     public:
         /** @brief Constructs a new configuration_parameter_integer object. */
         configuration_parameter_integer(const string_hashed& name, int64_t value = 0);
-        configuration_parameter_integer(std::string_view name, int64_t value = 0);
+        configuration_parameter_integer(string_hashed::view name, int64_t value = 0);
 
         /** @brief Destroys the configuration_parameter_integer object and cleans up resources. */
         ~configuration_parameter_integer();

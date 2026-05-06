@@ -101,7 +101,7 @@ namespace adam
         void log(const log& cr_log);
 
         /** @brief Outputs a log. */
-        void log(log::level t, std::string_view txt) { this->log(adam::log(t, txt)); }
+        void log(log::level t, string_hashed::view txt) { this->log(adam::log(t, txt)); }
 
         // MODULE MANAGEMENT
 
@@ -122,7 +122,7 @@ namespace adam
         const module* get_loaded_module(const string_hashed& name) const;
 
         /** @brief Scans the specified directory for module shared libraries, loads them, and registers their modules in the system. */
-        bool scan_for_modules(std::string_view directory = "");
+        bool scan_for_modules(string_hashed::view directory = "");
 
         /** @brief Loads a module by its hashed name from the available modules and registers it in the loaded modules map. */
         bool load_module(const string_hashed& name, const module** out_module = nullptr);

@@ -63,7 +63,7 @@ namespace adam
 
         static constexpr size_t max_text_length = log_size_in_bytes - sizeof(m_ui64_timestamp) - sizeof(m_tid) - sizeof(m_level); /**< Ensure an log is exactly the wanted size in bytes*/
 
-        char        m_text[max_text_length]; 
+        char            m_text[max_text_length]; 
     };
     #pragma pack(pop)
 

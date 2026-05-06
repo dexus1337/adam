@@ -44,7 +44,7 @@ namespace adam
         bool log(const log& log);
 
         /** @brief Sends a log. */
-        bool log(log::level t, std::string_view txt) { return this->log(adam::log(t, txt)); }
+        bool log(log::level t, string_hashed::view txt) { return this->log(adam::log(t, txt)); }
 
     protected:
 

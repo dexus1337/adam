@@ -166,7 +166,7 @@ namespace adam
 
     }
 
-    bool registry::save(std::string_view filepath) const 
+    bool registry::save(string_hashed::view filepath) const 
     {
         std::ofstream ofs(filepath.data(), std::ios::binary);
         if (!ofs) return false;
@@ -208,7 +208,7 @@ namespace adam
         return ofs.good();
     }
 
-    bool registry::load(std::string_view filepath) 
+    bool registry::load(string_hashed::view filepath) 
     {
         std::ifstream ifs(filepath.data(), std::ios::binary);
 

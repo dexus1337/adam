@@ -26,7 +26,7 @@ namespace adam
     public:
         /** @brief Constructs a new configuration_parameter_boolean object. */
         configuration_parameter_boolean(const string_hashed& name, bool value = false);
-        configuration_parameter_boolean(std::string_view name, bool value = false);
+        configuration_parameter_boolean(string_hashed::view name, bool value = false);
 
         /** @brief Destroys the configuration_parameter_boolean object and cleans up resources. */
         ~configuration_parameter_boolean();

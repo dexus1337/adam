@@ -41,10 +41,10 @@ namespace adam
         std::unordered_map<string_hashed, std::unique_ptr<converter>>&      converters()    { return m_converters; }
 
         /** @brief Saves the entire configuration tree to a binary file. */
-        bool save(std::string_view filepath) const;
+        bool save(string_hashed::view filepath) const;
 
         /** @brief Loads the entire configuration tree from a binary file. */
-        bool load(std::string_view filepath);
+        bool load(string_hashed::view filepath);
 
     protected:
 

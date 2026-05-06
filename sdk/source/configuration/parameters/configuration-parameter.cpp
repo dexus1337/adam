@@ -6,7 +6,7 @@ namespace adam
     configuration_parameter::configuration_parameter(const string_hashed& name)
         : m_str_name(name) {}
 
-    configuration_parameter::configuration_parameter(std::string_view name)
+    configuration_parameter::configuration_parameter(string_hashed::view name)
         : m_str_name(name) {}
 
     configuration_parameter::~configuration_parameter() {}

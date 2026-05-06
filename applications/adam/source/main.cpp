@@ -42,16 +42,20 @@ int main()
     for (const auto& [name, path] : controller.get_available_modules())
     {
         if (controller.load_module(name))
-        {
             controller.log(adam::log::info, std::format("loaded module \"{}\" at 0x{:x}", name.c_str(), controller.get_loaded_module(name)->get_module_handle()));
-        }
         else
-        {
             controller.log(adam::log::error, std::format("failed to load module \"{}\"", name.c_str()));
-        }
     }
 
-    controller.log(adam::log::info, "adam up and running!");
+    
+    if (controller.run(true))
+    {
+        controller.log(adam::log::info, "adam stared succesfully!");
+    }
+    else
+    {
+        controller.log(adam::log::error, "failed to start adam!");
+    }
 
     std::thread test_heartbeat([&]()
     {
@@ -62,7 +66,11 @@ int main()
         }
     });
 
-    controller.run();
+    getchar();
+
+    controller.destroy();
+
+    test_heartbeat.join();
 
     return 0;
 }

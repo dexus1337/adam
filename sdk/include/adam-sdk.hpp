@@ -37,6 +37,7 @@
 #include "port/input/port-input.hpp"
 #include "port/output/port-output.hpp"
 #include "string/string-hashed.hpp"
+#include "string/string-hashed-ct.hpp"
 #include "queue/queue-shared.hpp"
 #include "queue/queue-shared-duplex.hpp"
 #include "version/version.hpp"
