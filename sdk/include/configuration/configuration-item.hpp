@@ -3,38 +3,51 @@
 /**
  * @file    configuration-item.hpp
  * @author  dexus1337
- * @brief   Defines a base class for any configuration objects
+ * @brief   Defines a base class for any configurable item in the ADAM system.
  * @version 1.0
- * @date    05.05.2026
+ * @date    06.05.2026
  */
 
- 
 #include "api/api.hpp"
-
+#include "string/string-hashed.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 
 namespace adam 
 {
     /**
      * @class configuration_item
-     * @brief Defines a base class for any configuration objects
+     * @brief Defines a base class for components (like ports, filters, etc.) that manage configurable parameters.
+     * 
+     * Child classes should pass a list of their static default parameters to this base class constructor. 
+     * The base class will instantly perform a deep clone of the defaults, making instantiation extremely fast
+     * and universally smooth across the framework!
      */
     class ADAM_SDK_API configuration_item 
     {
     public:
+        /** 
+         * @brief Constructs a new configuration_item and deep-copies the provided default parameters.
+         * 
+         * @param item_name      The unique name of this instance.
+         * @param default_params The default parameter list to deeply clone into this instance.
+         */
+        configuration_item(const string_hashed& item_name, const configuration_parameter_list& default_params)
+            : m_item_name(item_name), m_parameters(default_params) // Utilizes the deep-copy constructor!
+        {
+        }
 
-        /** @brief Retrieves the list of configuration parameters associated with this configuration item. */
+        virtual ~configuration_item() = default;
+
+        /** @brief Retrieves the name of this configuration item. */
+        const string_hashed& get_name() const { return m_item_name; }
+
+        /** @brief Retrieves the cloned configuration parameters specific to this instance. */
         const configuration_parameter_list& get_parameters() const { return m_parameters; }
+        configuration_parameter_list&       get_parameters()       { return m_parameters; }
 
     protected:
 
-        /** @brief Constructs a new configuration_item object. */
-        configuration_item(const string_hashed& name = string_hashed());
-        configuration_item(string_hashed::view name);
-
-        /** @brief Destroys the configuration_item object and cleans up resources. */
-        ~configuration_item();
-
-        configuration_parameter_list m_parameters; /**< The list of configuration parameters associated with this configuration item. */
+        string_hashed                   m_item_name;    /**< The hashed name of this specific item. */
+        configuration_parameter_list    m_parameters;   /**< The cloned, independent parameters for this instance. */
     };
 }

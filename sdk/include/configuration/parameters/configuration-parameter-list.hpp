@@ -29,10 +29,21 @@ namespace adam
         /** @brief Constructs a new configuration_parameter_list object. */
         configuration_parameter_list(const string_hashed& name);
 
+        /** @brief Copy constructor. Performs a deep copy of all child parameters. */
+        configuration_parameter_list(const configuration_parameter_list& other) : configuration_parameter(other.get_name())
+        {
+            for (const auto& [name, param] : other.m_children) {
+                m_children.emplace(name, param ? param->clone() : nullptr);
+            }
+        }
+
         /** @brief Destroys the configuration_parameter_list object and cleans up resources. */
         ~configuration_parameter_list();
 
         type get_type() const override { return list; }
+
+        /** @brief Creates a deep copy of this configuration parameter list. */
+        std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_list>(*this); }
 
         /** @brief Adds a child parameter to the list. */
         void add(std::unique_ptr<configuration_parameter> param);

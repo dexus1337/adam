@@ -11,6 +11,7 @@
  
 #include "api/api.hpp"
 
+#include <memory>
 #include "string/string-hashed.hpp"
 
 namespace adam 
@@ -36,6 +37,9 @@ namespace adam
 
         virtual type get_type()         const = 0;
         const string_hashed& get_name() const { return m_str_name; }
+
+        /** @brief Creates a deep copy of this configuration parameter. */
+        virtual std::unique_ptr<configuration_parameter> clone() const = 0;
 
         /** @brief Destroys the configuration_parameter object and cleans up resources. */
         virtual ~configuration_parameter();

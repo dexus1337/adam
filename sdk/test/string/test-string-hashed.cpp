@@ -128,7 +128,7 @@ TEST(string_hashed, benchmark_vs_fnv1a)
 
     if (duration_rapid > 0) {
         double times = static_cast<double>(duration_fnv) / static_cast<double>(duration_rapid);
-        std::cout << "[          ] -> string_hashed with rapidhash is " << times << " times faster than FNV-1a hash\n";
+        std::cout << "[          ] -> string_hashed with rapidhash is " << std::fixed << std::setprecision(2) << times << " times faster than FNV-1a hash\n";
     }
 
     // Output dummy values to EXPECT so the compiler doesn't optimize the loop code into nothingness

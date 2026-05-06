@@ -33,6 +33,9 @@ namespace adam
 
         type get_type() const override { return reference; }
 
+        /** @brief Creates a deep copy of this configuration parameter. */
+        std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_reference>(m_str_name, m_target); }
+
         const string_hashed& get_target() const { return m_target; }
         void set_target(const string_hashed& target) { m_target = target; }
 
