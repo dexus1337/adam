@@ -35,6 +35,9 @@ namespace adam
         constexpr string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(arr), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
 
         constexpr hash_datatype get_hash()  const { return m_hash; }
+        
+        /** @brief Implicit conversion operator to the underlying hash type, allowing direct usage in switch statements. */
+        constexpr operator hash_datatype()  const { return m_hash; }
         constexpr size_t get_length()       const { return m_length; }
         constexpr const char_type* c_str()  const { return m_text; }
 

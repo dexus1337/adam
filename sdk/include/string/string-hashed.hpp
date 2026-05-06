@@ -46,6 +46,9 @@ namespace adam
 
         hash_datatype get_hash() const { return m_hash; }
 
+        /** @brief Implicit conversion operator to the underlying hash type, allowing direct usage in switch statements. */
+        operator hash_datatype() const { return m_hash; }
+
         /** @brief Calculates the hash value of the string and stores it in the m_hash member variable. */
         void calculate_hash();
 

@@ -68,6 +68,18 @@
         std::hash<adam::RT_ALIAS> hasher; \
         size_t system_hash = hasher(sh); \
         EXPECT_EQ(system_hash, static_cast<size_t>(sh.get_hash())); \
+    } \
+    /** @brief Tests the implicit conversion operator in a switch statement. */ \
+    TEST(string_hashed, switch_statement_##TYPE_NAME) \
+    { \
+        int match = 0; \
+        switch (adam::RT_ALIAS(PREFIX##"SwitchTest")) \
+        { \
+            case adam::string_hashed_ct_template<CHAR_TYPE>(PREFIX##"NoMatch"): match = 1; break; \
+            case adam::string_hashed_ct_template<CHAR_TYPE>(PREFIX##"SwitchTest"): match = 2; break; \
+            default: match = 3; break; \
+        } \
+        EXPECT_EQ(match, 2); \
     }
 
 GENERATE_STRING_HASHED_TESTS(char, , char, string_hashed)
