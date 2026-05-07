@@ -15,6 +15,7 @@
 namespace adam 
 {
     class data_format;
+    class inspector;
 
     /**
      * @class port
@@ -32,7 +33,9 @@ namespace adam
         /** @brief Destroys the port object and cleans up resources. */
         ~port();
 
-        const data_format* m_data_format; /**< The data format associated with this port, used for parsing/serializing data. */
+        const data_format* m_data_format;       /**< The data format associated with this port, used for parsing/serializing data. */
+
+        std::vector<inspector> m_inspectors;    /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
     };
 }

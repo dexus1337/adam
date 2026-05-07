@@ -36,9 +36,9 @@ namespace adam
 
     protected:
 
-        std::vector<std::unique_ptr<port_input>>     m_input_ports;
-        std::vector<std::unique_ptr<data_processor>> m_processors;
-        std::vector<std::unique_ptr<port_output>>    m_output_ports;
+        std::vector<port_input*>     m_input_ports;
+        std::vector<data_processor*> m_processors;
+        std::vector<port_output*>    m_output_ports;
 
     };
 }

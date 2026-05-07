@@ -32,6 +32,7 @@
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
 #include "data/connection.hpp"
+#include "data/inspector.hpp"
 #include "memory/memory.hpp"
 #include "memory/memory-signaled.hpp"
 #include "memory/buffer/buffer.hpp"
