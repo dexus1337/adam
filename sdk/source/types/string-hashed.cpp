@@ -1,4 +1,4 @@
-#include "string/string-hashed.hpp"
+#include "types/string-hashed.hpp"
 
 #include "hash/rapidhash.h"
 

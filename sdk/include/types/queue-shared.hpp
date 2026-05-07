@@ -15,7 +15,7 @@
 #include <cstddef>
 #include <chrono>
 
-#include "string/string-hashed.hpp"
+#include "types/string-hashed.hpp"
 #include "memory/memory-signaled.hpp"
 
 namespace adam 

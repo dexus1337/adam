@@ -15,7 +15,7 @@
 #include <atomic>
 #include <cstdint>
 
-#include "string/string-hashed.hpp"
+#include "types/string-hashed.hpp"
 #include "data/format.hpp"
 #include "os/os.hpp"
 

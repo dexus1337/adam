@@ -1,7 +1,7 @@
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "memory/memory.hpp"
-#include "string/string-hashed.hpp"
+#include "types/string-hashed.hpp"
 #include "os/os.hpp"
 
 #include <thread>

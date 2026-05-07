@@ -14,6 +14,7 @@
 
 namespace adam 
 {
+    class buffer;
     class data_format;
 
     /**
@@ -29,6 +30,9 @@ namespace adam
         
         const data_format* get_input_data_format()  const { return m_format_input; }
         const data_format* get_output_data_format() const { return m_format_output; }
+
+        /** @brief Data management routine, arrives here, and may be changed to another buffer */
+        virtual bool handle_data(buffer*& buffer) = 0;
 
     protected:
 

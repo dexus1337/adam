@@ -14,8 +14,8 @@
 #include <atomic>
 #include <cstddef>
 
-#include "string/string-hashed.hpp"
-#include "queue/queue-shared.hpp"
+#include "types/string-hashed.hpp"
+#include "types/queue-shared.hpp"
 
 namespace adam 
 {

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <queue/queue-shared-duplex.hpp>
+#include <types/queue-shared-duplex.hpp>
 
 #include <chrono>
 #include <thread>

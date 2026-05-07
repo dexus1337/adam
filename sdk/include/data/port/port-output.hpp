@@ -28,6 +28,5 @@ namespace adam
 
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_output();
-
     };
 }

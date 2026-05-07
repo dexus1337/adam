@@ -12,7 +12,7 @@
 #include "api/api.hpp"
 
 #include <memory>
-#include "string/string-hashed.hpp"
+#include "types/string-hashed.hpp"
 
 namespace adam 
 {

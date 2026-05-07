@@ -9,7 +9,7 @@
  */
 
 #include "api/api.hpp"
-#include "string/string-hashed.hpp"
+#include "types/string-hashed.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 
 namespace adam 

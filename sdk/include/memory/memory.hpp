@@ -11,7 +11,7 @@
 
  
 #include "api/api.hpp"
-#include "string/string-hashed.hpp"
+#include "types/string-hashed.hpp"
 
 #include <cstdint>
 

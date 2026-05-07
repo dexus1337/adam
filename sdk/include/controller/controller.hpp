@@ -16,8 +16,8 @@
 #include <sstream>
 #include <functional>
 
-#include "string/string-hashed.hpp"
-#include "queue/queue-shared-duplex.hpp"
+#include "types/string-hashed.hpp"
+#include "types/queue-shared-duplex.hpp"
 #include "commander/command.hpp"
 #include "controller/response.hpp"
 #include "logger/log.hpp"

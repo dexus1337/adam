@@ -29,5 +29,7 @@ namespace adam
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input();
 
+        /** @brief Data management routine. Will forward data to connections */
+        bool handle_data(buffer* buffer);
     };
 }
