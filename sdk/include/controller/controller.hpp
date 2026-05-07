@@ -83,16 +83,16 @@ namespace adam
             request_log_sink_destroy
         };
 
-        enum master_queue_response
+        enum status
         {
-            response_invalid = 0,
-            response_success,
-            response_existing,
-            response_not_existing,
-            response_unavailable,
-            response_unauthorized,
-            response_internal_error,
-            response_unknown
+            status_invalid = 0,
+            status_success,
+            status_existing,
+            status_not_existing,
+            status_unavailable,
+            status_unauthorized,
+            status_internal_error,
+            status_unknown
         };
 
         // LOG MANAGEMENT
@@ -138,7 +138,7 @@ namespace adam
         // COMMAND MANAGEMENT
 
         /** @brief Sends a request to the master queue. */
-        static bool request_master_queue(master_queue_request mqr);
+        static status request_master_queue(master_queue_request mqr);
 
         // MASTER QUEUE
         struct queue_master_request_data
@@ -148,7 +148,7 @@ namespace adam
             uint32_t                code;
         };
 
-        using master_queue = queue_shared_duplex<queue_master_request_data, master_queue_response>; /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
+        using master_queue = queue_shared_duplex<queue_master_request_data, status>; /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
         static constexpr const char* master_queue_name = "adam::controller_master_queue";           /**< The name of the queue which will create new "per thread" command queues */
         
         void run_master_queue();

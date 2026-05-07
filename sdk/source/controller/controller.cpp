@@ -120,18 +120,18 @@ namespace adam
         }
     }
 
-    bool controller::request_master_queue(master_queue_request mqr)
+    controller::status controller::request_master_queue(master_queue_request mqr)
     {
-        master_queue mq = master_queue(string_hashed(master_queue_name));
+        status resp  = status_unavailable;
+        master_queue mq             = master_queue(string_hashed(master_queue_name));
 
         if (!mq.open())
         {
             adam::stream_log(log::trace, std::format("Cannot open the master queue for access to queue {:d}.", static_cast<int>(mqr)), std::cout);
-            return false;
+            return resp;
         }
 
         queue_master_request_data data;
-        master_queue_response resp = response_unavailable;
 
         data.tid    = os::get_current_thread_id();
         data.queue  = mqr;
@@ -146,7 +146,7 @@ namespace adam
         
         mq.destroy();
 
-        return resp == response_success;
+        return resp;
     }
 
     const module* controller::get_loaded_module(const string_hashed& name) const 
@@ -336,7 +336,7 @@ namespace adam
         // if it already is in the queue it has be running as expected
         if (it != queue_list.end())
         {
-            m_master_queue.response_queue().push(response_existing);
+            m_master_queue.response_queue().push(status_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue that already exists.", tid)));
 
@@ -351,7 +351,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to open.", tid)));
 
-            m_master_queue.response_queue().push(response_unavailable);
+            m_master_queue.response_queue().push(status_unavailable);
 
             return false;
         }
@@ -364,7 +364,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to insert to database.", tid)));
 
-            m_master_queue.response_queue().push(response_internal_error);
+            m_master_queue.response_queue().push(status_internal_error);
 
             return false;
         }
@@ -386,7 +386,7 @@ namespace adam
         // if it already is in the queue it has be running as expected
         if (it != queue_list.end())
         {
-            m_master_queue.response_queue().push(response_existing);
+            m_master_queue.response_queue().push(status_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue + worker that already exists.", tid)));
 
@@ -401,7 +401,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to open.", tid)));
 
-            m_master_queue.response_queue().push(response_unavailable);
+            m_master_queue.response_queue().push(status_unavailable);
 
             return false;
         }
@@ -420,7 +420,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to insert to database.", tid)));
 
-            m_master_queue.response_queue().push(response_internal_error);
+            m_master_queue.response_queue().push(status_internal_error);
 
             return false;
         }
@@ -439,7 +439,7 @@ namespace adam
 
         if (it == queue_list.end())
         {
-            m_master_queue.response_queue().push(response_not_existing);
+            m_master_queue.response_queue().push(status_not_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue that doesnt exists.", tid)));
 
@@ -450,7 +450,7 @@ namespace adam
 
         if (!it->second->destroy())
         {
-            m_master_queue.response_queue().push(response_internal_error);
+            m_master_queue.response_queue().push(status_internal_error);
 
             debug_statement(this->log(log::trace, std::format("Failed to destroy queue of client {:d}.", tid)));
 
@@ -475,7 +475,7 @@ namespace adam
 
         if (it == queue_list.end())
         {
-            m_master_queue.response_queue().push(response_not_existing);
+            m_master_queue.response_queue().push(status_not_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue + worker that doesnt exists.", tid)));
 
@@ -508,7 +508,7 @@ namespace adam
             // check secret to only allow (basic) authenticated users
             if (req.tid != reverse_secret(req.code))
             {
-                m_master_queue.response_queue().push(response_unauthorized);
+                m_master_queue.response_queue().push(status_unauthorized);
 
                 debug_statement(this->log(log::trace, std::format("Client {:d} did not authenticate correctly.", req.tid)));
 
@@ -560,7 +560,7 @@ namespace adam
                 break;
             }
             default:
-                m_master_queue.response_queue().push(response_unknown);
+                m_master_queue.response_queue().push(status_unknown);
                 break;
             }
 
@@ -569,7 +569,7 @@ namespace adam
             else
                 debug_statement(this->log(log::trace, std::format("Client {:d} successfully destroyed queue {:d}", req.tid, static_cast<int>(req.queue) - 1)));
 
-            m_master_queue.response_queue().push(response_success);
+            m_master_queue.response_queue().push(status_success);
         }
     }
 

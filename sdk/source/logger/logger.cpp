@@ -23,7 +23,7 @@ namespace adam
         if (!m_queue_log.create(1000))
             return false;
 
-        if (!controller::request_master_queue(controller::request_log))
+        if (controller::request_master_queue(controller::request_log) != controller::status_success)
             return false;
             
         return true;
@@ -31,7 +31,7 @@ namespace adam
 
     bool logger::destroy() 
     {
-        bool res = controller::request_master_queue(controller::request_log_destroy);
+        bool res = controller::request_master_queue(controller::request_log_destroy) == controller::status_success;
 
         m_queue_log.disable();
         
