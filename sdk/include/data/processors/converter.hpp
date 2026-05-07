@@ -10,27 +10,25 @@
 
  
 #include "api/api.hpp"
-#include "configuration/configuration-item.hpp"
+
+#include "data/processor.hpp"
 
 namespace adam 
 {
     /**
-     * @class data_processor
+     * @class converter
      * @brief A base class for data format processors, providing a common interface for processing data in different formats used in the ADAM system.
      */
-    class ADAM_SDK_API data_processor : public configuration_item
+    class ADAM_SDK_API converter : public data_processor
     {
-    public:
+    public: 
+        /** @brief Destroys the data processor object and cleans up resources. */
+        virtual ~converter();
 
-        /**
-         * @brief Constructs a new data processor object.
-         */
-        data_processor() = default;
+    protected:
 
-        /**
-         * @brief Destroys the data processor object and cleans up resources.
-         */
-        ~data_processor() = default;
+        /** @brief Constructs a new data processor object. */
+        converter(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
 
     };
 }

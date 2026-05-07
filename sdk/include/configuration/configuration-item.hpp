@@ -25,21 +25,8 @@ namespace adam
     class ADAM_SDK_API configuration_item 
     {
     public:
-        /** 
-         * @brief Constructs a new configuration_item and deep-copies the provided default parameters.
-         * 
-         * @param item_name      The unique name of this instance.
-         * @param default_params The default parameter list to deeply clone into this instance.
-         */
-        configuration_item(const string_hashed& item_name, const configuration_parameter_list& default_params)
-            : m_item_name(item_name), m_parameters(default_params) // Utilizes the deep-copy constructor!
-        {
-        }
-
-        virtual ~configuration_item() = default;
-
         /** @brief Retrieves the name of this configuration item. */
-        const string_hashed& get_name() const { return m_item_name; }
+        const string_hashed& get_name() const { return m_parameters.get_name(); }
 
         /** @brief Retrieves the cloned configuration parameters specific to this instance. */
         const configuration_parameter_list& get_parameters() const { return m_parameters; }
@@ -47,7 +34,16 @@ namespace adam
 
     protected:
 
-        string_hashed                   m_item_name;    /**< The hashed name of this specific item. */
-        configuration_parameter_list    m_parameters;   /**< The cloned, independent parameters for this instance. */
+        /** 
+         * @brief Constructs a new configuration_item and deep-copies the provided default parameters.
+         * 
+         * @param item_name      The unique name of this instance.
+         * @param default_params The default parameter list to deeply clone into this instance.
+         */
+        configuration_item(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+
+        virtual ~configuration_item();
+
+        configuration_parameter_list m_parameters;   /**< The cloned, independent parameters for this instance. */
     };
 }

@@ -11,7 +11,7 @@
  
 #include "api/api.hpp"
 
-#include "data/processor/data-processor.hpp"
+#include "data/processor.hpp"
 
 
 namespace adam 
@@ -24,15 +24,13 @@ namespace adam
     {
     public:
 
-        /**
-         * @brief Constructs a new filter object.
-         */
-        filter() = default;
+        /** @brief Destroys the filter object and cleans up resources. */
+        virtual ~filter();
 
-        /**
-         * @brief Destroys the filter object and cleans up resources.
-         */
-        ~filter() = default;
+    protected:
+
+        /** @brief Constructs a new filter object. */
+        filter(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
 
     };
 }

@@ -1,4 +1,4 @@
-#include "data/format/data-format.hpp"
+#include "data/format.hpp"
 
 namespace adam 
 {

@@ -27,15 +27,13 @@ namespace adam
     public:
     
         /** @brief Constructs a new configuration_parameter_list object. */
+        configuration_parameter_list();
+
+        /** @brief Constructs a new configuration_parameter_list object. */
         configuration_parameter_list(const string_hashed& name);
 
         /** @brief Copy constructor. Performs a deep copy of all child parameters. */
-        configuration_parameter_list(const configuration_parameter_list& other) : configuration_parameter(other.get_name())
-        {
-            for (const auto& [name, param] : other.m_children) {
-                m_children.emplace(name, param ? param->clone() : nullptr);
-            }
-        }
+        configuration_parameter_list(const configuration_parameter_list& other);
 
         /** @brief Destroys the configuration_parameter_list object and cleans up resources. */
         ~configuration_parameter_list();

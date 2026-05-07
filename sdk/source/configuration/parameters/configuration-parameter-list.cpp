@@ -2,8 +2,19 @@
 
 namespace adam
 {
+    configuration_parameter_list::configuration_parameter_list()
+     :  configuration_parameter(), m_children() {}
+
     configuration_parameter_list::configuration_parameter_list(const string_hashed& name)
-        : configuration_parameter(name) {}
+     :  configuration_parameter(name), m_children() {}
+
+    configuration_parameter_list::configuration_parameter_list(const configuration_parameter_list& other)
+     :  configuration_parameter(other.get_name())
+    {
+        for (const auto& [name, param] : other.m_children) {
+            m_children.emplace(name, param ? param->clone() : nullptr);
+        }
+    }
 
     configuration_parameter_list::~configuration_parameter_list() {}
 

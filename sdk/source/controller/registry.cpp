@@ -5,10 +5,11 @@
 #include "configuration/parameters/configuration-parameter-reference.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/configuration-item.hpp"
-#include "port/input/port-input.hpp"
-#include "port/output/port-output.hpp"
-#include "data/processor/filter/filter.hpp"
-#include "data/processor/converter/converter.hpp"
+#include "data/port/port-input.hpp"
+#include "data/port/port-output.hpp"
+#include "data/processors/filter.hpp"
+#include "data/processors/converter.hpp"
+#include "data/connection.hpp"
 #include "version/version.hpp"
 
 #include <fstream>
@@ -169,7 +170,9 @@ namespace adam
     bool registry::save(string_hashed::view filepath) const 
     {
         std::ofstream ofs(filepath.data(), std::ios::binary);
-        if (!ofs) return false;
+        
+        if (!ofs) 
+            return false;
 
         registry_file_header header{};
         header.magic = registry_file_header::expected_magic;
@@ -204,6 +207,7 @@ namespace adam
         serialize_group("output_ports", m_output_ports);
         serialize_group("filters", m_filters);
         serialize_group("converters", m_converters);
+        serialize_group("connections", m_connections);
 
         return ofs.good();
     }
@@ -237,6 +241,7 @@ namespace adam
         m_output_ports.clear();
         m_filters.clear();
         m_converters.clear();
+        m_connections.clear();
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
 

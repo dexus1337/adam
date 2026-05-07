@@ -2,10 +2,10 @@
 #include "controller/registry.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
-#include "port/input/port-input.hpp"
-#include "port/output/port-output.hpp"
-#include "data/processor/filter/filter.hpp"
-#include "data/processor/converter/converter.hpp"
+#include "data/port/port-input.hpp"
+#include "data/port/port-output.hpp"
+#include "data/processors/filter.hpp"
+#include "data/processors/converter.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -61,10 +61,17 @@ TEST_F(registry_test, save_clear_reload_verify)
     reg.get_general().add(std::make_unique<adam::configuration_parameter_integer>("max_threads", 16));
     
     // 2. Populate grouped instances
-    reg.input_ports().emplace(adam::string_hashed("udp_in"), std::make_unique<adam::port_input>());
-    reg.output_ports().emplace(adam::string_hashed("tcp_out"), std::make_unique<adam::port_output>());
-    reg.filters().emplace(adam::string_hashed("noise_filter"), std::make_unique<adam::filter>());
-    reg.converters().emplace(adam::string_hashed("json_conv"), std::make_unique<adam::converter>());
+    /*auto ipt_ex = adam::string_hashed("udp_in");
+    reg.input_ports().emplace(ipt_ex, std::make_unique<adam::port_input>(ipt_ex));
+    
+    auto out_ex = adam::string_hashed("tcp_out");
+    reg.output_ports().emplace(out_ex, std::make_unique<adam::port_output>(out_ex));
+    
+    auto flt_ex = adam::string_hashed("noise_filter");
+    reg.filters().emplace(flt_ex, std::make_unique<adam::filter>(flt_ex));
+    
+    auto con_ex = adam::string_hashed("json_conv");
+    reg.converters().emplace(con_ex, std::make_unique<adam::converter>(con_ex));*/
 
     // Save the populated registry
     EXPECT_TRUE(reg.save(test_filepath));

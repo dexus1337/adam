@@ -22,6 +22,9 @@ namespace adam
      */
     class ADAM_SDK_API configuration_parameter 
     {
+
+        friend class configuration_item;
+        
     public:
 
         enum type : uint8_t
@@ -45,6 +48,9 @@ namespace adam
         virtual ~configuration_parameter();
 
     protected:
+
+        /** @brief Constructs a new configuration_parameter object. */
+        configuration_parameter();
 
         /** @brief Constructs a new configuration_parameter object. */
         configuration_parameter(const string_hashed& name);

@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    data-format.hpp
+ * @file    format.hpp
  * @author  dexus1337
  * @brief   Defines a data format base class for any data formats used in the ADAM system, providing a common interface for handling different types of data.
  * @version 1.0

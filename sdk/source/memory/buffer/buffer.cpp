@@ -1,6 +1,6 @@
 #include "memory/buffer/buffer.hpp"
 #include "memory/buffer/buffer-manager.hpp"
-#include "data/format/data-format.hpp"
+#include "data/format.hpp"
 
 namespace adam 
 {

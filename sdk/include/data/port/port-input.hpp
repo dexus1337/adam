@@ -10,7 +10,7 @@
 
  
 #include "api/api.hpp"
-#include "port/port.hpp"
+#include "data/port/port.hpp"
 
 
 namespace adam 
@@ -24,10 +24,10 @@ namespace adam
     public:
 
         /** @brief Constructs a new input port object. */
-        port_input() = default;
+        port_input(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
 
         /** @brief Destroys the input port object and cleans up resources. */
-        ~port_input() = default;
+        ~port_input();
 
     };
 }

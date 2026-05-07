@@ -22,14 +22,10 @@ namespace adam
     {
     public:
 
-        /**
-         * @brief Constructs a new parser object.
-         */
+        /** @brief Constructs a new parsers object. */
         parser();
 
-        /**
-         * @brief Destroys the parser object and cleans up resources.
-         */
+        /** @brief Destroys the parser object and cleans up resources. */
         ~parser();
 
     };

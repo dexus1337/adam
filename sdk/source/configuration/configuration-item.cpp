@@ -3,10 +3,10 @@
 
 namespace adam 
 {
-    configuration_item::configuration_item(const string_hashed& name)
-     :  m_parameters(name)
+    configuration_item::configuration_item(const string_hashed& name, const configuration_parameter_list& default_params)
+     :  m_parameters(default_params) // Utilizes the deep-copy constructor!
     {
-        // Initialize resources if necessary (currently none)
+        m_parameters.m_str_name = name;
     }
 
     configuration_item::~configuration_item()

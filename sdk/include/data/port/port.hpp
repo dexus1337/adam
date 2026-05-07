@@ -24,17 +24,13 @@ namespace adam
     {
     public:
 
-        /**
-         * @brief Constructs a new port object.
-         */
-        port();
-
-        /**
-         * @brief Destroys the port object and cleans up resources.
-         */
-        ~port();
-
     protected:
+
+        /** @brief Constructs a new port object. */
+        port(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+
+        /** @brief Destroys the port object and cleans up resources. */
+        ~port();
 
         const data_format* m_data_format; /**< The data format associated with this port, used for parsing/serializing data. */
 

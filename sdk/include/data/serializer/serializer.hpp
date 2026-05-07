@@ -22,14 +22,10 @@ namespace adam
     {
     public:
 
-        /**
-         * @brief Constructs a new serializer object.
-         */
+        /** @brief Constructs a new serializer object. */
         serializer();
 
-        /**
-         * @brief Destroys the serializer object and cleans up resources.
-         */
+        /** @brief Destroys the serializer object and cleans up resources. */
         ~serializer();
 
     };

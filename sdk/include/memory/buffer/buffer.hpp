@@ -16,7 +16,7 @@
 #include <cstdint>
 
 #include "string/string-hashed.hpp"
-#include "data/format/data-format.hpp"
+#include "data/format.hpp"
 #include "os/os.hpp"
 
 namespace adam 

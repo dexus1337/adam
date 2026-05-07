@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <data/format/data-format.hpp>
+#include <data/format.hpp>
 
 TEST(data_format, transparent)
 {
