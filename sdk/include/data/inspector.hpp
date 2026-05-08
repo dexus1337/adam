@@ -12,6 +12,9 @@
 #include "api/api.hpp"
 #include "types/queue-shared.hpp"
 #include "memory/buffer/buffer.hpp"
+#include <thread>
+#include <atomic>
+#include <functional>
 
 namespace adam 
 {
@@ -38,10 +41,20 @@ namespace adam
         /** @brief Data management routine */
         bool handle_data(const buffer* buffer);
         
+        /** @brief Starts a background thread that continuously pops buffer handles and resolves them. */
+        bool start_inspecting(std::function<void(buffer*)> callback);
+
+        /** @brief Stops the background inspecting thread. */
+        void destroy();
+
     protected:
 
         static constexpr const char* queue_name_prefix = "adam::data_director_"; /**< The prefix for the name of the buffer queue, followed by the thread id and port id/hash */
 
         queue_shared<buffer_handle> m_buffer_queue; /**< The queue for incoming buffers */
+
+        void run_inspector(std::function<void(buffer*)> callback);
+
+        std::thread m_inspector_thread;
     };
 }

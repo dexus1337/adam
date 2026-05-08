@@ -683,7 +683,7 @@ namespace adam
                     // Safely remove the raw pointer from the port's routing list
                     port->second->inspectors().remove(it->second);
 
-                    // Erase the unique_ptr from the map, destroying the object safely
+                    // Erase the unique_ptr from the map. Once the port releases its shared_ptr, the inspector will be destroyed and frees the shared memory too.
                     thread_inspectors.erase(it);
 
                     resp = response::success;
