@@ -416,7 +416,7 @@ namespace adam
             return false;
         }
 
-        auto* new_queue = new queue_slave_instance_data<queue_type>(string_hashed(prefix + std::to_string(tid)));
+        auto* new_queue = new queue_slave_instance_data<queue_type>(string_hashed(prefix + std::to_string(tid)), tid);
 
         if (!new_queue->queue.open())
         {
@@ -587,7 +587,6 @@ namespace adam
                 break;
             }
 
-            
             if (req.queue % 2)
             {
                 int queue_val = static_cast<int>(req.queue);
@@ -638,15 +637,21 @@ namespace adam
                     {
                         resp = response::unknown;
 
+                        uint64_t port_hash = static_cast<uint64_t>(params->port);
+                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_create_failed_port_unknown, m_lang), std::make_format_args(data->tid, port_hash))));
+
                         break;
                     }
 
+                    const auto& port_name = port->second->get_name();
                     auto new_inspector = std::make_shared<data_inspector>();
 
                     // Try to open the inspector with the given port, if it fails respond with failed
-                    if (!new_inspector->open(port->second->get_name()))
+                    if (!new_inspector->open(port_name))
                     {
                         resp = response::failed;
+
+                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_create_failed_open, m_lang), std::make_format_args(data->tid, port_name))));
 
                         break;
                     }
@@ -657,6 +662,8 @@ namespace adam
                     thread_inspectors.emplace(params->port, new_inspector);
 
                     resp = response::success;
+
+                    debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_created, m_lang), std::make_format_args(data->tid, port_name))));
 
                     break;
                 }
@@ -669,14 +676,23 @@ namespace adam
                     if (port == m_registry.ports().end())
                     {
                         resp = response::unknown;
+                        
+                        uint64_t port_hash = static_cast<uint64_t>(params->port);
+                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_destroy_failed_port_unknown, m_lang), std::make_format_args(data->tid, port_hash))));
+
                         break;
                     }
+
+                    const auto& port_name = port->second->get_name();
 
                     // Locate the inspector managed by this thread
                     auto it = thread_inspectors.find(params->port);
                     if (it == thread_inspectors.end())
                     {
                         resp = response::failed;
+                        
+                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_destroy_failed_not_found, m_lang), std::make_format_args(data->tid, port_name))));
+
                         break;
                     }
 
@@ -688,6 +704,8 @@ namespace adam
 
                     resp = response::success;
                     
+                    debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_destroyed, m_lang), std::make_format_args(data->tid, port_name))));
+
                     break;
                 }
                 default:
@@ -786,6 +804,30 @@ namespace adam
             {
                 static_cast<int>(log_event::slave_queue_worker_failed_to_destroy),
                 { "Failed to destroy queue + worker of client {:d}. Ignoring.", "Fehler beim Entfernen der Warteschlange + Worker von Client {:d}. Wird ignoriert." }
+            },
+            {
+                static_cast<int>(log_event::inspector_created),
+                { "Thread {:d} successfully created inspector for port \"{}\".", "Thread {:d} hat erfolgreich einen Inspektor für Port \"{}\" erstellt." }
+            },
+            {
+                static_cast<int>(log_event::inspector_destroyed),
+                { "Thread {:d} successfully destroyed inspector for port \"{}\".", "Thread {:d} hat erfolgreich den Inspektor für Port \"{}\" entfernt." }
+            },
+            {
+                static_cast<int>(log_event::inspector_create_failed_port_unknown),
+                { "Thread {:d} failed to create inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht erstellen: Unbekannter Port-Hash {:d}." }
+            },
+            {
+                static_cast<int>(log_event::inspector_create_failed_open),
+                { "Thread {:d} failed to create inspector: Could not open queue for port \"{}\".", "Thread {:d} konnte Inspektor nicht erstellen: Warteschlange für Port \"{}\" konnte nicht geöffnet werden." }
+            },
+            {
+                static_cast<int>(log_event::inspector_destroy_failed_port_unknown),
+                { "Thread {:d} failed to destroy inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht entfernen: Unbekannter Port-Hash {:d}." }
+            },
+            {
+                static_cast<int>(log_event::inspector_destroy_failed_not_found),
+                { "Thread {:d} failed to destroy inspector: Inspector not found for port \"{}\".", "Thread {:d} konnte Inspektor nicht entfernen: Kein Inspektor für Port \"{}\" gefunden." }
             }
         };
 

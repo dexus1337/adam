@@ -165,10 +165,11 @@ namespace adam
         template< typename queue_type >
         struct queue_slave_instance_data
         {
-            queue_slave_instance_data(const string_hashed& name) : queue(name) {}
+            queue_slave_instance_data(const string_hashed& name, os::thread_id t = 0) : queue(name), tid(t) {}
 
             queue_type  queue;
             std::thread queue_thread;
+            os::thread_id tid;
         };
 
         /** @brief Creates a new (slave) queue of requested template type. For queues that DONT require a worker on the controller side */
@@ -252,7 +253,13 @@ namespace adam
             slave_queue_does_not_exist,
             slave_queue_failed_to_destroy,
             slave_queue_worker_does_not_exist,
-            slave_queue_worker_failed_to_destroy
+            slave_queue_worker_failed_to_destroy,
+            inspector_created,
+            inspector_destroyed,
+            inspector_create_failed_port_unknown,
+            inspector_create_failed_open,
+            inspector_destroy_failed_port_unknown,
+            inspector_destroy_failed_not_found
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);
