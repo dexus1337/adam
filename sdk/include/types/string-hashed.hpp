@@ -12,6 +12,7 @@
 #include "api/api.hpp"
 
 #include <string>
+#include <functional>
 #include <cstdint>
 
 #include "string-hashed-ct.hpp"
@@ -95,6 +96,8 @@ namespace std
     template<>
     struct hash<adam::string_hashed> 
     {
+        using is_transparent = void;
+
         /**
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed.
          * This is O(1) and involves zero string processing.
@@ -104,11 +107,28 @@ namespace std
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
+
+        size_t operator() (uint64_t hash_val) const noexcept 
+        {
+            return static_cast<size_t>(hash_val);
+        }
+    };
+
+    template<>
+    struct equal_to<adam::string_hashed> 
+    {
+        using is_transparent = void;
+
+        bool operator()(const adam::string_hashed& lhs, const adam::string_hashed& rhs) const noexcept { return lhs == rhs; }
+        bool operator()(const adam::string_hashed& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        bool operator()(uint64_t lhs, const adam::string_hashed& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
 
     template<>
     struct hash<adam::wstring_hashed> 
     {
+        using is_transparent = void;
+
         /**
          * @brief Returns the pre-calculated hash stored in the adam::wstring_hashed.
          * This is O(1) and involves zero string processing.
@@ -118,12 +138,29 @@ namespace std
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
+
+        size_t operator() (uint64_t hash_val) const noexcept 
+        {
+            return static_cast<size_t>(hash_val);
+        }
+    };
+
+    template<>
+    struct equal_to<adam::wstring_hashed> 
+    {
+        using is_transparent = void;
+
+        bool operator()(const adam::wstring_hashed& lhs, const adam::wstring_hashed& rhs) const noexcept { return lhs == rhs; }
+        bool operator()(const adam::wstring_hashed& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        bool operator()(uint64_t lhs, const adam::wstring_hashed& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
 
     #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
     template<>
     struct hash<adam::string_hashed_utf8> 
     {
+        using is_transparent = void;
+
         /**
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed_utf8.
          * This is O(1) and involves zero string processing.
@@ -133,12 +170,29 @@ namespace std
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
+
+        size_t operator() (uint64_t hash_val) const noexcept 
+        {
+            return static_cast<size_t>(hash_val);
+        }
+    };
+
+    template<>
+    struct equal_to<adam::string_hashed_utf8> 
+    {
+        using is_transparent = void;
+
+        bool operator()(const adam::string_hashed_utf8& lhs, const adam::string_hashed_utf8& rhs) const noexcept { return lhs == rhs; }
+        bool operator()(const adam::string_hashed_utf8& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        bool operator()(uint64_t lhs, const adam::string_hashed_utf8& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
     #endif
 
     template<>
     struct hash<adam::string_hashed_utf16> 
     {
+        using is_transparent = void;
+
         /**
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed.
          * This is O(1) and involves zero string processing.
@@ -148,11 +202,28 @@ namespace std
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
+
+        size_t operator() (uint64_t hash_val) const noexcept 
+        {
+            return static_cast<size_t>(hash_val);
+        }
+    };
+
+    template<>
+    struct equal_to<adam::string_hashed_utf16> 
+    {
+        using is_transparent = void;
+
+        bool operator()(const adam::string_hashed_utf16& lhs, const adam::string_hashed_utf16& rhs) const noexcept { return lhs == rhs; }
+        bool operator()(const adam::string_hashed_utf16& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        bool operator()(uint64_t lhs, const adam::string_hashed_utf16& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
 
     template<>
     struct hash<adam::string_hashed_utf32> 
     {
+        using is_transparent = void;
+
         /**
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed.
          * This is O(1) and involves zero string processing.
@@ -162,5 +233,20 @@ namespace std
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
+
+        size_t operator() (uint64_t hash_val) const noexcept 
+        {
+            return static_cast<size_t>(hash_val);
+        }
+    };
+
+    template<>
+    struct equal_to<adam::string_hashed_utf32> 
+    {
+        using is_transparent = void;
+
+        bool operator()(const adam::string_hashed_utf32& lhs, const adam::string_hashed_utf32& rhs) const noexcept { return lhs == rhs; }
+        bool operator()(const adam::string_hashed_utf32& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        bool operator()(uint64_t lhs, const adam::string_hashed_utf32& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
 }

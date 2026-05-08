@@ -239,6 +239,20 @@ namespace adam
             thread_auth_failed,
             slave_queue_created,
             slave_queue_destroyed,
+            master_queue_open_failed,
+            master_queue_request_failed,
+            module_requires_newer_sdk,
+            module_requires_newer_sdk_cannot_load,
+            slave_queue_already_exists,
+            slave_queue_failed_to_open,
+            slave_queue_failed_to_insert,
+            slave_queue_worker_already_exists,
+            slave_queue_worker_failed_to_open,
+            slave_queue_worker_failed_to_insert,
+            slave_queue_does_not_exist,
+            slave_queue_failed_to_destroy,
+            slave_queue_worker_does_not_exist,
+            slave_queue_worker_failed_to_destroy
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

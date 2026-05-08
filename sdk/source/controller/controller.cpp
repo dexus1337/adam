@@ -14,6 +14,10 @@
 #include "module/module.hpp"
 #include "version/version.hpp"
 #include "resources/language-strings.hpp"
+#include "data/port/port.hpp"
+#include "data/port/port-input.hpp"
+#include "data/port/port-output.hpp"
+#include "data/inspector.hpp"
 
 
 namespace adam
@@ -67,7 +71,7 @@ namespace adam
         m_queues_command(),
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
-        m_lang(language_english),
+        m_lang(language_german),
         m_available_modules(),
         m_loaded_modules(),
         m_registry(this)
@@ -131,7 +135,8 @@ namespace adam
 
         if (!mq.open())
         {
-            adam::stream_log(log::trace, std::format("Cannot open the master queue for access to queue {:d}.", static_cast<int>(mqr)), std::cout);
+            int mqr_val = static_cast<int>(mqr);
+            adam::stream_log(log::trace, std::vformat(get_log_event_text(log_event::master_queue_open_failed, controller::get().m_lang), std::make_format_args(mqr_val)), std::cout);
             return resp;
         }
 
@@ -145,7 +150,9 @@ namespace adam
 
         if (!pres)
         {
-            adam::stream_log(log::trace, std::format("Request for queue {:d} failed, response {:d}.", static_cast<int>(mqr), static_cast<int>(resp)), std::cout);
+            int mqr_val  = static_cast<int>(mqr);
+            int resp_val = static_cast<int>(resp);
+            adam::stream_log(log::trace, std::vformat(get_log_event_text(log_event::master_queue_request_failed, controller::get().m_lang), std::make_format_args(mqr_val, resp_val)), std::cout);
         }
         
         mq.destroy();
@@ -229,9 +236,15 @@ namespace adam
 
             if (mod->get_required_sdk_version() > adam::sdk_version)
             {
-                this->log(log::warning, std::format("Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}",
-                    path_str.c_str(), adam::get_major(mod->get_required_sdk_version()), adam::get_minor(mod->get_required_sdk_version()), adam::get_patch(mod->get_required_sdk_version()),
-                    adam::get_major(adam::sdk_version), adam::get_minor(adam::sdk_version), adam::get_patch(adam::sdk_version)));
+                auto req_maj = adam::get_major(mod->get_required_sdk_version());
+                auto req_min = adam::get_minor(mod->get_required_sdk_version());
+                auto req_pat = adam::get_patch(mod->get_required_sdk_version());
+                auto sdk_maj = adam::get_major(adam::sdk_version);
+                auto sdk_min = adam::get_minor(adam::sdk_version);
+                auto sdk_pat = adam::get_patch(adam::sdk_version);
+
+                this->log(log::warning, std::vformat(get_log_event_text(log_event::module_requires_newer_sdk, m_lang), std::make_format_args(
+                    path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat)));
 
                 m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
 
@@ -296,9 +309,15 @@ namespace adam
 
         if (mod->get_required_sdk_version() > adam::sdk_version)
         {
-            this->log(log::error, std::format("Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!",
-                path_str.c_str(), adam::get_major(mod->get_required_sdk_version()), adam::get_minor(mod->get_required_sdk_version()), adam::get_patch(mod->get_required_sdk_version()),
-                adam::get_major(adam::sdk_version), adam::get_minor(adam::sdk_version), adam::get_patch(adam::sdk_version)));
+            auto req_maj = adam::get_major(mod->get_required_sdk_version());
+            auto req_min = adam::get_minor(mod->get_required_sdk_version());
+            auto req_pat = adam::get_patch(mod->get_required_sdk_version());
+            auto sdk_maj = adam::get_major(adam::sdk_version);
+            auto sdk_min = adam::get_minor(adam::sdk_version);
+            auto sdk_pat = adam::get_patch(adam::sdk_version);
+
+            this->log(log::error, std::vformat(get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_lang), std::make_format_args(
+                path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat)));
 
             return false;
         }
@@ -342,7 +361,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue that already exists.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_already_exists, m_lang), std::make_format_args(tid))));
 
             return false;
         }
@@ -353,7 +372,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to open.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_failed_to_open, m_lang), std::make_format_args(tid))));
 
             m_master_queue.response_queue().push(status_queue_unavailable);
 
@@ -366,7 +385,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to insert to database.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_failed_to_insert, m_lang), std::make_format_args(tid))));
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -392,7 +411,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue + worker that already exists.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_already_exists, m_lang), std::make_format_args(tid))));
 
             return false;
         }
@@ -403,7 +422,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to open.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_failed_to_open, m_lang), std::make_format_args(tid))));
 
             m_master_queue.response_queue().push(status_queue_unavailable);
 
@@ -422,7 +441,7 @@ namespace adam
 
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to insert to database.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_failed_to_insert, m_lang), std::make_format_args(tid))));
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -445,7 +464,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue that doesnt exists.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_does_not_exist, m_lang), std::make_format_args(tid))));
 
             return false;
         }
@@ -456,7 +475,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_failed_destroy);
 
-            debug_statement(this->log(log::trace, std::format("Failed to destroy queue of client {:d}.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_failed_to_destroy, m_lang), std::make_format_args(tid))));
 
             return false;
         }
@@ -481,7 +500,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue + worker that doesnt exists.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_does_not_exist, m_lang), std::make_format_args(tid))));
 
             return false;
         }
@@ -491,7 +510,7 @@ namespace adam
         it->second->queue_thread.join();
 
         if (!it->second->queue.destroy())
-            debug_statement(this->log(log::trace, std::format("Failed to destroy queue + worker of client {:d}. Ignoring.", tid)));
+            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, m_lang), std::make_format_args(tid))));
 
         delete it->second;
 
@@ -514,7 +533,7 @@ namespace adam
             {
                 m_master_queue.response_queue().push(status_queue_unauthorized);
 
-                this->log(log::trace, std::format(get_log_event_text(log_event::thread_auth_failed, m_lang), req.tid));
+                debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::thread_auth_failed, m_lang), std::make_format_args(req.tid))));
 
                 continue;
             }
@@ -568,10 +587,17 @@ namespace adam
                 break;
             }
 
+            
             if (req.queue % 2)
-                debug_statement(this->log(log::trace, std::format("Client {:d} successfully created queue {:d}", req.tid, static_cast<int>(req.queue))));
+            {
+                int queue_val = static_cast<int>(req.queue);
+                debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_created, m_lang), std::make_format_args(req.tid, queue_val))));
+            }
             else
-                debug_statement(this->log(log::trace, std::format("Client {:d} successfully destroyed queue {:d}", req.tid, static_cast<int>(req.queue) - 1)));
+            {
+                int queue_val = static_cast<int>(req.queue) - 1;
+                debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_destroyed, m_lang), std::make_format_args(req.tid, queue_val))));
+            }
 
             m_master_queue.response_queue().push(status_success);
         }
@@ -579,6 +605,8 @@ namespace adam
 
     void controller::run_queue_command(queue_command_data* data)
     {
+        thread_local std::unordered_map<string_hashed::hash_datatype, std::shared_ptr<data_inspector>> thread_inspectors;
+
         while (data->queue.is_active())
         {
             command cmd;
@@ -590,17 +618,80 @@ namespace adam
 
             switch (cmd.get_type())
             {
-            case command::set_language:
-            {
-                m_lang  = *cmd.get_data_as<language>();
-                resp    = response::success;
+                case command::set_language:
+                {
+                    m_lang  = *cmd.get_data_as<language>();
+                    resp    = response::success;
 
-                this->log(log::info, get_log_event_text(log_event::language_changed, m_lang));
+                    this->log(log::info, get_log_event_text(log_event::language_changed, m_lang));
 
-                break;
-            }
-            default:
-                break;
+                    break;
+                }
+                case command::inspector_create:
+                {
+                    auto params = cmd.get_data_as<command::inspector_create_data>();
+
+                    // First check if the port exists
+                    auto port = m_registry.ports().find(params->port);
+
+                    if (port == m_registry.ports().end())
+                    {
+                        resp = response::unknown;
+
+                        break;
+                    }
+
+                    auto new_inspector = std::make_shared<data_inspector>();
+
+                    // Try to open the inspector with the given port, if it fails respond with failed
+                    if (!new_inspector->open(port->second->get_name()))
+                    {
+                        resp = response::failed;
+
+                        break;
+                    }
+
+                    // At this point the inspector seems to be valid, so data can be forwareded to it
+                    port->second->inspectors().push_back(new_inspector);
+
+                    thread_inspectors.emplace(params->port, new_inspector);
+
+                    resp = response::success;
+
+                    break;
+                }
+                case command::inspector_destroy:
+                {
+                    auto params = cmd.get_data_as<command::inspector_destroy_data>();
+
+                    // First check if the port exists
+                    auto port = m_registry.ports().find(params->port);
+                    if (port == m_registry.ports().end())
+                    {
+                        resp = response::unknown;
+                        break;
+                    }
+
+                    // Locate the inspector managed by this thread
+                    auto it = thread_inspectors.find(params->port);
+                    if (it == thread_inspectors.end())
+                    {
+                        resp = response::failed;
+                        break;
+                    }
+
+                    // Safely remove the raw pointer from the port's routing list
+                    port->second->inspectors().remove(it->second);
+
+                    // Erase the unique_ptr from the map, destroying the object safely
+                    thread_inspectors.erase(it);
+
+                    resp = response::success;
+                    
+                    break;
+                }
+                default:
+                    break;
             }
 
             data->queue.response_queue().push(resp);
@@ -631,6 +722,70 @@ namespace adam
             { 
                 static_cast<int>(log_event::thread_auth_failed),
                 { "Thread {:d} did not authenticate correctly.",    "Thread {:d} hat sich nicht korrekt authentifiziert." }
+            },
+            { 
+                static_cast<int>(log_event::slave_queue_created),
+                { "Thread {:d} did successfully create queue of type {:d}.",    "Thread {:d} hat eine Warteschlange vom Typ {:d} erfolgreich erstellt." }
+            },
+            { 
+                static_cast<int>(log_event::slave_queue_destroyed),
+                { "Thread {:d} did successfully destroy queue of type {:d}.",   "Thread {:d} hat eine Warteschlange vom Typ {:d} erfolgreich entfernt." }
+            },
+            {
+                static_cast<int>(log_event::master_queue_open_failed),
+                { "Cannot open the master queue for access to queue {:d}.",     "Die Haupt-Warteschlange für den Zugriff auf Warteschlange {:d} konnte nicht geöffnet werden." }
+            },
+            {
+                static_cast<int>(log_event::master_queue_request_failed),
+                { "Request for queue {:d} failed, response {:d}.",              "Anfrage für Warteschlange {:d} fehlgeschlagen, Antwort {:d}." }
+            },
+            {
+                static_cast<int>(log_event::module_requires_newer_sdk),
+                { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}" }
+            },
+            {
+                static_cast<int>(log_event::module_requires_newer_sdk_cannot_load),
+                { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}. Kann nicht geladen werden!" }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_already_exists),
+                { "Client {:d} tried to create a queue that already exists.",   "Client {:d} hat versucht, eine Warteschlange zu erstellen, die bereits existiert." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_failed_to_open),
+                { "Queue for client {:d} failed to open.",                      "Warteschlange für Client {:d} konnte nicht geöffnet werden." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_failed_to_insert),
+                { "Queue for client {:d} failed to insert to database.",        "Warteschlange für Client {:d} konnte nicht in die Datenbank eingefügt werden." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_worker_already_exists),
+                { "Client {:d} tried to create a queue + worker that already exists.", "Client {:d} hat versucht, eine Warteschlange + Worker zu erstellen, die bereits existieren." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_worker_failed_to_open),
+                { "Queue + worker for client {:d} failed to open.",             "Warteschlange + Worker für Client {:d} konnten nicht geöffnet werden." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_worker_failed_to_insert),
+                { "Queue + worker for client {:d} failed to insert to database.", "Warteschlange + Worker für Client {:d} konnten nicht in die Datenbank eingefügt werden." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_does_not_exist),
+                { "Client {:d} tried to destroy a queue that doesnt exists.",   "Client {:d} hat versucht, eine Warteschlange zu entfernen, die nicht existiert." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_failed_to_destroy),
+                { "Failed to destroy queue of client {:d}.",                    "Fehler beim Entfernen der Warteschlange von Client {:d}." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_worker_does_not_exist),
+                { "Client {:d} tried to destroy a queue + worker that doesnt exists.", "Client {:d} hat versucht, eine Warteschlange + Worker zu entfernen, die nicht existieren." }
+            },
+            {
+                static_cast<int>(log_event::slave_queue_worker_failed_to_destroy),
+                { "Failed to destroy queue + worker of client {:d}. Ignoring.", "Fehler beim Entfernen der Warteschlange + Worker von Client {:d}. Wird ignoriert." }
             }
         };
 

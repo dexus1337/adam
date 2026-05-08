@@ -33,7 +33,7 @@ namespace adam
     public:
 
         /** @brief Constructs a new memory_signaled object. */
-        memory_signaled(const string_hashed& name);
+        memory_signaled(const string_hashed& name = string_hashed());
 
         /** @brief Destroys the memory_signaled object and cleans up resources. */
         virtual ~memory_signaled();

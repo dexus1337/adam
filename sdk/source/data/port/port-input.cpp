@@ -21,7 +21,7 @@ namespace adam
         // Send data to connections
         m_connections.iterate([&](const auto& connections) 
         {
-            for (auto conn : connections) 
+            for (const auto& conn : connections) 
                 result &= conn->handle_data(buffer);
         });
 

@@ -30,7 +30,7 @@ namespace adam
     public:
 
         /** @brief Constructs a new queue_shared object.*/
-        queue_shared(const string_hashed& name);
+        queue_shared(const string_hashed& name = string_hashed());
 
         /** @brief Destroys the queue_shared object and cleans up resources.*/
         ~queue_shared();
@@ -49,6 +49,8 @@ namespace adam
 
         /** @brief Gets the memorys active flag. Can be as loop condition for threads .*/
         bool is_active() const { return m_shared_memory.is_active(); };
+
+        void set_name(const string_hashed& new_name) { m_shared_memory.set_name(new_name); }
 
         /** @brief Creates the queue_type queue and the underlying shared_memory for managing a max amount of items given. */
         bool create(uint32_t max_items);

@@ -20,8 +20,7 @@
 namespace adam
 {
     class controller;
-    class port_input;
-    class port_output;
+    class port;
     class converter;
     class filter;
     class connection;
@@ -36,11 +35,10 @@ namespace adam
 
     public:
         /** @brief Retrieves the list of configuration parameters for input ports. */
-        std::unordered_map<string_hashed, std::unique_ptr<port_input>>&     input_ports()   { return m_input_ports; }
-        std::unordered_map<string_hashed, std::unique_ptr<port_output>>&    output_ports()  { return m_output_ports; }
-        std::unordered_map<string_hashed, std::unique_ptr<filter>>&         filters()       { return m_filters; }
-        std::unordered_map<string_hashed, std::unique_ptr<converter>>&      converters()    { return m_converters; }
-        std::unordered_map<string_hashed, std::unique_ptr<connection>>&     connections()   { return m_connections; }
+        std::unordered_map<string_hashed, std::unique_ptr<port>>&       ports()         { return m_ports; }
+        std::unordered_map<string_hashed, std::unique_ptr<filter>>&     filters()       { return m_filters; }
+        std::unordered_map<string_hashed, std::unique_ptr<converter>>&  converters()    { return m_converters; }
+        std::unordered_map<string_hashed, std::unique_ptr<connection>>& connections()   { return m_connections; }
 
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const;
@@ -61,11 +59,10 @@ namespace adam
 
         configuration_parameter_list m_general;                                         /**< General configuration parameters. */
         
-        std::unordered_map<string_hashed, std::unique_ptr<port_input>> m_input_ports;   /**< The list of configuration parameters for input ports. */
-        std::unordered_map<string_hashed, std::unique_ptr<port_output>> m_output_ports; /**< The list of configuration parameters for output ports. */
-        std::unordered_map<string_hashed, std::unique_ptr<filter>> m_filters;           /**< The list of configuration parameters for filters. */
-        std::unordered_map<string_hashed, std::unique_ptr<converter>> m_converters;     /**< The list of configuration parameters for converters. */
-        std::unordered_map<string_hashed, std::unique_ptr<connection>> m_connections;   /**< The list of configuration parameters for connections. */
+        std::unordered_map<string_hashed, std::unique_ptr<port>>        m_ports;        /**< The list of configuration parameters for ports. */
+        std::unordered_map<string_hashed, std::unique_ptr<filter>>      m_filters;      /**< The list of configuration parameters for filters. */
+        std::unordered_map<string_hashed, std::unique_ptr<converter>>   m_converters;   /**< The list of configuration parameters for converters. */
+        std::unordered_map<string_hashed, std::unique_ptr<connection>>  m_connections;  /**< The list of configuration parameters for connections. */
 
         const controller* m_controller;                                                 /**< A pointer to the controller, used for accessing shared resources and orchestrating interactions between components. */
     };

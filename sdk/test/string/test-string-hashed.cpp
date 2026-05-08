@@ -6,22 +6,22 @@
 #include <chrono>
 #include <iostream>
 
-#define GENERATE_STRING_HASHED_TESTS(CHAR_TYPE, PREFIX, TYPE_NAME, RT_ALIAS) \
+#define GENERATE_STRING_HASHED_TESTS(CHAR_TYPE, PREFIX, TYPE_NAME) \
     /** @brief Tests the initialization of string_hashed objects. */ \
     TEST(string_hashed, set_##TYPE_NAME) \
     { \
-        adam::RT_ALIAS str1(PREFIX##"Hello"); \
-        adam::RT_ALIAS str2(PREFIX##"Hello"); \
-        adam::RT_ALIAS str3(PREFIX##"World"); \
+        adam::string_hashed_template<CHAR_TYPE> str1(PREFIX##"Hello"); \
+        adam::string_hashed_template<CHAR_TYPE> str2(PREFIX##"Hello"); \
+        adam::string_hashed_template<CHAR_TYPE> str3(PREFIX##"World"); \
         EXPECT_TRUE(std::basic_string_view<CHAR_TYPE>(str1.c_str()) == std::basic_string_view<CHAR_TYPE>(str2.c_str())); \
         EXPECT_TRUE(std::basic_string_view<CHAR_TYPE>(str1.c_str()) != std::basic_string_view<CHAR_TYPE>(str3.c_str())); \
     } \
     /** @brief Tests the comparison of string_hashed objects. */ \
     TEST(string_hashed, comparison_##TYPE_NAME) \
     { \
-        adam::RT_ALIAS str1(PREFIX##"Hello"); \
-        adam::RT_ALIAS str2(PREFIX##"Hello"); \
-        adam::RT_ALIAS str3(PREFIX##"World"); \
+        adam::string_hashed_template<CHAR_TYPE> str1(PREFIX##"Hello"); \
+        adam::string_hashed_template<CHAR_TYPE> str2(PREFIX##"Hello"); \
+        adam::string_hashed_template<CHAR_TYPE> str3(PREFIX##"World"); \
         EXPECT_EQ(str1.get_hash(), str2.get_hash()); \
         EXPECT_NE(str1.get_hash(), str3.get_hash()); \
         EXPECT_TRUE(str1 == str2); \
@@ -30,9 +30,9 @@
     /** @brief Tests the recalculation of hash values after modification. */ \
     TEST(string_hashed, hash_recalculation_##TYPE_NAME) \
     { \
-        adam::RT_ALIAS str1(PREFIX##"Hello"); \
-        adam::RT_ALIAS str2(PREFIX##"Hello"); \
-        adam::RT_ALIAS str3(PREFIX##"Hello!"); \
+        adam::string_hashed_template<CHAR_TYPE> str1(PREFIX##"Hello"); \
+        adam::string_hashed_template<CHAR_TYPE> str2(PREFIX##"Hello"); \
+        adam::string_hashed_template<CHAR_TYPE> str3(PREFIX##"Hello!"); \
         str2.append(PREFIX##"!"); \
         EXPECT_TRUE(str2 != str3); \
         str2.calculate_hash(); \
@@ -41,8 +41,8 @@
     /** @brief Tests the copy constructor and string conversion. */ \
     TEST(string_hashed, copy_##TYPE_NAME) \
     { \
-        adam::RT_ALIAS sh(PREFIX##"test_string"); \
-        adam::RT_ALIAS sh_copy(PREFIX##"different_string"); \
+        adam::string_hashed_template<CHAR_TYPE> sh(PREFIX##"test_string"); \
+        adam::string_hashed_template<CHAR_TYPE> sh_copy(PREFIX##"different_string"); \
         EXPECT_TRUE(sh_copy != sh); \
         sh_copy = sh; \
         EXPECT_TRUE(sh_copy == sh); \
@@ -52,20 +52,20 @@
     /** @brief Tests the insertion and retrieval of string_hashed objects in a std::map. */ \
     TEST(string_hashed, map_insertion_and_retrieval_##TYPE_NAME) \
     { \
-        std::unordered_map<adam::RT_ALIAS, int> test_map; \
-        adam::RT_ALIAS key_1(PREFIX##"param1"); \
+        std::unordered_map<adam::string_hashed_template<CHAR_TYPE>, int> test_map; \
+        adam::string_hashed_template<CHAR_TYPE> key_1(PREFIX##"param1"); \
         test_map[key_1] = 5000; \
         EXPECT_EQ(test_map.count(key_1), 1u); \
         EXPECT_EQ(test_map[key_1], 5000); \
-        adam::RT_ALIAS key_2(PREFIX##"param1"); \
+        adam::string_hashed_template<CHAR_TYPE> key_2(PREFIX##"param1"); \
         EXPECT_EQ(test_map.count(key_2), 1u); \
         EXPECT_EQ(test_map[key_2], 5000); \
     } \
     /** @brief Tests the consistency of the standard library hash function with the custom hash function. */ \
     TEST(string_hashed, std_hash_consistency_##TYPE_NAME) \
     { \
-        adam::RT_ALIAS sh(PREFIX##"test_string"); \
-        std::hash<adam::RT_ALIAS> hasher; \
+        adam::string_hashed_template<CHAR_TYPE> sh(PREFIX##"test_string"); \
+        std::hash<adam::string_hashed_template<CHAR_TYPE>> hasher; \
         size_t system_hash = hasher(sh); \
         EXPECT_EQ(system_hash, static_cast<size_t>(sh.get_hash())); \
     } \
@@ -73,22 +73,41 @@
     TEST(string_hashed, switch_statement_##TYPE_NAME) \
     { \
         int match = 0; \
-        switch (adam::RT_ALIAS(PREFIX##"SwitchTest")) \
+        switch (adam::string_hashed_template<CHAR_TYPE>(PREFIX##"SwitchTest")) \
         { \
             case adam::string_hashed_ct_template<CHAR_TYPE>(PREFIX##"NoMatch"): match = 1; break; \
             case adam::string_hashed_ct_template<CHAR_TYPE>(PREFIX##"SwitchTest"): match = 2; break; \
             default: match = 3; break; \
         } \
         EXPECT_EQ(match, 2); \
+    } \
+    /** @brief Tests heterogeneous lookup using uint64_t hash for runtime strings. */ \
+    TEST(string_hashed, transparent_lookup_##TYPE_NAME) \
+    { \
+        std::unordered_map<adam::string_hashed_template<CHAR_TYPE>, int> test_map; \
+        adam::string_hashed_template<CHAR_TYPE> key_1(PREFIX##"transparent_test"); \
+        test_map[key_1] = 42; \
+        \
+        uint64_t raw_hash = key_1.get_hash(); \
+        auto it = test_map.find(raw_hash); \
+        ASSERT_NE(it, test_map.end()); \
+        EXPECT_EQ(it->second, 42); \
+        EXPECT_TRUE(test_map.contains(raw_hash)); \
+        \
+        constexpr adam::string_hashed_ct_template<CHAR_TYPE> ct_key(PREFIX##"transparent_test"); \
+        auto it_ct = test_map.find(ct_key.get_hash()); \
+        ASSERT_NE(it_ct, test_map.end()); \
+        EXPECT_EQ(it_ct->second, 42); \
+        EXPECT_TRUE(test_map.contains(ct_key.get_hash())); \
     }
 
-GENERATE_STRING_HASHED_TESTS(char, , char, string_hashed)
-GENERATE_STRING_HASHED_TESTS(wchar_t, L, wchar, wstring_hashed)
+GENERATE_STRING_HASHED_TESTS(char, , char)
+GENERATE_STRING_HASHED_TESTS(wchar_t, L, wchar)
 #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
-GENERATE_STRING_HASHED_TESTS(char8_t, u8, char8, string_hashed_utf8)
+GENERATE_STRING_HASHED_TESTS(char8_t, u8, char8)
 #endif
-GENERATE_STRING_HASHED_TESTS(char16_t, u, char16, string_hashed_utf16)
-GENERATE_STRING_HASHED_TESTS(char32_t, U, char32, string_hashed_utf32)
+GENERATE_STRING_HASHED_TESTS(char16_t, u, char16)
+GENERATE_STRING_HASHED_TESTS(char32_t, U, char32)
 
 /** @brief Benchmark test comparing string_hashed (rapidhash) to standard FNV-1a. */
 TEST(string_hashed, benchmark_vs_fnv1a)

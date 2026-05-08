@@ -110,13 +110,20 @@ namespace adam
 
     std::string_view language_strings::unknown_type_message(std::string_view type, int val, language lang)
     {
+        // Use thread_local to safely return a string_view to a persistent object without dangling
+        thread_local std::string fallback_msg;
+
         switch (lang)
         {
         default:
         case language_english:
-            return std::format("No available text for value {:d} in status of type \"{}\"", val, type);
+            fallback_msg = std::format("No available text for value {:d} in status of type \"{}\"", val, type);
+            break;
         case language_german:
-            return std::format("Kein hinterleter Text für Wert {:d} im Status-Typ \"{}\"", val, type);
+            fallback_msg = std::format("Kein hinterlegter Text für Wert {:d} im Status-Typ \"{}\"", val, type);
+            break;
         }
+
+        return fallback_msg;
     }
 }

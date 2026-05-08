@@ -100,7 +100,7 @@ namespace adam
          * @example
          * vector_double_buffer<port_input*> ports;
          * ports.iterate([](const auto& active) {
-         *     for (auto port : active) {
+         *     for (const auto& port : active) {
          *         port->process();
          *     }
          * });
@@ -115,6 +115,9 @@ namespace adam
                 std::unique_lock lock(m_mutex);
                 std::swap(const_cast<std::vector<T>&>(m_active), 
                          const_cast<std::vector<T>&>(m_pending));
+                
+                // Keep the pending buffer in sync so future push_back/remove operations don't lose state
+                const_cast<std::vector<T>&>(m_pending) = m_active;
                 const_cast<std::atomic<bool>&>(m_dirty).store(false, std::memory_order_release);
             }
 

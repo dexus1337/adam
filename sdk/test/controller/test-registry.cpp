@@ -79,8 +79,7 @@ TEST_F(registry_test, save_clear_reload_verify)
     
     // 3. Clear existing parameters to ensure we load fresh from file
     reg.get_general().clear();
-    reg.input_ports().clear();
-    reg.output_ports().clear();
+    reg.ports().clear();
     reg.filters().clear();
     reg.converters().clear();
     

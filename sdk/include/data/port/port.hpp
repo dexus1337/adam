@@ -12,13 +12,14 @@
 #include "api/api.hpp"
 #include "configuration/configuration-item.hpp"
 #include "types/vector-double-buffer.hpp"
+#include <memory>
 
 namespace adam 
 {
     class buffer;
     class data_format;
     class connection;
-    class inspector;
+    class data_inspector;
 
     /**
      * @class port
@@ -28,26 +29,26 @@ namespace adam
     {
     public:
 
+        /** @brief Destroys the port object and cleans up resources. */
+        virtual ~port();
+
         const data_format* get_data_format() const { return m_data_format; }
 
-        vector_double_buffer<connection*>&  connections()   { return m_connections; }
-        vector_double_buffer<inspector*>&   inspectors()    { return m_inspectors; }
+        vector_double_buffer<connection*>&                      connections()   { return m_connections; }
+        vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors()    { return m_inspectors; }
 
         /** @brief Data management routine */
-        virtual bool handle_data(buffer* buffer) = 0;
+        virtual bool handle_data(buffer* buffer);
 
     protected:
 
         /** @brief Constructs a new port object. */
         port(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
 
-        /** @brief Destroys the port object and cleans up resources. */
-        ~port();
+        const data_format* m_data_format;                                       /**< The data format associated with this port, used for parsing/serializing data. */
 
-        const data_format* m_data_format;                   /**< The data format associated with this port, used for parsing/serializing data. */
-
-        vector_double_buffer<connection*> m_connections;    /**< Each port needs to know where to send/recieve data from */
-        vector_double_buffer<inspector*>  m_inspectors;     /**< Zero or many data inspectors. All incoming data will be forwarded to them */
+        vector_double_buffer<connection*>                       m_connections;  /**< Each port needs to know where to send/recieve data from */
+        vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;   /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
     };
 }

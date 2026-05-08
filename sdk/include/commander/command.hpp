@@ -30,7 +30,10 @@ namespace adam
             invalid = 0,
             login,
             logout,
-            set_language
+            set_language,
+
+            inspector_create,
+            inspector_destroy
         };
 
         /** @brief Constructs a new command object.*/
@@ -45,6 +48,16 @@ namespace adam
 
         template<typename T>
         const T* get_data_as()      const { return reinterpret_cast<const T*>(m_data); }
+
+        struct inspector_create_data
+        {
+            string_hashed::hash_datatype port;
+        };
+
+        struct inspector_destroy_data
+        {
+            string_hashed::hash_datatype port;
+        };
 
     protected:
 

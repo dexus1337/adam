@@ -153,8 +153,7 @@ namespace adam
 
     registry::registry(const controller* ctrl) 
      :  m_general(string_hashed("general")),
-        m_input_ports(),
-        m_output_ports(),
+        m_ports(),
         m_filters(),
         m_converters(),
         m_controller(ctrl)
@@ -203,8 +202,7 @@ namespace adam
         };
 
         // 2-5. Save grouped configuration items
-        serialize_group("input_ports", m_input_ports);
-        serialize_group("output_ports", m_output_ports);
+        serialize_group("ports", m_ports);
         serialize_group("filters", m_filters);
         serialize_group("converters", m_converters);
         serialize_group("connections", m_connections);
@@ -237,8 +235,7 @@ namespace adam
 
         // Clear the existing state
         m_general.clear();
-        m_input_ports.clear();
-        m_output_ports.clear();
+        m_ports.clear();
         m_filters.clear();
         m_converters.clear();
         m_connections.clear();
@@ -254,7 +251,7 @@ namespace adam
 
         // The tree structure is successfully loaded from the file!
         // In the future, you can implement the item instantiation logic here 
-        // by looping through static_cast<configuration_parameter_list*>(loaded_root.get())->get(string_hashed("input_ports"))
+        // by looping through static_cast<configuration_parameter_list*>(loaded_root.get())->get(string_hashed("ports"))
         return ifs.good();
     }
 }

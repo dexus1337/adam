@@ -25,14 +25,14 @@ namespace adam
         // Chain processors: output of one = input of next
         m_processors.iterate([&](const auto& processors) 
         {
-            for (auto processor : processors) 
+            for (const auto& processor : processors) 
                 result &= processor->handle_data(buffer);
         });
 
         // Send result to output ports
         m_ports_output.iterate([&](const auto& outputs) 
         {
-            for (auto output_port : outputs) 
+            for (const auto& output_port : outputs) 
                 result &= output_port->handle_data(buffer);
         });
 

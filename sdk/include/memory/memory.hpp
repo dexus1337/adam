@@ -33,7 +33,7 @@ namespace adam
     public:
 
         /** @brief Constructs a new memory object. */
-        memory(const string_hashed& name);
+        memory(const string_hashed& name = string_hashed());
 
         /** @brief Destroys the memory object and cleans up resources. */
         ~memory();
@@ -43,6 +43,8 @@ namespace adam
         void* get()                                 const { return reinterpret_cast<uint8_t*>(m_shared_memory_base) + m_memory_offset; }
         uint64_t get_size()                         const { return m_shared_memory_size > m_memory_offset ? m_shared_memory_size - m_memory_offset : 0; }
         const string_hashed& get_name()             const { return m_name; }
+
+        void set_name(const string_hashed& new_name) { m_name = new_name; }
 
         /** @brief Creates the shared memory region, setting up necessary resources. */
         virtual bool create(uint64_t buffer_size);
