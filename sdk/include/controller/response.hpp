@@ -26,6 +26,7 @@ namespace adam
         {
             invalid = 0,
             success,
+            unknown,
             failed
         };
 

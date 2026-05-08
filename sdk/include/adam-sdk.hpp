@@ -48,3 +48,4 @@
 #include "logger/logger.hpp"
 #include "logger/logger-sink.hpp"
 #include "os/os.hpp"
+#include "resources/language-strings.hpp"

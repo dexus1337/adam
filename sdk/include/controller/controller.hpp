@@ -23,6 +23,7 @@
 #include "logger/log.hpp"
 #include "os/os.hpp"
 #include "registry.hpp"
+#include "resources/language.hpp"
 
 
 namespace adam 
@@ -87,12 +88,13 @@ namespace adam
         {
             status_invalid = 0,
             status_success,
-            status_existing,
-            status_not_existing,
-            status_unavailable,
-            status_unauthorized,
-            status_internal_error,
-            status_unknown
+            status_queue_existing,
+            status_queue_not_existing,
+            status_queue_unavailable,
+            status_queue_unauthorized,
+            status_queue_failed_create,
+            status_queue_failed_destroy,
+            status_unknown_master_request
         };
 
         // LOG MANAGEMENT
@@ -102,6 +104,9 @@ namespace adam
 
         /** @brief Outputs a log. */
         void log(log::level t, string_hashed::view txt) { this->log(adam::log(t, txt)); }
+
+        /** @brief Sets the default language for logs etc. */
+        void set_language(language lang) { m_lang = lang; }
 
         // MODULE MANAGEMENT
 
@@ -148,8 +153,8 @@ namespace adam
             uint32_t                code;
         };
 
-        using master_queue = queue_shared_duplex<queue_master_request_data, status>; /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
-        static constexpr const char* master_queue_name = "adam::controller_master_queue";           /**< The name of the queue which will create new "per thread" command queues */
+        using master_queue = queue_shared_duplex<queue_master_request_data, status>;        /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
+        static constexpr const char* master_queue_name = "adam::controller_master_queue";   /**< The name of the queue which will create new "per thread" command queues */
         
         void run_master_queue();
 
@@ -228,7 +233,18 @@ namespace adam
 
         // LOG MANAGEMENT
 
+        enum log_event
+        {
+            language_changed,
+            thread_auth_failed,
+            slave_queue_created,
+            slave_queue_destroyed,
+        };
+
+        static std::string_view get_log_event_text(log_event event, language lang);
+
         std::ostream            m_log_outstream;
+        language                m_lang;
 
         // MODULE MANAGEMENT
 

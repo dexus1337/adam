@@ -1,5 +1,6 @@
 #include "controller/controller.hpp"
 
+
 #include <filesystem>
 #include <vector>
 #include <iostream>
@@ -12,6 +13,8 @@
 
 #include "module/module.hpp"
 #include "version/version.hpp"
+#include "resources/language-strings.hpp"
+
 
 namespace adam
 {
@@ -64,6 +67,7 @@ namespace adam
         m_queues_command(),
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
+        m_lang(language_english),
         m_available_modules(),
         m_loaded_modules(),
         m_registry(this)
@@ -122,8 +126,8 @@ namespace adam
 
     controller::status controller::request_master_queue(master_queue_request mqr)
     {
-        status resp  = status_unavailable;
-        master_queue mq             = master_queue(string_hashed(master_queue_name));
+        status resp     = status_queue_unavailable;
+        master_queue mq = master_queue(string_hashed(master_queue_name));
 
         if (!mq.open())
         {
@@ -336,7 +340,7 @@ namespace adam
         // if it already is in the queue it has be running as expected
         if (it != queue_list.end())
         {
-            m_master_queue.response_queue().push(status_existing);
+            m_master_queue.response_queue().push(status_queue_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue that already exists.", tid)));
 
@@ -351,7 +355,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to open.", tid)));
 
-            m_master_queue.response_queue().push(status_unavailable);
+            m_master_queue.response_queue().push(status_queue_unavailable);
 
             return false;
         }
@@ -364,7 +368,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue for client {:d} failed to insert to database.", tid)));
 
-            m_master_queue.response_queue().push(status_internal_error);
+            m_master_queue.response_queue().push(status_queue_failed_create);
 
             return false;
         }
@@ -386,7 +390,7 @@ namespace adam
         // if it already is in the queue it has be running as expected
         if (it != queue_list.end())
         {
-            m_master_queue.response_queue().push(status_existing);
+            m_master_queue.response_queue().push(status_queue_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to create a queue + worker that already exists.", tid)));
 
@@ -401,7 +405,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to open.", tid)));
 
-            m_master_queue.response_queue().push(status_unavailable);
+            m_master_queue.response_queue().push(status_queue_unavailable);
 
             return false;
         }
@@ -420,7 +424,7 @@ namespace adam
 
             debug_statement(this->log(log::trace, std::format("Queue + worker for client {:d} failed to insert to database.", tid)));
 
-            m_master_queue.response_queue().push(status_internal_error);
+            m_master_queue.response_queue().push(status_queue_failed_create);
 
             return false;
         }
@@ -439,7 +443,7 @@ namespace adam
 
         if (it == queue_list.end())
         {
-            m_master_queue.response_queue().push(status_not_existing);
+            m_master_queue.response_queue().push(status_queue_not_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue that doesnt exists.", tid)));
 
@@ -450,7 +454,7 @@ namespace adam
 
         if (!it->second->destroy())
         {
-            m_master_queue.response_queue().push(status_internal_error);
+            m_master_queue.response_queue().push(status_queue_failed_destroy);
 
             debug_statement(this->log(log::trace, std::format("Failed to destroy queue of client {:d}.", tid)));
 
@@ -475,7 +479,7 @@ namespace adam
 
         if (it == queue_list.end())
         {
-            m_master_queue.response_queue().push(status_not_existing);
+            m_master_queue.response_queue().push(status_queue_not_existing);
 
             debug_statement(this->log(log::trace, std::format("Client {:d} tried to destroy a queue + worker that doesnt exists.", tid)));
 
@@ -508,9 +512,9 @@ namespace adam
             // check secret to only allow (basic) authenticated users
             if (req.tid != reverse_secret(req.code))
             {
-                m_master_queue.response_queue().push(status_unauthorized);
+                m_master_queue.response_queue().push(status_queue_unauthorized);
 
-                debug_statement(this->log(log::trace, std::format("Client {:d} did not authenticate correctly.", req.tid)));
+                this->log(log::trace, std::format(get_log_event_text(log_event::thread_auth_failed, m_lang), req.tid));
 
                 continue;
             }
@@ -560,7 +564,7 @@ namespace adam
                 break;
             }
             default:
-                m_master_queue.response_queue().push(status_unknown);
+                m_master_queue.response_queue().push(status_unknown_master_request);
                 break;
             }
 
@@ -586,6 +590,15 @@ namespace adam
 
             switch (cmd.get_type())
             {
+            case command::set_language:
+            {
+                m_lang  = *cmd.get_data_as<language>();
+                resp    = response::success;
+
+                this->log(log::info, get_log_event_text(log_event::language_changed, m_lang));
+
+                break;
+            }
             default:
                 break;
             }
@@ -605,5 +618,28 @@ namespace adam
 
             this->log(clog);
         }
+    }
+    
+    std::string_view controller::get_log_event_text(log_event event, language lang)
+    {
+        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        {
+            { 
+                static_cast<int>(log_event::language_changed),
+                { "Language changed to: english!",                  "Sprache geändert zu: Deutsch." }
+            },
+            { 
+                static_cast<int>(log_event::thread_auth_failed),
+                { "Thread {:d} did not authenticate correctly.",    "Thread {:d} hat sich nicht korrekt authentifiziert." }
+            }
+        };
+
+        auto val    = static_cast<int>(event);
+        auto it     = translations.find(val);
+
+        if (it != translations.end())
+            return it->second[static_cast<int>(lang)];
+        
+        return language_strings::unknown_type_message(_TYPEINFO "controller::log_event", val, lang);
     }
 }

@@ -67,7 +67,7 @@ namespace adam
     };
     #pragma pack(pop)
 
-    static_assert(sizeof(log) == log::log_size_in_bytes, "log size must be exactly 512 bytes");
+    static_assert(sizeof(log) == log::log_size_in_bytes, "log size mismatch");
 
     
     /** @brief Global function for anyone to use to have logs display in adam style. */
