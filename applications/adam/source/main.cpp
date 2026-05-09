@@ -29,9 +29,9 @@ int main()
 
     auto& controller = adam::controller::get();
 
-    controller.scan_for_modules("./modules/");
+    controller.modules().scan_for_modules("./modules/");
 
-    for (const auto& [name, path] : controller.get_available_modules())
+    for (const auto& [name, path] : controller.modules().get_available_modules())
     {
         auto ver = adam::decode_version(path.first);
 
@@ -39,10 +39,10 @@ int main()
                                   name.c_str(), ver.major, ver.minor, ver.patch, path.second.c_str()));
     }
     
-    for (const auto& [name, path] : controller.get_available_modules())
+    for (const auto& [name, path] : controller.modules().get_available_modules())
     {
-        if (controller.load_module(name))
-            controller.log(adam::log::info, std::format("loaded module \"{}\" at 0x{:x}", name.c_str(), controller.get_loaded_module(name)->get_module_handle()));
+        if (controller.modules().load_module(name))
+            controller.log(adam::log::info, std::format("loaded module \"{}\" at 0x{:x}", name.c_str(), controller.modules().get_loaded_module(name)->get_module_handle()));
         else
             controller.log(adam::log::error, std::format("failed to load module \"{}\"", name.c_str()));
     }

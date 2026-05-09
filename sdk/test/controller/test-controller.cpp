@@ -29,7 +29,7 @@ TEST(controller, scan_for_modules_invalid_dir)
     adam::controller& ctrl = adam::controller::get();
     
     // Should handle non-existent directories gracefully and return true (empty scan)
-    EXPECT_TRUE(ctrl.scan_for_modules("/invalid_adam_directory_that_does_not_exist_1337"));
+    EXPECT_TRUE(ctrl.modules().scan_for_modules("/invalid_adam_directory_that_does_not_exist_1337"));
 }
 
 /** @brief Tests the loading of an invalid module */
@@ -39,8 +39,8 @@ TEST(controller, load_module_invalid)
     
     // Try to load a module that hasn't been scanned or doesn't exist
     adam::string_hashed invalid_mod_name("invalid_module");
-    EXPECT_FALSE(ctrl.load_module(invalid_mod_name));
-    EXPECT_EQ(ctrl.get_loaded_module(invalid_mod_name), nullptr);
+    EXPECT_FALSE(ctrl.modules().load_module(invalid_mod_name));
+    EXPECT_EQ(ctrl.modules().get_loaded_module(invalid_mod_name), nullptr);
 }
 
 /** @brief Tests that getters for module maps return correctly */
@@ -49,9 +49,9 @@ TEST(controller, module_maps_access)
     adam::controller& ctrl = adam::controller::get();
     
     // Just verify we can access the maps and they don't cause faults
-    const auto& available = ctrl.get_available_modules();
-    const auto& unavailable = ctrl.get_unavailable_modules();
-    const auto& loaded = ctrl.get_loaded_modules();
+    const auto& available = ctrl.modules().get_available_modules();
+    const auto& unavailable = ctrl.modules().get_unavailable_modules();
+    const auto& loaded = ctrl.modules().get_loaded_modules();
     
     EXPECT_GE(available.size(), 0u);
     EXPECT_GE(unavailable.size(), 0u);

@@ -11,9 +11,6 @@
 
 #include <string>
 
-#include "controller/controller.hpp"
-#include "controller/response.hpp"
-
 
 namespace adam
 {

@@ -151,7 +151,7 @@ namespace adam
         }
     }
 
-    registry::registry(const controller* ctrl) 
+    registry::registry(const controller& ctrl) 
      :  m_general(string_hashed("general")),
         m_ports(),
         m_filters(),

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "controller/registry.hpp"
+#include "controller/controller.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "data/port/port-input.hpp"
@@ -16,7 +17,7 @@ namespace adam::test
     class testable_registry : public adam::registry
     {
     public:
-        testable_registry() : adam::registry(nullptr) {}
+        testable_registry() : adam::registry(adam::controller::get()) {}
         
         adam::configuration_parameter_list& get_general() { return m_general; }
     };

@@ -52,7 +52,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new registry object. */
-        registry(const controller* ctrl);
+        registry(const controller& ctrl);
 
         /** @brief Destroys the registry object. */
         ~registry();
@@ -64,6 +64,6 @@ namespace adam
         std::unordered_map<string_hashed, std::unique_ptr<converter>>   m_converters;   /**< The list of configuration parameters for converters. */
         std::unordered_map<string_hashed, std::unique_ptr<connection>>  m_connections;  /**< The list of configuration parameters for connections. */
 
-        const controller* m_controller;                                                 /**< A pointer to the controller, used for accessing shared resources and orchestrating interactions between components. */
+        const controller& m_controller;                                                 /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
     };
 }

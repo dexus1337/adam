@@ -5,19 +5,10 @@
 #include <vector>
 #include <iostream>
 
-#ifdef   ADAM_PLATFORM_LINUX
-#include <dlfcn.h>
-#elifdef ADAM_PLATFORM_WINDOWS
-#include <windows.h>
-#endif
-
-#include "module/module.hpp"
+#include "controller/controller-module-manager.hpp"
+#include "controller/controller-cmd-dispatcher.hpp"
 #include "version/version.hpp"
 #include "resources/language-strings.hpp"
-#include "data/port/port.hpp"
-#include "data/port/port-input.hpp"
-#include "data/port/port-output.hpp"
-#include "data/inspector.hpp"
 
 
 namespace adam
@@ -72,11 +63,11 @@ namespace adam
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
         m_lang(language_german),
-        m_available_modules(),
-        m_loaded_modules(),
-        m_registry(this)
+        m_modules(*this),
+        m_registry(*this),
+        m_dispatcher()
     {
-
+        m_dispatcher.register_default_handlers();
     }
 
     controller::~controller() {}
@@ -158,192 +149,6 @@ namespace adam
         mq.destroy();
 
         return resp;
-    }
-
-    const module* controller::get_loaded_module(const string_hashed& name) const 
-    {
-        auto it = m_loaded_modules.find(name);
-
-        if (it != m_loaded_modules.end()) 
-        {
-            return it->second;
-        }
-
-        return nullptr;
-    }
-
-    bool controller::scan_for_modules(string_hashed::view directory) 
-    {
-        std::vector<std::filesystem::path> possible_module_paths;
-
-        try 
-        {
-            if (std::filesystem::exists(directory) && std::filesystem::is_directory(directory)) 
-            {
-                // directory_iterator for just this folder
-                // recursive_directory_iterator if you want to search subfolders
-                for (const auto& entry : std::filesystem::directory_iterator(directory)) 
-                {
-                    if (!entry.is_regular_file())
-                        continue;
-
-                    #ifdef ADAM_PLATFORM_WINDOWS
-                    if (entry.path().extension() != ".dll")
-                        continue;
-                    #else
-                    if (entry.path().extension() != ".so")
-                        continue;
-                    #endif
-
-                    possible_module_paths.push_back(entry.path());
-                }
-            }
-        } 
-        catch (const std::filesystem::filesystem_error& e) 
-        {
-            return false;
-        }
-
-        for (const auto& path : possible_module_paths)
-        {
-            module* mod         = nullptr;
-            auto path_str       = std::string(path.string());
-
-            #ifdef ADAM_PLATFORM_LINUX
-            auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
-
-            if (!handle)
-                return false;
-
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
-            #elifdef ADAM_PLATFORM_WINDOWS
-
-            auto handle = LoadLibraryW(std::filesystem::absolute(path).c_str());
-
-            if (!handle)
-                return false;
-
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
-            #endif
-
-            mod = fn_get_adam_module();
-
-            if (!mod)
-                goto UNLOAD_AND_CONTINUE;
-
-            if (m_loaded_modules.contains(mod->get_name()))
-                continue;
-
-            if (mod->get_required_sdk_version() > adam::sdk_version)
-            {
-                auto req_maj = adam::get_major(mod->get_required_sdk_version());
-                auto req_min = adam::get_minor(mod->get_required_sdk_version());
-                auto req_pat = adam::get_patch(mod->get_required_sdk_version());
-                auto sdk_maj = adam::get_major(adam::sdk_version);
-                auto sdk_min = adam::get_minor(adam::sdk_version);
-                auto sdk_pat = adam::get_patch(adam::sdk_version);
-
-                this->log(log::warning, std::vformat(get_log_event_text(log_event::module_requires_newer_sdk, m_lang), std::make_format_args(
-                    path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat)));
-
-                m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
-
-                goto UNLOAD_AND_CONTINUE;
-            }
-
-            m_available_modules.emplace(mod->get_name(), std::make_pair(mod->get_version(), path_str));
-
-            continue;
-
-        UNLOAD_AND_CONTINUE:
-            #ifdef ADAM_PLATFORM_LINUX
-            dlclose(handle);
-            #elifdef ADAM_PLATFORM_WINDOWS
-            FreeLibrary(handle);
-            #endif
-
-            continue;
-        }        
-
-        return true;
-    }
-
-    bool controller::load_module(const string_hashed& name, const module** out_module)
-    {
-        auto it = m_available_modules.find(name);
-
-        if (it == m_available_modules.end())
-            return false;
-
-        const auto& path_str = it->second.second;
-        module* mod          = nullptr;
-
-        #ifdef ADAM_PLATFORM_LINUX
-        auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
-
-        if (!handle)
-            return false;
-
-        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
-        #elifdef ADAM_PLATFORM_WINDOWS
-
-        auto handle = LoadLibraryA(path_str.c_str());
-
-        if (!handle)
-            return false;
-
-        // GetProcAddress uses LPCSTR (char*), even in Unicode builds
-        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
-        #endif
-
-        if (!fn_get_adam_module)
-            goto UNLOAD_AND_RETURN;
-        
-        mod = fn_get_adam_module();
-
-        if (!mod)
-            goto UNLOAD_AND_RETURN;
-
-        if (m_loaded_modules.contains(mod->get_name()))
-            goto UNLOAD_AND_RETURN;
-
-        if (mod->get_required_sdk_version() > adam::sdk_version)
-        {
-            auto req_maj = adam::get_major(mod->get_required_sdk_version());
-            auto req_min = adam::get_minor(mod->get_required_sdk_version());
-            auto req_pat = adam::get_patch(mod->get_required_sdk_version());
-            auto sdk_maj = adam::get_major(adam::sdk_version);
-            auto sdk_min = adam::get_minor(adam::sdk_version);
-            auto sdk_pat = adam::get_patch(adam::sdk_version);
-
-            this->log(log::error, std::vformat(get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_lang), std::make_format_args(
-                path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat)));
-
-            return false;
-        }
-
-        goto SUCCESS;
-
-    UNLOAD_AND_RETURN:
-        #ifdef ADAM_PLATFORM_LINUX
-        dlclose(handle);
-        #elifdef ADAM_PLATFORM_WINDOWS
-        FreeLibrary(handle);
-        #endif
-
-        return false;
-
-    SUCCESS:
-
-        mod->m_mod_handle   = reinterpret_cast<uintptr_t>(handle);
-        mod->m_str_filepath = path_str;
-
-        m_loaded_modules.emplace(mod->get_name(), mod);
-
-        if (out_module)
-            *out_module = mod;
-
-        return true;
     }
 
     template<typename queue_type>
@@ -604,7 +409,7 @@ namespace adam
 
     void controller::run_queue_command(queue_command_data* data)
     {
-        thread_local std::unordered_map<string_hashed::hash_datatype, std::shared_ptr<data_inspector>> thread_inspectors;
+        command_context ctx { data->tid, m_registry, m_lang, *this, {} };
 
         while (data->queue.is_active())
         {
@@ -613,104 +418,7 @@ namespace adam
             if (!data->queue.request_queue().pop(cmd, 100)) // check every 100ms
                 continue;
 
-            response resp = response(response::invalid);
-
-            switch (cmd.get_type())
-            {
-                case command::set_language:
-                {
-                    m_lang  = *cmd.get_data_as<language>();
-                    resp    = response::success;
-
-                    this->log(log::info, get_log_event_text(log_event::language_changed, m_lang));
-
-                    break;
-                }
-                case command::inspector_create:
-                {
-                    auto params = cmd.get_data_as<command::inspector_create_data>();
-
-                    // First check if the port exists
-                    auto port = m_registry.ports().find(params->port);
-
-                    if (port == m_registry.ports().end())
-                    {
-                        resp = response::unknown;
-
-                        uint64_t port_hash = static_cast<uint64_t>(params->port);
-                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_create_failed_port_unknown, m_lang), std::make_format_args(data->tid, port_hash))));
-
-                        break;
-                    }
-
-                    const auto& port_name = port->second->get_name();
-                    auto new_inspector = std::make_shared<data_inspector>();
-
-                    // Try to open the inspector with the given port, if it fails respond with failed
-                    if (!new_inspector->open(port_name))
-                    {
-                        resp = response::failed;
-
-                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_create_failed_open, m_lang), std::make_format_args(data->tid, port_name))));
-
-                        break;
-                    }
-
-                    // At this point the inspector seems to be valid, so data can be forwareded to it
-                    port->second->inspectors().push_back(new_inspector);
-
-                    thread_inspectors.emplace(params->port, new_inspector);
-
-                    resp = response::success;
-
-                    debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_created, m_lang), std::make_format_args(data->tid, port_name))));
-
-                    break;
-                }
-                case command::inspector_destroy:
-                {
-                    auto params = cmd.get_data_as<command::inspector_destroy_data>();
-
-                    // First check if the port exists
-                    auto port = m_registry.ports().find(params->port);
-                    if (port == m_registry.ports().end())
-                    {
-                        resp = response::unknown;
-                        
-                        uint64_t port_hash = static_cast<uint64_t>(params->port);
-                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_destroy_failed_port_unknown, m_lang), std::make_format_args(data->tid, port_hash))));
-
-                        break;
-                    }
-
-                    const auto& port_name = port->second->get_name();
-
-                    // Locate the inspector managed by this thread
-                    auto it = thread_inspectors.find(params->port);
-                    if (it == thread_inspectors.end())
-                    {
-                        resp = response::failed;
-                        
-                        debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_destroy_failed_not_found, m_lang), std::make_format_args(data->tid, port_name))));
-
-                        break;
-                    }
-
-                    // Safely remove the raw pointer from the port's routing list
-                    port->second->inspectors().remove(it->second);
-
-                    // Erase the unique_ptr from the map. Once the port releases its shared_ptr, the inspector will be destroyed and frees the shared memory too.
-                    thread_inspectors.erase(it);
-
-                    resp = response::success;
-                    
-                    debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::inspector_destroyed, m_lang), std::make_format_args(data->tid, port_name))));
-
-                    break;
-                }
-                default:
-                    break;
-            }
+            response resp = m_dispatcher.dispatch(cmd, ctx);
 
             data->queue.response_queue().push(resp);
         }
@@ -734,10 +442,6 @@ namespace adam
         static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
         {
             { 
-                static_cast<int>(log_event::language_changed),
-                { "Language changed to: english!",                  "Sprache geändert zu: Deutsch." }
-            },
-            { 
                 static_cast<int>(log_event::thread_auth_failed),
                 { "Thread {:d} did not authenticate correctly.",    "Thread {:d} hat sich nicht korrekt authentifiziert." }
             },
@@ -756,14 +460,6 @@ namespace adam
             {
                 static_cast<int>(log_event::master_queue_request_failed),
                 { "Request for queue {:d} failed, response {:d}.",              "Anfrage für Warteschlange {:d} fehlgeschlagen, Antwort {:d}." }
-            },
-            {
-                static_cast<int>(log_event::module_requires_newer_sdk),
-                { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}" }
-            },
-            {
-                static_cast<int>(log_event::module_requires_newer_sdk_cannot_load),
-                { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}. Kann nicht geladen werden!" }
             },
             {
                 static_cast<int>(log_event::slave_queue_already_exists),
@@ -804,30 +500,6 @@ namespace adam
             {
                 static_cast<int>(log_event::slave_queue_worker_failed_to_destroy),
                 { "Failed to destroy queue + worker of client {:d}. Ignoring.", "Fehler beim Entfernen der Warteschlange + Worker von Client {:d}. Wird ignoriert." }
-            },
-            {
-                static_cast<int>(log_event::inspector_created),
-                { "Thread {:d} successfully created inspector for port \"{}\".", "Thread {:d} hat erfolgreich einen Inspektor für Port \"{}\" erstellt." }
-            },
-            {
-                static_cast<int>(log_event::inspector_destroyed),
-                { "Thread {:d} successfully destroyed inspector for port \"{}\".", "Thread {:d} hat erfolgreich den Inspektor für Port \"{}\" entfernt." }
-            },
-            {
-                static_cast<int>(log_event::inspector_create_failed_port_unknown),
-                { "Thread {:d} failed to create inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht erstellen: Unbekannter Port-Hash {:d}." }
-            },
-            {
-                static_cast<int>(log_event::inspector_create_failed_open),
-                { "Thread {:d} failed to create inspector: Could not open queue for port \"{}\".", "Thread {:d} konnte Inspektor nicht erstellen: Warteschlange für Port \"{}\" konnte nicht geöffnet werden." }
-            },
-            {
-                static_cast<int>(log_event::inspector_destroy_failed_port_unknown),
-                { "Thread {:d} failed to destroy inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht entfernen: Unbekannter Port-Hash {:d}." }
-            },
-            {
-                static_cast<int>(log_event::inspector_destroy_failed_not_found),
-                { "Thread {:d} failed to destroy inspector: Inspector not found for port \"{}\".", "Thread {:d} konnte Inspektor nicht entfernen: Kein Inspektor für Port \"{}\" gefunden." }
             }
         };
 

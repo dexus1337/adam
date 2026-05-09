@@ -11,6 +11,10 @@
  
 #include "api/api.hpp"
 
+#include <cstdint>
+#include <cstddef>
+
+#include "types/string-hashed.hpp"
 
 namespace adam 
 {

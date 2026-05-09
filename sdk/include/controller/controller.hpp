@@ -24,6 +24,8 @@
 #include "os/os.hpp"
 #include "registry.hpp"
 #include "resources/language.hpp"
+#include "controller/controller-module-manager.hpp"
+#include "controller/controller-cmd-dispatcher.hpp"
 
 
 namespace adam 
@@ -50,6 +52,7 @@ namespace adam
         friend class commander;
         friend class logger;
         friend class logger_sink;
+        friend class controller_module_manager;
 
     public:
 
@@ -110,27 +113,11 @@ namespace adam
 
         // MODULE MANAGEMENT
 
-        using map_available_modules     = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>; /**< Stores the module version and the path.*/
-        using map_unavailable_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>; /**< Stores the incompatability reason and the path.*/
-        using map_loaded_modules        = std::unordered_map<string_hashed, const module*>;
+        controller_module_manager& modules() { return m_modules; }
+        const controller_module_manager& get_modules() const { return m_modules; }
 
-        /** @brief Retrieves a reference to the map of all available modules. */
-        const map_available_modules& get_available_modules() const { return m_available_modules; }
-
-        /** @brief Retrieves a reference to the map of all unavailable modules. */
-        const map_available_modules& get_unavailable_modules() const { return m_unavailable_modules; }
-
-        /** @brief Retrieves a reference to the map of all loaded modules. */
-        const map_loaded_modules& get_loaded_modules() const { return m_loaded_modules; }
-
-        /** @brief Retrieves a pointer to a loaded module by its hashed name. */
-        const module* get_loaded_module(const string_hashed& name) const;
-
-        /** @brief Scans the specified directory for module shared libraries, loads them, and registers their modules in the system. */
-        bool scan_for_modules(string_hashed::view directory = "");
-
-        /** @brief Loads a module by its hashed name from the available modules and registers it in the loaded modules map. */
-        bool load_module(const string_hashed& name, const module** out_module = nullptr);
+        controller_cmd_dispatcher& dispatcher() { return m_dispatcher; }
+        const controller_cmd_dispatcher& get_dispatcher() const { return m_dispatcher; }
 
     protected:
 
@@ -236,14 +223,11 @@ namespace adam
 
         enum log_event
         {
-            language_changed,
             thread_auth_failed,
             slave_queue_created,
             slave_queue_destroyed,
             master_queue_open_failed,
             master_queue_request_failed,
-            module_requires_newer_sdk,
-            module_requires_newer_sdk_cannot_load,
             slave_queue_already_exists,
             slave_queue_failed_to_open,
             slave_queue_failed_to_insert,
@@ -253,13 +237,7 @@ namespace adam
             slave_queue_does_not_exist,
             slave_queue_failed_to_destroy,
             slave_queue_worker_does_not_exist,
-            slave_queue_worker_failed_to_destroy,
-            inspector_created,
-            inspector_destroyed,
-            inspector_create_failed_port_unknown,
-            inspector_create_failed_open,
-            inspector_destroy_failed_port_unknown,
-            inspector_destroy_failed_not_found
+            slave_queue_worker_failed_to_destroy
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);
@@ -268,13 +246,12 @@ namespace adam
         language                m_lang;
 
         // MODULE MANAGEMENT
-
-        map_available_modules   m_available_modules;    /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
-        map_unavailable_modules m_unavailable_modules;  /**< A map of unavailable modules in the system, indexed by their hashed string names for efficient lookup. */
-        map_loaded_modules      m_loaded_modules;       /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
+        controller_module_manager       m_modules;
         
         // REGISTRY
+        registry                        m_registry; /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
 
-        registry m_registry;                            /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
+        // DISPATCHER
+        controller_cmd_dispatcher       m_dispatcher;
     };
 }

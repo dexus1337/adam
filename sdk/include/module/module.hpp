@@ -29,7 +29,7 @@ namespace adam
      */
     class ADAM_SDK_API module 
     {
-        friend class controller;    /**< The controller class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
+        friend class controller_module_manager;    /**< The controller_module_manager class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
 
     public:
 
