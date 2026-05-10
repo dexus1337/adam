@@ -36,7 +36,7 @@ namespace adam
         bool create(const string_hashed& port_name);
 
         /** @brief Opens an existing buffer queue */
-        bool open(const string_hashed& port_name);
+        bool open(const string_hashed& port_name, os::thread_id tid);
 
         /** @brief Data management routine */
         bool handle_data(const buffer* buffer);
@@ -49,7 +49,7 @@ namespace adam
 
     protected:
 
-        static constexpr const char* queue_name_prefix = "adam::data_director_"; /**< The prefix for the name of the buffer queue, followed by the thread id and port id/hash */
+        static constexpr const char* queue_name_prefix = "adam::data_inspector_"; /**< The prefix for the name of the buffer queue, followed by the thread id and port id/hash */
 
         queue_shared<buffer_handle> m_buffer_queue; /**< The queue for incoming buffers */
 

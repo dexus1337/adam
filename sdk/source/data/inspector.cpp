@@ -26,9 +26,9 @@ namespace adam
     }
 
     /** @brief Opens an existing buffer queue */
-    bool data_inspector::open(const string_hashed& port_name)
+    bool data_inspector::open(const string_hashed& port_name, os::thread_id tid)
     {
-        m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(os::get_current_thread_id()) + "_" + std::to_string(port_name.get_hash())));
+        m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(tid) + "_" + std::to_string(port_name.get_hash())));
 
         if (!m_buffer_queue.open())
             return false;

@@ -10,16 +10,17 @@ namespace adam
 {
     commander::commander() : m_queue_command(string_hashed(controller::queue_command_prefix + std::to_string(os::get_current_thread_id()))) {}
 
-    commander::~commander() {}
+    commander::~commander() 
+    {
+        if (is_active())
+            destroy();
+    }
 
     bool commander::connect() 
     {
         // if theres is already a queue for current thread, delete it
         if (m_queue_command.open())
-        {
             m_queue_command.destroy();
-            return false;
-        }
         
         if (!m_queue_command.create(1000))
             return false;
@@ -74,7 +75,7 @@ namespace adam
         cmd.get_data_as<command::inspector_create_data>()->port = port_hash;
 
         response resp;
-        if (!send_command(cmd, &resp))
+        if (!send_command(cmd, &resp) || resp.get_type() != response::success)
         {
             inspector->destroy();
             delete inspector;

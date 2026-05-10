@@ -5,6 +5,7 @@
 #include "data/port/port.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
+#include "data/inspector.hpp"
 
 #include <thread>
 #include <chrono>
@@ -44,9 +45,11 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
 {
     adam::string_hashed port_name("adam::test_inspector_port");
 
-    // 1. Create a data port directly in the controller context
-    adam::mock_port test_port(port_name);
-    ASSERT_TRUE(test_port.create());
+    // 1. Create a data port and register it in the controller context
+    auto port_instance = std::make_unique<adam::mock_port>(port_name);
+    adam::mock_port* test_port = port_instance.get();
+    
+    adam::controller::get().get_registry().ports().emplace(port_name, std::move(port_instance));
 
     // 2. Connect the external commander
     adam::commander cmd;
@@ -60,16 +63,16 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     {
         if (buf && buf->get_size() >= sizeof(int))
         {
-            received_value = *reinterpret_cast<int*>(buf->get_data());
+            received_value = *static_cast<int*>(buf->data());
             received_count++;
         }
     };
 
     // 4. Request the commander to create its remote instance of the data inspector
     adam::data_inspector* inspector = nullptr;
-    adam::response::type resp = cmd.request_inspector_create(port_name, callback, inspector);
+    adam::response resp = cmd.request_inspector_create(port_name, callback, inspector);
     
-    ASSERT_EQ(resp, adam::response::success);
+    ASSERT_EQ(resp.get_type(), adam::response::success);
     ASSERT_NE(inspector, nullptr);
 
     // Give the IPC system and thread a short moment to establish the active listening loop
@@ -80,11 +83,11 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     ASSERT_NE(buf, nullptr);
     
     int sent_value = 1337;
-    *reinterpret_cast<int*>(buf->get_data()) = sent_value;
+    *static_cast<int*>(buf->data()) = sent_value;
     buf->set_size(sizeof(int));
     
     // Actually push the data into the port
-    test_port.handle_data(buf);
+    test_port->handle_data(buf);
 
     // Release our local ownership of the buffer
     buf->release();
@@ -97,7 +100,7 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
 
     // 7. Tear down the inspector gracefully
     resp = cmd.request_inspector_destroy(inspector);
-    EXPECT_EQ(resp, adam::response::success);
+    EXPECT_EQ(resp.get_type(), adam::response::success);
 
     EXPECT_TRUE(cmd.destroy());
 }

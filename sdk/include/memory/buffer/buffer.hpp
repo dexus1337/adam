@@ -60,7 +60,11 @@ namespace adam
         /** @brief IPC support: Creates a lightweight handle safe for cross-process transmission. */
         buffer_handle get_handle() const;
 
-        void set_size(uint32_t size) { m_size = size; }
+        /** @brief Copies data into the buffer safely. */
+        bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
+
+        void* data()                                    { return m_data; }
+        void set_size(uint32_t size)                    { m_size = size; }
         void set_data_format(const data_format* format) { m_data_format = format; }
 
         /** @brief Adds a reference to the buffer. */

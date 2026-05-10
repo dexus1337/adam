@@ -119,6 +119,9 @@ namespace adam
         controller_cmd_dispatcher& dispatcher() { return m_dispatcher; }
         const controller_cmd_dispatcher& get_dispatcher() const { return m_dispatcher; }
 
+        registry& get_registry() { return m_registry; }
+        const registry& get_registry() const { return m_registry; }
+
     protected:
 
         /** @brief Constructs a new controller object.*/

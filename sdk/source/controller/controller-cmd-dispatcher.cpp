@@ -48,16 +48,18 @@ namespace adam
             const auto& port_name = port->second->get_name();
             auto new_inspector = std::make_shared<data_inspector>();
 
-            if (!new_inspector->open(port_name))
+            if (!new_inspector->open(port_name, ctx.tid))
             {
-                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.lang), std::make_format_args(ctx.tid, port_name))));
+                auto name_view = port_name.c_str();
+                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.lang), std::make_format_args(ctx.tid, name_view))));
                 return response::failed;
             }
 
             port->second->inspectors().push_back(new_inspector);
             ctx.thread_inspectors.emplace(params->port, new_inspector);
 
-            debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.lang), std::make_format_args(ctx.tid, port_name))));
+            auto name_view = port_name.c_str();
+            debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.lang), std::make_format_args(ctx.tid, name_view))));
             return response::success;
         });
 
@@ -78,14 +80,16 @@ namespace adam
 
             if (it == ctx.thread_inspectors.end())
             {
-                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.lang), std::make_format_args(ctx.tid, port_name))));
+                auto name_view = port_name.c_str();
+                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.lang), std::make_format_args(ctx.tid, name_view))));
                 return response::failed;
             }
 
             port->second->inspectors().remove(it->second);
             ctx.thread_inspectors.erase(it);
 
-            debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.lang), std::make_format_args(ctx.tid, port_name))));
+            auto name_view = port_name.c_str();
+            debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.lang), std::make_format_args(ctx.tid, name_view))));
             return response::success;
         });
     }

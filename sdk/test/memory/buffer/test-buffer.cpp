@@ -28,7 +28,7 @@ TEST_F(buffer_test, properties)
     EXPECT_NE(buf->get_data(), nullptr);
 
     // Verify we can write to the memory safely
-    uint64_t* data = static_cast<uint64_t*>(buf->get_data());
+    uint64_t* data = static_cast<uint64_t*>(buf->data());
     *data = 0xDEADBEEF1337BABE;
     EXPECT_EQ(*data, 0xDEADBEEF1337BABE);
 
@@ -108,7 +108,7 @@ TEST_F(buffer_test, capacity_is_payload_size)
 
     // Verify we can write to the very beginning and very end of the advertised capacity.
     // This confirms the ref-count is not stored within the data payload area.
-    uint8_t* data = static_cast<uint8_t*>(buf->get_data());
+    uint8_t* data = static_cast<uint8_t*>(buf->data());
     data[0] = 0xFE;
     data[buf->get_capacity() - 1] = 0xED;
 

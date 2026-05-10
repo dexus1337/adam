@@ -79,7 +79,7 @@ TEST_F(buffer_manager_test, oversized_buffer)
     EXPECT_GE(buf->get_capacity(), oversized_size);
 
     // Verify we can write to the beginning and end of the memory safely
-    uint8_t* data = static_cast<uint8_t*>(buf->get_data());
+    uint8_t* data = static_cast<uint8_t*>(buf->data());
     data[0] = 0xAA;
     data[oversized_size - 1] = 0xBB;
     
