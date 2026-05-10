@@ -37,9 +37,16 @@ namespace adam
     }
 
     /** @brief Data management routine */
-    bool data_inspector::handle_data(const buffer* buffer)
+    bool data_inspector::handle_data(buffer* buffer)
     {
-        return m_buffer_queue.push(buffer->get_handle());
+        buffer->add_ref();
+        
+        if (!m_buffer_queue.push(buffer->get_handle()))
+        {
+            buffer->release();
+            return false;
+        }
+        return true;
     }
 
     bool data_inspector::start_inspecting(std::function<void(buffer*)> callback)
@@ -77,6 +84,9 @@ namespace adam
 
             if (resolved_buffer && callback)
                 callback(resolved_buffer);
+                
+            if (resolved_buffer)
+                resolved_buffer->release();
         }
     }
 }

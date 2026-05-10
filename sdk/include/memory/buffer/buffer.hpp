@@ -57,6 +57,9 @@ namespace adam
         uint32_t get_size()                     const { return m_size; }
         const data_format* get_data_format()    const { return m_data_format; }
 
+        /** @brief Returns the current reference count. Useful for debugging and testing. */
+        uint32_t get_ref_count() const { return m_ref_count ? m_ref_count->load(std::memory_order_relaxed) : 0; }
+
         /** @brief IPC support: Creates a lightweight handle safe for cross-process transmission. */
         buffer_handle get_handle() const;
 

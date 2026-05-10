@@ -57,10 +57,16 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
 
     std::atomic<int> received_value{0};
     std::atomic<int> received_count{0};
+    std::atomic<bool> pause_callback{true};
 
     // 3. Define the listener callback
     auto callback = [&](adam::buffer* buf) 
     {
+        while (pause_callback.load())
+        {
+            std::this_thread::yield();
+        }
+
         if (buf && buf->get_size() >= sizeof(int))
         {
             received_value = *static_cast<int*>(buf->data());
@@ -86,17 +92,29 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     *static_cast<int*>(buf->data()) = sent_value;
     buf->set_size(sizeof(int));
     
+    EXPECT_EQ(buf->get_ref_count(), 1u);
+    
     // Actually push the data into the port
     test_port->handle_data(buf);
+
+    // Wait for the inspector thread to pop and invoke the callback (it will block)
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // The queue should have successfully transferred the reference to the inspector.
+    EXPECT_EQ(buf->get_ref_count(), 2u);
 
     // Release our local ownership of the buffer
     buf->release();
 
-    // 6. Wait for the data to propagate over IPC and reach the remote data_inspector instance
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    EXPECT_EQ(buf->get_ref_count(), 1u);
+
+    // 6. Let the callback proceed and finish
+    pause_callback.store(false);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     EXPECT_EQ(received_count.load(), 1);
     EXPECT_EQ(received_value.load(), sent_value);
+    EXPECT_EQ(buf->get_ref_count(), 0u);
 
     // 7. Tear down the inspector gracefully
     resp = cmd.request_inspector_destroy(inspector);
