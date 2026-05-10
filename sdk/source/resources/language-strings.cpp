@@ -69,30 +69,30 @@ namespace adam
         return unknown_type_message("controller::status", val, lang);
     }
 
-    std::string_view language_strings::get_response_type_text(response::type typ, language lang)
+    std::string_view language_strings::get_response_type_text(response_status typ, language lang)
     {
         static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
         {
             {
-                static_cast<int>(response::type::success),
+                static_cast<int>(response_status::success),
                 {
                     "Last submitted request successfully executed!",    "Die letzte Anforderung wurde mit Erfolg ausgeführt."
                 }
             },
             {
-                static_cast<int>(response::type::unknown),
+                static_cast<int>(response_status::unknown),
                 {
                     "Last submitted request was unknown!",              "Die letzte Anforderung ist unbekannt!"
                 }
             },
             {
-                static_cast<int>(response::type::invalid),
+                static_cast<int>(response_status::invalid),
                 {
                     "Last submitted request was invalid!",              "Die letzte Anforderung ist fehlerhaft!"
                 }
             },
             {
-                static_cast<int>(response::type::failed),
+                static_cast<int>(response_status::failed),
                 {
                     "Last submitted request failed!",                   "Die letzte Anforderung ist fehlgeschlagen!"
                 }
@@ -105,7 +105,7 @@ namespace adam
         if (it != translations.end())
             return it->second[static_cast<int>(lang)];
         
-        return unknown_type_message(_TYPEINFO "response::type", val, lang);
+        return unknown_type_message("response_status", val, lang);
     }
 
     std::string_view language_strings::unknown_type_message(std::string_view type, int val, language lang)

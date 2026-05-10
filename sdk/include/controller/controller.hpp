@@ -18,8 +18,8 @@
 
 #include "types/string-hashed.hpp"
 #include "types/queue-shared-duplex.hpp"
-#include "commander/command.hpp"
-#include "controller/response.hpp"
+#include "commander/command-response/command.hpp"
+#include "commander/command-response/response.hpp"
 #include "logger/log.hpp"
 #include "os/os.hpp"
 #include "registry.hpp"

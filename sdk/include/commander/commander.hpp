@@ -46,15 +46,15 @@ namespace adam
         bool destroy();
 
         /** @brief Requests the creation of a data inspector on a specific port. */
-        response::type request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
+        response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
 
         /** @brief Requests the destruction of a data inspector on a specific port. */
-        response::type request_inspector_destroy(data_inspector* inspector);
+        response_status request_inspector_destroy(data_inspector* inspector);
 
     protected:
 
         /** @brief Sends a command. */
-        bool send_command(const command& cmd, response* resp = nullptr);
+        response_status send_command(const command& cmd, response* resp = nullptr);
 
         controller::queue_command m_queue_command;
 

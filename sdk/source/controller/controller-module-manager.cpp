@@ -40,7 +40,7 @@ namespace adam
         if (it != translations.end())
             return it->second[static_cast<int>(lang)];
         
-        return language_strings::unknown_type_message(_TYPEINFO "controller_module_manager::log_event", val, lang);
+        return language_strings::unknown_type_message("controller_module_manager::log_event", val, lang);
     }
 
     const module* controller_module_manager::get_loaded_module(const string_hashed& name) const 

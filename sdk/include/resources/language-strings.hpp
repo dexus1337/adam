@@ -12,7 +12,7 @@
 #include <string>
 
 #include "controller/controller.hpp"
-#include "controller/response.hpp"
+#include "commander/command-response/response.hpp"
 
 
 namespace adam
@@ -26,7 +26,7 @@ namespace adam
     public:
         static std::string_view get_controller_status_text(controller::status stat, language lang);
         
-        static std::string_view get_response_type_text(response::type typ, language lang);
+        static std::string_view get_response_type_text(response_status typ, language lang);
 
         static std::string_view success_message(language lang);
         static std::string_view unknown_type_message(std::string_view type, int val, language lang);

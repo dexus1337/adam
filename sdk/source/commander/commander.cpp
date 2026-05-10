@@ -2,8 +2,8 @@
 
 
 #include "controller/controller.hpp"
-#include "commander/command.hpp"
-#include "controller/response.hpp"
+#include "commander/command-response/command.hpp"
+#include "commander/command-response/response.hpp"
 
 
 namespace adam 
@@ -49,82 +49,82 @@ namespace adam
         return res;
     }
 
-    response::type commander::request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector)
+    response_status commander::request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector)
     {
         auto port_hash = port_name.get_hash();
 
         if (m_inspectors.find(port_hash) != m_inspectors.end())
-            return response::inspector_already_exists;
+            return response_status::inspector_already_exists;
 
         data_inspector* inspector = new data_inspector();
         
         if (!inspector->create(port_name))
         {
             delete inspector;
-            return response::inspector_creation_failed;
+            return response_status::inspector_creation_failed;
         }
 
         if (!inspector->start_inspecting(callback))
         {
             inspector->destroy();
             delete inspector;
-            return response::inspector_start_failed;
+            return response_status::inspector_start_failed;
         }
 
-        command cmd(command::inspector_create);
-        cmd.get_data_as<command::inspector_create_data>()->port = port_hash;
+        command cmd(command_type::inspector_create);
+        cmd.data_as<command::inspector_create_data>()->port = port_hash;
 
-        response resp;
-        if (!send_command(cmd, &resp) || resp.get_type() != response::success)
+        response_status res = send_command(cmd);
+        if (res != response_status::success)
         {
             inspector->destroy();
             delete inspector;
-            return response::command_send_failed;
+            return res;
         }
 
         m_inspectors[port_hash] = inspector;
 
         out_inspector = inspector;
 
-        return resp.get_type();
+        return res;
     }
 
-    response::type commander::request_inspector_destroy(data_inspector* inspector)
+    response_status commander::request_inspector_destroy(data_inspector* inspector)
     {
         if (!inspector)
-            return response::inspector_not_found;
+            return response_status::inspector_not_found;
 
         for (auto it = m_inspectors.begin(); it != m_inspectors.end(); ++it)
         {
             if (it->second == inspector)
             {
-                command cmd(command::inspector_destroy);
-                cmd.get_data_as<command::inspector_destroy_data>()->port = it->first;
+                command cmd(command_type::inspector_destroy);
+                cmd.data_as<command::inspector_destroy_data>()->port = it->first;
 
-                response resp;
-                bool success = send_command(cmd, &resp);
-
-                if (success)
+                response_status res = send_command(cmd);
+                if (res == response_status::success)
                 {
                     inspector->destroy();
                     delete inspector;
                     m_inspectors.erase(it);
-                    return resp.get_type();
                 }
 
-                return response::command_send_failed;
+                return res;
             }
         }
 
-        return response::inspector_not_found;
+        return response_status::inspector_not_found;
     }
 
-    bool commander::send_command(const command& cmd, response* resp) 
+    response_status commander::send_command(const command& cmd, response* resp) 
     {
         response def_resp;
 
         auto* presp = resp ? resp : &def_resp;
 
-        return m_queue_command.post_request(cmd, *presp);
+        if (!m_queue_command.post_request(cmd, *presp))
+            return response_status::command_send_failed;
+
+        return presp->get_type();
     }
 }

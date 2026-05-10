@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <controller/controller.hpp>
 #include <controller/controller-cmd-dispatcher.hpp>
-#include <commander/command.hpp>
+#include <commander/command-response/command.hpp>
 #include <controller/registry.hpp>
 
 class controller_cmd_dispatcher_test : public ::testing::Test
@@ -22,10 +22,10 @@ TEST_F(controller_cmd_dispatcher_test, register_and_dispatch_custom_handler)
     const int custom_cmd_type = 9999;
     bool handler_invoked = false;
     
-    dispatcher.register_handler(custom_cmd_type, [&](const adam::command&, adam::command_context&) -> adam::response 
+    dispatcher.register_handler(custom_cmd_type, [&](const adam::command*, size_t, adam::command_context&) -> adam::response 
     {
         handler_invoked = true;
-        return adam::response(adam::response::success);
+        return adam::response(adam::response_status::success);
     });
     
     adam::language lang = adam::language_english;
@@ -34,13 +34,13 @@ TEST_F(controller_cmd_dispatcher_test, register_and_dispatch_custom_handler)
     // Creating a standard command which inherently falls outside our custom boundaries unless specifically modified.
     adam::command cmd;
     
-    adam::response resp = dispatcher.dispatch(cmd, ctx);
+    adam::response resp = dispatcher.dispatch(&cmd, 1, ctx);
     
     // Because we just dispatched a default-initialized command with an unknown type,
     // the dispatcher should fall back to its internal unknown response.
     if (static_cast<int>(cmd.get_type()) != custom_cmd_type)
     {
-        EXPECT_EQ(resp.get_type(), adam::response::unknown);
+        EXPECT_EQ(resp.get_type(), adam::response_status::unknown);
         EXPECT_FALSE(handler_invoked);
     }
 }

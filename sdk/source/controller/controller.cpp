@@ -411,14 +411,35 @@ namespace adam
     {
         command_context ctx { data->tid, m_registry, m_lang, *this, {} };
 
+        std::vector<command> cmds;
+
+        static constexpr int command_buffer_size = 256; // should be enough for most commands and their extensions, if not it will just resize automatically, no big deal
+
+        cmds.reserve(command_buffer_size);
+        
+        for (size_t i = 0; i < command_buffer_size; i++)
+            cmds.emplace_back(); // default construct the commands to ensure the data buffer is allocated, so we can directly write into it when popping from the queue
+        
         while (data->queue.is_active())
         {
-            command cmd;
-
-            if (!data->queue.request_queue().pop(cmd, 100)) // check every 100ms
+            if (!data->queue.request_queue().pop(*cmds.data(), 100)) // check every 100ms
                 continue;
 
-            response resp = m_dispatcher.dispatch(cmd, ctx);
+            auto* cur_cmd = cmds.data() + 1;
+
+            while (cmds.back().is_extended())
+            {
+                if (cur_cmd >= cmds.end().base())
+                {
+                    cmds.emplace_back();
+                    cur_cmd = cmds.end().base() - 1;
+                }
+                
+                if (!data->queue.request_queue().pop(*cur_cmd, 100))
+                    break;
+            }
+
+            response resp = m_dispatcher.dispatch(cmds.data(), cmds.size(), ctx);
 
             data->queue.response_queue().push(resp);
         }
@@ -509,6 +530,6 @@ namespace adam
         if (it != translations.end())
             return it->second[static_cast<int>(lang)];
         
-        return language_strings::unknown_type_message(_TYPEINFO "controller::log_event", val, lang);
+        return language_strings::unknown_type_message("controller::log_event", val, lang);
     }
 }

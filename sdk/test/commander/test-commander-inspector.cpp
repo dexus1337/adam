@@ -78,7 +78,7 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     adam::data_inspector* inspector = nullptr;
     adam::response resp = cmd.request_inspector_create(port_name, callback, inspector);
     
-    ASSERT_EQ(resp.get_type(), adam::response::success);
+    ASSERT_EQ(resp.get_type(), adam::response_status::success);
     ASSERT_NE(inspector, nullptr);
 
     // Give the IPC system and thread a short moment to establish the active listening loop
@@ -118,7 +118,7 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
 
     // 7. Tear down the inspector gracefully
     resp = cmd.request_inspector_destroy(inspector);
-    EXPECT_EQ(resp.get_type(), adam::response::success);
+    EXPECT_EQ(resp.get_type(), adam::response_status::success);
 
     EXPECT_TRUE(cmd.destroy());
 }

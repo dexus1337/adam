@@ -10,8 +10,8 @@
 
 
 #include "api/api.hpp"
-#include "commander/command.hpp"
-#include "controller/response.hpp"
+#include "commander/command-response/command.hpp"
+#include "commander/command-response/response.hpp"
 #include "resources/language.hpp"
 #include "os/os.hpp"
 #include "types/string-hashed.hpp"
@@ -59,13 +59,13 @@ namespace adam
 
         static std::string_view get_log_event_text(log_event event, language lang);
 
-        using handler_fn = std::function<response(const command&, command_context&)>; /**< A type alias for a command handler function. */
+        using handler_fn = std::function<response(const command*, size_t, command_context&)>; /**< A type alias for a command handler function. */
 
         /** @brief Registers a new command handler for a specific command type. */
         void register_handler(int type, handler_fn handler);
         
         /** @brief Dispatches a command to the appropriate registered handler. */
-        response dispatch(const command& cmd, command_context& ctx) const;
+        response dispatch(const command* cmds, size_t count, command_context& ctx) const;
 
         /** @brief Registers all default command handlers for the controller. */
         void register_default_handlers();
