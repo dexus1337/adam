@@ -50,8 +50,13 @@ namespace adam
 
         const uint8_t* get_data()   const { return m_data; }
 
+        uint8_t* get_data()         { return m_data; }
+
         template<typename T>
         const T* get_data_as()      const { return reinterpret_cast<const T*>(m_data); }
+
+        template<typename T>
+        T* get_data_as()            { return reinterpret_cast<T*>(m_data); }
 
         struct inspector_create_data
         {

@@ -27,7 +27,12 @@ namespace adam
             invalid = 0,
             success,
             unknown,
-            failed
+            failed,
+            inspector_already_exists,
+            inspector_creation_failed,
+            inspector_start_failed,
+            inspector_not_found,
+            command_send_failed
         };
 
         /** @brief Constructs a new response object.*/

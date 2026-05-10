@@ -12,6 +12,10 @@
 #include "api/api.hpp"
 
 #include "controller/controller.hpp"
+#include "data/inspector.hpp"
+
+#include <unordered_map>
+#include <functional>
 
 
 namespace adam 
@@ -41,11 +45,19 @@ namespace adam
         /** @brief Disconnect and free resources. */
         bool destroy();
 
+        /** @brief Requests the creation of a data inspector on a specific port. */
+        response::type request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
+
+        /** @brief Requests the destruction of a data inspector on a specific port. */
+        response::type request_inspector_destroy(data_inspector* inspector);
+
     protected:
 
         /** @brief Sends a command. */
         bool send_command(const command& cmd, response* resp = nullptr);
 
         controller::queue_command m_queue_command;
+
+        std::unordered_map<string_hashed::hash_datatype, data_inspector*> m_inspectors;
     };
 }

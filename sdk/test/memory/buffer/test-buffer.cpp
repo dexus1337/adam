@@ -2,6 +2,8 @@
 #include <memory/buffer/buffer.hpp>
 #include <memory/buffer/buffer-manager.hpp>
 
+#include <cstring>
+
 class buffer_test : public ::testing::Test
 {
 protected:
@@ -39,13 +41,56 @@ TEST_F(buffer_test, get_handle)
     adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
     ASSERT_NE(buf, nullptr);
 
+    buf->set_size(256);
     adam::buffer_handle handle = buf->get_handle();
     
     EXPECT_NE(handle.memory_index, 0u);
     EXPECT_NE(handle.thread_id, 0u);
     EXPECT_NE(handle.data_format_hash, 0u);
-    EXPECT_EQ(handle.size, buf->get_capacity());
+    EXPECT_EQ(handle.capacity, buf->get_capacity());
+    EXPECT_EQ(handle.size, buf->get_size());
     EXPECT_GE(handle.offset, 0u);
+
+    buf->release();
+}
+
+/** @brief Tests setting and getting the size of the buffer. */
+TEST_F(buffer_test, size)
+{
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(128);
+    ASSERT_NE(buf, nullptr);
+
+    EXPECT_EQ(buf->get_size(), 0u);
+
+    buf->set_size(64);
+    EXPECT_EQ(buf->get_size(), 64u);
+
+    buf->release();
+}
+
+/** @brief Tests filling data into the buffer. */
+TEST_F(buffer_test, fill_data)
+{
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(128);
+    ASSERT_NE(buf, nullptr);
+
+    const char* test_str = "Hello ADAM";
+    uint32_t len = static_cast<uint32_t>(std::strlen(test_str) + 1);
+
+    EXPECT_TRUE(buf->fill_data(test_str, len));
+    EXPECT_EQ(buf->get_size(), len);
+    EXPECT_STREQ(static_cast<const char*>(buf->get_data()), test_str);
+
+    // Test offset logic
+    const char* append_str = " World";
+    uint32_t append_len = static_cast<uint32_t>(std::strlen(append_str) + 1);
+    
+    EXPECT_TRUE(buf->fill_data(append_str, append_len, len - 1));
+    EXPECT_EQ(buf->get_size(), len + append_len - 1);
+    EXPECT_STREQ(static_cast<const char*>(buf->get_data()), "Hello ADAM World");
+
+    // Test out of bounds
+    EXPECT_FALSE(buf->fill_data(test_str, buf->get_capacity() + 1));
 
     buf->release();
 }

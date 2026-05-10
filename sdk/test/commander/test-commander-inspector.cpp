@@ -1,0 +1,103 @@
+#include <gtest/gtest.h>
+
+#include "commander/commander.hpp"
+#include "controller/controller.hpp"
+#include "data/port/port.hpp"
+#include "memory/buffer/buffer-manager.hpp"
+#include "memory/buffer/buffer.hpp"
+
+#include <thread>
+#include <chrono>
+#include <atomic>
+
+namespace adam 
+{
+    class mock_port : public port
+    {
+    public:
+        explicit mock_port(const adam::string_hashed& name) : port(name) {}
+
+        using port::handle_data; // Expose handle_data in case it is protected in the base class
+    };
+}
+
+class commander_inspector_test : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        // 1. Initialize buffer memory pools
+        adam::buffer_manager::get().initialize();
+
+        // 2. Start the controller in asynchronous mode so it processes IPC queues in the background
+        ASSERT_TRUE(adam::controller::get().run(true));
+    }
+
+    void TearDown() override
+    {
+        adam::controller::get().destroy();
+        adam::buffer_manager::get().destroy();
+    }
+};
+
+TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
+{
+    adam::string_hashed port_name("adam::test_inspector_port");
+
+    // 1. Create a data port directly in the controller context
+    adam::mock_port test_port(port_name);
+    ASSERT_TRUE(test_port.create());
+
+    // 2. Connect the external commander
+    adam::commander cmd;
+    ASSERT_TRUE(cmd.connect());
+
+    std::atomic<int> received_value{0};
+    std::atomic<int> received_count{0};
+
+    // 3. Define the listener callback
+    auto callback = [&](adam::buffer* buf) 
+    {
+        if (buf && buf->get_size() >= sizeof(int))
+        {
+            received_value = *reinterpret_cast<int*>(buf->get_data());
+            received_count++;
+        }
+    };
+
+    // 4. Request the commander to create its remote instance of the data inspector
+    adam::data_inspector* inspector = nullptr;
+    adam::response::type resp = cmd.request_inspector_create(port_name, callback, inspector);
+    
+    ASSERT_EQ(resp, adam::response::success);
+    ASSERT_NE(inspector, nullptr);
+
+    // Give the IPC system and thread a short moment to establish the active listening loop
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // 5. Request a buffer, write test data, and pass it through the controller's port
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(sizeof(int));
+    ASSERT_NE(buf, nullptr);
+    
+    int sent_value = 1337;
+    *reinterpret_cast<int*>(buf->get_data()) = sent_value;
+    buf->set_size(sizeof(int));
+    
+    // Actually push the data into the port
+    test_port.handle_data(buf);
+
+    // Release our local ownership of the buffer
+    buf->release();
+
+    // 6. Wait for the data to propagate over IPC and reach the remote data_inspector instance
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    EXPECT_EQ(received_count.load(), 1);
+    EXPECT_EQ(received_value.load(), sent_value);
+
+    // 7. Tear down the inspector gracefully
+    resp = cmd.request_inspector_destroy(inspector);
+    EXPECT_EQ(resp, adam::response::success);
+
+    EXPECT_TRUE(cmd.destroy());
+}

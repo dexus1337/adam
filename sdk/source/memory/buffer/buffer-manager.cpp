@@ -106,6 +106,7 @@ namespace adam
         buffer* buf = local_list.back();
         local_list.pop_back();
         buf->m_ref_count->store(1, std::memory_order_relaxed);
+        buf->m_size = 0;
         
         return buf;
     }
@@ -180,7 +181,8 @@ namespace adam
         raw_buf->m_memory_index = handle.memory_index;
         raw_buf->m_thread_id = handle.thread_id;
         raw_buf->m_offset = handle.offset;
-        raw_buf->m_capacity = handle.size;
+        raw_buf->m_capacity = handle.capacity;
+        raw_buf->m_size = handle.size;
         raw_buf->m_ref_count = reinterpret_cast<std::atomic<uint32_t>*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
         raw_buf->m_data = static_cast<uint8_t*>(target_mem->get()) + handle.offset + 8;
         raw_buf->m_is_resolved = true;
@@ -252,6 +254,7 @@ namespace adam
         {
             buffer* buf = &block[i];
             buf->m_capacity = static_cast<uint32_t>(buffer_size);
+            buf->m_size = 0;
             buf->m_offset = static_cast<uint32_t>(i * actual_chunk_size);
             buf->m_memory_index = m_block_counter;
             buf->m_thread_id = tid;
