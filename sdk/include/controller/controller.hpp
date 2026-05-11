@@ -43,10 +43,6 @@ namespace adam
      *          queue_command:          duplex queue    -> Retrieves commands, gives responses
      *          queue_log               one-way queue   -> Retrieves logs, outputs to all registered queue_log_sink
      *          queue_log_sink:         one-way queue   -> Forwards all recieved logs
-     * 
-     *          TODO: zombie shared mem leaks need to be taken care of:
-     *          find /dev/shm -name "adam*" -delete
-     *          ls -l /dev/shm
      */
     class ADAM_SDK_API controller 
     {
@@ -139,6 +135,9 @@ namespace adam
         const registry& get_registry() const { return m_registry; }
 
     protected:
+
+        /** @brief Cleans up orphaned shared memory files left by previous crashes (Linux mostly). */
+        static void cleanup_zombie_shared_memory();
 
         /** @brief Constructs a new controller object.*/
         controller();

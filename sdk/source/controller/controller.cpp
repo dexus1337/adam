@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <vector>
 #include <iostream>
+#include <system_error>
 
 #include "controller/controller-module-manager.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
@@ -50,6 +51,30 @@ namespace adam
         return static_cast<os::thread_id>((static_cast<uint32_t>(v1) << 16) | v0);
     }
 
+    void controller::cleanup_zombie_shared_memory()
+    {
+#if defined(ADAM_PLATFORM_LINUX)
+        std::error_code ec;
+        std::filesystem::path shm_dir = "/dev/shm";
+
+        if (!std::filesystem::exists(shm_dir, ec) || !std::filesystem::is_directory(shm_dir, ec))
+            return;
+
+        for (const auto& entry : std::filesystem::directory_iterator(shm_dir, ec))
+        {
+            if (entry.is_regular_file(ec))
+            {
+                std::string filename = entry.path().filename().string();
+                
+                if (filename.starts_with("adam"))
+                {
+                    std::filesystem::remove(entry.path(), ec);
+                }
+            }
+        }
+#endif
+    }
+
     controller& controller::get()
     {
         static controller instance;
@@ -67,6 +92,7 @@ namespace adam
         m_registry(*this),
         m_dispatcher()
     {
+        cleanup_zombie_shared_memory();
         m_dispatcher.register_default_handlers();
     }
 
