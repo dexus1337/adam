@@ -1,8 +1,6 @@
 #pragma once
 
 #include <adam-sdk.hpp>
-#include <commander/commander.hpp>
-#include <logger/logger-sink.hpp>
 
 #include <vector>
 #include <string>
@@ -10,6 +8,13 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+
+namespace adam 
+{
+    // Extracted helper functions from adam SDK log.cpp
+    std::string get_log_time_string(uint64_t timestamp);
+    void get_log_appearance(adam::log::level level, const char*& level_str, float& r, float& g, float& b);
+}
 
 namespace adam::gui 
 {
@@ -20,7 +25,7 @@ namespace adam::gui
         std::string text;
     };
 
-    class gui_controller 
+    class gui_controller : public adam::configuration_item
     {
     public:
         gui_controller();

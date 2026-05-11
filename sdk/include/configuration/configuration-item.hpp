@@ -32,6 +32,12 @@ namespace adam
         const configuration_parameter_list& get_parameters() const { return m_parameters; }
         configuration_parameter_list&       get_parameters()       { return m_parameters; }
 
+        /** @brief Saves the configuration item's parameters to a binary file. */
+        virtual bool save(string_hashed::view filepath) const;
+
+        /** @brief Loads the configuration item's parameters from a binary file. */
+        virtual bool load(string_hashed::view filepath);
+
     protected:
 
         /** 

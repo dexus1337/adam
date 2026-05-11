@@ -33,40 +33,54 @@ namespace adam
         return sys_now.time_since_epoch() - steady_now.time_since_epoch();
     }();
 
-    void stream_log(const adam::log& cr_log, std::ostream& stream)
+    std::string get_log_time_string(uint64_t timestamp)
     {
-        // 1. Convert steady_clock nanoseconds to system_clock
-        auto tp_steady = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(cr_log.get_timestamp()));
+        auto tp_steady = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(timestamp));
         auto tp_sys = std::chrono::system_clock::time_point(std::chrono::duration_cast<std::chrono::system_clock::duration>(tp_steady.time_since_epoch() + clock_offset));
 
-        // 2. Extract time for formatting
         std::time_t tt = std::chrono::system_clock::to_time_t(tp_sys);
         std::tm* local_tm = std::localtime(&tt); // Or gmtime for UTC
 
-        // 3. Extract milliseconds for that extra "high-perf" feel
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(tp_sys.time_since_epoch()) % 1000;
 
-        // 4. Define log level labels and colors (ANSI codes)
+        return std::format("[{:02}:{:02}:{:02}.{:03}]", local_tm->tm_hour, local_tm->tm_min, local_tm->tm_sec, static_cast<int>(ms.count()));
+    }
+
+    void get_log_appearance(log::level level, const char*& level_str, float& r, float& g, float& b)
+    {
+        switch (level) 
+        {
+            default:                  level_str = "unkwn"; r = 1.0f; g = 1.0f; b = 1.0f; break;
+            case log::level::trace:   level_str = "trace"; r = 0.0f; g = 1.0f; b = 1.0f; break; // Cyan
+            case log::level::info:    level_str = "info";  r = 0.0f; g = 1.0f; b = 0.0f; break; // Green
+            case log::level::warning: level_str = "warn";  r = 1.0f; g = 1.0f; b = 0.0f; break; // Yellow
+            case log::level::error:   level_str = "error"; r = 1.0f; g = 0.0f; b = 0.0f; break; // Red
+            case log::level::fatal:   level_str = "fatal"; r = 1.0f; g = 0.0f; b = 0.0f; break; // Bold Red
+        }
+    }
+
+    void stream_log(const adam::log& cr_log, std::ostream& stream)
+    {
         const char* level_str   = nullptr;
+        float r, g, b;
+        get_log_appearance(cr_log.get_level(), level_str, r, g, b);
+
         const char* color_code  = nullptr;
 
         switch (cr_log.get_level()) 
         {
             default: return;
-            case log::level::trace:     level_str = "trace";    color_code = "\033[36m";   break; // Cyan
-            case log::level::info:      level_str = "info";     color_code = "\033[32m";   break; // Green
-            case log::level::warning:   level_str = "warn";     color_code = "\033[33m";   break; // Yellow
-            case log::level::error:     level_str = "error";    color_code = "\033[31m";   break; // Red
-            case log::level::fatal:     level_str = "fatal";    color_code = "\033[1;31m"; break; // Bold Red
+            case log::level::trace:     color_code = "\033[36m";   break; // Cyan
+            case log::level::info:      color_code = "\033[32m";   break; // Green
+            case log::level::warning:   color_code = "\033[33m";   break; // Yellow
+            case log::level::error:     color_code = "\033[31m";   break; // Red
+            case log::level::fatal:     color_code = "\033[1;31m"; break; // Bold Red
         }
 
         // 5. The "Beautified" Output
         auto str = std::format
-        (   "[{:02}:{:02}:{:02}.{:03}] {}[{}]\033[0m {}\n",
-            local_tm->tm_hour,
-            local_tm->tm_min,
-            local_tm->tm_sec,
-            static_cast<int>(ms.count()),
+        (   "{} {}[{}]\033[0m {}\n",
+            get_log_time_string(cr_log.get_timestamp()),
             color_code,
             level_str,
             cr_log.get_text()

@@ -14,6 +14,18 @@ namespace adam
     }
 
     template<typename char_type>
+    string_hashed_template<char_type>::string_hashed_template(const char_type* str) : string_type(str), m_hash(0) 
+    {
+        calculate_hash();
+    }
+
+    template<typename char_type>
+    string_hashed_template<char_type>::string_hashed_template(const string_hashed_ct_template<char_type>& ct_str) 
+        : string_type(ct_str.c_str(), ct_str.get_length()), m_hash(ct_str.get_hash())
+    {
+    }
+
+    template<typename char_type>
     string_hashed_template<char_type>::string_hashed_template(const string_hashed_template& other) : string_type(other), m_hash(other.m_hash) {}
 
     template<typename char_type>

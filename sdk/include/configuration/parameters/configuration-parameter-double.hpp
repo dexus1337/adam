@@ -26,7 +26,6 @@ namespace adam
     public:
         /** @brief Constructs a new configuration_parameter_double object. */
         configuration_parameter_double(const string_hashed& name, double value = 0.0);
-        configuration_parameter_double(string_hashed::view name, double value = 0.0);
 
         /** @brief Destroys the configuration_parameter_double object and cleans up resources. */
         ~configuration_parameter_double();
@@ -38,6 +37,7 @@ namespace adam
 
         double get_value() const { return m_value; }
         void set_value(double value) { m_value = value; }
+        double& value() { return m_value; }
 
     private:
 

@@ -30,9 +30,6 @@ namespace adam
         data_format(const string_hashed& name, parser* parser = nullptr, serializer* serializer = nullptr);
 
         /** @brief Constructs a new data_format object. */
-        data_format(string_hashed::view name, parser* parser = nullptr, serializer* serializer = nullptr);
-
-        /** @brief Constructs a new data_format object. */
         data_format(const data_format& df);
 
         /** @brief Destroys the data_format object and cleans up resources. */

@@ -638,8 +638,8 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Micro(const type *key, size_
  *  Returns a 64-bit hash.
  */
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhashNano_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
-  return rapidhashNano_internal(key, len, seed, rapid_ct_secret);
+ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Nano_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
+  return rapidhash_ct_Nano_internal(key, len, seed, rapid_ct_secret);
 }
  
 /*
@@ -657,6 +657,6 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Micro(const type *key, size_
  *  Returns a 64-bit hash.
  */
 template<typename type>
-RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhashNano(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
-  return rapidhashNano_withSeed(key, len, 0);
+RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Nano(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
+  return rapidhash_ct_Nano_withSeed(key, len, 0);
 }

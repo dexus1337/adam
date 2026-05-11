@@ -1,14 +1,34 @@
 #include "gui-controller.hpp"
 
+#include <memory>
+
 namespace adam::gui 
 {
-    gui_controller::gui_controller() 
-        : m_running(false), m_commander_active(false)
+    static adam::configuration_parameter_list create_gui_defaults()
     {
+        adam::configuration_parameter_list params;
+        params.add(std::make_unique<adam::configuration_parameter_boolean>("show_log", true));
+        params.add(std::make_unique<adam::configuration_parameter_boolean>("dark_theme", true));
+        params.add(std::make_unique<adam::configuration_parameter_double>("log_height", 250.0));
+        params.add(std::make_unique<adam::configuration_parameter_double>("font_scale", 1.0));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("window_x", -1));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("window_y", -1));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("window_w", 1280));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("window_h", 720));
+        params.add(std::make_unique<adam::configuration_parameter_boolean>("window_maximized", false));
+        return params;
+    }
+
+    gui_controller::gui_controller() 
+        : adam::configuration_item("gui.controller", create_gui_defaults()),
+          m_running(false), m_commander_active(false)
+    {
+        load("adam_gui_settings.bin");
     }
 
     gui_controller::~gui_controller()
     {
+        save("adam_gui_settings.bin");
         stop();
     }
 

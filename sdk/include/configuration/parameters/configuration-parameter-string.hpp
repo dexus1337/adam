@@ -26,7 +26,6 @@ namespace adam
     public:
         /** @brief Constructs a new configuration_parameter_string object. */
         configuration_parameter_string(const string_hashed& name, string_hashed::view value = "");
-        configuration_parameter_string(string_hashed::view name, string_hashed::view value = "");
 
         /** @brief Destroys the configuration_parameter_string object and cleans up resources. */
         ~configuration_parameter_string();
@@ -38,6 +37,7 @@ namespace adam
 
         const std::string& get_value() const { return m_value; }
         void set_value(string_hashed::view value) { m_value = value; }
+        std::string& value() { return m_value; }
 
     private:
 

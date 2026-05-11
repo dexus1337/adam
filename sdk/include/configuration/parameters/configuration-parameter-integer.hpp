@@ -26,7 +26,6 @@ namespace adam
     public:
         /** @brief Constructs a new configuration_parameter_integer object. */
         configuration_parameter_integer(const string_hashed& name, int64_t value = 0);
-        configuration_parameter_integer(string_hashed::view name, int64_t value = 0);
 
         /** @brief Destroys the configuration_parameter_integer object and cleans up resources. */
         ~configuration_parameter_integer();
@@ -38,6 +37,7 @@ namespace adam
 
         int64_t get_value() const { return m_value; }
         void set_value(int64_t value) { m_value = value; }
+        int64_t& value() { return m_value; }
 
     private:
 

@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
+#include <filesystem>
 
 namespace adam::gui 
 {
@@ -47,6 +48,24 @@ namespace adam::gui
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         ImGui::StyleColorsDark();
+
+        // Load nicer system fonts instead of the default pixel font
+#if defined(ADAM_PLATFORM_WINDOWS)
+        if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
+            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+        else if (std::filesystem::exists("C:\\Windows\\Fonts\\arial.ttf"))
+            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 16.0f);
+#elif defined(ADAM_PLATFORM_LINUX)
+        if (std::filesystem::exists("/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf"))
+            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf", 16.0f);
+        else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f);
+        else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
+            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f);
+#elif defined(__APPLE__)
+        if (std::filesystem::exists("/System/Library/Fonts/Helvetica.ttc"))
+            io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
+#endif
 
         ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
         ImGui_ImplOpenGL3_Init(glsl_version);

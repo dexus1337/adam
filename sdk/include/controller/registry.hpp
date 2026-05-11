@@ -14,7 +14,7 @@
 #include <string_view>
 #include <memory>
 
-#include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/configuration-item.hpp"
 
 
 namespace adam
@@ -29,7 +29,7 @@ namespace adam
      * @class registry
      * @brief Manages the global application configuration, including loading from and saving to a fast, binary file format.
      */
-    class ADAM_SDK_API registry
+    class ADAM_SDK_API registry : public configuration_item
     {
         friend class controller;
 
@@ -41,10 +41,10 @@ namespace adam
         std::unordered_map<string_hashed, std::unique_ptr<connection>>& connections()   { return m_connections; }
 
         /** @brief Saves the entire configuration tree to a binary file. */
-        bool save(string_hashed::view filepath) const;
+        bool save(string_hashed::view filepath) const override;
 
         /** @brief Loads the entire configuration tree from a binary file. */
-        bool load(string_hashed::view filepath);
+        bool load(string_hashed::view filepath) override;
 
         /** @brief Clears all configuration items and parameters */
         void clear();
@@ -57,8 +57,6 @@ namespace adam
         /** @brief Destroys the registry object. */
         ~registry();
 
-        configuration_parameter_list m_general;                                         /**< General configuration parameters. */
-        
         std::unordered_map<string_hashed, std::unique_ptr<port>>        m_ports;        /**< The list of configuration parameters for ports. */
         std::unordered_map<string_hashed, std::unique_ptr<filter>>      m_filters;      /**< The list of configuration parameters for filters. */
         std::unordered_map<string_hashed, std::unique_ptr<converter>>   m_converters;   /**< The list of configuration parameters for converters. */

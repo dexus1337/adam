@@ -19,7 +19,7 @@ namespace adam::test
     public:
         testable_registry() : adam::registry(adam::controller::get()) {}
         
-        adam::configuration_parameter_list& get_general() { return m_general; }
+        adam::configuration_parameter_list& get_general() { return m_parameters; }
     };
 }
 

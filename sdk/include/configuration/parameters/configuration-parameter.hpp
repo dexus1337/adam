@@ -12,6 +12,8 @@
 #include "api/api.hpp"
 
 #include <memory>
+#include <ostream>
+#include <istream>
 #include "types/string-hashed.hpp"
 
 namespace adam 
@@ -47,6 +49,26 @@ namespace adam
         /** @brief Destroys the configuration_parameter object and cleans up resources. */
         virtual ~configuration_parameter();
 
+        // --- Serialization Helpers ---
+
+        static void serialize(std::ostream& os, const configuration_parameter* param);
+        static std::unique_ptr<configuration_parameter> deserialize(std::istream& is);
+
+        template<typename T>
+        static void write_binary(std::ostream& os, const T& value) 
+        {
+            os.write(reinterpret_cast<const char*>(&value), sizeof(T));
+        }
+
+        template<typename T>
+        static void read_binary(std::istream& is, T& value) 
+        {
+            is.read(reinterpret_cast<char*>(&value), sizeof(T));
+        }
+
+        static void write_string(std::ostream& os, const std::string& str);
+        static string_hashed read_string(std::istream& is);
+
     protected:
 
         /** @brief Constructs a new configuration_parameter object. */
@@ -54,9 +76,6 @@ namespace adam
 
         /** @brief Constructs a new configuration_parameter object. */
         configuration_parameter(const string_hashed& name);
-
-        /** @brief Constructs a new configuration_parameter object. */
-        configuration_parameter(string_hashed::view name);
 
         string_hashed m_str_name;     /**< The name of the configuration parameter, used for identification and lookup in the ADAM system. */
     };

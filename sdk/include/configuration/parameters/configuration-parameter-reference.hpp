@@ -26,7 +26,6 @@ namespace adam
     public:
         /** @brief Constructs a new configuration_parameter_reference object. */
         configuration_parameter_reference(const string_hashed& name, const string_hashed& target = string_hashed());
-        configuration_parameter_reference(string_hashed::view name, const string_hashed& target = string_hashed());
 
         /** @brief Destroys the configuration_parameter_reference object and cleans up resources. */
         ~configuration_parameter_reference();
@@ -38,6 +37,7 @@ namespace adam
 
         const string_hashed& get_target() const { return m_target; }
         void set_target(const string_hashed& target) { m_target = target; }
+        string_hashed& target() { return m_target; }
 
     private:
 

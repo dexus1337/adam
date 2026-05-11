@@ -19,7 +19,7 @@ int main(int, char**)
 
     adam::gui::gui_controller controller;
     controller.start();
-    adam::gui::main_window ui_window(controller);
+    adam::gui::main_window ui_window(controller, window);
 
     bool done = false;
     while (!done)
@@ -44,13 +44,14 @@ int main(int, char**)
         // Swap Buffers
         ImGui::Render();
         ImGuiIO& io = ImGui::GetIO();
-        glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+        glViewport(0, 0, (int)(io.DisplaySize.x * io.DisplayFramebufferScale.x), (int)(io.DisplaySize.y * io.DisplayFramebufferScale.y));
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
     }
 
+    ui_window.save_window_state();
     controller.stop();
     adam::gui::shutdown(window, gl_context);
 
