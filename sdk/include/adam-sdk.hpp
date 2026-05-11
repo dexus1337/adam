@@ -20,6 +20,7 @@
 #include "controller/controller.hpp"
 #include "commander/command-response/command.hpp"
 #include "commander/command-response/response.hpp"
+#include "commander/command-response/event.hpp"
 #include "controller/registry.hpp"
 #include "commander/commander.hpp"
 #include "data/format.hpp"

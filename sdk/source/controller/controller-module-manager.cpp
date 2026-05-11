@@ -31,6 +31,18 @@ namespace adam
             {
                 static_cast<int>(log_event::module_requires_newer_sdk_cannot_load),
                 { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}. Kann nicht geladen werden!" }
+            },
+            {
+                static_cast<int>(log_event::module_available),
+                { "Available module: {} ver {:d}.{:d}.{:d} -> ({})", "Verfügbares Modul: {} Ver {:d}.{:d}.{:d} -> ({})" }
+            },
+            {
+                static_cast<int>(log_event::module_loaded),
+                { "Loaded module \"{}\" at 0x{:x}", "Modul \"{}\" geladen an 0x{:x}" }
+            },
+            {
+                static_cast<int>(log_event::module_load_failed),
+                { "Failed to load module \"{}\"", "Modul \"{}\" konnte nicht geladen werden" }
             }
         };
 
@@ -84,17 +96,24 @@ namespace adam
 
             #ifdef ADAM_PLATFORM_LINUX
             auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
-            if (!handle) return false;
+            if (!handle) 
+                return false;
+
             auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name.c_str()));
             #elifdef ADAM_PLATFORM_WINDOWS
             auto handle = LoadLibraryW(std::filesystem::absolute(path).c_str());
-            if (!handle) return false;
+            if (!handle) 
+                return false;
+
             auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name.c_str()));
             #endif
 
             mod = fn_get_adam_module();
-            if (!mod) goto UNLOAD_AND_CONTINUE;
-            if (m_loaded_modules.contains(mod->get_name())) continue;
+            if (!mod) 
+                goto UNLOAD_AND_CONTINUE;
+
+            if (m_loaded_modules.contains(mod->get_name())) 
+                continue;
 
             if (mod->get_required_sdk_version() > adam::sdk_version)
             {
@@ -105,14 +124,22 @@ namespace adam
                 auto sdk_min = adam::get_minor(adam::sdk_version);
                 auto sdk_pat = adam::get_patch(adam::sdk_version);
 
-                m_controller.log(log::warning, std::vformat(get_log_event_text(log_event::module_requires_newer_sdk, m_controller.m_lang), std::make_format_args(
-                    path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat)));
+                m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_sdk, m_controller.m_lang),
+                    path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
 
                 m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
                 goto UNLOAD_AND_CONTINUE;
             }
 
             m_available_modules.emplace(mod->get_name(), std::make_pair(mod->get_version(), path_str));
+            
+            {
+                auto ver_maj = adam::get_major(mod->get_version());
+                auto ver_min = adam::get_minor(mod->get_version());
+                auto ver_pat = adam::get_patch(mod->get_version());
+                m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.m_lang), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str);
+            }
+
             continue;
 
         UNLOAD_AND_CONTINUE:
@@ -129,18 +156,30 @@ namespace adam
     bool controller_module_manager::load_module(const string_hashed& name, const module** out_module)
     {
         auto it = m_available_modules.find(name);
-        if (it == m_available_modules.end()) return false;
+        if (it == m_available_modules.end()) 
+        {
+            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
+            return false;
+        }
 
         const auto& path_str = it->second.second;
         module* mod          = nullptr;
 
         #ifdef ADAM_PLATFORM_LINUX
         auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
-        if (!handle) return false;
+        if (!handle) 
+        {
+            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
+            return false;
+        }
         auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name.c_str()));
         #elifdef ADAM_PLATFORM_WINDOWS
         auto handle = LoadLibraryA(path_str.c_str());
-        if (!handle) return false;
+        if (!handle) 
+        {
+            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
+            return false;
+        }
         auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name.c_str()));
         #endif
 
@@ -157,8 +196,8 @@ namespace adam
             auto sdk_min = adam::get_minor(adam::sdk_version);
             auto sdk_pat = adam::get_patch(adam::sdk_version);
 
-            m_controller.log(log::error, std::vformat(get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_controller.m_lang), std::make_format_args(
-                path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat)));
+            m_controller.log(log::error, get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_controller.m_lang),
+                path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
             return false;
         }
 
@@ -166,13 +205,16 @@ namespace adam
         mod->m_str_filepath = path_str;
         m_loaded_modules.emplace(mod->get_name(), mod);
         if (out_module) *out_module = mod;
+        
+        m_controller.log(log::info, get_log_event_text(log_event::module_loaded, m_controller.m_lang), name.c_str(), reinterpret_cast<uintptr_t>(handle));
         return true;
 
     UNLOAD_AND_RETURN:
+        m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
         #ifdef ADAM_PLATFORM_LINUX
-        dlclose(handle);
+        if (handle) dlclose(handle);
         #elifdef ADAM_PLATFORM_WINDOWS
-        FreeLibrary(handle);
+        if (handle) FreeLibrary(handle);
         #endif
         return false;
     }

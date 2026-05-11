@@ -33,14 +33,38 @@ namespace adam
             return false;
         }
 
+        if (m_queue_event.open())
+            m_queue_event.destroy();
+
+        m_queue_event.set_name(string_hashed(controller::queue_event_prefix + std::to_string(os::get_current_thread_id())));
+
+        if (!m_queue_event.create(1000))
+        {
+            destroy();
+            return false;
+        }
+
+        if (controller::request_master_queue(controller::request_event) != controller::status_success)
+        {
+            destroy();
+            return false;
+        }
+
+        m_event_thread = std::thread(&commander::run_event_loop, this);
+
         return true;
     }
 
     bool commander::destroy() 
     {
         m_queue_command.disable();
+        m_queue_event.disable();
+
+        if (m_event_thread.joinable())
+            m_event_thread.join();
 
         bool res = (controller::request_master_queue(controller::request_command_destroy) == controller::status_success);
+        res &= (controller::request_master_queue(controller::request_event_destroy) == controller::status_success);
 
         for (auto& pair : m_inspectors)
         {
@@ -50,6 +74,7 @@ namespace adam
         m_inspectors.clear();
 
         res &= m_queue_command.destroy();
+        res &= m_queue_event.destroy();
 
         return res;
     }
@@ -154,5 +179,18 @@ namespace adam
             *resp = response_buffer.data();
 
         return response_buffer.front().get_type();
+    }
+
+    void commander::run_event_loop()
+    {
+        while (m_queue_event.is_active())
+        {
+            event incoming_event;
+            if (m_queue_event.pop(incoming_event, 100))
+            {
+                if (m_event_callback)
+                    m_event_callback(incoming_event);
+            }
+        }
     }
 }

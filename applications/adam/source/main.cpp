@@ -33,21 +33,9 @@ int main()
 
     for (const auto& [name, path] : controller.modules().get_available_modules())
     {
-        auto ver = adam::decode_version(path.first);
-
-        controller.log(adam::log::info, std::format("Available module: {} ver {:d}.{:d}.{:d} -> ({})", 
-                                  name.c_str(), ver.major, ver.minor, ver.patch, path.second.c_str()));
-    }
-    
-    for (const auto& [name, path] : controller.modules().get_available_modules())
-    {
-        if (controller.modules().load_module(name))
-            controller.log(adam::log::info, std::format("loaded module \"{}\" at 0x{:x}", name.c_str(), controller.modules().get_loaded_module(name)->get_module_handle()));
-        else
-            controller.log(adam::log::error, std::format("failed to load module \"{}\"", name.c_str()));
+        controller.modules().load_module(name);
     }
 
-    
     if (controller.run(true))
     {
         controller.log(adam::log::info, "adam stared succesfully!");

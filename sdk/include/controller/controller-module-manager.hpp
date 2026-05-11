@@ -33,7 +33,10 @@ namespace adam
         enum log_event
         {
             module_requires_newer_sdk,
-            module_requires_newer_sdk_cannot_load
+            module_requires_newer_sdk_cannot_load,
+            module_available,
+            module_loaded,
+            module_load_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

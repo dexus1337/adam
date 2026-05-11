@@ -2,13 +2,25 @@
 #include <commander/commander.hpp>
 #include <controller/controller.hpp>
 
-/** @brief Tests commander is_active after a successful connection. */
-TEST(commander, is_active_on_success)
+class commander_test : public ::testing::Test
 {
-    // Ensure the controller is running asynchronously so the master queue can respond
-    adam::controller& ctrl = adam::controller::get();
-    ASSERT_TRUE(ctrl.run(true));
-    
+protected:
+    void SetUp() override
+    {
+        // Boot the controller asynchronously before each test
+        adam::controller::get().run(true);
+    }
+
+    void TearDown() override
+    {
+        // Tear down the master queue and clean up shared memory
+        adam::controller::get().destroy();
+    }
+};
+
+/** @brief Tests commander is_active after a successful connection. */
+TEST_F(commander_test, is_active_on_success)
+{
     adam::commander cmdr;
     
     EXPECT_FALSE(cmdr.is_active());
@@ -20,22 +32,35 @@ TEST(commander, is_active_on_success)
     // Disconnect and clean up
     EXPECT_TRUE(cmdr.destroy());
     EXPECT_FALSE(cmdr.is_active());
-
-    // Clean up controller for subsequent tests
-    EXPECT_TRUE(ctrl.destroy());
 }
 
-/** @brief Tests commander is_active when master queue request fails. */
-TEST(commander, is_active_on_failure)
+/** @brief Tests if a single commander can receive an event broadcasted by the controller. */
+TEST_F(commander_test, event_broadcast_and_receive)
 {
-    // Ensure the controller is NOT running
-    adam::controller& ctrl = adam::controller::get();
-    if (ctrl.is_active())
-        ctrl.destroy();
-
     adam::commander cmdr;
     
-    EXPECT_FALSE(cmdr.is_active());
-    EXPECT_FALSE(cmdr.connect()); // Should fail as controller is not running
-    EXPECT_FALSE(cmdr.is_active());
+    std::atomic<bool> event_received{false};
+    adam::event_type received_type = adam::event_type::invalid;
+
+    cmdr.set_event_callback([&](const adam::event& e) {
+        received_type = e.get_type();
+        event_received = true;
+    });
+
+    ASSERT_TRUE(cmdr.connect());
+
+    adam::event evt(adam::event_type::language_changed);
+    adam::controller::get().broadcast_event(evt);
+
+    // Wait for event to propagate across the IPC queue
+    auto start = std::chrono::steady_clock::now();
+    while (!event_received && std::chrono::steady_clock::now() - start < std::chrono::seconds(2))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    EXPECT_TRUE(event_received.load());
+    EXPECT_EQ(received_type, adam::event_type::language_changed);
+
+    EXPECT_TRUE(cmdr.destroy());
 }

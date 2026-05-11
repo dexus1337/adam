@@ -53,7 +53,7 @@ namespace adam
 
     void controller::cleanup_zombie_shared_memory()
     {
-#if defined(ADAM_PLATFORM_LINUX)
+        #if defined(ADAM_PLATFORM_LINUX)
         std::error_code ec;
         std::filesystem::path shm_dir = "/dev/shm";
 
@@ -72,7 +72,7 @@ namespace adam
                 }
             }
         }
-#endif
+        #endif
     }
 
     controller& controller::get()
@@ -129,6 +129,14 @@ namespace adam
         return true;
     }
     
+    void controller::broadcast_event(const event& e)
+    {
+        for (const auto& [tid, queue] : m_queues_event)
+        {
+            queue->push(e);
+        }
+    }
+
     void controller::log(const adam::log& cr_log) 
     {
         stream_log(cr_log, m_log_outstream);
@@ -409,6 +417,20 @@ namespace adam
             case request_log_sink_destroy:
             {
                 if (!destroy_queue_slave(req.tid, m_queues_log_sink))
+                    continue;
+                
+                break;
+            }
+            case request_event:
+            {
+                if (!create_queue_slave(req.tid, m_queues_event, this->queue_event_prefix))
+                    continue;
+                
+                break;
+            }
+            case request_event_destroy:
+            {
+                if (!destroy_queue_slave(req.tid, m_queues_event))
                     continue;
                 
                 break;

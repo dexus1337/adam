@@ -21,6 +21,7 @@
 #include "types/queue-shared-duplex.hpp"
 #include "commander/command-response/command.hpp"
 #include "commander/command-response/response.hpp"
+#include "commander/command-response/event.hpp"
 #include "logger/log.hpp"
 #include "os/os.hpp"
 #include "registry.hpp"
@@ -81,7 +82,9 @@ namespace adam
             request_log,
             request_log_destroy,
             request_log_sink,
-            request_log_sink_destroy
+            request_log_sink_destroy,
+            request_event,
+            request_event_destroy
         };
 
         enum status
@@ -122,6 +125,9 @@ namespace adam
 
         /** @brief Sets the default language for logs etc. */
         void set_language(language lang) { m_lang = lang; }
+
+        /** @brief Broadcasts an event to all connected commanders. */
+        void broadcast_event(const event& e);
 
         // MODULE MANAGEMENT
 
@@ -236,6 +242,13 @@ namespace adam
         static constexpr const char* queue_logger_sink_prefix = "adam::controller_queue_log_sink";  /**< Prefix for the "per thread" log sink queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
 
         std::unordered_map<os::thread_id, queue_log_sink*> m_queues_log_sink;
+
+        // EVENT QUEUES
+
+        using queue_event           = queue_shared<adam::event>;                                    /**< Event queue type */
+        static constexpr const char* queue_event_prefix = "adam::controller_queue_event_";          /**< Prefix for the "per thread" event queue */
+
+        std::unordered_map<os::thread_id, queue_event*> m_queues_event;
 
         // LOG MANAGEMENT
 

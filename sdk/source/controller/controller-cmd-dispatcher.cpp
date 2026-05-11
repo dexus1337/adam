@@ -4,6 +4,7 @@
 #include "resources/language-strings.hpp"
 #include "data/port/port.hpp"
 #include "data/inspector.hpp"
+#include "commander/command-response/event.hpp"
 
 #include <array>
 #include <format>
@@ -33,6 +34,10 @@ namespace adam
         {
             ctx.lang = *cmds[0].get_data_as<language>();
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::language_changed, ctx.lang));
+
+            event evt(event_type::language_changed);
+            ctx.ctrl.broadcast_event(evt);
+
             return response_status::success;
         });
 

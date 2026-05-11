@@ -55,7 +55,7 @@ namespace adam
         template<typename... args_type>
         requires (sizeof...(args_type) > 0)
         log(level t, std::string_view runtime_fmt, args_type&&... args)
-            : log(t, std::vformat(runtime_fmt, std::make_format_args(std::forward<args_type>(args)...)))
+            : log(t, std::vformat(runtime_fmt, std::make_format_args(args...)))
         { }
 
         /** @brief Constructs a new log object.*/
