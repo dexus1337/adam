@@ -127,7 +127,7 @@ namespace adam
         if (!mq.open())
         {
             int mqr_val = static_cast<int>(mqr);
-            adam::stream_log(log::trace, std::vformat(get_log_event_text(log_event::master_queue_open_failed, controller::get().m_lang), std::make_format_args(mqr_val)), std::cout);
+            adam::stream_log(std::cout, log::trace, get_log_event_text(log_event::master_queue_open_failed, controller::get().m_lang), mqr_val);
             return resp;
         }
 
@@ -143,7 +143,7 @@ namespace adam
         {
             int mqr_val  = static_cast<int>(mqr);
             int resp_val = static_cast<int>(resp);
-            adam::stream_log(log::trace, std::vformat(get_log_event_text(log_event::master_queue_request_failed, controller::get().m_lang), std::make_format_args(mqr_val, resp_val)), std::cout);
+            adam::stream_log(std::cout, log::trace, get_log_event_text(log_event::master_queue_request_failed, controller::get().m_lang), mqr_val, resp_val);
         }
         
         mq.destroy();
@@ -166,7 +166,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_already_exists, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_already_exists, m_lang), tid));
 
             return false;
         }
@@ -177,7 +177,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_failed_to_open, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_open, m_lang), tid));
 
             m_master_queue.response_queue().push(status_queue_unavailable);
 
@@ -190,7 +190,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_failed_to_insert, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_insert, m_lang), tid));
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -216,7 +216,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_already_exists, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_already_exists, m_lang), tid));
 
             return false;
         }
@@ -227,7 +227,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_failed_to_open, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_open, m_lang), tid));
 
             m_master_queue.response_queue().push(status_queue_unavailable);
 
@@ -246,7 +246,7 @@ namespace adam
 
             delete new_queue;
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_failed_to_insert, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, m_lang), tid));
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -269,7 +269,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_does_not_exist, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_does_not_exist, m_lang), tid));
 
             return false;
         }
@@ -280,7 +280,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_failed_destroy);
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_failed_to_destroy, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_destroy, m_lang), tid));
 
             return false;
         }
@@ -305,7 +305,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_does_not_exist, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_does_not_exist, m_lang), tid));
 
             return false;
         }
@@ -315,7 +315,7 @@ namespace adam
         it->second->queue_thread.join();
 
         if (!it->second->queue.destroy())
-            debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, m_lang), std::make_format_args(tid))));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, m_lang), tid));
 
         delete it->second;
 
@@ -338,7 +338,7 @@ namespace adam
             {
                 m_master_queue.response_queue().push(status_queue_unauthorized);
 
-                debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::thread_auth_failed, m_lang), std::make_format_args(req.tid))));
+                debug_statement(this->log(log::trace, get_log_event_text(log_event::thread_auth_failed, m_lang), req.tid));
 
                 continue;
             }
@@ -395,12 +395,12 @@ namespace adam
             if (req.queue % 2)
             {
                 int queue_val = static_cast<int>(req.queue);
-                debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_created, m_lang), std::make_format_args(req.tid, queue_val))));
+                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_created, m_lang), req.tid, queue_val));
             }
             else
             {
                 int queue_val = static_cast<int>(req.queue) - 1;
-                debug_statement(this->log(log::trace, std::vformat(get_log_event_text(log_event::slave_queue_destroyed, m_lang), std::make_format_args(req.tid, queue_val))));
+                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_destroyed, m_lang), req.tid, queue_val));
             }
 
             m_master_queue.response_queue().push(status_success);

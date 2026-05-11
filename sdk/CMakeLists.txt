@@ -12,7 +12,7 @@ file( GLOB_RECURSE  test_source_files   "test/*cpp"    )
 
 
 # Create the shared library target for the sdk
-add_library(adam-sdk STATIC ${sdk_source_files})
+add_library(adam-sdk SHARED ${sdk_source_files})
 
 # This tells other targets where to find headers when they link to 'adam-sdk'
 target_include_directories(adam-sdk 
@@ -24,6 +24,12 @@ target_compile_definitions(adam-sdk
     PRIVATE ADAM_SDK_EXPORTS
 )
 
+# Set the output directory for the shared library
+set_target_properties(adam-sdk PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+)
 
 # Create the test application
 add_executable(adam-sdk-test ${test_source_files})

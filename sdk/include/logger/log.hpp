@@ -11,6 +11,7 @@
  
 #include <cstdint>
 #include <string>
+#include <format>
 
 #include "api/api.hpp"
 #include "os/os.hpp"
@@ -44,6 +45,19 @@ namespace adam
         /** @brief Constructs a new log object.*/
         log(level t, std::string_view txt);
 
+        /** @brief Constructs a new log object using a format string. */
+        template<typename... args_type>
+        log(level t, std::format_string<args_type...> fmt, args_type&&... args)
+            : log(t, std::format(fmt, std::forward<args_type>(args)...))
+        { }
+
+        /** @brief Constructs a new log object using a runtime format string (e.g. from a dictionary). */
+        template<typename... args_type>
+        requires (sizeof...(args_type) > 0)
+        log(level t, std::string_view runtime_fmt, args_type&&... args)
+            : log(t, std::vformat(runtime_fmt, std::make_format_args(std::forward<args_type>(args)...)))
+        { }
+
         /** @brief Constructs a new log object.*/
         log();
 
@@ -76,4 +90,18 @@ namespace adam
     /** @brief Global function for anyone to use to have logs display in adam style. */
     inline void stream_log(log::level t, std::string_view txt, std::ostream& stream) { return stream_log(adam::log(t, txt), stream); }
 
+    /** @brief Global function for anyone to use to have logs display in adam style, using a format string. */
+    template<typename... args_type>
+    inline void stream_log(std::ostream& stream, log::level t, std::format_string<args_type...> fmt, args_type&&... args)
+    {
+        stream_log(adam::log(t, fmt, std::forward<args_type>(args)...), stream);
+    }
+
+    /** @brief Global function for anyone to use to have logs display in adam style, using a runtime format string. */
+    template<typename... args_type>
+    requires (sizeof...(args_type) > 0)
+    inline void stream_log(std::ostream& stream, log::level t, std::string_view runtime_fmt, args_type&&... args)
+    {
+        stream_log(adam::log(t, runtime_fmt, std::forward<args_type>(args)...), stream);
+    }
 }

@@ -15,6 +15,7 @@
 #include <thread>
 #include <sstream>
 #include <functional>
+#include <format>
 
 #include "types/string-hashed.hpp"
 #include "types/queue-shared-duplex.hpp"
@@ -107,6 +108,21 @@ namespace adam
 
         /** @brief Outputs a log. */
         void log(log::level t, string_hashed::view txt) { this->log(adam::log(t, txt)); }
+
+        /** @brief Outputs a formatted log. */
+        template<typename... args_type>
+        void log(log::level t, std::format_string<args_type...> fmt, args_type&&... args)
+        {
+            this->log(adam::log(t, fmt, std::forward<args_type>(args)...));
+        }
+
+        /** @brief Outputs a formatted log using a runtime format string. */
+        template<typename... args_type>
+        requires (sizeof...(args_type) > 0)
+        void log(log::level t, std::string_view runtime_fmt, args_type&&... args)
+        {
+            this->log(adam::log(t, runtime_fmt, std::forward<args_type>(args)...));
+        }
 
         /** @brief Sets the default language for logs etc. */
         void set_language(language lang) { m_lang = lang; }

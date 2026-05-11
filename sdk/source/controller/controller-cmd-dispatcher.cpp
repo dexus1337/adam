@@ -44,7 +44,7 @@ namespace adam
             if (port == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_port_unknown, ctx.lang), std::make_format_args(ctx.tid, port_hash))));
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_port_unknown, ctx.lang), ctx.tid, port_hash));
                 return response_status::unknown;
             }
 
@@ -54,7 +54,7 @@ namespace adam
             if (!new_inspector->open(port_name, ctx.tid))
             {
                 auto name_view = port_name.c_str();
-                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.lang), std::make_format_args(ctx.tid, name_view))));
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.lang), ctx.tid, name_view));
                 return response_status::failed;
             }
 
@@ -62,7 +62,7 @@ namespace adam
             ctx.thread_inspectors.emplace(params->port, new_inspector);
 
             auto name_view = port_name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.lang), std::make_format_args(ctx.tid, name_view))));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.lang), ctx.tid, name_view));
             return response_status::success;
         });
 
@@ -74,7 +74,7 @@ namespace adam
             if (port == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_port_unknown, ctx.lang), std::make_format_args(ctx.tid, port_hash))));
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_port_unknown, ctx.lang), ctx.tid, port_hash));
                 return response_status::unknown;
             }
 
@@ -84,7 +84,7 @@ namespace adam
             if (it == ctx.thread_inspectors.end())
             {
                 auto name_view = port_name.c_str();
-                debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.lang), std::make_format_args(ctx.tid, name_view))));
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.lang), ctx.tid, name_view));
                 return response_status::failed;
             }
 
@@ -92,7 +92,7 @@ namespace adam
             ctx.thread_inspectors.erase(it);
 
             auto name_view = port_name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, std::vformat(controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.lang), std::make_format_args(ctx.tid, name_view))));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.lang), ctx.tid, name_view));
             return response_status::success;
         });
     }

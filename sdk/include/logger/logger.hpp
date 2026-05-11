@@ -46,6 +46,21 @@ namespace adam
         /** @brief Sends a log. */
         bool log(log::level t, string_hashed::view txt) { return this->log(adam::log(t, txt)); }
 
+        /** @brief Sends a formatted log. */
+        template<typename... args_type>
+        bool log(log::level t, std::format_string<args_type...> fmt, args_type&&... args)
+        {
+            return this->log(adam::log(t, fmt, std::forward<args_type>(args)...));
+        }
+
+        /** @brief Sends a formatted log using a runtime format string. */
+        template<typename... args_type>
+        requires (sizeof...(args_type) > 0)
+        bool log(log::level t, std::string_view runtime_fmt, args_type&&... args)
+        {
+            return this->log(adam::log(t, runtime_fmt, std::forward<args_type>(args)...));
+        }
+
     protected:
 
         controller::queue_log m_queue_log;
