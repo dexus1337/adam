@@ -45,10 +45,12 @@ namespace adam
         template<typename T>
         const T* get_data_as()      const { return reinterpret_cast<const T*>(m_data); }
 
-        uint8_t* data()         { return m_data; }
+        uint8_t* data() { return m_data; }
 
         template<typename T>
-        T* data_as()            { return reinterpret_cast<T*>(m_data); }
+        T* data_as() { return reinterpret_cast<T*>(m_data); }
+
+        void set_extended(bool extended = true) { m_b_extended = extended; }
 
     protected:
 

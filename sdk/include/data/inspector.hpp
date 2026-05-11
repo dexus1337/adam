@@ -32,6 +32,8 @@ namespace adam
         /** @brief Destroys the data processor object and cleans up resources. */
         ~data_inspector();
 
+        const string_hashed& get_port_name() const { return m_port_name; }
+
         /** @brief Creates the underlying buffer queue */
         bool create(const string_hashed& port_name);
 
@@ -55,6 +57,7 @@ namespace adam
 
         void run_inspector(std::function<void(buffer*)> callback);
 
-        std::thread m_inspector_thread;
+        std::thread     m_inspector_thread;
+        string_hashed   m_port_name;
     };
 }

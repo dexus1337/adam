@@ -53,8 +53,8 @@ namespace adam
 
     protected:
 
-        /** @brief Sends a command. */
-        response_status send_command(const command& cmd, response* resp = nullptr);
+        /** @brief Sends a command. Can have multiple (extended) responses. */
+        response_status send_command(const command& cmd, response** resp = nullptr);
 
         controller::queue_command m_queue_command;
 

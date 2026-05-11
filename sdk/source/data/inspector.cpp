@@ -5,7 +5,8 @@ namespace adam
 {
     data_inspector::data_inspector()
      :  m_buffer_queue(),
-        m_inspector_thread()
+        m_inspector_thread(),
+        m_port_name()
     {
     }
 
@@ -22,6 +23,8 @@ namespace adam
         if (!m_buffer_queue.create(0x1000))
             return false;
 
+        m_port_name = port_name;
+
         return true;
     }
 
@@ -32,6 +35,8 @@ namespace adam
 
         if (!m_buffer_queue.open())
             return false;
+
+        m_port_name = port_name;
 
         return true;
     }

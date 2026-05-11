@@ -422,24 +422,27 @@ namespace adam
         
         while (data->queue.is_active())
         {
-            if (!data->queue.request_queue().pop(*cmds.data(), 100)) // check every 100ms
+            size_t cmd_idx = 0;
+
+            if (!data->queue.request_queue().pop(cmds[cmd_idx], 100)) // check every 100ms
                 continue;
 
-            auto* cur_cmd = cmds.data() + 1;
-
-            while (cmds.back().is_extended())
+            while (cmds[cmd_idx].is_extended())
             {
-                if (cur_cmd >= cmds.end().base())
+                cmd_idx++;
+                if (cmd_idx >= cmds.size())
                 {
                     cmds.emplace_back();
-                    cur_cmd = cmds.end().base() - 1;
                 }
                 
-                if (!data->queue.request_queue().pop(*cur_cmd, 100))
+                if (!data->queue.request_queue().pop(cmds[cmd_idx], 100))
+                {
+                    cmd_idx--; // Backtrack the index since this fetch failed
                     break;
+                }
             }
 
-            response resp = m_dispatcher.dispatch(cmds.data(), cmds.size(), ctx);
+            response resp = m_dispatcher.dispatch(cmds.data(), cmd_idx + 1, ctx);
 
             data->queue.response_queue().push(resp);
         }

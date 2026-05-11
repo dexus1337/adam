@@ -27,6 +27,7 @@ namespace adam
         unknown,
         failed,
         command_send_failed,
+        response_receive_failed,
         inspector_already_exists,
         inspector_creation_failed,
         inspector_start_failed,
