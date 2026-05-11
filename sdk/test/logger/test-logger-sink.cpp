@@ -10,9 +10,11 @@ TEST(logger_sink, command_queue_lifecycle)
     ASSERT_TRUE(ctrl.run(true));
 
     adam::logger_sink log_sink;
+    EXPECT_FALSE(log_sink.is_active());
     
     // Connect to the controller through the master queue
     EXPECT_TRUE(log_sink.connect());
+    EXPECT_TRUE(log_sink.is_active());
     
     // Theres one log in the queue in debug so yeah remove that
     debug_statement
@@ -51,7 +53,23 @@ TEST(logger_sink, command_queue_lifecycle)
 
     // Disconnect and clean up
     EXPECT_TRUE(log_sink.destroy());
+    EXPECT_FALSE(log_sink.is_active());
 
     // Clean up controller for subsequent tests
     EXPECT_TRUE(ctrl.destroy());
+}
+
+/** @brief Tests logger_sink is_active when master queue request fails */
+TEST(logger_sink, is_active_on_failure)
+{
+    // Ensure the controller is NOT running
+    adam::controller& ctrl = adam::controller::get();
+    if (ctrl.is_active())
+        ctrl.destroy();
+
+    adam::logger_sink log_sink;
+    
+    EXPECT_FALSE(log_sink.is_active());
+    EXPECT_FALSE(log_sink.connect()); // Should fail as controller is not running
+    EXPECT_FALSE(log_sink.is_active());
 }

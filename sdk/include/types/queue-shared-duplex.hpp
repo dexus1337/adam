@@ -29,7 +29,7 @@ namespace adam
     public:
 
         /** @brief Constructs a new queue_shared_duplex object.*/
-        queue_shared_duplex(const string_hashed& name);
+        queue_shared_duplex(const string_hashed& name = string_hashed());
 
         /** @brief Destroys the queue_shared_duplex and cleans up resources.*/
         ~queue_shared_duplex();
@@ -42,6 +42,9 @@ namespace adam
 
         /** @brief Gets the memorys active flag. Can be as loop condition for threads .*/
         bool is_active() const { return m_request_queue.is_active() && m_response_queue.is_active(); };
+
+        /** @brief Sets the name of the queue */
+        void set_name(const string_hashed& new_name);
 
         /** @brief Creates the queue and the underlying shared_memory for managing a max amount of items given */
         bool create(uint32_t max_items);
@@ -70,15 +73,23 @@ namespace adam
 
     template<typename request_type, typename response_type>
     queue_shared_duplex<request_type,response_type>::queue_shared_duplex(const string_hashed& name)
-     :  m_request_queue(string_hashed(name + "_request")),
-        m_response_queue(string_hashed(name + "_response"))
+     :  m_request_queue(),
+        m_response_queue()
     {
+        set_name(name);
     }
 
     template<typename request_type, typename response_type>
     queue_shared_duplex<request_type,response_type>::~queue_shared_duplex()
     {
         destroy();
+    }
+
+    template<typename request_type, typename response_type>
+    void queue_shared_duplex<request_type,response_type>::set_name(const string_hashed& new_name)
+    { 
+        m_request_queue.set_name(string_hashed(new_name + std::string("_request"))); 
+        m_response_queue.set_name(string_hashed(new_name + std::string("_response"))); 
     }
 
     template<typename request_type, typename response_type>

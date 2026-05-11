@@ -8,7 +8,7 @@
 
 namespace adam 
 {
-    commander::commander() : m_queue_command(string_hashed(controller::queue_command_prefix + std::to_string(os::get_current_thread_id()))) {}
+    commander::commander() : m_queue_command() {}
 
     commander::~commander() 
     {
@@ -21,18 +21,25 @@ namespace adam
         // if theres is already a queue for current thread, delete it
         if (m_queue_command.open())
             m_queue_command.destroy();
-        
+
+        m_queue_command.set_name(string_hashed(controller::queue_command_prefix + std::to_string(os::get_current_thread_id())));
+
         if (!m_queue_command.create(1000))
             return false;
 
         if (controller::request_master_queue(controller::request_command) != controller::status_success)
+        {
+            m_queue_command.destroy();
             return false;
-            
+        }
+
         return true;
     }
 
     bool commander::destroy() 
     {
+        m_queue_command.disable();
+
         bool res = (controller::request_master_queue(controller::request_command_destroy) == controller::status_success);
 
         for (auto& pair : m_inspectors)
@@ -41,8 +48,6 @@ namespace adam
             delete pair.second;
         }
         m_inspectors.clear();
-
-        m_queue_command.disable();
 
         res &= m_queue_command.destroy();
 

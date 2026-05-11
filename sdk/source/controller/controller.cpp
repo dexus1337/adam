@@ -62,7 +62,7 @@ namespace adam
         m_queues_command(),
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
-        m_lang(language_german),
+        m_lang(language_english),
         m_modules(*this),
         m_registry(*this),
         m_dispatcher()
@@ -137,7 +137,7 @@ namespace adam
         data.queue  = mqr;
         data.code   = calculate_secret(data.tid);
 
-        auto pres = mq.post_request(data, resp, 1000);
+        auto pres = mq.post_request(data, resp, 300);
 
         if (!pres)
         {

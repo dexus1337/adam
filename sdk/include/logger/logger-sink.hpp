@@ -38,6 +38,8 @@ namespace adam
         /** @brief Disconnect and free resources. */
         bool destroy();
 
+        bool is_active() const { return m_queue_log_sink.is_active(); }
+
         controller::queue_log_sink& queue() { return m_queue_log_sink; };
 
     protected:
