@@ -10,7 +10,7 @@
  */
 
  
-#include "api/api.hpp"
+#include "api/sdk-api.hpp"
 #include "memory/memory.hpp"
 
 #ifdef   ADAM_PLATFORM_LINUX

@@ -17,7 +17,7 @@ namespace adam
         if (m_queue_log.open())
             m_queue_log.destroy();
         
-        m_queue_log.set_name(string_hashed(controller::queue_log_sink_prefix + std::to_string(os::get_current_thread_id())));
+        m_queue_log.set_name(string_hashed(controller::queue_logger_prefix + std::to_string(os::get_current_thread_id())));
 
         if (!m_queue_log.create(1000))
             return false;

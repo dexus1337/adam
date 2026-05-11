@@ -9,7 +9,7 @@
  */
  
  
-#include "api/api.hpp"
+#include "api/sdk-api.hpp"
 
 #include <unordered_map>
 #include <thread>
@@ -227,14 +227,14 @@ namespace adam
 
         using queue_log             = queue_shared<adam::log>;                                      /**< Log queue type */
         using queue_log_data        = queue_slave_instance_data<queue_log>;                         /**< Log queue worker data */
-        static constexpr const char* queue_log_prefix = "adam::controller_queue_log_";              /**< Prefix for the "per thread" log queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+        static constexpr const char* queue_logger_prefix = "adam::controller_queue_log_";           /**< Prefix for the "per thread" log queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
 
         void run_queue_log(queue_log_data* data);
 
         std::unordered_map<os::thread_id, queue_log_data*> m_queues_log;
 
         using queue_log_sink        = queue_shared<adam::log, std::atomic<log::level>>;             /**< Log sink queue type */
-        static constexpr const char* queue_log_sink_prefix = "adam::controller_queue_log_sink";     /**< Prefix for the "per thread" log sink queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+        static constexpr const char* queue_logger_sink_prefix = "adam::controller_queue_log_sink";  /**< Prefix for the "per thread" log sink queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
 
         std::unordered_map<os::thread_id, queue_log_sink*> m_queues_log_sink;
 

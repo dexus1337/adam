@@ -85,11 +85,11 @@ namespace adam
             #ifdef ADAM_PLATFORM_LINUX
             auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
             if (!handle) return false;
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
+            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name.c_str()));
             #elifdef ADAM_PLATFORM_WINDOWS
             auto handle = LoadLibraryW(std::filesystem::absolute(path).c_str());
             if (!handle) return false;
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
+            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name.c_str()));
             #endif
 
             mod = fn_get_adam_module();
@@ -137,11 +137,11 @@ namespace adam
         #ifdef ADAM_PLATFORM_LINUX
         auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
         if (!handle) return false;
-        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name));
+        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name.c_str()));
         #elifdef ADAM_PLATFORM_WINDOWS
         auto handle = LoadLibraryA(path_str.c_str());
         if (!handle) return false;
-        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name));
+        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name.c_str()));
         #endif
 
         if (!fn_get_adam_module) goto UNLOAD_AND_RETURN;

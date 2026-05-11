@@ -2,7 +2,7 @@
 
 #include "commander/commander.hpp"
 #include "controller/controller.hpp"
-#include "data/port/port.hpp"
+#include "data/port/port-output-internal.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "data/inspector.hpp"
@@ -10,17 +10,6 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
-
-namespace adam 
-{
-    class mock_port : public port
-    {
-    public:
-        explicit mock_port(const adam::string_hashed& name) : port(name) {}
-
-        using port::handle_data; // Expose handle_data in case it is protected in the base class
-    };
-}
 
 class commander_inspector_test : public ::testing::Test
 {
@@ -46,8 +35,8 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     adam::string_hashed port_name("adam::test_inspector_port");
 
     // 1. Create a data port and register it in the controller context
-    auto port_instance = std::make_unique<adam::mock_port>(port_name);
-    adam::mock_port* test_port = port_instance.get();
+    auto port_instance = std::make_unique<adam::port_output_internal>(port_name);
+    adam::port_output_internal* test_port = port_instance.get();
     
     adam::controller::get().get_registry().ports().emplace(port_name, std::move(port_instance));
 

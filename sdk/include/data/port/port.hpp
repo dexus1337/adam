@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api.hpp"
+#include "api/sdk-api.hpp"
 #include "configuration/configuration-item.hpp"
 #include "types/vector-double-buffer.hpp"
 #include <memory>
@@ -32,6 +32,8 @@ namespace adam
         /** @brief Destroys the port object and cleans up resources. */
         virtual ~port();
 
+        virtual constexpr const string_hashed_ct& get_type_name() const = 0;
+
         const data_format* get_data_format() const { return m_data_format; }
 
         vector_double_buffer<connection*>&                      connections()   { return m_connections; }
@@ -39,6 +41,7 @@ namespace adam
 
         /** @brief Data management routine */
         virtual bool handle_data(buffer* buffer);
+
 
     protected:
 

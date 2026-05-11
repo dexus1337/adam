@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api.hpp"
+#include "api/sdk-api.hpp"
 #include "data/port/port.hpp"
 
 
@@ -23,10 +23,13 @@ namespace adam
     {
     public:
 
+        /** @brief Destroys the input port object and cleans up resources. */
+        ~port_output();
+
+    protected:
+
         /** @brief Constructs a new input port object. */
         port_output(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
 
-        /** @brief Destroys the input port object and cleans up resources. */
-        ~port_output();
     };
 }

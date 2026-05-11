@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    module.hpp
+ * @file    module-recrep.hpp
  * @author  dexus1337
  * @brief   The module class for the Replay/Recording module, providing specific functionality for handling replay/recording data formats.
  * @version 1.0
@@ -9,7 +9,7 @@
  */
 
 
-#include "api/api.hpp"
+#include "api/recrep-api.hpp"
 
 #include <adam-sdk.hpp>
 
@@ -20,7 +20,7 @@ namespace adam::modules::recrep
      * @class   module_recrep
      * @brief   A class for the Replay/Recording module, providing specific functionality for handling replay/recording data formats.
      */
-    class ADAM_RECREP_API module_recrep : public module
+    class ADAM_RECREP_API module_recrep : public adam::module
     {
     public:
 

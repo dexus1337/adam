@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    api.hpp
+ * @file    sdk-api.hpp
  * @author  dexus1337
  * @brief   Defines macros for controlling symbol visibility in the SDK and platform/architecture detection.
  * @version 1.0

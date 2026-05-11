@@ -354,14 +354,14 @@ namespace adam
             }
             case request_log:
             {
-                if (!create_queue_slave_with_worker(req.tid, m_queues_log, this->queue_log_prefix, &controller::run_queue_log))
+                if (!create_queue_slave_with_worker(req.tid, m_queues_log, this->queue_logger_prefix, &controller::run_queue_log))
                     continue;
                 
                 break;
             }
             case request_log_sink:
             {
-                if (!create_queue_slave(req.tid, m_queues_log_sink, this->queue_log_sink_prefix))
+                if (!create_queue_slave(req.tid, m_queues_log_sink, this->queue_logger_sink_prefix))
                     continue;
                 
                 break;

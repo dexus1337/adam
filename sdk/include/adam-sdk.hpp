@@ -8,7 +8,7 @@
  * @date    25.04.2026
  */
 
-#include "api/api.hpp"
+#include "api/sdk-api.hpp"
 #include "configuration/configuration-item.hpp"
 #include "configuration/parameters/configuration-parameter.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
@@ -31,6 +31,8 @@
 #include "data/port/port.hpp"
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
+#include "data/port/port-input-internal.hpp"
+#include "data/port/port-output-internal.hpp"
 #include "data/connection.hpp"
 #include "data/inspector.hpp"
 #include "memory/memory.hpp"
@@ -38,6 +40,7 @@
 #include "memory/buffer/buffer.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module.hpp"
+#include "factory/factory.hpp"
 #include "types/string-hashed.hpp"
 #include "types/string-hashed-ct.hpp"
 #include "types/queue-shared.hpp"
