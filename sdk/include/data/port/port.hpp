@@ -32,7 +32,7 @@ namespace adam
         /** @brief Destroys the port object and cleans up resources. */
         virtual ~port();
 
-        virtual constexpr const string_hashed_ct& get_type_name() const = 0;
+        virtual const string_hashed& get_type_name() const = 0;
 
         const data_format* get_data_format() const { return m_data_format; }
 

@@ -16,6 +16,19 @@ namespace adam
         }
     }
 
+    configuration_parameter_list& configuration_parameter_list::operator=(const configuration_parameter_list& other)
+    {
+        if (this != &other) 
+        {
+            // configuration_parameter::operator=(other); // Uncomment if the base class has state to copy
+            m_children.clear();
+            for (const auto& [name, param] : other.m_children) {
+                m_children.emplace(name, param ? param->clone() : nullptr);
+            }
+        }
+        return *this;
+    }
+
     configuration_parameter_list::~configuration_parameter_list() {}
 
     void configuration_parameter_list::add(std::unique_ptr<configuration_parameter> param)

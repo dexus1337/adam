@@ -19,6 +19,7 @@
 #include <unordered_set>
 #include <atomic>
 #include <memory>
+#include <mutex>
 
 #ifdef ADAM_PLATFORM_WINDOWS
 #include <windows.h>

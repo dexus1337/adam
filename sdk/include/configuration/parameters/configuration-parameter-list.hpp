@@ -35,6 +35,13 @@ namespace adam
         /** @brief Copy constructor. Performs a deep copy of all child parameters. */
         configuration_parameter_list(const configuration_parameter_list& other);
 
+        /** @brief Copy assignment operator. Performs a deep copy of all child parameters. */
+        configuration_parameter_list& operator=(const configuration_parameter_list& other);
+
+        /** @brief Move semantics. */
+        configuration_parameter_list(configuration_parameter_list&&) noexcept = default;
+        configuration_parameter_list& operator=(configuration_parameter_list&&) noexcept = default;
+
         /** @brief Destroys the configuration_parameter_list object and cleans up resources. */
         ~configuration_parameter_list();
 
@@ -50,7 +57,7 @@ namespace adam
         const std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>>& get_children() const { return m_children; }
 
         /** @brief Retrieves the mutable list of child parameters. */
-        std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>>& get_children() { return m_children; }
+        std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>>& children() { return m_children; }
 
         /** @brief Clears all child parameters. */
         void clear();

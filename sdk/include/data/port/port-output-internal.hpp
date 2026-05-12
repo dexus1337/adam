@@ -25,7 +25,7 @@ namespace adam
     {
     public:
 
-        static constexpr string_hashed_ct type_name = string_hashed_ct("output_internal");
+        static inline string_hashed type_name = "output_internal";
 
         /** @brief Constructs a new output port object. */
         port_output_internal(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
@@ -33,7 +33,7 @@ namespace adam
         /** @brief Destroys the output port object and cleans up resources. */
         ~port_output_internal();
 
-        virtual constexpr const string_hashed_ct& get_type_name() const override { return type_name; }
+        virtual const string_hashed& get_type_name() const override { return type_name; }
 
     protected:
 

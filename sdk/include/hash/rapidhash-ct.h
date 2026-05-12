@@ -59,7 +59,7 @@
  # ifndef RAPIDHASH_CT_INLINE
  #   define RAPIDHASH_CT_INLINE RAPIDHASH_CT_ALWAYS_INLINE
  # endif
- # if __cplusplus >= 201402L && !defined(_MSC_VER)
+ # if __cplusplus >= 201402L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
  #   define RAPIDHASH_CT_INLINE_CONSTEXPR RAPIDHASH_CT_ALWAYS_INLINE constexpr
  # else
  #   define RAPIDHASH_CT_INLINE_CONSTEXPR RAPIDHASH_CT_ALWAYS_INLINE
@@ -161,27 +161,6 @@
    #else
    *A=(uint64_t)r; *B=(uint64_t)(r>>64);
    #endif
- #elif defined(_MSC_VER) && (defined(_WIN64) || defined(_M_HYBRID_CHPE_ARM64))
-   #if defined(_M_X64)
-     #ifdef RAPIDHASH_CT_PROTECTED
-     uint64_t a, b;
-     a=_umul128(*A,*B,&b);
-     *A^=a;  *B^=b;
-     #else
-     *A=_umul128(*A,*B,B);
-     #endif
-   #else
-     #ifdef RAPIDHASH_CT_PROTECTED
-     uint64_t a, b;
-     b = __umulh(*A, *B);
-     a = *A * *B;
-     *A^=a;  *B^=b;
-     #else
-     uint64_t c = __umulh(*A, *B);
-     *A = *A * *B;
-     *B = c;
-     #endif
-   #endif
  #else
    uint64_t ha=*A>>32, hb=*B>>32, la=(uint32_t)*A, lb=(uint32_t)*B;
    uint64_t rh=ha*hb, rm0=ha*lb, rm1=hb*la, rl=la*lb, t=rl+(rm0<<32), c=t<rl;
@@ -248,25 +227,6 @@
     }
     return __builtin_bswap32(v);
 }
- #elif defined(_MSC_VER)
- template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
-    static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
-    uint64_t v = 0;
-    for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
-        v |= static_cast<uint64_t>(p[i]) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
-    }
-    return _byteswap_uint64(v);
-}
- template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
-    static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
-    uint32_t v = 0;
-    for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
-        v |= static_cast<uint32_t>(p[i]) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
-    }
-    return _byteswap_ulong(v);
-}
  #else
  template<typename type>
  RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
@@ -288,6 +248,17 @@
  }
  #endif
  
+template<typename type>
+RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_get_byte(const type *p, size_t byte_idx) RAPIDHASH_CT_NOEXCEPT {
+    size_t elem_idx = byte_idx / sizeof(type);
+#ifdef RAPIDHASH_CT_LITTLE_ENDIAN
+    size_t shift = (byte_idx % sizeof(type)) * 8;
+#else
+    size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
+#endif
+    return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
+}
+
  /*
   *  rapidhash main function.
   *
@@ -317,17 +288,8 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
         b = rapid_ct_read32(plast);
       }
     } else if (len > 0) {
-        auto get_byte = [&](size_t byte_idx) -> uint64_t {
-            size_t elem_idx = byte_idx / sizeof(type);
-#ifdef RAPIDHASH_CT_LITTLE_ENDIAN
-            size_t shift = (byte_idx % sizeof(type)) * 8;
-#else
-            size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
-#endif
-            return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
-        };
-        a = (get_byte(0) << 45) | get_byte(len - 1);
-        b = get_byte(len >> 1);
+        a = (rapid_ct_get_byte(p, 0) << 45) | rapid_ct_get_byte(p, len - 1);
+        b = rapid_ct_get_byte(p, len >> 1);
     } else
       a = b = 0;
   } else {
@@ -440,17 +402,8 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
           b = rapid_ct_read32(plast);
         }
       } else if (len > 0) {
-        auto get_byte = [&](size_t byte_idx) -> uint64_t {
-            size_t elem_idx = byte_idx / sizeof(type);
-#ifdef RAPIDHASH_CT_LITTLE_ENDIAN
-            size_t shift = (byte_idx % sizeof(type)) * 8;
-#else
-            size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
-#endif
-            return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
-        };
-        a = (get_byte(0) << 45) | get_byte(len - 1);
-        b = get_byte(len >> 1);
+        a = (rapid_ct_get_byte(p, 0) << 45) | rapid_ct_get_byte(p, len - 1);
+        b = rapid_ct_get_byte(p, len >> 1);
       } else
         a = b = 0;
     } else {
@@ -520,17 +473,8 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
           b = rapid_ct_read32(plast);
         }
       } else if (len > 0) {
-        auto get_byte = [&](size_t byte_idx) -> uint64_t {
-            size_t elem_idx = byte_idx / sizeof(type);
-#ifdef RAPIDHASH_CT_LITTLE_ENDIAN
-            size_t shift = (byte_idx % sizeof(type)) * 8;
-#else
-            size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
-#endif
-            return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
-        };
-        a = (get_byte(0) << 45) | get_byte(len - 1);
-        b = get_byte(len >> 1);
+        a = (rapid_ct_get_byte(p, 0) << 45) | rapid_ct_get_byte(p, len - 1);
+        b = rapid_ct_get_byte(p, len >> 1);
       } else
         a = b = 0;
     } else {

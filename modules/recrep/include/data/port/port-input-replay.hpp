@@ -24,7 +24,7 @@ namespace adam::modules::recrep
     {
     public:
 
-        static constexpr string_hashed_ct type_name = string_hashed_ct("replay");
+        static inline string_hashed type_name = "replay";
 
         /** @brief Constructs a new input port object. */
         port_input_replay(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
@@ -32,6 +32,6 @@ namespace adam::modules::recrep
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input_replay();
 
-        virtual constexpr const string_hashed_ct& get_type_name() const override { return type_name; }
+        virtual const string_hashed& get_type_name() const override { return type_name; }
     };
 }

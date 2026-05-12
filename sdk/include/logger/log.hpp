@@ -85,14 +85,14 @@ namespace adam
 
     
     /** @brief Global function for anyone to use to have logs display in adam style. */
-    void stream_log(const adam::log& cr_log, std::ostream& stream);
+    void ADAM_SDK_API stream_log(const adam::log& cr_log, std::ostream& stream);
 
     /** @brief Global function for anyone to use to have logs display in adam style. */
-    inline void stream_log(log::level t, std::string_view txt, std::ostream& stream) { return stream_log(adam::log(t, txt), stream); }
+    inline void ADAM_SDK_API stream_log(log::level t, std::string_view txt, std::ostream& stream) { return stream_log(adam::log(t, txt), stream); }
 
     /** @brief Global function for anyone to use to have logs display in adam style, using a format string. */
     template<typename... args_type>
-    inline void stream_log(std::ostream& stream, log::level t, std::format_string<args_type...> fmt, args_type&&... args)
+    inline void ADAM_SDK_API stream_log(std::ostream& stream, log::level t, std::format_string<args_type...> fmt, args_type&&... args)
     {
         stream_log(adam::log(t, fmt, std::forward<args_type>(args)...), stream);
     }
@@ -100,7 +100,7 @@ namespace adam
     /** @brief Global function for anyone to use to have logs display in adam style, using a runtime format string. */
     template<typename... args_type>
     requires (sizeof...(args_type) > 0)
-    inline void stream_log(std::ostream& stream, log::level t, std::string_view runtime_fmt, args_type&&... args)
+    inline void ADAM_SDK_API stream_log(std::ostream& stream, log::level t, std::string_view runtime_fmt, args_type&&... args)
     {
         stream_log(adam::log(t, runtime_fmt, std::forward<args_type>(args)...), stream);
     }

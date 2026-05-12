@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 # Grab all source files for the sdk and tests automatically
-file( GLOB_RECURSE  module_source_files "source/*cpp"  )
-file( GLOB_RECURSE  test_source_files   "test/*cpp"    ) 
+file( GLOB_RECURSE  module_source_files "source/*.cpp" )
+file( GLOB_RECURSE  test_source_files   "test/*.cpp"   ) 
 
 
 # Create the shared library target for the sdk
@@ -28,6 +28,7 @@ target_link_libraries(adam-module-recrep
 
 # Set the output directory for the module shared library
 set_target_properties(adam-module-recrep PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
@@ -50,6 +51,13 @@ target_link_libraries(adam-module-recrep-test
 # Set the output directory for the executable
 set_target_properties(adam-module-recrep-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
+)
+
+# Automatically copy the required DLLs to the test executable's directory after building
+add_custom_command(TARGET adam-module-recrep-test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:adam-module-recrep>
+        $<TARGET_FILE_DIR:adam-module-recrep-test>
 )
 
 setup_gtest(adam-module-recrep-test)

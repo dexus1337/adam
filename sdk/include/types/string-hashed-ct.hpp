@@ -33,7 +33,7 @@ namespace adam
         
         /** @brief Constructs a new string_hashed_ct_template object. */
         template<size_t string_len>
-        consteval string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(arr), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
+        constexpr string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(arr), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
 
         constexpr hash_datatype get_hash()  const { return m_hash; }
         

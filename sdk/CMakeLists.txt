@@ -48,6 +48,14 @@ set_target_properties(adam-sdk-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
 )
 
+# Automatically copy the required DLLs to the test executable's directory after building
+add_custom_command(TARGET adam-sdk-test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:adam-sdk>
+        $<TARGET_FILE_DIR:adam-sdk-test>
+)
+
+
 setup_gtest(adam-sdk-test)
 
 # Discover tests for the VS Code Test Explorer

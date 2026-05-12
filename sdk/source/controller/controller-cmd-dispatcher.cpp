@@ -53,9 +53,9 @@ namespace adam
             data->lang_info.supported_languages   |= ( 1 << language_english );
             data->lang_info.supported_languages   |= ( 1 << language_german );
 
-            data->mod_info.available_modules       = ctx.ctrl.modules().get_available_modules().size();
-            data->mod_info.unavailable_modules     = ctx.ctrl.modules().get_unavailable_modules().size();
-            data->mod_info.loaded_modules          = ctx.ctrl.modules().get_loaded_modules().size();
+            data->mod_info.available_modules       = static_cast<uint32_t>(ctx.ctrl.modules().get_available_modules().size());
+            data->mod_info.unavailable_modules     = static_cast<uint32_t>(ctx.ctrl.modules().get_unavailable_modules().size());
+            data->mod_info.loaded_modules          = static_cast<uint32_t>(ctx.ctrl.modules().get_loaded_modules().size());
 
             size_t resp_idx = 1;
 

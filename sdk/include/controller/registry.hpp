@@ -34,6 +34,11 @@ namespace adam
         friend class controller;
 
     public:
+    
+        /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
+        registry(const registry&) = delete;
+        registry& operator=(const registry&) = delete;
+
         /** @brief Retrieves the list of configuration parameters for input ports. */
         std::unordered_map<string_hashed, std::unique_ptr<port>>&       ports()         { return m_ports; }
         std::unordered_map<string_hashed, std::unique_ptr<filter>>&     filters()       { return m_filters; }
