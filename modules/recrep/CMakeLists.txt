@@ -22,6 +22,11 @@ target_include_directories(adam-module-recrep
     PRIVATE source/     # Internal to this lib
 )
 
+target_compile_definitions(adam-module-recrep
+    PRIVATE ADAM_SDK_EXPORTS
+    PRIVATE ADAM_RECREP_EXPORTS
+)
+
 target_link_libraries(adam-module-recrep 
     PRIVATE adam-sdk
 )
@@ -51,13 +56,6 @@ target_link_libraries(adam-module-recrep-test
 # Set the output directory for the executable
 set_target_properties(adam-module-recrep-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
-)
-
-# Automatically copy the required DLLs to the test executable's directory after building
-add_custom_command(TARGET adam-module-recrep-test POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:adam-module-recrep>
-        $<TARGET_FILE_DIR:adam-module-recrep-test>
 )
 
 setup_gtest(adam-module-recrep-test)
