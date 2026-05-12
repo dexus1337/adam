@@ -69,6 +69,15 @@ namespace adam
         /** @brief Gets the available languages. */
         uint32_t get_available_languages() const { return m_lang.supported_languages; }
 
+        /** @brief Retrieves a reference to the cache of available modules. */
+        const controller_module_manager::map_available_modules& get_available_modules() const { return m_available_modules_cache; }
+
+        /** @brief Retrieves a reference to the cache of unavailable modules. */
+        const controller_module_manager::map_unavailable_modules& get_unavailable_modules() const { return m_unavailable_modules_cache; }
+
+        /** @brief Retrieves a reference to the cache of loaded modules. */
+        const controller_module_manager::map_loaded_modules& get_loaded_modules() const { return m_loaded_modules_cache; }
+
         commander_event_dispatcher& dispatcher() { return m_dispatcher; }
         const commander_event_dispatcher& get_dispatcher() const { return m_dispatcher; }
 
@@ -87,8 +96,12 @@ namespace adam
 
         std::ostream                m_log_outstream;
 
-        command::initial_data::language_info m_lang;
+        command::initial_data::header::language_info m_lang;
 
         std::unordered_map<string_hashed::hash_datatype, data_inspector*> m_inspectors;
+
+        controller_module_manager::map_available_modules    m_available_modules_cache;      /**< A cache of available modules, used for quick lookup when receiving initial data. */
+        controller_module_manager::map_unavailable_modules  m_unavailable_modules_cache;    /**< A cache of unavailable modules, used for quick lookup when receiving initial data. */
+        controller_module_manager::map_loaded_modules       m_loaded_modules_cache;         /**< A cache of loaded modules, used for quick lookup when receiving initial data. */
     };
 }

@@ -12,6 +12,7 @@ namespace adam::gui
         main_ui,
         menu_view,
         menu_show_log,
+        menu_show_performance,
         menu_settings,
         combo_language,
         slider_font_scale,
@@ -25,7 +26,21 @@ namespace adam::gui
         combo_log_level_options,
         tbl_time,
         tbl_level,
-        tbl_message
+        tbl_message,
+        lbl_performance_overlay,
+        lbl_fps,
+        lbl_cpu,
+        lbl_ram,
+        menu_overlay_custom,
+        menu_overlay_top_left,
+        menu_overlay_top_right,
+        menu_overlay_bottom_left,
+        menu_overlay_bottom_right,
+        menu_overlay_position,
+        menu_overlay_content,
+        menu_overlay_show_fps,
+        menu_overlay_show_cpu,
+        menu_overlay_show_ram
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);
@@ -43,5 +58,16 @@ namespace adam::gui
     private:
         gui_controller& m_ctrl;
         SDL_Window* m_window;
+
+        adam::configuration_parameter_boolean* m_p_show_log;
+        adam::configuration_parameter_boolean* m_p_show_performance;
+        adam::configuration_parameter_boolean* m_p_dark_theme;
+        adam::configuration_parameter_double*  m_p_font_scale;
+        adam::configuration_parameter_double*  m_p_log_height;
+        adam::configuration_parameter_integer* m_p_log_level;
+        adam::configuration_parameter_integer* m_p_perf_ovly_location;
+        adam::configuration_parameter_double*  m_p_perf_ovly_x;
+        adam::configuration_parameter_double*  m_p_perf_ovly_y;
+        adam::configuration_parameter_integer* m_p_perf_ovly_content;
     };
 }

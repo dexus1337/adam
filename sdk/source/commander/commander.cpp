@@ -135,11 +135,41 @@ namespace adam
         response* resp = nullptr;
         
         auto res = send_command(cmd, &resp);
-        
+
         if (res != response_status::success || !resp)
             return response_status::response_receive_failed;
 
-        m_lang = resp->data_as<command::initial_data>()->lang_info;
+        auto* head = resp->data_as<command::initial_data::header>();
+
+        m_lang = head->lang_info;
+
+        m_available_modules_cache.reserve(head->mod_info.available_modules);
+        m_unavailable_modules_cache.reserve(head->mod_info.unavailable_modules);
+        m_loaded_modules_cache.reserve(head->mod_info.loaded_modules);
+
+        for (size_t i = 1; i < (1 + head->mod_info.available_modules + head->mod_info.unavailable_modules + head->mod_info.loaded_modules); i++)
+        {
+            if (!resp[i-1].is_extended())
+                break;
+            
+            auto* mod_info = resp[i].data_as<command::initial_data::module_info>();
+    
+            string_hashed mod_name(&mod_info->name[0]);
+            string_hashed mod_path(&mod_info->path[0]);
+    
+            switch (mod_info->status)
+            {
+                case command::initial_data::module_info::available:
+                    m_available_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+                    break;
+                case command::initial_data::module_info::unavailable:
+                    m_unavailable_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+                    break;
+                case command::initial_data::module_info::loaded:
+                    m_loaded_modules_cache.emplace(mod_name, nullptr); // we don't have the module pointer here, so we just put nullptr, it will be updated when we receive the module load events
+                    break;
+            }
+        }
 
         return res;
     }

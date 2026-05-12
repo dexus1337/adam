@@ -48,9 +48,9 @@ namespace adam
         /** @brief Constructs a new string_hashed_template object from a string_hashed_ct_template. */
         string_hashed_template(const string_hashed_ct_template<char_type>& ct_str);
 
-        /** @brief Constructs a new string_hashed_template object from a compile-time string literal, evaluating the hash instantly. */
+        /** @brief Constructs a new string_hashed_template object from an array, evaluating bounds instantly without strlen. */
         template<size_t string_len>
-        string_hashed_template(const char_type (&arr)[string_len]) : string_type(arr, string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
+        constexpr string_hashed_template(const char_type (&arr)[string_len]) : string_type(arr, string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
 
         /** @brief Destroys the string_hashed_template object and cleans up resources. */
         ~string_hashed_template();

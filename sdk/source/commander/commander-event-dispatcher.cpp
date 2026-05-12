@@ -1,6 +1,7 @@
 #include "commander/commander-event-dispatcher.hpp"
 
 #include "commander/commander.hpp"
+#include "commander/messages/command.hpp"
 
 namespace adam 
 {
@@ -32,7 +33,44 @@ namespace adam
     {
         register_handler(static_cast<int>(event_type::language_changed), [](const event& e, event_context& ctx) 
         {
-            ctx.cmdr.m_lang.lang = *e.get_data_as<language>();
+            ctx.cmdr.m_lang.lang = e.get_data_as<command::initial_data::header>()->lang_info.lang;
+        });
+
+        register_handler(static_cast<int>(event_type::module_loaded), [](const event& e, event_context& ctx) 
+        {
+            auto* mod_info = e.get_data_as<command::initial_data::module_info>();
+            string_hashed mod_name(mod_info->name);
+
+            ctx.cmdr.m_loaded_modules_cache.emplace(mod_name, nullptr);
+            ctx.cmdr.m_available_modules_cache.erase(mod_name);
+        });
+
+        register_handler(static_cast<int>(event_type::module_unloaded), [](const event& e, event_context& ctx) 
+        {
+            auto* mod_info = e.get_data_as<command::initial_data::module_info>();
+            string_hashed mod_name(mod_info->name);
+            string_hashed mod_path(mod_info->path);
+
+            ctx.cmdr.m_loaded_modules_cache.erase(mod_name);
+            ctx.cmdr.m_available_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+        });
+
+        register_handler(static_cast<int>(event_type::module_available), [](const event& e, event_context& ctx) 
+        {
+            auto* mod_info = e.get_data_as<command::initial_data::module_info>();
+            string_hashed mod_name(mod_info->name);
+            string_hashed mod_path(mod_info->path);
+
+            ctx.cmdr.m_available_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+        });
+
+        register_handler(static_cast<int>(event_type::module_unavailable), [](const event& e, event_context& ctx) 
+        {
+            auto* mod_info = e.get_data_as<command::initial_data::module_info>();
+            string_hashed mod_name(mod_info->name);
+            string_hashed mod_path(mod_info->path);
+
+            ctx.cmdr.m_unavailable_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
         });
     }
 }

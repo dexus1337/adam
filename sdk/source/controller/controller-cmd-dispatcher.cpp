@@ -47,11 +47,51 @@ namespace adam
         register_handler(static_cast<int>(command_type::receive_initial_data), [](const command*, size_t, command_context& ctx)
         {
             ctx.set_single_response_status(response_status::success);
-            auto* data = ctx.responses.front().data_as<command::initial_data>();
+            auto* data = ctx.responses.front().data_as<command::initial_data::header>();
 
             data->lang_info.lang                  = ctx.ctrl.get_language();
             data->lang_info.supported_languages   |= ( 1 << language_english );
             data->lang_info.supported_languages   |= ( 1 << language_german );
+
+            data->mod_info.available_modules       = ctx.ctrl.modules().get_available_modules().size();
+            data->mod_info.unavailable_modules     = ctx.ctrl.modules().get_unavailable_modules().size();
+            data->mod_info.loaded_modules          = ctx.ctrl.modules().get_loaded_modules().size();
+
+            size_t resp_idx = 1;
+
+            for (const auto& mod : ctx.ctrl.modules().get_available_modules())
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* mod_info = ctx.responses[resp_idx].data_as<command::initial_data::module_info>();
+                mod_info->setup(command::initial_data::module_info::available, mod.first.c_str(), mod.second.second.c_str(), mod.second.first);
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
+
+            for (const auto& mod : ctx.ctrl.modules().get_unavailable_modules())
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* mod_info = ctx.responses[resp_idx].data_as<command::initial_data::module_info>();
+                mod_info->setup(command::initial_data::module_info::unavailable, mod.first.c_str(), mod.second.second.c_str(), mod.second.first);
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
+
+            for (const auto& mod : ctx.ctrl.modules().get_loaded_modules())
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* mod_info = ctx.responses[resp_idx].data_as<command::initial_data::module_info>();
+                mod_info->setup(command::initial_data::module_info::loaded, mod.first.c_str(), mod.second->get_filepath().c_str(), mod.second->get_version());
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
+            
         });
 
         register_handler(static_cast<int>(command_type::set_language), [](const command* cmds, size_t, command_context& ctx) 

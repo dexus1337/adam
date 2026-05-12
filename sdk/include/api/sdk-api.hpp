@@ -21,7 +21,12 @@
 
 // For windows, we have to explicitly use __declspec
 #if defined(ADAM_PLATFORM_WINDOWS)
+    #ifndef NOMINMAX
     #define NOMINMAX // so we can use std::min etc
+    #endif
+    #ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+    #endif
     #ifdef ADAM_SDK_EXPORTS // This should be defined when building the DLL, not when using it
         #define ADAM_SDK_API __declspec(dllexport)
     #elifdef ADAM_USE_SHARED_SDK_

@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 
 #include "type.hpp"
 #include "resources/language.hpp"
@@ -47,11 +48,44 @@ namespace adam
 
         struct initial_data
         {
-            struct language_info
+            struct header
             {
-                language lang                = language_english;                                    /**< The current language of the controller. */
-                uint32_t supported_languages = (1 << language_english) | (1 << language_german);    /**< Bitfield of supported languages, indexed by the language enum value. */
-            } lang_info;
+                struct language_info
+                {
+                    language lang                = language_english;                                    /**< The current language of the controller. */
+                    uint32_t supported_languages = (1 << language_english) | (1 << language_german);    /**< Bitfield of supported languages, indexed by the language enum value. */
+                } lang_info;
+
+                struct module_base_info
+                {
+                    uint32_t available_modules      = 0;
+                    uint32_t unavailable_modules    = 0;
+                    uint32_t loaded_modules         = 0;
+                } mod_info;
+            };
+
+            struct module_info
+            {
+                enum module_status : uint8_t
+                {
+                    available = 0,
+                    unavailable = 1,
+                    loaded = 2
+                } status;
+                char name[64];      /**< The name of the module. */
+                char path[256];     /**< The file path to the module's shared library. */
+                uint32_t version;   /**< The version of the module. */
+
+                void setup(module_status s, const char* n, const char* p, uint32_t v)
+                {
+                    status = s;
+                    std::strncpy(name, n, sizeof(name) - 1);
+                    name[sizeof(name) - 1] = '\0';
+                    std::strncpy(path, p, sizeof(path) - 1);
+                    path[sizeof(path) - 1] = '\0';
+                    version = v;
+                }
+            };
         };
 
         struct inspector_create_data

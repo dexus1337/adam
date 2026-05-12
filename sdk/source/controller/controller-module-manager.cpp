@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <vector>
 #include <format>
+#include <cstring>
 
 #ifdef   ADAM_PLATFORM_LINUX
 #include <dlfcn.h>
@@ -124,10 +125,15 @@ namespace adam
                 auto sdk_min = adam::get_minor(adam::sdk_version);
                 auto sdk_pat = adam::get_patch(adam::sdk_version);
 
-            m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_sdk, m_controller.get_language()),
+                m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_sdk, m_controller.get_language()),
                     path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
 
                 m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
+
+                event evt(event_type::module_unavailable);
+                auto* mod_info = evt.data_as<command::initial_data::module_info>();
+                mod_info->setup(command::initial_data::module_info::unavailable, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
+                m_controller.broadcast_event(evt);
                 goto UNLOAD_AND_CONTINUE;
             }
 
@@ -137,7 +143,12 @@ namespace adam
                 auto ver_maj = adam::get_major(mod->get_version());
                 auto ver_min = adam::get_minor(mod->get_version());
                 auto ver_pat = adam::get_patch(mod->get_version());
-            m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.get_language()), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str);
+                m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.get_language()), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str);
+
+                event evt(event_type::module_available);
+                auto* mod_info = evt.data_as<command::initial_data::module_info>();
+                mod_info->setup(command::initial_data::module_info::available, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
+                m_controller.broadcast_event(evt);
             }
 
             continue;
@@ -207,6 +218,13 @@ namespace adam
         if (out_module) *out_module = mod;
         
         m_controller.log(log::info, get_log_event_text(log_event::module_loaded, m_controller.get_language()), name.c_str(), reinterpret_cast<uintptr_t>(handle));
+
+        {
+            event evt(event_type::module_loaded);
+            auto* mod_info = evt.data_as<command::initial_data::module_info>();
+            mod_info->setup(command::initial_data::module_info::loaded, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
+            m_controller.broadcast_event(evt);
+        }
         return true;
 
     UNLOAD_AND_RETURN:

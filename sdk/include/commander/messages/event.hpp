@@ -22,9 +22,11 @@ namespace adam
         invalid = 0,
 
         language_changed,
-        port_added,
-        port_removed,
-        filter_updated
+        
+        module_loaded,
+        module_unloaded,
+        module_available,
+        module_unavailable
     };
 
     /**

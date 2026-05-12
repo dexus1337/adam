@@ -11,11 +11,14 @@
  
 #include "api/sdk-api.hpp"
 
+#include <array>
+#include <string>
 #include <unordered_map>
 
 #include "data/format.hpp"
 #include "factory/factory.hpp"
 #include "version/version.hpp"
+#include "resources/language.hpp"
 
 namespace adam 
 {
@@ -47,15 +50,16 @@ namespace adam
         /** @brief Destroys the module object and cleans up resources. */
         ~module();
 
-        const string_hashed&         get_name()                 const { return m_str_name; }
-        const string_hashed&         get_filepath()             const { return m_str_filepath; }
-        uintptr_t                    get_module_handle()        const { return m_mod_handle; }
-        uint32_t                     get_required_sdk_version() const { return m_ui32_req_sdk_version; }
-        uint32_t                     get_version()              const { return m_ui32_version; }
-        const data_format_map&       get_data_formats()         const { return m_data_formats; }
-        const port_factory_map&      get_port_factories()       const { return m_port_factories; }
-        const filter_factory_map&    get_filter_factories()     const { return m_filter_factories; }
-        const converter_factory_map& get_converter_factories()  const { return m_converter_factories; }
+        const string_hashed&         get_name()                     const { return m_str_name; }
+        const string_hashed&         get_filepath()                 const { return m_str_filepath; }
+        const std::string&           get_description(language lang) const { return m_descriptions[static_cast<size_t>(lang)]; }
+        uintptr_t                    get_module_handle()            const { return m_mod_handle; }
+        uint32_t                     get_required_sdk_version()     const { return m_ui32_req_sdk_version; }
+        uint32_t                     get_version()                  const { return m_ui32_version; }
+        const data_format_map&       get_data_formats()             const { return m_data_formats; }
+        const port_factory_map&      get_port_factories()           const { return m_port_factories; }
+        const filter_factory_map&    get_filter_factories()         const { return m_filter_factories; }
+        const converter_factory_map& get_converter_factories()      const { return m_converter_factories; }
 
     protected:
 
@@ -68,5 +72,7 @@ namespace adam
         port_factory_map        m_port_factories;           /**< A map of port factories provided by this module. */
         filter_factory_map      m_filter_factories;         /**< A map of filter factories provided by this module. */
         converter_factory_map   m_converter_factories;      /**< A map of converter factories provided by this module. */
+
+        std::array<std::string, static_cast<size_t>(languages_count)> m_descriptions; /**< The multi-language description of the module. */
     };
 }

@@ -8,6 +8,11 @@ namespace adam::gui
     {
         adam::configuration_parameter_list params;
         params.add(std::make_unique<adam::configuration_parameter_boolean>("show_log", true));
+        params.add(std::make_unique<adam::configuration_parameter_boolean>("show_performance", false));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("perf_ovly_location", 1));
+        params.add(std::make_unique<adam::configuration_parameter_double>("perf_ovly_x", -1.0));
+        params.add(std::make_unique<adam::configuration_parameter_double>("perf_ovly_y", -1.0));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("perf_ovly_content", 7));
         params.add(std::make_unique<adam::configuration_parameter_boolean>("dark_theme", true));
         params.add(std::make_unique<adam::configuration_parameter_double>("log_height", 250.0));
         params.add(std::make_unique<adam::configuration_parameter_double>("font_scale", 1.0));

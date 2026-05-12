@@ -30,6 +30,7 @@ namespace adam
     class ADAM_SDK_API controller_module_manager
     {
     public:
+    
         enum log_event
         {
             module_requires_newer_sdk,
