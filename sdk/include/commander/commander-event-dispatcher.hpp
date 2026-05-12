@@ -36,6 +36,12 @@ namespace adam
     public:
         using handler_fn = std::function<void(const event&, event_context&)>; /**< A type alias for an event handler function. */
 
+        /** @brief Constructs a new commander_event_dispatcher object. */
+        commander_event_dispatcher();
+        
+        /** @brief Destroys the commander_event_dispatcher object and cleans up resources. */
+        ~commander_event_dispatcher();
+
         /** @brief Registers a new event handler for a specific event type. */
         void register_handler(int type, handler_fn handler);
         

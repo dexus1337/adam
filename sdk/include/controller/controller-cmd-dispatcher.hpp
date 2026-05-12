@@ -60,6 +60,12 @@ namespace adam
 
         using handler_fn = std::function<response(const command*, size_t, command_context&)>; /**< A type alias for a command handler function. */
 
+        /** @brief Constructs a new controller_cmd_dispatcher object. */
+        controller_cmd_dispatcher();
+        
+        /** @brief Destroys the controller_cmd_dispatcher object and cleans up resources. */
+        ~controller_cmd_dispatcher();
+
         /** @brief Registers a new command handler for a specific command type. */
         void register_handler(int type, handler_fn handler);
         

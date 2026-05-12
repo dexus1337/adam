@@ -16,7 +16,6 @@ namespace adam::gui
         params.add(std::make_unique<adam::configuration_parameter_integer>("window_w", 1280));
         params.add(std::make_unique<adam::configuration_parameter_integer>("window_h", 720));
         params.add(std::make_unique<adam::configuration_parameter_boolean>("window_maximized", false));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("language", 0));
         params.add(std::make_unique<adam::configuration_parameter_integer>("log_level", 0));
         return params;
     }
@@ -64,17 +63,7 @@ namespace adam::gui
 
     adam::language gui_controller::get_language() const
     {
-        if (m_commander.is_active())
-        {
-            adam::language lang = m_commander.get_language();
-            auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
-            if (p_lang->get_value() != static_cast<int>(lang))
-                p_lang->set_value(static_cast<int>(lang));
-            return lang;
-        }
-        
-        auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
-        return static_cast<adam::language>(p_lang->get_value());
+        return m_commander.get_language();
     }
 
     std::vector<adam::language> gui_controller::get_available_languages() const
@@ -98,11 +87,6 @@ namespace adam::gui
     {
         if (m_commander.is_active())
             m_commander.request_language_change(lang);
-        else
-        {
-            auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
-            p_lang->set_value(static_cast<int>(lang));
-        }
     }
 
     void gui_controller::set_log_level(int level)

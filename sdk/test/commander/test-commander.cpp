@@ -64,3 +64,29 @@ TEST_F(commander_test, event_broadcast_and_receive)
 
     EXPECT_TRUE(cmdr.destroy());
 }
+
+/** @brief Tests the full flow of requesting a language change and receiving the updated state via event. */
+TEST_F(commander_test, request_language_change_flow)
+{
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    // Default language should be english after connect (initial data received)
+    EXPECT_EQ(cmdr.get_language(), adam::language_english);
+
+    // Request language change
+    adam::response_status status = cmdr.request_language_change(adam::language_german);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    // Wait for the event to propagate and update the commander's language state
+    auto start = std::chrono::steady_clock::now();
+    while (cmdr.get_language() != adam::language_german && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Verify the event updated the internal state successfully
+    EXPECT_EQ(cmdr.get_language(), adam::language_german);
+
+    EXPECT_TRUE(cmdr.destroy());
+}

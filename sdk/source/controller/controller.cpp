@@ -93,7 +93,6 @@ namespace adam
         m_dispatcher()
     {
         cleanup_zombie_shared_memory();
-        m_dispatcher.register_default_handlers();
     }
 
     controller::~controller() {}
@@ -240,7 +239,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_already_exists, get_language()), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_already_exists, get_language()), tid));
 
             return false;
         }
@@ -251,7 +250,7 @@ namespace adam
         {
             delete new_queue;
 
-        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_open, get_language()), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_open, get_language()), tid));
 
             m_master_queue.response_queue().push(status_unavailable);
 
@@ -270,7 +269,7 @@ namespace adam
 
             delete new_queue;
 
-        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, get_language()), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, get_language()), tid));
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -293,7 +292,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_does_not_exist, get_language()), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_does_not_exist, get_language()), tid));
 
             return false;
         }
@@ -304,7 +303,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_failed_destroy);
 
-        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_destroy, get_language()), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_destroy, get_language()), tid));
 
             return false;
         }
@@ -329,7 +328,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_does_not_exist, get_language()), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_does_not_exist, get_language()), tid));
 
             return false;
         }
@@ -339,7 +338,7 @@ namespace adam
         it->second->queue_thread.join();
 
         if (!it->second->queue.destroy())
-        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), tid));
 
         delete it->second;
 
@@ -362,7 +361,7 @@ namespace adam
             {
                 m_master_queue.response_queue().push(status_unauthorized);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::thread_auth_failed, get_language()), req.tid));
+                debug_statement(this->log(log::trace, get_log_event_text(log_event::thread_auth_failed, get_language()), req.tid));
 
                 continue;
             }
@@ -390,6 +389,13 @@ namespace adam
                 
                 break;
             }
+            case request_event:
+            {
+                if (!create_queue_slave(req.tid, m_queues_event, this->queue_event_prefix))
+                    continue;
+                
+                break;
+            }
             case request_command_destroy:
             {
                 if (!destroy_queue_slave_with_worker(req.tid, m_queues_command))
@@ -407,13 +413,6 @@ namespace adam
             case request_log_sink_destroy:
             {
                 if (!destroy_queue_slave(req.tid, m_queues_log_sink))
-                    continue;
-                
-                break;
-            }
-            case request_event:
-            {
-                if (!create_queue_slave(req.tid, m_queues_event, this->queue_event_prefix))
                     continue;
                 
                 break;
