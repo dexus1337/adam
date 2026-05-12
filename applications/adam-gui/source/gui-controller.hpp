@@ -36,12 +36,13 @@ namespace adam::gui
 
         bool is_commander_active() const;
         std::vector<log_entry> get_log_history() const;
+        void clear_log_history();
 
-        adam::language get_language() const;
-        std::vector<adam::language> get_available_languages() const;
+        adam::commander& get_commander() { return m_commander; }
+        const adam::commander& get_commander() const { return m_commander; }
 
-        void set_language(adam::language lang);
-        void set_log_level(int level);
+        adam::logger_sink& get_log_sink() { return m_log_sink; }
+        const adam::logger_sink& get_log_sink() const { return m_log_sink; }
 
     private:
         void update_loop();

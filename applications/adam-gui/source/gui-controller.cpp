@@ -37,7 +37,7 @@ namespace adam::gui
     {
         if (m_running.exchange(true))
             return;
-        
+
         m_worker_thread = std::thread(&gui_controller::update_loop, this);
     }
 
@@ -60,41 +60,11 @@ namespace adam::gui
         std::lock_guard<std::mutex> lock(m_mutex);
         return m_log_history;
     }
-
-    adam::language gui_controller::get_language() const
+    
+    void gui_controller::clear_log_history()
     {
-        return m_commander.get_language();
-    }
-
-    std::vector<adam::language> gui_controller::get_available_languages() const
-    {
-        if (m_commander.is_active())
-        {
-            std::vector<adam::language> langs;
-            uint64_t available = m_commander.get_available_languages();
-            for (int i = 0; i < static_cast<int>(adam::languages_count); ++i)
-            {
-                if (available & (1ULL << i))
-                    langs.push_back(static_cast<adam::language>(i));
-            }
-            return langs;
-        }
-        
-        return { adam::language_english, adam::language_german };
-    }
-
-    void gui_controller::set_language(adam::language lang)
-    {
-        if (m_commander.is_active())
-            m_commander.request_language_change(lang);
-    }
-
-    void gui_controller::set_log_level(int level)
-    {
-        if (m_log_sink.is_active() && m_log_sink.queue().metadata())
-        {
-            m_log_sink.queue().metadata()->store(static_cast<adam::log::level>(level), std::memory_order_relaxed);
-        }
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_log_history.clear();
     }
 
     void gui_controller::update_loop()
@@ -128,7 +98,10 @@ namespace adam::gui
                         if (log_sink_active && m_log_sink.queue().metadata())
                         {
                             auto* p_log_level = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("log_level"));
-                            m_log_sink.queue().metadata()->store(static_cast<adam::log::level>(p_log_level->get_value()), std::memory_order_relaxed);
+                            m_log_sink.queue().metadata()->store(static_cast<adam::log::level>(p_log_level->get_value() + 1), std::memory_order_relaxed);
+                            
+                            adam::log discard;
+                            while (m_log_sink.queue().pop(discard, 0)) {}
                         }
                     }
                 }

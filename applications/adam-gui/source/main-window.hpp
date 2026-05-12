@@ -17,6 +17,7 @@ namespace adam::gui
         slider_font_scale,
         btn_reset_default,
         checkbox_dark_theme,
+        btn_clear_log,
         lbl_control_panel,
         lbl_commander_connected,
         lbl_commander_disconnected,

@@ -9,6 +9,31 @@
 
 namespace adam::gui 
 {
+    enum class gui_color_id : size_t
+    {
+        commander_connected = 0,
+        commander_disconnected,
+        log_trace,
+        log_info,
+        log_warning,
+        log_error,
+        count
+    };
+
+    const ImVec4& get_gui_color(gui_color_id id)
+    {
+        static const std::array<ImVec4, static_cast<size_t>(gui_color_id::count)> colors =
+        {
+            ImColor(0x26, 0xA6, 0x26), // #26A626 commander_connected
+            ImColor(0xD9, 0x33, 0x33), // #D93333 commander_disconnected
+            ImColor(0x33, 0x99, 0xD9), // #3399D9 log_trace
+            ImColor(0x26, 0xA6, 0x26), // #26A626 log_info
+            ImColor(0xD9, 0x99, 0x26), // #D99926 log_warning
+            ImColor(0xD9, 0x33, 0x33)  // #D93333 log_error
+        };
+        return colors[static_cast<size_t>(id)];
+    }
+
     const char* get_gui_string(gui_string_id id, adam::language lang)
     {
         static const std::unordered_map<int, std::array<const char*, adam::languages_count>> translations =
@@ -21,6 +46,7 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::slider_font_scale),           { "Font Scale##FontScale", "Schriftskalierung##FontScale" } },
             { static_cast<int>(gui_string_id::btn_reset_default),           { "Reset to Default##Reset", "Auf Standard zurücksetzen##Reset" } },
             { static_cast<int>(gui_string_id::checkbox_dark_theme),         { "Dark Theme##DarkTheme", "Dunkles Design##DarkTheme" } },
+            { static_cast<int>(gui_string_id::btn_clear_log),               { "Clear Log##ClearLog", "Protokoll leeren##ClearLog" } },
             { static_cast<int>(gui_string_id::lbl_control_panel),           { "ADAM Control Panel", "ADAM-Bedienfeld" } },
             { static_cast<int>(gui_string_id::lbl_commander_connected),     { "Commander connected.", "Commander verbunden." } },
             { static_cast<int>(gui_string_id::lbl_commander_disconnected),  { "Commander disconnected.", "Commander getrennt." } },
@@ -98,7 +124,7 @@ namespace adam::gui
         auto* p_log_height = static_cast<adam::configuration_parameter_double*>(params.get("log_height"));
         auto* p_log_level = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"));
 
-        adam::language lang = m_ctrl.get_language();
+        adam::language lang = m_ctrl.get_commander().get_language();
 
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         
@@ -118,12 +144,19 @@ namespace adam::gui
             {
                 if (ImGui::BeginCombo(get_gui_string(gui_string_id::combo_language, lang), adam::language_strings::language_name(lang, lang).data()))
                 {
-                    for (adam::language avail_lang : m_ctrl.get_available_languages())
+                    uint64_t available_langs = m_ctrl.get_commander().is_active() ? m_ctrl.get_commander().get_available_languages() : ((1ULL << static_cast<int>(adam::language_english)) | (1ULL << static_cast<int>(adam::language_german)));
+                    
+                    for (int i = 0; i < static_cast<int>(adam::languages_count); ++i)
                     {
+                        if (!(available_langs & (1ULL << i)))
+                            continue;
+                            
+                        adam::language avail_lang = static_cast<adam::language>(i);
                         bool is_selected = (lang == avail_lang);
                         if (ImGui::Selectable(adam::language_strings::language_name(avail_lang, lang).data(), is_selected))
                         {
-                            m_ctrl.set_language(avail_lang);
+                            if (m_ctrl.get_commander().is_active())
+                                m_ctrl.get_commander().request_language_change(avail_lang);
                         }
                         if (is_selected)
                         {
@@ -137,7 +170,10 @@ namespace adam::gui
                 if (ImGui::SliderFloat(get_gui_string(gui_string_id::slider_font_scale, lang), &font_scale_val, 0.5f, 3.0f, "%.2f"))
                 {
                     p_font_scale->set_value(static_cast<double>(font_scale_val));
-                    ImGui::GetIO().FontGlobalScale = font_scale_val;
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                {
+                    ImGui::GetIO().FontGlobalScale = static_cast<float>(p_font_scale->get_value());
                 }
                 if (ImGui::Button(get_gui_string(gui_string_id::btn_reset_default, lang)))
                 {
@@ -161,9 +197,9 @@ namespace adam::gui
         ImGui::Separator();
         
         if (m_ctrl.is_commander_active())
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_commander_connected, lang));
+            ImGui::TextColored(get_gui_color(gui_color_id::commander_connected), "%s", get_gui_string(gui_string_id::lbl_commander_connected, lang));
         else
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_commander_disconnected, lang));
+            ImGui::TextColored(get_gui_color(gui_color_id::commander_disconnected), "%s", get_gui_string(gui_string_id::lbl_commander_disconnected, lang));
             
         if (p_show_log->get_value())
         {
@@ -198,23 +234,37 @@ namespace adam::gui
             ImGui::Spacing();
             ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_log_console, lang));
             
-            float combo_width = 120.0f;
-            ImGui::SameLine(ImGui::GetWindowWidth() - combo_width - ImGui::GetStyle().WindowPadding.x);
+            float combo_width = 120.0f * ImGui::GetIO().FontGlobalScale;
+            const char* clear_log_text = get_gui_string(gui_string_id::btn_clear_log, lang);
+            float btn_width = ImGui::CalcTextSize(clear_log_text, NULL, true).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            float right_align_offset = combo_width + btn_width + ImGui::GetStyle().ItemSpacing.x;
             
+            ImGui::SameLine();
+            ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - right_align_offset);
+
             int current_log_level = static_cast<int>(p_log_level->get_value());
             ImGui::SetNextItemWidth(combo_width);
             if (ImGui::Combo("##LogLevel", &current_log_level, get_gui_string(gui_string_id::combo_log_level_options, lang)))
             {
                 p_log_level->set_value(current_log_level);
-                m_ctrl.set_log_level(current_log_level);
+                if (m_ctrl.get_log_sink().is_active() && m_ctrl.get_log_sink().queue().metadata())
+                {
+                    m_ctrl.get_log_sink().queue().metadata()->store(static_cast<adam::log::level>(current_log_level + 1), std::memory_order_relaxed);
+                }
             }
             
-            ImGui::BeginChild("LogRegion", ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            ImGui::SameLine();
             
-            if (ImGui::BeginTable("LogTable", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_RowBg))
+            if (ImGui::Button(clear_log_text))
             {
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_time, lang), ImGuiTableColumnFlags_WidthFixed, 150.0f);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_level, lang), ImGuiTableColumnFlags_WidthFixed, 60.0f);
+                m_ctrl.clear_log_history();
+            }
+            
+            if (ImGui::BeginTable("LogTable", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
+            {
+                ImGui::TableSetupScrollFreeze(0, 1);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_time, lang), ImGuiTableColumnFlags_WidthFixed, 90.0f);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_level, lang), ImGuiTableColumnFlags_WidthFixed, 50.0f);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_message, lang), ImGuiTableColumnFlags_WidthStretch);
                 ImGui::TableHeadersRow();
 
@@ -230,18 +280,28 @@ namespace adam::gui
                     const char* level_text = "";
                     float r, g, b;
                     adam::get_log_appearance(log_line.level, level_text, r, g, b);
-                    ImGui::TextColored(ImVec4(r, g, b, 1.0f), "%s", level_text);
+                    
+                    ImVec4 color;
+                    switch (log_line.level)
+                    {
+                        case adam::log::level::trace:   color = get_gui_color(gui_color_id::log_trace); break;
+                        case adam::log::level::info:    color = get_gui_color(gui_color_id::log_info); break;
+                        case adam::log::level::warning: color = get_gui_color(gui_color_id::log_warning); break;
+                        case adam::log::level::error:   color = get_gui_color(gui_color_id::log_error); break;
+                        default:                        color = ImVec4(r, g, b, 1.0f); break; // Fallback to SDK defaults
+                    }
+
+                    ImGui::TextColored(color, "%s", level_text);
 
                     ImGui::TableSetColumnIndex(2);
                     ImGui::TextUnformatted(log_line.text.c_str());
                 }
+
+                if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+                    ImGui::SetScrollHereY(1.0f);
+                    
                 ImGui::EndTable();
             }
-
-            if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-                ImGui::SetScrollHereY(1.0f);
-                
-            ImGui::EndChild();
         }
         
         ImGui::End();
