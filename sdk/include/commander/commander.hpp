@@ -66,6 +66,9 @@ namespace adam
         /** @brief Gets the current language. */
         language get_language() const { return m_lang.lang; }
 
+        /** @brief Gets the available languages. */
+        uint32_t get_available_languages() const { return m_lang.supported_languages; }
+
         commander_event_dispatcher& dispatcher() { return m_dispatcher; }
         const commander_event_dispatcher& get_dispatcher() const { return m_dispatcher; }
 

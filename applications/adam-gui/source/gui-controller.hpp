@@ -37,6 +37,9 @@ namespace adam::gui
         bool is_commander_active() const;
         std::vector<log_entry> get_log_history() const;
 
+        adam::language get_language() const;
+        std::vector<adam::language> get_available_languages() const;
+
         void set_language(adam::language lang);
         void set_log_level(int level);
 

@@ -62,10 +62,47 @@ namespace adam::gui
         return m_log_history;
     }
 
+    adam::language gui_controller::get_language() const
+    {
+        if (m_commander.is_active())
+        {
+            adam::language lang = m_commander.get_language();
+            auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
+            if (p_lang->get_value() != static_cast<int>(lang))
+                p_lang->set_value(static_cast<int>(lang));
+            return lang;
+        }
+        
+        auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
+        return static_cast<adam::language>(p_lang->get_value());
+    }
+
+    std::vector<adam::language> gui_controller::get_available_languages() const
+    {
+        if (m_commander.is_active())
+        {
+            std::vector<adam::language> langs;
+            uint64_t available = m_commander.get_available_languages();
+            for (int i = 0; i < static_cast<int>(adam::languages_count); ++i)
+            {
+                if (available & (1ULL << i))
+                    langs.push_back(static_cast<adam::language>(i));
+            }
+            return langs;
+        }
+        
+        return { adam::language_english, adam::language_german };
+    }
+
     void gui_controller::set_language(adam::language lang)
     {
         if (m_commander.is_active())
             m_commander.request_language_change(lang);
+        else
+        {
+            auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
+            p_lang->set_value(static_cast<int>(lang));
+        }
     }
 
     void gui_controller::set_log_level(int level)
@@ -97,12 +134,6 @@ namespace adam::gui
                     {
                         m_commander.connect();
                         commander_active = m_commander.is_active();
-                        
-                        if (commander_active)
-                        {
-                            auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
-                            m_commander.request_language_change(static_cast<adam::language>(p_lang->get_value()));
-                        }
                     }
 
                     if (!log_sink_active)

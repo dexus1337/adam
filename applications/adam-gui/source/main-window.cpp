@@ -18,7 +18,6 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::menu_show_log),               { "Show Log", "Protokoll anzeigen" } },
             { static_cast<int>(gui_string_id::menu_settings),               { "Settings", "Einstellungen" } },
             { static_cast<int>(gui_string_id::combo_language),              { "Language##Lang", "Sprache##Lang" } },
-            { static_cast<int>(gui_string_id::combo_language_options),      { "English\0German\0\0", "Englisch\0Deutsch\0\0" } },
             { static_cast<int>(gui_string_id::slider_font_scale),           { "Font Scale##FontScale", "Schriftskalierung##FontScale" } },
             { static_cast<int>(gui_string_id::btn_reset_default),           { "Reset to Default##Reset", "Auf Standard zurücksetzen##Reset" } },
             { static_cast<int>(gui_string_id::checkbox_dark_theme),         { "Dark Theme##DarkTheme", "Dunkles Design##DarkTheme" } },
@@ -97,10 +96,9 @@ namespace adam::gui
         auto* p_dark_theme = static_cast<adam::configuration_parameter_boolean*>(params.get("dark_theme"));
         auto* p_font_scale = static_cast<adam::configuration_parameter_double*>(params.get("font_scale"));
         auto* p_log_height = static_cast<adam::configuration_parameter_double*>(params.get("log_height"));
-        auto* p_language = static_cast<adam::configuration_parameter_integer*>(params.get("language"));
         auto* p_log_level = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"));
 
-        adam::language lang = static_cast<adam::language>(p_language->get_value());
+        adam::language lang = m_ctrl.get_language();
 
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         
@@ -118,12 +116,21 @@ namespace adam::gui
             }
             if (ImGui::BeginMenu(get_gui_string(gui_string_id::menu_settings, lang)))
             {
-                int current_lang = static_cast<int>(p_language->get_value());
-                if (ImGui::Combo(get_gui_string(gui_string_id::combo_language, lang), &current_lang, get_gui_string(gui_string_id::combo_language_options, lang)))
+                if (ImGui::BeginCombo(get_gui_string(gui_string_id::combo_language, lang), adam::language_strings::language_name(lang, lang).data()))
                 {
-                    p_language->set_value(current_lang);
-                    m_ctrl.set_language(static_cast<adam::language>(current_lang));
-                    lang = static_cast<adam::language>(current_lang);
+                    for (adam::language avail_lang : m_ctrl.get_available_languages())
+                    {
+                        bool is_selected = (lang == avail_lang);
+                        if (ImGui::Selectable(adam::language_strings::language_name(avail_lang, lang).data(), is_selected))
+                        {
+                            m_ctrl.set_language(avail_lang);
+                        }
+                        if (is_selected)
+                        {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                    ImGui::EndCombo();
                 }
 
                 float font_scale_val = static_cast<float>(p_font_scale->get_value());

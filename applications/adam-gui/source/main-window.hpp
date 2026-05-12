@@ -14,7 +14,6 @@ namespace adam::gui
         menu_show_log,
         menu_settings,
         combo_language,
-        combo_language_options,
         slider_font_scale,
         btn_reset_default,
         checkbox_dark_theme,

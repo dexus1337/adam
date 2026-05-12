@@ -15,7 +15,7 @@ namespace adam
         m_queue_event(),
         m_dispatcher(),
         m_log_outstream(std::cout.rdbuf()),
-        m_lang(language_english),
+        m_lang(),
         m_inspectors()
     {
 

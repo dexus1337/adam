@@ -49,8 +49,8 @@ namespace adam
         {
             struct language_info
             {
-                language lang;
-                uint32_t supported_languages; /**< Bitfield of supported languages, indexed by the language enum value. */
+                language lang                = language_english;                                    /**< The current language of the controller. */
+                uint32_t supported_languages = (1 << language_english) | (1 << language_german);    /**< Bitfield of supported languages, indexed by the language enum value. */
             } lang_info;
         };
 
