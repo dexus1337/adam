@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <memory>
 #include <functional>
+#include <vector>
 
 namespace adam 
 {
@@ -32,10 +33,18 @@ namespace adam
      */
     struct command_context
     {
-        os::thread_id tid;  /**< The ID of the thread that dispatched the command. */
-        registry& reg;      /**< A reference to the controller's registry. */
-        controller& ctrl;   /**< A reference to the main controller instance. */
+        os::thread_id tid;                  /**< The ID of the thread that dispatched the command. */
+        registry& reg;                      /**< A reference to the controller's registry. */
+        controller& ctrl;                   /**< A reference to the main controller instance. */
+        std::vector<response>& responses;   /**< A reference to the pre-allocated buffer handling multiple outgoing responses. */
+        
         std::unordered_map<string_hashed::hash_datatype, std::shared_ptr<data_inspector>> thread_inspectors; /**< A map of data inspectors managed by this thread context. */
+
+        void set_single_response_status(response_status status)
+        {
+            responses.front().type() = status;
+            responses.front().set_extended(false);
+        }
     };
 
     /**
@@ -58,7 +67,7 @@ namespace adam
 
         static std::string_view get_log_event_text(log_event event, language lang);
 
-        using handler_fn = std::function<response(const command*, size_t, command_context&)>; /**< A type alias for a command handler function. */
+        using handler_fn = std::function<void(const command*, size_t, command_context&)>; /**< A type alias for a command handler function. */
 
         /** @brief Constructs a new controller_cmd_dispatcher object. */
         controller_cmd_dispatcher();
@@ -70,7 +79,7 @@ namespace adam
         void register_handler(int type, handler_fn handler);
         
         /** @brief Dispatches a command to the appropriate registered handler. */
-        response dispatch(const command* cmds, size_t count, command_context& ctx) const;
+        void dispatch(const command* cmds, size_t count, command_context& ctx) const;
 
         /** @brief Registers all default command handlers for the controller. */
         void register_default_handlers();

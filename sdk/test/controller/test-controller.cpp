@@ -35,12 +35,12 @@ TEST(controller, receive_extended_commands)
     bool handler_called = false;
     int received_commands = 0;
 
-    // Register a custom test handler (type 255)
-    ctrl.dispatcher().register_handler(255, [&](const adam::command*, size_t count, adam::command_context&) -> adam::response 
+    // Register a custom test handler (type 9998)
+    ctrl.dispatcher().register_handler(9998, [&](const adam::command*, size_t count, adam::command_context& ctx) 
     {
         handler_called = true;
         received_commands += count;
-        return adam::response(adam::response_status::success);
+        ctx.set_single_response_status(adam::response_status::success);
     });
 
     // Use commander to cleanly establish the queue connection to the controller
@@ -54,9 +54,9 @@ TEST(controller, receive_extended_commands)
     ASSERT_TRUE(test_queue.open());
 
     // Send 3 commands (2 extended, 1 final)
-    adam::command c1(static_cast<adam::command_type>(255));
-    adam::command c2(static_cast<adam::command_type>(255));
-    adam::command c3(static_cast<adam::command_type>(255));
+    adam::command c1(static_cast<adam::command_type>(9998));
+    adam::command c2(static_cast<adam::command_type>(9998));
+    adam::command c3(static_cast<adam::command_type>(9998));
     
     c1.set_extended(true);
     c2.set_extended(true);
@@ -69,6 +69,51 @@ TEST(controller, receive_extended_commands)
     EXPECT_TRUE(test_queue.response_queue().pop(resp, 1000));
     EXPECT_TRUE(handler_called);
     EXPECT_EQ(received_commands, 3);
+
+    cmd.destroy();
+    ctrl.destroy();
+}
+
+/** @brief Tests controller's ability to send out extended responses over the queue */
+TEST(controller, receive_extended_responses)
+{
+    adam::controller& ctrl = adam::controller::get();
+    ASSERT_TRUE(ctrl.run(true));
+
+    // Register a custom test handler (type 9997)
+    ctrl.dispatcher().register_handler(9997, [&](const adam::command*, size_t, adam::command_context& ctx) 
+    {
+        ctx.set_single_response_status(adam::response_status::success);
+        ctx.responses.front().set_extended(true);
+
+        ctx.responses[1].set_extended(true);
+        ctx.responses[1].type() = adam::response_status::success;
+
+        ctx.responses[2].set_extended(false);
+        ctx.responses[2].type() = adam::response_status::success;
+    });
+
+    // Use commander to cleanly establish the queue connection to the controller
+    adam::commander cmd;
+    ASSERT_TRUE(cmd.connect());
+
+    // Manually open the slave queue to bypass commander's single-command send logic
+    adam::queue_shared_duplex<adam::command, adam::response> test_queue(
+        adam::string_hashed(std::string("adam::controller_queue_command_") + std::to_string(adam::os::get_current_thread_id()))
+    );
+    ASSERT_TRUE(test_queue.open());
+
+    adam::command c(static_cast<adam::command_type>(9997));
+    EXPECT_TRUE(test_queue.request_queue().push(c));
+
+    adam::response resp1, resp2, resp3;
+    EXPECT_TRUE(test_queue.response_queue().pop(resp1, 1000));
+    EXPECT_TRUE(test_queue.response_queue().pop(resp2, 1000));
+    EXPECT_TRUE(test_queue.response_queue().pop(resp3, 1000));
+
+    EXPECT_TRUE(resp1.is_extended());
+    EXPECT_TRUE(resp2.is_extended());
+    EXPECT_FALSE(resp3.is_extended());
 
     cmd.destroy();
     ctrl.destroy();

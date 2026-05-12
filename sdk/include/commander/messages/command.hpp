@@ -21,7 +21,7 @@
 namespace adam 
 {
     
-    enum class command_type : uint8_t
+    enum class command_type : uint16_t
     {
         invalid = 0,
 
@@ -41,7 +41,7 @@ namespace adam
      * @brief Defines a command for the controller
      */
     #pragma pack(push, 1) // align to 1 byte
-    class ADAM_SDK_API command : public commander_message_type<command_type>
+    class ADAM_SDK_API command : public commander_message_template<command_type>
     {
     public:
 
@@ -65,7 +65,7 @@ namespace adam
         };
 
         /** @brief Constructs a new command object.*/
-        command(command_type t = command_type::invalid) : commander_message_type(t) {}
+        command(command_type t = command_type::invalid) : commander_message_template(t) {}
 
         /** @brief Destroys the command object and cleans up resources.*/
         ~command() = default;

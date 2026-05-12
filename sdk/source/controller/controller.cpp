@@ -444,20 +444,26 @@ namespace adam
 
     void controller::run_queue_command(queue_command_data* data)
     {
-    command_context ctx { data->tid, m_registry, *this, {} };
-
-        std::vector<command> cmds;
+        std::vector<command>    cmds;
+        std::vector<response>   resps;
 
         static constexpr int command_buffer_size = 256; // should be enough for most commands and their extensions, if not it will just resize automatically, no big deal
 
         cmds.reserve(command_buffer_size);
+        resps.reserve(command_buffer_size);
         
         for (size_t i = 0; i < command_buffer_size; i++)
-            cmds.emplace_back(); // default construct the commands to ensure the data buffer is allocated, so we can directly write into it when popping from the queue
+        {
+            cmds.emplace_back();    // default construct the commands to ensure the data buffer is allocated, so we can directly write into it when popping from the queue
+            resps.emplace_back();   // default construct the responses to ensure the data buffer is allocated, so we can directly write into it when popping from the queue
+        }
         
+        command_context ctx { data->tid, m_registry, *this, resps, {} };
+
         while (data->queue.is_active())
         {
-            size_t cmd_idx = 0;
+            size_t cmd_idx  = 0;
+            size_t resp_idx = 0;
 
             if (!data->queue.request_queue().pop(cmds[cmd_idx], 100)) // check every 100ms
                 continue;
@@ -477,9 +483,15 @@ namespace adam
                 }
             }
 
-            response resp = m_dispatcher.dispatch(cmds.data(), cmd_idx + 1, ctx);
+            m_dispatcher.dispatch(cmds.data(), cmd_idx + 1, ctx);
+            
+            data->queue.response_queue().push(resps[resp_idx]);
 
-            data->queue.response_queue().push(resp);
+            while (resps[resp_idx].is_extended())
+            {
+                resp_idx++;
+                data->queue.response_queue().push(resps[resp_idx]);
+            }
         }
     }
 

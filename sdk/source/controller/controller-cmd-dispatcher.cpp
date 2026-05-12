@@ -8,6 +8,7 @@
 
 #include <array>
 #include <format>
+#include <vector>
 
 namespace adam
 {
@@ -23,54 +24,59 @@ namespace adam
         m_handlers[type] = std::move(handler);
     }
 
-    response controller_cmd_dispatcher::dispatch(const command* cmds, size_t count, command_context& ctx) const
+    void controller_cmd_dispatcher::dispatch(const command* cmds, size_t count, command_context& ctx) const
     {
         if (!cmds || count == 0)
-            return response(response_status::invalid);
+        {
+            ctx.set_single_response_status(response_status::invalid);
+            return;
+        }
 
-        auto it = m_handlers.find(static_cast<int>(cmds[0].get_type()));
+        auto it = m_handlers.find(static_cast<int>(cmds->get_type()));
         if (it != m_handlers.end())
-            return it->second(cmds, count, ctx);
+        {
+            it->second(cmds, count, ctx);
+            return;
+        }
         
-        return response(response_status::unknown);
+        ctx.set_single_response_status(response_status::unknown);
     }
 
     void controller_cmd_dispatcher::register_default_handlers()
     {
-        register_handler(static_cast<int>(command_type::receive_initial_data), [](const command*, size_t, command_context& ctx) -> response
+        register_handler(static_cast<int>(command_type::receive_initial_data), [](const command*, size_t, command_context& ctx)
         {
-            response res(response_status::success);
-            auto* data = res.data_as<command::initial_data>();
+            ctx.set_single_response_status(response_status::success);
+            auto* data = ctx.responses.front().data_as<command::initial_data>();
 
             data->lang_info.lang                  = ctx.ctrl.get_language();
             data->lang_info.supported_languages   |= ( 1 << language_english );
             data->lang_info.supported_languages   |= ( 1 << language_german );
-
-            return res;
         });
 
-        register_handler(static_cast<int>(command_type::set_language), [](const command* cmds, size_t, command_context& ctx) -> response 
+        register_handler(static_cast<int>(command_type::set_language), [](const command* cmds, size_t, command_context& ctx) 
         {
-            ctx.ctrl.set_language(*cmds[0].get_data_as<language>());
+            ctx.ctrl.set_language(*cmds->get_data_as<language>());
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::language_changed, ctx.ctrl.get_language()));
 
             event evt(event_type::language_changed);
             *evt.data_as<language>() = ctx.ctrl.get_language();
             ctx.ctrl.broadcast_event(evt);
 
-            return response_status::success;
+            ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) -> response 
+        register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds[0].get_data_as<command::inspector_create_data>();
+            auto params = cmds->get_data_as<command::inspector_create_data>();
             auto port = ctx.reg.ports().find(params->port);
 
             if (port == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_port_unknown, ctx.ctrl.get_language()), ctx.tid, port_hash));
-                return response_status::unknown;
+                ctx.set_single_response_status(response_status::unknown);
+                return;
             }
 
             const auto& port_name = port->second->get_name();
@@ -80,7 +86,8 @@ namespace adam
             {
                 auto name_view = port_name.c_str();
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.ctrl.get_language()), ctx.tid, name_view));
-                return response_status::failed;
+                ctx.set_single_response_status(response_status::failed);
+                return;
             }
 
             port->second->inspectors().push_back(new_inspector);
@@ -88,19 +95,20 @@ namespace adam
 
             auto name_view = port_name.c_str();
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.ctrl.get_language()), ctx.tid, name_view));
-            return response_status::success;
+            ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::inspector_destroy), [](const command* cmds, size_t, command_context& ctx) -> response 
+        register_handler(static_cast<int>(command_type::inspector_destroy), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds[0].get_data_as<command::inspector_destroy_data>();
+            auto params = cmds->get_data_as<command::inspector_destroy_data>();
             auto port = ctx.reg.ports().find(params->port);
 
             if (port == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_port_unknown, ctx.ctrl.get_language()), ctx.tid, port_hash));
-                return response_status::unknown;
+                ctx.set_single_response_status(response_status::unknown);
+                return;
             }
 
             const auto& port_name = port->second->get_name();
@@ -110,7 +118,8 @@ namespace adam
             {
                 auto name_view = port_name.c_str();
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.ctrl.get_language()), ctx.tid, name_view));
-                return response_status::failed;
+                ctx.set_single_response_status(response_status::failed);
+                return;
             }
 
             port->second->inspectors().remove(it->second);
@@ -118,7 +127,7 @@ namespace adam
 
             auto name_view = port_name.c_str();
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, name_view));
-            return response_status::success;
+            ctx.set_single_response_status(response_status::success);
         });
     }
 

@@ -68,6 +68,7 @@ TEST_F(commander_test, event_broadcast_and_receive)
 /** @brief Tests the full flow of requesting a language change and receiving the updated state via event. */
 TEST_F(commander_test, request_language_change_flow)
 {
+    adam::controller::get().set_language(adam::language_english); // Ensure we start from a known language state
     adam::commander cmdr;
     ASSERT_TRUE(cmdr.connect());
 

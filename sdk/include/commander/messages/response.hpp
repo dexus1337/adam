@@ -20,7 +20,7 @@
 namespace adam 
 {
 
-    enum class response_status : uint8_t
+    enum class response_status : uint16_t
     {
         invalid = 0,
         success,
@@ -39,12 +39,12 @@ namespace adam
      * @brief Defines a response for the controller
      */
     #pragma pack(push, 1) // align to 1 byte
-    class ADAM_SDK_API response : public commander_message_type<response_status>
+    class ADAM_SDK_API response : public commander_message_template<response_status>
     {
     public:
 
         /** @brief Constructs a new response object.*/
-        response(response_status t = response_status::invalid) : commander_message_type(t) {}
+        response(response_status t = response_status::invalid) : commander_message_template(t) {}
 
         /** @brief Destroys the response object and cleans up resources.*/
         ~response() = default;

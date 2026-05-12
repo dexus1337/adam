@@ -29,7 +29,7 @@ namespace adam
 
     bool commander::connect() 
     {
-        // if theres is already a queue for current thread, delete it
+        // First cerate command queue
         if (m_queue_command.open())
             m_queue_command.destroy();
 
@@ -48,6 +48,7 @@ namespace adam
             return false;
         }
 
+        // Then create event queue
         if (m_queue_event.open())
             m_queue_event.destroy();
 
@@ -59,14 +60,20 @@ namespace adam
             return false;
         }
 
-        if (controller::request_master_queue(controller::request_event) != controller::status_success)
+        resp = controller::request_master_queue(controller::request_event);
+
+        if (resp != controller::status_success)
         {
+            adam::stream_log(log::trace, language_strings::controller_status_text(resp, get_language()), m_log_outstream);
+            
             destroy();
             return false;
         }
 
+        // Now start listening for events
         m_event_thread = std::thread(&commander::run_event_loop, this);
 
+        // Sync config etc from controller
         if (request_initial_data() != response_status::success)
         {
             destroy();
@@ -78,14 +85,34 @@ namespace adam
 
     bool commander::destroy() 
     {
+        bool m_cmd_active = m_queue_command.is_active();
+        bool m_evt_active = m_queue_event.is_active();
+
         m_queue_command.disable();
         m_queue_event.disable();
 
         if (m_event_thread.joinable())
             m_event_thread.join();
 
-        bool res = (controller::request_master_queue(controller::request_event_destroy) == controller::status_success);
-        res &= (controller::request_master_queue(controller::request_command_destroy) == controller::status_success);
+        bool res = true;
+        
+        if (m_evt_active)
+        {
+            auto ctrl_resp = controller::request_master_queue(controller::request_event_destroy);
+            res &= (ctrl_resp == controller::status_success);
+
+            if (ctrl_resp != controller::status_success)
+                adam::stream_log(log::trace, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);
+        }
+
+        if (m_cmd_active)
+        {
+            auto ctrl_resp = controller::request_master_queue(controller::request_command_destroy);
+            res &= (ctrl_resp == controller::status_success);
+
+            if (ctrl_resp != controller::status_success)
+                adam::stream_log(log::trace, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);
+        }
 
         for (auto& pair : m_inspectors)
         {
@@ -108,6 +135,7 @@ namespace adam
         response* resp = nullptr;
         
         auto res = send_command(cmd, &resp);
+        
         if (res != response_status::success || !resp)
             return response_status::response_receive_failed;
 
