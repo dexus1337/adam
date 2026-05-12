@@ -14,9 +14,9 @@ namespace adam
      :  m_queue_command(),
         m_queue_event(),
         m_dispatcher(),
+        m_log_outstream(std::cout.rdbuf()),
         m_lang(language_english),
-        m_inspectors(),
-        m_log_outstream(std::cout.rdbuf())
+        m_inspectors()
     {
 
     }
@@ -42,7 +42,7 @@ namespace adam
 
         if (resp != controller::status_success)
         {
-            adam::stream_log(log::trace, language_strings::controller_status_text(resp, m_lang), m_log_outstream);
+            adam::stream_log(log::trace, language_strings::controller_status_text(resp, get_language()), m_log_outstream);
             
             m_queue_command.destroy();
             return false;
@@ -111,7 +111,7 @@ namespace adam
         if (res != response_status::success || !resp)
             return response_status::response_receive_failed;
 
-        m_lang = *resp->data_as<language>();
+        m_lang = resp->data_as<command::initial_data>()->lang_info;
 
         return res;
     }
@@ -179,6 +179,14 @@ namespace adam
         }
 
         return response_status::inspector_not_found;
+    }
+
+    response_status commander::request_language_change(language lang)
+    {
+        command cmd(command_type::set_language);
+        *cmd.data_as<language>() = lang;
+
+        return send_command(cmd);
     }
 
     response_status commander::send_command(const command& cmd, response** resp)

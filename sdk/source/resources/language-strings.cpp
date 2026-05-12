@@ -183,4 +183,27 @@ namespace adam
 
         return fallback_msg;
     }
+
+    std::string_view language_strings::language_name(language target_lang, language display_lang)
+    {
+        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        {
+            {
+                static_cast<int>(language_english),
+                { "English", "Englisch" }
+            },
+            {
+                static_cast<int>(language_german),
+                { "German", "Deutsch" }
+            }
+        };
+
+        auto val = static_cast<int>(target_lang);
+        auto it  = translations.find(val);
+
+        if (it != translations.end())
+            return it->second[static_cast<int>(display_lang)];
+        
+        return unknown_type_message("language", val, display_lang);
+    }
 }

@@ -33,5 +33,8 @@ namespace adam
         static std::string_view success_message(language lang);
 
         static std::string_view unknown_type_message(std::string_view type, int val, language lang);
+
+        static std::string_view language_name(language target_lang, language display_lang);
+        
     };
 }

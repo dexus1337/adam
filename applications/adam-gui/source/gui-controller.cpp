@@ -16,6 +16,8 @@ namespace adam::gui
         params.add(std::make_unique<adam::configuration_parameter_integer>("window_w", 1280));
         params.add(std::make_unique<adam::configuration_parameter_integer>("window_h", 720));
         params.add(std::make_unique<adam::configuration_parameter_boolean>("window_maximized", false));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("language", 0));
+        params.add(std::make_unique<adam::configuration_parameter_integer>("log_level", 0));
         return params;
     }
 
@@ -23,12 +25,12 @@ namespace adam::gui
         : adam::configuration_item("gui.controller", create_gui_defaults()),
           m_running(false), m_commander_active(false)
     {
-        load("adam_gui_settings.bin");
+        load("adam-gui-config.bin");
     }
 
     gui_controller::~gui_controller()
     {
-        save("adam_gui_settings.bin");
+        save("adam-gui-config.bin");
         stop();
     }
 
@@ -60,6 +62,20 @@ namespace adam::gui
         return m_log_history;
     }
 
+    void gui_controller::set_language(adam::language lang)
+    {
+        if (m_commander.is_active())
+            m_commander.request_language_change(lang);
+    }
+
+    void gui_controller::set_log_level(int level)
+    {
+        if (m_log_sink.is_active() && m_log_sink.queue().metadata())
+        {
+            m_log_sink.queue().metadata()->store(static_cast<adam::log::level>(level), std::memory_order_relaxed);
+        }
+    }
+
     void gui_controller::update_loop()
     {
         auto last_reconnect_attempt = std::chrono::steady_clock::now() - std::chrono::seconds(5);
@@ -81,12 +97,24 @@ namespace adam::gui
                     {
                         m_commander.connect();
                         commander_active = m_commander.is_active();
+                        
+                        if (commander_active)
+                        {
+                            auto* p_lang = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("language"));
+                            m_commander.request_language_change(static_cast<adam::language>(p_lang->get_value()));
+                        }
                     }
 
                     if (!log_sink_active)
                     {
                         m_log_sink.connect();
                         log_sink_active = m_log_sink.is_active();
+                        
+                        if (log_sink_active && m_log_sink.queue().metadata())
+                        {
+                            auto* p_log_level = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("log_level"));
+                            m_log_sink.queue().metadata()->store(static_cast<adam::log::level>(p_log_level->get_value()), std::memory_order_relaxed);
+                        }
                     }
                 }
             }

@@ -76,7 +76,7 @@ namespace adam
         bool pop(queue_type& out_obj, std::chrono::duration<rep, period> timeout = std::chrono::duration<rep, period>::max()) { return pop(out_obj, timeout == std::chrono::duration<rep, period>::max() ? -1 : std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()); }
 
         /** @brief Accessor for metadata inside the header from inside the shared memory */
-        queue_metadata_type* metadata() { return header() ? header()->metadata : nullptr; }
+        queue_metadata_type* metadata() { return header() ? &header()->metadata : nullptr; }
 
     protected:
 

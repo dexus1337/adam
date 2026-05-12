@@ -52,8 +52,8 @@ TEST_F(registry_test, empty_save_load)
     EXPECT_TRUE(reg.load(test_filepath));
 }
 
-/** @brief Tests fully populating the registry, clearing it, and verifying values upon reload. */
-TEST_F(registry_test, save_clear_reload_verify)
+/** @brief Tests fully populating the registry, modifying values, and verifying original values are restored upon reload. */
+TEST_F(registry_test, save_modify_reload_verify)
 {
     adam::test::testable_registry reg;
     
@@ -78,15 +78,13 @@ TEST_F(registry_test, save_clear_reload_verify)
     EXPECT_TRUE(reg.save(test_filepath));
     EXPECT_TRUE(std::filesystem::exists(test_filepath));
     
-    // 3. Clear existing parameters to ensure we load fresh from file
-    reg.get_general().clear();
-    reg.ports().clear();
-    reg.filters().clear();
-    reg.converters().clear();
-    
-    EXPECT_EQ(reg.get_general().get(adam::string_hashed("system_mode")), nullptr);
-    EXPECT_EQ(reg.get_general().get(adam::string_hashed("max_threads")), nullptr);
-    
+    // 3. Modify existing parameters to ensure we load fresh values from file
+    auto* test_mode = static_cast<adam::configuration_parameter_string*>(reg.get_general().get(adam::string_hashed("system_mode")));
+    auto* test_threads = static_cast<adam::configuration_parameter_integer*>(reg.get_general().get(adam::string_hashed("max_threads")));
+
+    test_mode->set_value("modified");
+    test_threads->set_value(99);
+
     // 4. Reload from the binary file
     EXPECT_TRUE(reg.load(test_filepath));
     

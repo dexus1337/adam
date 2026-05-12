@@ -33,7 +33,12 @@ namespace adam
         register_handler(static_cast<int>(command_type::receive_initial_data), [](const command*, size_t, command_context& ctx) -> response
         {
             response res(response_status::success);
-        *res.data_as<language>() = ctx.ctrl.get_language();
+            auto* data = res.data_as<command::initial_data>();
+
+            data->lang_info.lang                  = ctx.ctrl.get_language();
+            data->lang_info.supported_languages   |= ( 1 << language_english );
+            data->lang_info.supported_languages   |= ( 1 << language_german );
+
             return res;
         });
 

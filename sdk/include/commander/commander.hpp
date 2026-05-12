@@ -60,6 +60,12 @@ namespace adam
         /** @brief Requests the destruction of a data inspector on a specific port. */
         response_status request_inspector_destroy(data_inspector* inspector);
 
+        /** @brief Requests a language change. */
+        response_status request_language_change(language lang);
+
+        /** @brief Gets the current language. */
+        language get_language() const { return m_lang.lang; }
+
         commander_event_dispatcher& dispatcher() { return m_dispatcher; }
         const commander_event_dispatcher& get_dispatcher() const { return m_dispatcher; }
 
@@ -78,7 +84,7 @@ namespace adam
 
         std::ostream                m_log_outstream;
 
-        language                    m_lang;
+        command::initial_data::language_info m_lang;
 
         std::unordered_map<string_hashed::hash_datatype, data_inspector*> m_inspectors;
     };

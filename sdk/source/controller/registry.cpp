@@ -29,16 +29,17 @@ namespace adam
         auto lang_param = std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english);
         const_cast<controller&>(m_controller).m_lang_param = lang_param.get();
         m_parameters.add(std::move(lang_param));
+
+        load("adam-config.bin");
     }
 
     registry::~registry() 
     {
-
+        save("adam-config.bin");
     }
 
     void registry::clear()
     {
-        m_parameters.clear();
         const_cast<controller&>(m_controller).m_lang_param = nullptr;
         m_ports.clear();
         m_filters.clear();
@@ -126,17 +127,30 @@ namespace adam
             {
                 auto* general_mock = static_cast<configuration_parameter_list*>(general_mock_param);
                 for (auto& [name, param] : general_mock->get_children())
-                    m_parameters.add(std::move(param));
+                {
+                    if (auto* existing = m_parameters.get(name))
+                    {
+                        if (auto* e_bool = dynamic_cast<configuration_parameter_boolean*>(existing)) {
+                            if (auto* p_bool = dynamic_cast<configuration_parameter_boolean*>(param.get())) e_bool->set_value(p_bool->get_value());
+                        } else if (auto* e_int = dynamic_cast<configuration_parameter_integer*>(existing)) {
+                            if (auto* p_int = dynamic_cast<configuration_parameter_integer*>(param.get())) e_int->set_value(p_int->get_value());
+                        } else if (auto* e_dbl = dynamic_cast<configuration_parameter_double*>(existing)) {
+                            if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get())) e_dbl->set_value(p_dbl->get_value());
+                        } else if (auto* e_str = dynamic_cast<configuration_parameter_string*>(existing)) {
+                            if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get())) e_str->set_value(p_str->get_value());
+                        }
+                    }
+                }
             }
         }
 
-    const_cast<controller&>(m_controller).m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get(string_hashed("language")));
-    if (!m_controller.m_lang_param)
-    {
-        auto lang_param = std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english);
-        const_cast<controller&>(m_controller).m_lang_param = lang_param.get();
-        m_parameters.add(std::move(lang_param));
-    }
+        const_cast<controller&>(m_controller).m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get(string_hashed("language")));
+        if (!m_controller.m_lang_param)
+        {
+            auto lang_param = std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english);
+            const_cast<controller&>(m_controller).m_lang_param = lang_param.get();
+            m_parameters.add(std::move(lang_param));
+        }
 
         // The tree structure is successfully loaded from the file!
         // In the future, you can implement the item instantiation logic here 

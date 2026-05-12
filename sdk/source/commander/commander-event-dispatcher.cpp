@@ -25,7 +25,7 @@ namespace adam
     {
         register_handler(static_cast<int>(event_type::language_changed), [](const event& e, event_context& ctx) 
         {
-            ctx.cmdr.m_lang = *e.get_data_as<language>();
+            ctx.cmdr.m_lang = e.get_data_as<command::initial_data>()->lang_info;
         });
     }
 }

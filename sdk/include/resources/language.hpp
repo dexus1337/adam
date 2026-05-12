@@ -16,8 +16,8 @@ namespace adam
 {
     enum language : uint8_t
     {
-        language_english,
-        language_german,
+        language_english    = 0,
+        language_german     = 1,
 
         languages_count
     };

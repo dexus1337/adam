@@ -4,6 +4,28 @@
 #include <commander/messages/command.hpp>
 #include <commander/messages/response.hpp>
 
+/** @brief Tests controller's ability to process and send initial data. */
+TEST(controller, receive_initial_data)
+{
+    adam::controller& ctrl = adam::controller::get();
+    ctrl.set_language(adam::language_german);
+    ASSERT_TRUE(ctrl.run(true));
+
+    adam::commander cmd;
+    ASSERT_TRUE(cmd.connect()); // connect() implicitly requests initial data
+
+    // Verify initial data was received during connect
+    EXPECT_EQ(cmd.get_language(), adam::language_german);
+
+    // Modify language and explicitly request initial data again to verify update
+    ctrl.set_language(adam::language_english);
+    EXPECT_EQ(cmd.request_initial_data(), adam::response_status::success);
+    EXPECT_EQ(cmd.get_language(), adam::language_english);
+
+    cmd.destroy();
+    ctrl.destroy();
+}
+
 /** @brief Tests controller's ability to receive extended commands */
 TEST(controller, receive_extended_commands)
 {

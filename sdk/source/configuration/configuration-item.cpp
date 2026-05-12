@@ -1,5 +1,10 @@
 #include "configuration/configuration-item.hpp"
 #include "version/version.hpp"
+#include "configuration/parameters/configuration-parameter-boolean.hpp"
+#include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "configuration/parameters/configuration-parameter-double.hpp"
+#include "configuration/parameters/configuration-parameter-string.hpp"
+#include "configuration/parameters/configuration-parameter-reference.hpp"
 #include <fstream>
 #include <string>
 
@@ -48,9 +53,23 @@ namespace adam
         if (!loaded_root || loaded_root->get_type() != configuration_parameter::list) return false;
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
-        m_parameters.clear();
         for (auto& [name, param] : root_list->get_children())
-            m_parameters.add(std::move(param));
+        {
+            if (auto* existing = m_parameters.get(name))
+            {
+                if (auto* e_bool = dynamic_cast<configuration_parameter_boolean*>(existing)) {
+                    if (auto* p_bool = dynamic_cast<configuration_parameter_boolean*>(param.get())) e_bool->set_value(p_bool->get_value());
+                } else if (auto* e_int = dynamic_cast<configuration_parameter_integer*>(existing)) {
+                    if (auto* p_int = dynamic_cast<configuration_parameter_integer*>(param.get())) e_int->set_value(p_int->get_value());
+                } else if (auto* e_dbl = dynamic_cast<configuration_parameter_double*>(existing)) {
+                    if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get())) e_dbl->set_value(p_dbl->get_value());
+                } else if (auto* e_str = dynamic_cast<configuration_parameter_string*>(existing)) {
+                    if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get())) e_str->set_value(p_str->get_value());
+                } else if (auto* e_ref = dynamic_cast<configuration_parameter_reference*>(existing)) {
+                    if (auto* p_ref = dynamic_cast<configuration_parameter_reference*>(param.get())) e_ref->set_target(p_ref->get_target());
+                }
+            }
+        }
 
         return ifs.good();
     }

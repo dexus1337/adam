@@ -31,16 +31,20 @@ namespace adam
         ~configuration_parameter_boolean();
 
         type get_type() const override { return boolean; }
-
+ 
         /** @brief Creates a deep copy of this configuration parameter. */
-        std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_boolean>(m_str_name, m_value); }
+        std::unique_ptr<configuration_parameter> clone() const override;
 
         bool get_value() const { return m_value; }
         void set_value(bool value) { m_value = value; }
         bool& value() { return m_value; }
 
+        bool get_default_value() const { return m_value_default; }
+        void reset_to_default() { m_value = m_value_default; }
+
     private:
 
         bool m_value;
+        const bool m_value_default;
     };
 }

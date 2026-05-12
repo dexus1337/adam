@@ -47,7 +47,11 @@ namespace adam
 
         struct initial_data
         {
-            language lang;
+            struct language_info
+            {
+                language lang;
+                uint32_t supported_languages; /**< Bitfield of supported languages, indexed by the language enum value. */
+            } lang_info;
         };
 
         struct inspector_create_data

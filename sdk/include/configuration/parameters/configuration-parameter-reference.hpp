@@ -31,16 +31,20 @@ namespace adam
         ~configuration_parameter_reference();
 
         type get_type() const override { return reference; }
-
+ 
         /** @brief Creates a deep copy of this configuration parameter. */
-        std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_reference>(m_str_name, m_target); }
+        std::unique_ptr<configuration_parameter> clone() const override;
 
         const string_hashed& get_target() const { return m_target; }
         void set_target(const string_hashed& target) { m_target = target; }
         string_hashed& target() { return m_target; }
 
+        const string_hashed& get_default_target() const { return m_target_default; }
+        void reset_to_default() { m_target = m_target_default; }
+
     private:
 
         string_hashed m_target;
+        const string_hashed m_target_default;
     };
 }
