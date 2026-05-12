@@ -23,7 +23,7 @@ target_include_directories(adam-module-recrep
 )
 
 target_compile_definitions(adam-module-recrep
-    PRIVATE ADAM_SDK_EXPORTS
+    PRIVATE ADAM_USE_SHARED_SDK
     PRIVATE ADAM_RECREP_EXPORTS
 )
 

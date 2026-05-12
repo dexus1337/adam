@@ -96,10 +96,10 @@ namespace adam::gui
         m_p_log_height          = static_cast<adam::configuration_parameter_double*>(params.get("log_height"));
         m_p_log_level           = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"));
 
-        int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"))->get_value();
-        int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"))->get_value();
-        int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"))->get_value();
-        int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"))->get_value();
+        int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"))->get_value_as<int>();
+        int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"))->get_value_as<int>();
+        int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"))->get_value_as<int>();
+        int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"))->get_value_as<int>();
         bool maximized = static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"))->get_value();
         
         if (x != -1 && y != -1)

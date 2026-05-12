@@ -13,7 +13,7 @@
     #define NOMINMAX // so we can use std::min etc
     #ifdef ADAM_RECREP_EXPORTS // This should be defined when building the DLL, not when using it
         #define ADAM_RECREP_API __declspec(dllexport)
-    #elif defined(ADAM_USE_SHARED_SDK_)
+    #elif defined(ADAM_USE_SHARED_SDK)
         #define ADAM_RECREP_API __declspec(dllimport)
     #else 
         #define ADAM_RECREP_API
