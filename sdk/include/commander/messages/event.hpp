@@ -32,12 +32,12 @@ namespace adam
      * @brief Defines an event for the controller to broadcast state changes
      */
     #pragma pack(push, 1) // align to 1 byte
-    class ADAM_SDK_API event : public command_response_type<event_type>
+    class ADAM_SDK_API event : public commander_message_type<event_type>
     {
     public:
 
         /** @brief Constructs a new event object.*/
-        event(event_type t = event_type::invalid) : command_response_type(t) {}
+        event(event_type t = event_type::invalid) : commander_message_type(t) {}
 
         /** @brief Destroys the event object and cleans up resources.*/
         ~event() = default;

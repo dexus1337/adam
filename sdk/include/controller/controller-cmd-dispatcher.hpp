@@ -10,8 +10,8 @@
 
 
 #include "api/sdk-api.hpp"
-#include "commander/command-response/command.hpp"
-#include "commander/command-response/response.hpp"
+#include "commander/messages/command.hpp"
+#include "commander/messages/response.hpp"
 #include "resources/language.hpp"
 #include "os/os.hpp"
 #include "types/string-hashed.hpp"
@@ -34,7 +34,6 @@ namespace adam
     {
         os::thread_id tid;  /**< The ID of the thread that dispatched the command. */
         registry& reg;      /**< A reference to the controller's registry. */
-        language& lang;     /**< A reference to the active language configuration. */
         controller& ctrl;   /**< A reference to the main controller instance. */
         std::unordered_map<string_hashed::hash_datatype, std::shared_ptr<data_inspector>> thread_inspectors; /**< A map of data inspectors managed by this thread context. */
     };

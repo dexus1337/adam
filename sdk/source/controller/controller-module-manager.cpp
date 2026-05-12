@@ -124,7 +124,7 @@ namespace adam
                 auto sdk_min = adam::get_minor(adam::sdk_version);
                 auto sdk_pat = adam::get_patch(adam::sdk_version);
 
-                m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_sdk, m_controller.m_lang),
+            m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_sdk, m_controller.get_language()),
                     path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
 
                 m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
@@ -137,7 +137,7 @@ namespace adam
                 auto ver_maj = adam::get_major(mod->get_version());
                 auto ver_min = adam::get_minor(mod->get_version());
                 auto ver_pat = adam::get_patch(mod->get_version());
-                m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.m_lang), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str);
+            m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.get_language()), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str);
             }
 
             continue;
@@ -158,7 +158,7 @@ namespace adam
         auto it = m_available_modules.find(name);
         if (it == m_available_modules.end()) 
         {
-            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
+            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
             return false;
         }
 
@@ -169,7 +169,7 @@ namespace adam
         auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
         if (!handle) 
         {
-            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
+            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
             return false;
         }
         auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name.c_str()));
@@ -177,7 +177,7 @@ namespace adam
         auto handle = LoadLibraryA(path_str.c_str());
         if (!handle) 
         {
-            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
+            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
             return false;
         }
         auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name.c_str()));
@@ -196,7 +196,7 @@ namespace adam
             auto sdk_min = adam::get_minor(adam::sdk_version);
             auto sdk_pat = adam::get_patch(adam::sdk_version);
 
-            m_controller.log(log::error, get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_controller.m_lang),
+            m_controller.log(log::error, get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_controller.get_language()),
                 path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
             return false;
         }
@@ -206,11 +206,11 @@ namespace adam
         m_loaded_modules.emplace(mod->get_name(), mod);
         if (out_module) *out_module = mod;
         
-        m_controller.log(log::info, get_log_event_text(log_event::module_loaded, m_controller.m_lang), name.c_str(), reinterpret_cast<uintptr_t>(handle));
+        m_controller.log(log::info, get_log_event_text(log_event::module_loaded, m_controller.get_language()), name.c_str(), reinterpret_cast<uintptr_t>(handle));
         return true;
 
     UNLOAD_AND_RETURN:
-        m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.m_lang), name.c_str());
+        m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
         #ifdef ADAM_PLATFORM_LINUX
         if (handle) dlclose(handle);
         #elifdef ADAM_PLATFORM_WINDOWS

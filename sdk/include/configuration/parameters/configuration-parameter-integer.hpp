@@ -39,6 +39,9 @@ namespace adam
         void set_value(int64_t value) { m_value = value; }
         int64_t& value() { return m_value; }
 
+        template<typename integer_type>
+        integer_type get_value_as() const { return static_cast<integer_type>(m_value); }
+
     private:
 
         int64_t m_value;

@@ -1,4 +1,5 @@
 #include "controller/registry.hpp"
+#include "controller/controller.hpp"
 #include "configuration/parameters/configuration-parameter-boolean.hpp"
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
@@ -25,7 +26,9 @@ namespace adam
         m_converters(),
         m_controller(ctrl)
     {
-        
+        auto lang_param = std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english);
+        const_cast<controller&>(m_controller).m_lang_param = lang_param.get();
+        m_parameters.add(std::move(lang_param));
     }
 
     registry::~registry() 
@@ -36,6 +39,7 @@ namespace adam
     void registry::clear()
     {
         m_parameters.clear();
+        const_cast<controller&>(m_controller).m_lang_param = nullptr;
         m_ports.clear();
         m_filters.clear();
         m_converters.clear();
@@ -125,6 +129,14 @@ namespace adam
                     m_parameters.add(std::move(param));
             }
         }
+
+    const_cast<controller&>(m_controller).m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get(string_hashed("language")));
+    if (!m_controller.m_lang_param)
+    {
+        auto lang_param = std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english);
+        const_cast<controller&>(m_controller).m_lang_param = lang_param.get();
+        m_parameters.add(std::move(lang_param));
+    }
 
         // The tree structure is successfully loaded from the file!
         // In the future, you can implement the item instantiation logic here 

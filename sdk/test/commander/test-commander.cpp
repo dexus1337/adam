@@ -42,7 +42,7 @@ TEST_F(commander_test, event_broadcast_and_receive)
     std::atomic<bool> event_received{false};
     adam::event_type received_type = adam::event_type::invalid;
 
-    cmdr.set_event_callback([&](const adam::event& e) {
+    cmdr.dispatcher().register_handler(static_cast<int>(adam::event_type::language_changed), [&](const adam::event& e, adam::event_context&) {
         received_type = e.get_type();
         event_received = true;
     });

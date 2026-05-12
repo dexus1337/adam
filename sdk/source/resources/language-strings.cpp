@@ -6,7 +6,58 @@
 
 namespace adam
 {
-    std::string_view language_strings::get_controller_status_text(controller::status stat, language lang)
+    std::string_view language_strings::slave_queue_name(controller::master_queue_request req, language lang)
+    {
+        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        {
+            { 
+                static_cast<int>(controller::request_invalid),
+                { "invalid", "Ungültig" }
+            },
+            { 
+                static_cast<int>(controller::request_command),
+                { "command", "Befehl" }
+            },
+            { 
+                static_cast<int>(controller::request_command_destroy),
+                { "command", "Befehl" }
+            },
+            { 
+                static_cast<int>(controller::request_log),
+                { "log", "Protokoll" }
+            },
+            { 
+                static_cast<int>(controller::request_log_destroy),
+                { "log", "Protokoll" }
+            },
+            { 
+                static_cast<int>(controller::request_log_sink),
+                { "log sink", "Protokoll-Senke" }
+            },
+            { 
+                static_cast<int>(controller::request_log_sink_destroy),
+                { "log sink", "Protokoll-Senke" }
+            },
+            { 
+                static_cast<int>(controller::request_event),
+                { "event", "Ereignis" }
+            },
+            { 
+                static_cast<int>(controller::request_event_destroy),
+                { "event", "Ereignis" }
+            }
+        };
+
+        auto val = static_cast<int>(req);
+        auto it  = translations.find(val);
+
+        if (it != translations.end())
+            return it->second[static_cast<int>(lang)];
+        
+        return unknown_type_message("controller::master_queue_request", val, lang);
+    }
+
+    std::string_view language_strings::controller_status_text(controller::status stat, language lang)
     {
         static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
         {
@@ -14,6 +65,24 @@ namespace adam
                 static_cast<int>(controller::status::status_success),
                 {
                     "Success", "Erfolg"
+                }
+            },
+            {
+                static_cast<int>(controller::status::status_unavailable),
+                {
+                    "The master queue is not available!",                       "Die Haupt-Warteschlange ist nicht verfügbar!"
+                }
+            },
+            {
+                static_cast<int>(controller::status::status_unauthorized),
+                {
+                    "The authorization for the master queue failed!",           "Die Authentifizierung für die Haupt-Warteschlange ist fehlgeschlagen!"
+                }
+            },
+            {
+                static_cast<int>(controller::status::status_failed),
+                {
+                    "The requested operation on the master queue failed!",      "Die angeforderte Operation auf der Haupt-Warteschlange ist fehlgeschlagen!"
                 }
             },
             {
@@ -26,18 +95,6 @@ namespace adam
                 static_cast<int>(controller::status::status_queue_not_existing),
                 {
                     "The requested queue does not exists!",                     "Die angeforderte Warteschlange existiert nicht!"
-                }
-            },
-            {
-                static_cast<int>(controller::status::status_queue_unavailable),
-                {
-                    "The requested queue is not available!",                    "Die angeforderte Warteschlange ist nicht verfügbar!"
-                }
-            },
-            {
-                static_cast<int>(controller::status::status_queue_unauthorized),
-                {
-                    "The authorization for the requested qeue failed!",         "Die Authentifizierung für angeforderte Warteschlange ist fehlgeschlagen!"
                 }
             },
             {
@@ -69,7 +126,7 @@ namespace adam
         return unknown_type_message("controller::status", val, lang);
     }
 
-    std::string_view language_strings::get_response_type_text(response_status typ, language lang)
+    std::string_view language_strings::response_type_text(response_status typ, language lang)
     {
         static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
         {

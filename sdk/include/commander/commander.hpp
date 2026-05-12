@@ -13,6 +13,7 @@
 
 #include "controller/controller.hpp"
 #include "data/inspector.hpp"
+#include "commander-event-dispatcher.hpp"
 
 #include <unordered_map>
 #include <atomic>
@@ -32,6 +33,8 @@ namespace adam
      */
     class ADAM_SDK_API commander
     {
+        friend class commander_event_dispatcher;
+
     public:
 
         /** @brief Constructs a new commander object.*/
@@ -48,14 +51,17 @@ namespace adam
         /** @brief Disconnect and free resources. */
         bool destroy();
 
+        /** @brief Requests the initial data from the controller. */
+        response_status request_initial_data();
+
         /** @brief Requests the creation of a data inspector on a specific port. */
         response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
 
         /** @brief Requests the destruction of a data inspector on a specific port. */
         response_status request_inspector_destroy(data_inspector* inspector);
 
-        /** @brief Sets a callback to be invoked when an event is received from the controller. */
-        void set_event_callback(std::function<void(const event&)> callback) { m_event_callback = std::move(callback); }
+        commander_event_dispatcher& dispatcher() { return m_dispatcher; }
+        const commander_event_dispatcher& get_dispatcher() const { return m_dispatcher; }
 
     protected:
 
@@ -64,11 +70,15 @@ namespace adam
 
         void run_event_loop();
 
-        controller::queue_command m_queue_command;
-        controller::queue_event   m_queue_event;
+        controller::queue_command   m_queue_command;
+        controller::queue_event     m_queue_event;
         
-        std::thread               m_event_thread;
-        std::function<void(const event&)> m_event_callback;
+        std::thread                 m_event_thread;
+        commander_event_dispatcher  m_dispatcher;
+
+        std::ostream                m_log_outstream;
+
+        language                    m_lang;
 
         std::unordered_map<string_hashed::hash_datatype, data_inspector*> m_inspectors;
     };

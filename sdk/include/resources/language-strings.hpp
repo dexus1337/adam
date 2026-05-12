@@ -12,7 +12,7 @@
 #include <string>
 
 #include "controller/controller.hpp"
-#include "commander/command-response/response.hpp"
+#include "commander/messages/response.hpp"
 
 
 namespace adam
@@ -24,11 +24,14 @@ namespace adam
     class language_strings
     {
     public:
-        static std::string_view get_controller_status_text(controller::status stat, language lang);
+        static std::string_view controller_status_text(controller::status stat, language lang);
         
-        static std::string_view get_response_type_text(response_status typ, language lang);
+        static std::string_view slave_queue_name(controller::master_queue_request req, language lang);
+        
+        static std::string_view response_type_text(response_status typ, language lang);
 
         static std::string_view success_message(language lang);
+
         static std::string_view unknown_type_message(std::string_view type, int val, language lang);
     };
 }

@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <controller/controller.hpp>
 #include <commander/commander.hpp>
-#include <commander/command-response/command.hpp>
-#include <commander/command-response/response.hpp>
+#include <commander/messages/command.hpp>
+#include <commander/messages/response.hpp>
 
 /** @brief Tests controller's ability to receive extended commands */
 TEST(controller, receive_extended_commands)

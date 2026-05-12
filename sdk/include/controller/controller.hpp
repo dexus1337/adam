@@ -19,15 +19,16 @@
 
 #include "types/string-hashed.hpp"
 #include "types/queue-shared-duplex.hpp"
-#include "commander/command-response/command.hpp"
-#include "commander/command-response/response.hpp"
-#include "commander/command-response/event.hpp"
+#include "commander/messages/command.hpp"
+#include "commander/messages/response.hpp"
+#include "commander/messages/event.hpp"
 #include "logger/log.hpp"
 #include "os/os.hpp"
 #include "registry.hpp"
 #include "resources/language.hpp"
 #include "controller/controller-module-manager.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
+#include "configuration/parameters/configuration-parameter-integer.hpp"
 
 
 namespace adam 
@@ -51,6 +52,7 @@ namespace adam
         friend class logger;
         friend class logger_sink;
         friend class controller_module_manager;
+        friend class registry;
 
     public:
 
@@ -91,12 +93,16 @@ namespace adam
         {
             status_invalid = 0,
             status_success,
+
+            status_unavailable,
+            status_unauthorized,
+            status_failed,
+
             status_queue_existing,
             status_queue_not_existing,
-            status_queue_unavailable,
-            status_queue_unauthorized,
             status_queue_failed_create,
             status_queue_failed_destroy,
+
             status_unknown_master_request
         };
 
@@ -124,7 +130,8 @@ namespace adam
         }
 
         /** @brief Sets the default language for logs etc. */
-        void set_language(language lang) { m_lang = lang; }
+        void set_language(language lang) { if (m_lang_param) m_lang_param->set_value(static_cast<int64_t>(lang)); }
+        language get_language() const { return m_lang_param ? m_lang_param->get_value_as<language>() : language_english; }
 
         /** @brief Broadcasts an event to all connected commanders. */
         void broadcast_event(const event& e);
@@ -257,8 +264,6 @@ namespace adam
             thread_auth_failed,
             slave_queue_created,
             slave_queue_destroyed,
-            master_queue_open_failed,
-            master_queue_request_failed,
             slave_queue_already_exists,
             slave_queue_failed_to_open,
             slave_queue_failed_to_insert,
@@ -273,8 +278,10 @@ namespace adam
 
         static std::string_view get_log_event_text(log_event event, language lang);
 
-        std::ostream            m_log_outstream;
-        language                m_lang;
+        std::ostream m_log_outstream;
+
+        // PARAMETERS                                   /**< Storing commonly used parameters here for faster access */
+        configuration_parameter_integer* m_lang_param;
 
         // MODULE MANAGEMENT
         controller_module_manager       m_modules;

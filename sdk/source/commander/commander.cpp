@@ -1,14 +1,25 @@
 #include "commander/commander.hpp"
 
+#include <iostream>
 
 #include "controller/controller.hpp"
-#include "commander/command-response/command.hpp"
-#include "commander/command-response/response.hpp"
+#include "commander/messages/command.hpp"
+#include "commander/messages/response.hpp"
+#include "resources/language-strings.hpp"
 
 
 namespace adam 
 {
-    commander::commander() : m_queue_command() {}
+    commander::commander() 
+     :  m_queue_command(),
+        m_queue_event(),
+        m_dispatcher(),
+        m_lang(language_english),
+        m_inspectors(),
+        m_log_outstream(std::cout.rdbuf())
+    {
+
+    }
 
     commander::~commander() 
     {
@@ -27,8 +38,12 @@ namespace adam
         if (!m_queue_command.create(1000))
             return false;
 
-        if (controller::request_master_queue(controller::request_command) != controller::status_success)
+        controller::status resp = controller::request_master_queue(controller::request_command);
+
+        if (resp != controller::status_success)
         {
+            adam::stream_log(log::trace, language_strings::controller_status_text(resp, m_lang), m_log_outstream);
+            
             m_queue_command.destroy();
             return false;
         }
@@ -52,6 +67,12 @@ namespace adam
 
         m_event_thread = std::thread(&commander::run_event_loop, this);
 
+        if (request_initial_data() != response_status::success)
+        {
+            destroy();
+            return false;
+        }
+
         return true;
     }
 
@@ -63,8 +84,8 @@ namespace adam
         if (m_event_thread.joinable())
             m_event_thread.join();
 
-        bool res = (controller::request_master_queue(controller::request_command_destroy) == controller::status_success);
-        res &= (controller::request_master_queue(controller::request_event_destroy) == controller::status_success);
+        bool res = (controller::request_master_queue(controller::request_event_destroy) == controller::status_success);
+        res &= (controller::request_master_queue(controller::request_command_destroy) == controller::status_success);
 
         for (auto& pair : m_inspectors)
         {
@@ -73,8 +94,24 @@ namespace adam
         }
         m_inspectors.clear();
 
-        res &= m_queue_command.destroy();
         res &= m_queue_event.destroy();
+        res &= m_queue_command.destroy();
+
+        return res;
+    }
+
+    /** @brief Requests the initial data from the controller. */
+    response_status commander::request_initial_data()
+    {
+        command cmd(command_type::receive_initial_data);
+
+        response* resp = nullptr;
+        
+        auto res = send_command(cmd, &resp);
+        if (res != response_status::success || !resp)
+            return response_status::response_receive_failed;
+
+        m_lang = *resp->data_as<language>();
 
         return res;
     }
@@ -183,13 +220,14 @@ namespace adam
 
     void commander::run_event_loop()
     {
+        event_context ctx { *this };
+
         while (m_queue_event.is_active())
         {
             event incoming_event;
             if (m_queue_event.pop(incoming_event, 100))
             {
-                if (m_event_callback)
-                    m_event_callback(incoming_event);
+                m_dispatcher.dispatch(incoming_event, ctx);
             }
         }
     }

@@ -87,7 +87,7 @@ namespace adam
         m_queues_command(),
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
-        m_lang(language_english),
+        m_lang_param(nullptr),
         m_modules(*this),
         m_registry(*this),
         m_dispatcher()
@@ -155,15 +155,11 @@ namespace adam
 
     controller::status controller::request_master_queue(master_queue_request mqr)
     {
-        status resp     = status_queue_unavailable;
+        status resp     = status_unavailable;
         master_queue mq = master_queue(string_hashed(master_queue_name));
 
         if (!mq.open())
-        {
-            int mqr_val = static_cast<int>(mqr);
-            adam::stream_log(std::cout, log::trace, get_log_event_text(log_event::master_queue_open_failed, controller::get().m_lang), mqr_val);
-            return resp;
-        }
+            return status_unavailable;
 
         queue_master_request_data data;
 
@@ -171,15 +167,9 @@ namespace adam
         data.queue  = mqr;
         data.code   = calculate_secret(data.tid);
 
-        auto pres = mq.post_request(data, resp, 300);
+        if (!mq.post_request(data, resp, 300))
+            resp = status_failed;
 
-        if (!pres)
-        {
-            int mqr_val  = static_cast<int>(mqr);
-            int resp_val = static_cast<int>(resp);
-            adam::stream_log(std::cout, log::trace, get_log_event_text(log_event::master_queue_request_failed, controller::get().m_lang), mqr_val, resp_val);
-        }
-        
         mq.destroy();
 
         return resp;
@@ -200,7 +190,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_already_exists, m_lang), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_already_exists, get_language()), tid));
 
             return false;
         }
@@ -211,9 +201,9 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_open, m_lang), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_open, get_language()), tid));
 
-            m_master_queue.response_queue().push(status_queue_unavailable);
+            m_master_queue.response_queue().push(status_unavailable);
 
             return false;
         }
@@ -224,7 +214,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_insert, m_lang), tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_insert, get_language()), tid));
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -250,7 +240,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_already_exists, m_lang), tid));
+        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_already_exists, get_language()), tid));
 
             return false;
         }
@@ -261,9 +251,9 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_open, m_lang), tid));
+        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_open, get_language()), tid));
 
-            m_master_queue.response_queue().push(status_queue_unavailable);
+            m_master_queue.response_queue().push(status_unavailable);
 
             return false;
         }
@@ -280,7 +270,7 @@ namespace adam
 
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, m_lang), tid));
+        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, get_language()), tid));
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -303,7 +293,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_does_not_exist, m_lang), tid));
+        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_does_not_exist, get_language()), tid));
 
             return false;
         }
@@ -314,7 +304,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_failed_destroy);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_destroy, m_lang), tid));
+        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_destroy, get_language()), tid));
 
             return false;
         }
@@ -339,7 +329,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_does_not_exist, m_lang), tid));
+        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_does_not_exist, get_language()), tid));
 
             return false;
         }
@@ -349,7 +339,7 @@ namespace adam
         it->second->queue_thread.join();
 
         if (!it->second->queue.destroy())
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, m_lang), tid));
+        debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), tid));
 
         delete it->second;
 
@@ -370,9 +360,9 @@ namespace adam
             // check secret to only allow (basic) authenticated users
             if (req.tid != reverse_secret(req.code))
             {
-                m_master_queue.response_queue().push(status_queue_unauthorized);
+                m_master_queue.response_queue().push(status_unauthorized);
 
-                debug_statement(this->log(log::trace, get_log_event_text(log_event::thread_auth_failed, m_lang), req.tid));
+            debug_statement(this->log(log::trace, get_log_event_text(log_event::thread_auth_failed, get_language()), req.tid));
 
                 continue;
             }
@@ -442,13 +432,11 @@ namespace adam
 
             if (req.queue % 2)
             {
-                int queue_val = static_cast<int>(req.queue);
-                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_created, m_lang), req.tid, queue_val));
+                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_created, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language())));
             }
             else
             {
-                int queue_val = static_cast<int>(req.queue) - 1;
-                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_destroyed, m_lang), req.tid, queue_val));
+                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_destroyed, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language())));
             }
 
             m_master_queue.response_queue().push(status_success);
@@ -457,7 +445,7 @@ namespace adam
 
     void controller::run_queue_command(queue_command_data* data)
     {
-        command_context ctx { data->tid, m_registry, m_lang, *this, {} };
+    command_context ctx { data->tid, m_registry, *this, {} };
 
         std::vector<command> cmds;
 
@@ -519,19 +507,11 @@ namespace adam
             },
             { 
                 static_cast<int>(log_event::slave_queue_created),
-                { "Thread {:d} did successfully create queue of type {:d}.",    "Thread {:d} hat eine Warteschlange vom Typ {:d} erfolgreich erstellt." }
+                { "Thread {:d} did successfully create queue of type \"{}\".",    "Thread {:d} hat eine Warteschlange vom Typ \"{}\" erfolgreich erstellt." }
             },
             { 
                 static_cast<int>(log_event::slave_queue_destroyed),
-                { "Thread {:d} did successfully destroy queue of type {:d}.",   "Thread {:d} hat eine Warteschlange vom Typ {:d} erfolgreich entfernt." }
-            },
-            {
-                static_cast<int>(log_event::master_queue_open_failed),
-                { "Cannot open the master queue for access to queue {:d}.",     "Die Haupt-Warteschlange für den Zugriff auf Warteschlange {:d} konnte nicht geöffnet werden." }
-            },
-            {
-                static_cast<int>(log_event::master_queue_request_failed),
-                { "Request for queue {:d} failed, response {:d}.",              "Anfrage für Warteschlange {:d} fehlgeschlagen, Antwort {:d}." }
+                { "Thread {:d} did successfully destroy queue of type \"{}\".",   "Thread {:d} hat eine Warteschlange vom Typ \"{}\" erfolgreich entfernt." }
             },
             {
                 static_cast<int>(log_event::slave_queue_already_exists),

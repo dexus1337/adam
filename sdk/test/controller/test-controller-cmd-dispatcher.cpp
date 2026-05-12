@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <controller/controller.hpp>
 #include <controller/controller-cmd-dispatcher.hpp>
-#include <commander/command-response/command.hpp>
+#include <commander/messages/command.hpp>
 #include <controller/registry.hpp>
 
 class controller_cmd_dispatcher_test : public ::testing::Test
@@ -28,8 +28,7 @@ TEST_F(controller_cmd_dispatcher_test, register_and_dispatch_custom_handler)
         return adam::response(adam::response_status::success);
     });
     
-    adam::language lang = adam::language_english;
-    adam::command_context ctx { 0, reg, lang, ctrl, {} };
+    adam::command_context ctx { 0, reg, ctrl, {} };
     
     // Creating a standard command which inherently falls outside our custom boundaries unless specifically modified.
     adam::command cmd;
