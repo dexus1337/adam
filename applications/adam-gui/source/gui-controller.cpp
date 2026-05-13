@@ -24,6 +24,7 @@ namespace adam::gui
             p.add(std::make_unique<configuration_parameter_integer>("window_h"_ct, 720));
             p.add(std::make_unique<configuration_parameter_boolean>("window_maximized"_ct, false));
             p.add(std::make_unique<configuration_parameter_integer>("log_level"_ct, 0));
+            p.add(std::make_unique<configuration_parameter_integer>("language"_ct, 0));
             return p;
         }();
         return params;
@@ -64,7 +65,7 @@ namespace adam::gui
         return m_commander_active.load(std::memory_order_relaxed);
     }
 
-    std::vector<log_entry> gui_controller::get_log_history() const
+    const std::vector<log_entry>& gui_controller::get_log_history() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         return m_log_history;

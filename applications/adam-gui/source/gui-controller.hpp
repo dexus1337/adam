@@ -35,7 +35,7 @@ namespace adam::gui
         void stop();
 
         bool is_commander_active() const;
-        std::vector<log_entry> get_log_history() const;
+        const std::vector<log_entry>& get_log_history() const;
         void clear_log_history();
 
         adam::commander& get_commander() { return m_commander; }

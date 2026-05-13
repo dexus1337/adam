@@ -78,9 +78,16 @@ namespace adam::gui
         adam::configuration_parameter_double*  m_p_font_scale;
         adam::configuration_parameter_double*  m_p_log_height;
         adam::configuration_parameter_integer* m_p_log_level;
+        adam::configuration_parameter_integer* m_p_language;
         adam::configuration_parameter_integer* m_p_perf_ovly_location;
         adam::configuration_parameter_double*  m_p_perf_ovly_x;
         adam::configuration_parameter_double*  m_p_perf_ovly_y;
         adam::configuration_parameter_integer* m_p_perf_ovly_content;
+
+        adam::language m_last_lang;
+        bool           m_modules_was_empty;
+        bool           m_log_was_empty;
+        int            m_modules_table_id;
+        int            m_log_table_id;
     };
 }

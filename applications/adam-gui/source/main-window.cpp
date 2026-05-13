@@ -109,6 +109,13 @@ namespace adam::gui
         m_p_font_scale          = static_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
         m_p_log_height          = static_cast<adam::configuration_parameter_double*>(params.get("log_height"_ct));
         m_p_log_level           = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"_ct));
+        m_p_language            = static_cast<adam::configuration_parameter_integer*>(params.get("language"_ct));
+        
+        m_last_lang         = static_cast<adam::language>(255);
+        m_modules_was_empty = true;
+        m_log_was_empty     = true;
+        m_modules_table_id  = 0;
+        m_log_table_id      = 0;
 
         int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
         int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
@@ -158,7 +165,48 @@ namespace adam::gui
 
     void main_window::render()
     {
-        adam::language lang = m_ctrl.get_commander().get_language();
+        adam::language lang;
+        if (m_ctrl.is_commander_active())
+        {
+            lang = m_ctrl.get_commander().get_language();
+            m_p_language->set_value(static_cast<int64_t>(lang)); // Sync local language with commander
+        }
+        else
+        {
+            lang = static_cast<adam::language>(m_p_language->get_value());
+        }
+        
+        if (m_last_lang != lang)
+        {
+            m_modules_table_id++;
+            m_log_table_id++;
+            m_last_lang = lang;
+        }
+        
+        bool modules_empty = true;
+        if (m_ctrl.is_commander_active())
+        {
+            modules_empty = m_ctrl.get_commander().get_available_modules().empty() &&
+                            m_ctrl.get_commander().get_loaded_modules().empty() &&
+                            m_ctrl.get_commander().get_unavailable_modules().empty();
+        }
+        
+        if (m_modules_was_empty && !modules_empty)
+        {
+            m_modules_table_id++;
+            m_modules_was_empty = false;
+        }
+        else if (!m_modules_was_empty && modules_empty)
+            m_modules_was_empty = true;
+            
+        bool log_empty = m_ctrl.get_log_history().empty();
+        if (m_log_was_empty && !log_empty)
+        {
+            m_log_table_id++;
+            m_log_was_empty = false;
+        }
+        else if (!m_log_was_empty && log_empty)
+            m_log_was_empty = true;
 
         //ImGui::ShowDemoWindow();
 
@@ -181,7 +229,7 @@ namespace adam::gui
             {
                 if (ImGui::BeginCombo(get_gui_string(gui_string_id::combo_language, lang), adam::language_strings::language_name(lang, lang).data()))
                 {
-                    uint64_t available_langs = m_ctrl.get_commander().is_active() ? m_ctrl.get_commander().get_available_languages() : ((1ULL << static_cast<int>(adam::language_english)) | (1ULL << static_cast<int>(adam::language_german)));
+                    uint64_t available_langs = m_ctrl.is_commander_active() ? m_ctrl.get_commander().get_available_languages() : ((1ULL << static_cast<int>(adam::language_english)) | (1ULL << static_cast<int>(adam::language_german)));
                     
                     for (int i = 0; i < static_cast<int>(adam::languages_count); ++i)
                     {
@@ -192,8 +240,10 @@ namespace adam::gui
                         bool is_selected = (lang == avail_lang);
                         if (ImGui::Selectable(adam::language_strings::language_name(avail_lang, lang).data(), is_selected))
                         {
-                            if (m_ctrl.get_commander().is_active())
+                            if (m_ctrl.is_commander_active())
                                 m_ctrl.get_commander().request_language_change(avail_lang);
+                                
+                            m_p_language->set_value(static_cast<int64_t>(avail_lang));
                         }
                         if (is_selected)
                         {
@@ -257,6 +307,7 @@ namespace adam::gui
                 }
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_modules, lang)))
                 {
+                    ImGui::PushID(m_modules_table_id);
                     if (ImGui::BeginTable("ModulesTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
                     {
                         ImGui::TableSetupScrollFreeze(0, 1);
@@ -345,6 +396,7 @@ namespace adam::gui
 
                         ImGui::EndTable();
                     }
+                    ImGui::PopID();
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_information, lang)))
@@ -408,6 +460,7 @@ namespace adam::gui
                 m_ctrl.clear_log_history();
             }
             
+            ImGui::PushID(m_log_table_id);
             if (ImGui::BeginTable("LogTable", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, -status_bar_height)))
             {
                 ImGui::TableSetupScrollFreeze(0, 1);
@@ -450,6 +503,7 @@ namespace adam::gui
                     
                 ImGui::EndTable();
             }
+            ImGui::PopID();
         }
 
         // Status bar
@@ -467,10 +521,12 @@ namespace adam::gui
         ImGui::TextUnformatted(lang_short);
         if (ImGui::IsItemHovered())
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-        if (ImGui::IsItemClicked() && m_ctrl.get_commander().is_active())
+        if (ImGui::IsItemClicked())
         {
             adam::language new_lang = (lang == adam::language_english) ? adam::language_german : adam::language_english;
-            m_ctrl.get_commander().request_language_change(new_lang);
+            if (m_ctrl.is_commander_active())
+                m_ctrl.get_commander().request_language_change(new_lang);
+            m_p_language->set_value(static_cast<int64_t>(new_lang));
         }
         
         ImGui::End();
