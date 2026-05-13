@@ -3,9 +3,12 @@
 #include "controller/registry.hpp"
 #include "resources/language-strings.hpp"
 #include "data/port/port.hpp"
+#include "module/module.hpp"
 #include "data/inspector.hpp"
 #include "commander/messages/event.hpp"
 #include "data/connection.hpp"
+#include "configuration/parameters/configuration-parameter-string.hpp"
+#include "configuration/parameters/configuration-parameter-list.hpp"
 
 #include <array>
 #include <format>
@@ -54,13 +57,34 @@ namespace adam
             data->lang_info.supported_languages   |= ( 1 << language_english );
             data->lang_info.supported_languages   |= ( 1 << language_german );
 
-            data->mod_info.available_modules       = static_cast<uint32_t>(ctx.ctrl.modules().get_available_modules().size());
-            data->mod_info.unavailable_modules     = static_cast<uint32_t>(ctx.ctrl.modules().get_unavailable_modules().size());
-            data->mod_info.loaded_modules          = static_cast<uint32_t>(ctx.ctrl.modules().get_loaded_modules().size());
+            data->mod_info.available_modules       = static_cast<uint32_t>(ctx.reg.modules().get_available_modules().size());
+            data->mod_info.unavailable_modules     = static_cast<uint32_t>(ctx.reg.modules().get_unavailable_modules().size());
+            data->mod_info.loaded_modules          = static_cast<uint32_t>(ctx.reg.modules().get_loaded_modules().size());
 
             size_t resp_idx = 1;
 
-            for (const auto& mod : ctx.ctrl.modules().get_available_modules())
+            auto* module_paths_list = ctx.reg.get_module_paths();
+            uint32_t path_count = 0;
+            if (module_paths_list)
+            {
+                for (const auto& [name, param] : module_paths_list->get_children())
+                {
+                    auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get());
+                    if (!str_param) continue;
+
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* path_info = ctx.responses[resp_idx].data_as<module::path_info>();
+                    path_info->setup(str_param->get_value().c_str(), path_count);
+                    resp_idx++;
+                    path_count++;
+
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
+            }
+            data->mod_info.module_paths = path_count;
+
+            for (const auto& mod : ctx.reg.modules().get_available_modules())
             {
                 ctx.responses[resp_idx-1].set_extended(true);
                 auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
@@ -71,7 +95,7 @@ namespace adam
                     ctx.responses.emplace_back();
             }
 
-            for (const auto& mod : ctx.ctrl.modules().get_unavailable_modules())
+            for (const auto& mod : ctx.reg.modules().get_unavailable_modules())
             {
                 ctx.responses[resp_idx-1].set_extended(true);
                 auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
@@ -82,7 +106,7 @@ namespace adam
                     ctx.responses.emplace_back();
             }
 
-            for (const auto& mod : ctx.ctrl.modules().get_loaded_modules())
+            for (const auto& mod : ctx.reg.modules().get_loaded_modules())
             {
                 ctx.responses[resp_idx-1].set_extended(true);
                 auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
@@ -105,6 +129,80 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::module_path_add), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<command::module_path_data>();
+            string_hashed path(params->path);
+
+            if (!ctx.reg.add_module_path(path))
+            {
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_add_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::module_path_added);
+            auto* evt_data = evt.data_as<command::module_path_data>();
+            std::strncpy(evt_data->path, params->path, sizeof(evt_data->path) - 1);
+            evt_data->path[sizeof(evt_data->path) - 1] = '\0';
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_added, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::module_path_remove), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<command::module_path_data>();
+            string_hashed path(params->path);
+
+            if (!ctx.reg.remove_module_path(path))
+            {
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::module_path_removed);
+            auto* evt_data = evt.data_as<command::module_path_data>();
+            std::strncpy(evt_data->path, params->path, sizeof(evt_data->path) - 1);
+            evt_data->path[sizeof(evt_data->path) - 1] = '\0';
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_removed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::module_scan), [](const command*, size_t, command_context& ctx) 
+        {
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_scan_requested, ctx.ctrl.get_language()), ctx.tid));
+            
+            ctx.reg.modules().scan_for_modules();
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::module_load), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<command::module_action_data>();
+            string_hashed name(params->module_name);
+
+            if (ctx.reg.modules().load_module(name))
+                ctx.set_single_response_status(response_status::success);
+            else
+                ctx.set_single_response_status(response_status::failed);
+        });
+
+        register_handler(static_cast<int>(command_type::module_unload), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<command::module_action_data>();
+            string_hashed name(params->module_name);
+
+            if (ctx.reg.modules().unload_module(name))
+                ctx.set_single_response_status(response_status::success);
+            else
+                ctx.set_single_response_status(response_status::failed);
         });
 
         register_handler(static_cast<int>(command_type::port_create), [](const command* cmds, size_t, command_context& ctx) 
@@ -311,6 +409,26 @@ namespace adam
                 static_cast<int>(log_event::inspector_destroy_failed_not_found),
                 { "Thread {:d} failed to destroy inspector: Inspector not found for port \"{}\".", "Thread {:d} konnte Inspektor nicht entfernen: Kein Inspektor für Port \"{}\" gefunden." }
             },
+        {
+            static_cast<int>(log_event::module_path_added),
+            { "Thread {:d} successfully added module path \"{}\".", "Thread {:d} hat Modulpfad \"{}\" erfolgreich hinzugefügt." }
+        },
+        {
+            static_cast<int>(log_event::module_path_add_failed),
+            { "Thread {:d} failed to add module path \"{}\".", "Thread {:d} konnte Modulpfad \"{}\" nicht hinzufügen." }
+        },
+        {
+            static_cast<int>(log_event::module_path_removed),
+            { "Thread {:d} successfully removed module path \"{}\".", "Thread {:d} hat Modulpfad \"{}\" erfolgreich entfernt." }
+        },
+        {
+            static_cast<int>(log_event::module_path_remove_failed),
+            { "Thread {:d} failed to remove module path \"{}\".", "Thread {:d} konnte Modulpfad \"{}\" nicht entfernen." }
+        },
+        {
+            static_cast<int>(log_event::module_scan_requested),
+            { "Thread {:d} requested a module scan.", "Thread {:d} hat eine Modulsuche angefordert." }
+        },
             {
                 static_cast<int>(log_event::port_created),
                 { "Thread {:d} successfully created port \"{}\" of type \"{}\".", "Thread {:d} hat Port \"{}\" vom Typ \"{}\" erfolgreich erstellt." }

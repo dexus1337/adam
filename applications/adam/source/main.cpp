@@ -29,13 +29,6 @@ int main()
 
     auto& controller = adam::controller::get();
 
-    controller.modules().scan_for_modules("./modules/");
-
-    for (const auto& [name, path] : controller.modules().get_available_modules())
-    {
-        controller.modules().load_module(name);
-    }
-
     if (controller.run(true))
     {
         controller.log(adam::log::info, "adam stared succesfully!");

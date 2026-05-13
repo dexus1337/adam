@@ -7,6 +7,7 @@
 #include "commander/messages/response.hpp"
 #include "resources/language-strings.hpp"
 #include "data/port/port.hpp"
+#include "module/module.hpp"
 #include "data/connection.hpp"
 
 
@@ -18,7 +19,9 @@ namespace adam
         m_dispatcher(),
         m_log_outstream(std::cout.rdbuf()),
         m_lang(),
-        m_inspectors()
+        m_inspectors(),
+        m_registry_view(),
+        m_module_view()
     {
 
     }
@@ -134,6 +137,8 @@ namespace adam
             delete pair.second;
         }
         m_inspectors.clear();
+        m_registry_view.clear();
+        m_module_view.clear();
 
         res &= m_queue_event.destroy();
         res &= m_queue_command.destroy();
@@ -157,16 +162,28 @@ namespace adam
 
         m_lang = head->lang_info;
 
-        m_available_modules_cache.reserve(head->mod_info.available_modules);
-        m_unavailable_modules_cache.reserve(head->mod_info.unavailable_modules);
-        m_loaded_modules_cache.reserve(head->mod_info.loaded_modules);
+        m_module_view.available().reserve(head->mod_info.available_modules);
+        m_module_view.unavailable().reserve(head->mod_info.unavailable_modules);
+        m_module_view.loaded().reserve(head->mod_info.loaded_modules);
 
-        for (size_t i = 1; i < (1 + head->mod_info.available_modules + head->mod_info.unavailable_modules + head->mod_info.loaded_modules); i++)
+        size_t current_idx = 1;
+
+        for (size_t i = 0; i < head->mod_info.module_paths; i++)
         {
-            if (!resp[i-1].is_extended())
+            if (!resp[current_idx-1].is_extended())
                 break;
             
-            auto* mod_info = resp[i].data_as<module::basic_info>();
+            auto* path_info = resp[current_idx].data_as<module::path_info>();
+            m_module_view.paths().push_back(&path_info->path[0]);
+            current_idx++;
+        }
+
+        for (size_t i = 0; i < (head->mod_info.available_modules + head->mod_info.unavailable_modules + head->mod_info.loaded_modules); i++)
+        {
+            if (!resp[current_idx-1].is_extended())
+                break;
+            
+            auto* mod_info = resp[current_idx].data_as<module::basic_info>();
     
             string_hashed mod_name(&mod_info->name[0]);
             string_hashed mod_path(&mod_info->path[0]);
@@ -174,18 +191,65 @@ namespace adam
             switch (mod_info->stat)
             {
                 case module::basic_info::available:
-                    m_available_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+                    m_module_view.available().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
                     break;
                 case module::basic_info::unavailable:
-                    m_unavailable_modules_cache.emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
+                    m_module_view.unavailable().emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
                     break;
                 case module::basic_info::loaded:
-                    m_loaded_modules_cache.emplace(mod_name, nullptr); // we don't have the module pointer here, so we just put nullptr, it will be updated when we receive the module load events
+                    m_module_view.loaded().emplace(mod_name, nullptr); // we don't have the module pointer here, so we just put nullptr, it will be updated when we receive the module load events
                     break;
             }
+            current_idx++;
         }
 
         return res;
+    }
+
+    response_status commander::request_module_path_add(const string_hashed& path)
+    {
+        command cmd(command_type::module_path_add);
+        auto* data = cmd.data_as<command::module_path_data>();
+        std::strncpy(data->path, path.c_str(), sizeof(data->path) - 1);
+        data->path[sizeof(data->path) - 1] = '\0';
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_module_path_remove(const string_hashed& path)
+    {
+        command cmd(command_type::module_path_remove);
+        auto* data = cmd.data_as<command::module_path_data>();
+        std::strncpy(data->path, path.c_str(), sizeof(data->path) - 1);
+        data->path[sizeof(data->path) - 1] = '\0';
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_module_scan()
+    {
+        command cmd(command_type::module_scan);
+        return send_command(cmd);
+    }
+
+    response_status commander::request_module_load(const string_hashed& name)
+    {
+        command cmd(command_type::module_load);
+        auto* data = cmd.data_as<command::module_action_data>();
+        std::strncpy(data->module_name, name.c_str(), sizeof(data->module_name) - 1);
+        data->module_name[sizeof(data->module_name) - 1] = '\0';
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_module_unload(const string_hashed& name)
+    {
+        command cmd(command_type::module_unload);
+        auto* data = cmd.data_as<command::module_action_data>();
+        std::strncpy(data->module_name, name.c_str(), sizeof(data->module_name) - 1);
+        data->module_name[sizeof(data->module_name) - 1] = '\0';
+
+        return send_command(cmd);
     }
 
     response_status commander::request_port_create(const string_hashed& name, const string_hashed& type, const string_hashed& module_name)

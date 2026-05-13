@@ -53,7 +53,14 @@ namespace adam::gui
         stat_loaded,
         stat_unavailable,
         tt_incompat_sdk,
-        tt_incompat_unknown
+        tt_incompat_unknown,
+        lbl_module_paths,
+        btn_add_path,
+        btn_remove_path,
+        btn_scan_modules,
+        ph_new_path,
+        lbl_modules,
+        tbl_index
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);
@@ -87,7 +94,9 @@ namespace adam::gui
         adam::language m_last_lang;
         bool           m_modules_was_empty;
         bool           m_log_was_empty;
+        bool           m_module_paths_was_empty;
         int            m_modules_table_id;
         int            m_log_table_id;
+        int            m_module_paths_table_id;
     };
 }

@@ -26,7 +26,6 @@
 #include "os/os.hpp"
 #include "registry.hpp"
 #include "resources/language.hpp"
-#include "controller/controller-module-manager.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 
@@ -34,6 +33,7 @@
 namespace adam 
 {
     class module;
+    class registry_module_manager;
 
     /**
      * @class   controller
@@ -51,7 +51,7 @@ namespace adam
         friend class commander;
         friend class logger;
         friend class logger_sink;
-        friend class controller_module_manager;
+        friend class registry_module_manager;
         friend class registry;
 
     public:
@@ -135,11 +135,6 @@ namespace adam
 
         /** @brief Broadcasts an event to all connected commanders. */
         void broadcast_event(const event& e);
-
-        // MODULE MANAGEMENT
-
-        controller_module_manager& modules() { return m_modules; }
-        const controller_module_manager& get_modules() const { return m_modules; }
 
         controller_cmd_dispatcher& dispatcher() { return m_dispatcher; }
         const controller_cmd_dispatcher& get_dispatcher() const { return m_dispatcher; }
@@ -284,9 +279,6 @@ namespace adam
         // PARAMETERS                                   
         configuration_parameter_integer* m_lang_param;          /**< Storing commonly used parameters here for faster access */
 
-        // MODULE MANAGEMENT
-        controller_module_manager       m_modules;
-        
         // REGISTRY
         registry                        m_registry;             /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
 

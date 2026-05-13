@@ -18,6 +18,7 @@
 #include "configuration/configuration-item.hpp"
 #include "factory/factory.hpp"
 #include "resources/language.hpp"
+#include "controller/registry-module-manager.hpp"
 
 namespace adam
 {
@@ -55,16 +56,16 @@ namespace adam
         /** @brief Retrieves the default configuration parameters for ports. */
         static const configuration_parameter_list& get_default_parameters();
 
-        using data_format_map       = std::unordered_map<string_hashed, const data_format*>;            /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
+        using data_format_map       = std::unordered_map<string_hashed::hash_datatype, const data_format*>;            /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
         
-        using port_map              = std::unordered_map<string_hashed, std::unique_ptr<port>>;         /**< A map for storing port instances. */
-        using filter_map            = std::unordered_map<string_hashed, std::unique_ptr<filter>>;       /**< A map for storing filter instances. */
-        using converter_map         = std::unordered_map<string_hashed, std::unique_ptr<converter>>;    /**< A map for storing converter instances. */
-        using connection_map        = std::unordered_map<string_hashed, std::unique_ptr<connection>>;   /**< A map for storing connection instances. */
+        using port_map              = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<port>>;         /**< A map for storing port instances. */
+        using filter_map            = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<filter>>;       /**< A map for storing filter instances. */
+        using converter_map         = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<converter>>;    /**< A map for storing converter instances. */
+        using connection_map        = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<connection>>;   /**< A map for storing connection instances. */
 
-        using port_factory_map      = std::unordered_map<string_hashed, const factory<port>*>;          /**< A map of factories for creating ports provided by a module. */
-        using filter_factory_map    = std::unordered_map<string_hashed, const factory<filter>*>;        /**< A map of factories for creating filters provided by a module. */
-        using converter_factory_map = std::unordered_map<string_hashed, const factory<converter>*>;     /**< A map of factories for creating converters provided by a module. */
+        using port_factory_map      = std::unordered_map<string_hashed::hash_datatype, const factory<port>*>;          /**< A map of factories for creating ports provided by a module. */
+        using filter_factory_map    = std::unordered_map<string_hashed::hash_datatype, const factory<filter>*>;        /**< A map of factories for creating filters provided by a module. */
+        using converter_factory_map = std::unordered_map<string_hashed::hash_datatype, const factory<converter>*>;     /**< A map of factories for creating converters provided by a module. */
 
         /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
         registry(const registry&) = delete;
@@ -76,20 +77,18 @@ namespace adam
         converter_map&  converters()    { return m_converters; }
         connection_map& connections()   { return m_connections; }
 
+        /** @brief Retrieves the module manager. */
+        registry_module_manager&       modules()       { return m_modules; }
+        const registry_module_manager& get_modules() const { return m_modules; }
+
         /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
         status create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name = string_hashed(), port** out_port = nullptr);
-
-        /** @brief Destroys a port from the registry by its unique name, and cleans up its connections. */
-        status destroy_port(const string_hashed& name);
 
         /** @brief Destroys a port from the registry by its hash, and cleans up its connections. */
         status destroy_port(string_hashed::hash_datatype hash);
 
         /** @brief Creates a new connection and adds it to the registry. Returns the status of the operation. */
         status create_connection(const string_hashed& name, connection** out_connection = nullptr);
-
-        /** @brief Destroys a connection from the registry by its unique name. */
-        status destroy_connection(const string_hashed& name);
 
         /** @brief Destroys a connection from the registry by its hash. */
         status destroy_connection(string_hashed::hash_datatype hash);
@@ -103,10 +102,19 @@ namespace adam
         /** @brief Clears all configuration items and parameters */
         void clear();
 
+        /** @brief Retrieves the list of configured module paths. */
+        configuration_parameter_list* get_module_paths() const;
+
+        /** @brief Adds a new module path to the configuration if it doesn't already exist. */
+        bool add_module_path(const string_hashed& path);
+
+        /** @brief Removes a module path from the configuration. */
+        bool remove_module_path(const string_hashed& path);
+
     protected:
 
         /** @brief Constructs a new registry object. */
-        registry(const controller& ctrl);
+        registry(controller& ctrl);
 
         /** @brief Destroys the registry object. */
         ~registry();
@@ -118,6 +126,7 @@ namespace adam
 
         port_factory_map    m_default_port_factory; /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
 
-        const controller& m_controller;             /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
+        controller&             m_controller;       /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
+        registry_module_manager m_modules;          /**< Manages external modules loaded into the registry. */
     };
 }

@@ -3,6 +3,7 @@
 #include "controller/controller.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "configuration/parameters/configuration-parameter-list.hpp"
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
 #include "data/port/port-input-internal.hpp"
@@ -211,4 +212,50 @@ TEST_F(registry_test, port_type_and_module_persistence)
     auto* loaded_type_param = static_cast<adam::configuration_parameter_string*>(loaded_port->get_parameters().get(adam::string_hashed("type")));
     ASSERT_NE(loaded_type_param, nullptr);
     EXPECT_EQ(loaded_type_param->get_value(), adam::port_input_internal::type_name);
+}
+
+/** @brief Tests adding and removing module paths in the registry. */
+TEST_F(registry_test, add_and_remove_module_paths)
+{
+    adam::test::testable_registry reg;
+    adam::string_hashed new_path("/custom/registry/path");
+
+    // Add the path
+    EXPECT_TRUE(reg.add_module_path(new_path));
+    
+    // Adding the same path again should fail
+    EXPECT_FALSE(reg.add_module_path(new_path));
+
+    // Verify it was added correctly
+    auto* paths_list = reg.get_module_paths();
+    ASSERT_NE(paths_list, nullptr);
+    
+    bool found = false;
+    for (const auto& [name, param] : paths_list->get_children())
+    {
+        if (auto* str_param = dynamic_cast<adam::configuration_parameter_string*>(param.get()))
+        {
+            if (str_param->get_value() == new_path)
+            {
+                found = true;
+                break;
+            }
+        }
+    }
+    EXPECT_TRUE(found);
+
+    // Remove the path
+    EXPECT_TRUE(reg.remove_module_path(new_path));
+    
+    // Removing it again should fail
+    EXPECT_FALSE(reg.remove_module_path(new_path));
+
+    // Verify it was removed (using the internal get method to prove it's gone from the config)
+    for (const auto& [name, param] : paths_list->get_children())
+    {
+        if (auto* str_param = dynamic_cast<adam::configuration_parameter_string*>(param.get()))
+        {
+            EXPECT_NE(str_param->get_value(), new_path);
+        }
+    }
 }

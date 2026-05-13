@@ -6,7 +6,6 @@
 #include <iostream>
 #include <system_error>
 
-#include "controller/controller-module-manager.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "version/version.hpp"
 #include "resources/language-strings.hpp"
@@ -88,7 +87,6 @@ namespace adam
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
         m_lang_param(nullptr),
-        m_modules(*this),
         m_registry(*this),
         m_dispatcher()
     {

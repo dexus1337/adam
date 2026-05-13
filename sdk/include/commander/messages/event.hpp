@@ -27,6 +27,10 @@ namespace adam
         module_unloaded,
         module_available,
         module_unavailable,
+        module_removed,
+
+        module_path_added,
+        module_path_removed,
 
         port_created,
         port_parameter_updated,

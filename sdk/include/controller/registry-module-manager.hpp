@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    controller-module-manager.hpp
+ * @file    registry-module-manager.hpp
  * @author  dexus1337
  * @brief   Defines a manager for handling external modules within the ADAM system.
  * @version 1.0
@@ -10,7 +10,6 @@
 
 
 #include "api/sdk-api.hpp"
-#include "module/module.hpp"
 #include "types/string-hashed.hpp"
 #include "resources/language.hpp"
 
@@ -24,10 +23,10 @@ namespace adam
     class module;
 
     /**
-     * @class   controller_module_manager
+     * @class   registry_module_manager
      * @brief   Manages the discovery, loading, and lifecycle of external modules in the ADAM system.
      */
-    class ADAM_SDK_API controller_module_manager
+    class ADAM_SDK_API registry_module_manager
     {
     public:
     
@@ -37,7 +36,10 @@ namespace adam
             module_requires_newer_sdk_cannot_load,
             module_available,
             module_loaded,
-            module_load_failed
+            module_load_failed,
+            module_unloaded,
+            module_unload_failed,
+            module_removed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);
@@ -54,10 +56,10 @@ namespace adam
         using map_loaded_modules        = std::unordered_map<string_hashed, const module*>;                                 /**< A type alias for a map of loaded modules, indexed by their hashed string names. */
 
         /** @brief Constructs a new module manager object. */
-        controller_module_manager(controller& ctrl);
+        registry_module_manager(controller& ctrl);
 
         /** @brief Destroys the module manager object and cleans up resources. */
-        ~controller_module_manager();
+        ~registry_module_manager();
 
         /** @brief Retrieves a reference to the map of all available modules. */
         const map_available_modules& get_available_modules() const { return m_available_modules; }
@@ -71,11 +73,17 @@ namespace adam
         /** @brief Retrieves a pointer to a loaded module by its hashed name. */
         const module* get_loaded_module(const string_hashed& name) const;
 
-        /** @brief Scans the specified directory for module shared libraries, and registers them in the system. */
-        bool scan_for_modules(string_hashed::view directory = "");
+        /** @brief Scans known module paths for modules */
+        bool scan_for_modules();
 
         /** @brief Loads a module by its hashed name from the available modules and registers it in the loaded modules map. */
         bool load_module(const string_hashed& name, const module** out_module = nullptr);
+
+        /** @brief Unloads a specifically named module, moving it back to the available modules. */
+        bool unload_module(const string_hashed& name);
+
+        /** @brief Clears all cached module data and unloads any currently loaded modules. */
+        void clear_and_unload_all();
 
     private:
         controller&             m_controller;           /**< A reference to the controller, used for accessing shared resources and logging. */

@@ -62,6 +62,9 @@ namespace adam
         /** @brief Clears all child parameters. */
         void clear();
 
+        /** @brief Removes a child parameter by its name. */
+        void remove(const string_hashed& name) { m_children.erase(name); }
+
         /** @brief Retrieves a child parameter by its name. Returns nullptr if not found. */
         configuration_parameter* get(const string_hashed& name) const;
 

@@ -33,7 +33,7 @@ namespace adam
      */
     class ADAM_SDK_API module 
     {
-        friend class controller_module_manager; /**< The controller_module_manager class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
+        friend class registry_module_manager; /**< The registry_module_manager class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
 
     public:
 
@@ -41,8 +41,25 @@ namespace adam
         static constexpr string_hashed_ct entry_point_name = "get_adam_module";     /**< The name of the entry point function that modules must export to provide access to their module instance. */
 
         static constexpr size_t max_name_length = 64;
-        static constexpr size_t max_path_length = 256;
+        static constexpr size_t max_path_length = 384;
 
+        #pragma pack(push, 1) // align to 1 byte
+        struct path_info
+        {
+            char        path[max_path_length];
+            uint32_t    idx;
+
+            void setup(const char* p, uint32_t i)
+            {
+                std::strncpy(path, p, sizeof(path) - 1);
+                path[sizeof(path) - 1] = '\0';
+                idx = i;
+            }
+        };
+        #pragma pack(pop)
+        static_assert(sizeof(module::path_info) <= command::get_max_data_length(), "module::path_info exceeds maximum command data size");
+
+        #pragma pack(push, 1) // align to 1 byte
         struct basic_info
         {
             enum incompat_reason : uint8_t
@@ -71,6 +88,7 @@ namespace adam
                 rsn = static_cast<incompat_reason>(r);
             }
         };
+        #pragma pack(pop)
         static_assert(sizeof(module::basic_info) <= command::get_max_data_length(), "module::basic_info exceeds maximum command data size");
 
         /** @brief Constructs a new module object. */

@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <array>
 #include <map>
+#include <algorithm>
 
 namespace adam::gui 
 {
@@ -82,7 +83,14 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::stat_loaded),                 { "Loaded", "Geladen" } },
             { static_cast<int>(gui_string_id::stat_unavailable),            { "Unavailable", "Nicht verfügbar" } },
             { static_cast<int>(gui_string_id::tt_incompat_sdk),             { "Requires newer SDK version", "Benötigt neuere SDK-Version" } },
-            { static_cast<int>(gui_string_id::tt_incompat_unknown),         { "Unknown incompatibility reason", "Unbekannter Inkompatibilitätsgrund" } }
+            { static_cast<int>(gui_string_id::tt_incompat_unknown),         { "Unknown incompatibility reason", "Unbekannter Inkompatibilitätsgrund" } },
+            { static_cast<int>(gui_string_id::lbl_module_paths),            { "Module Paths", "Modulpfade" } },
+            { static_cast<int>(gui_string_id::btn_add_path),                { "Add", "Hinzufügen" } },
+            { static_cast<int>(gui_string_id::btn_remove_path),             { "Remove", "Entfernen" } },
+            { static_cast<int>(gui_string_id::btn_scan_modules),            { "Scan for Modules", "Nach Modulen suchen" } },
+            { static_cast<int>(gui_string_id::ph_new_path),                 { "Enter new path...", "Neuen Pfad eingeben..." } },
+            { static_cast<int>(gui_string_id::lbl_modules),                 { "Modules", "Module" } },
+            { static_cast<int>(gui_string_id::tbl_index),                   { "#", "#" } }
         };
 
         auto val = static_cast<int>(id);
@@ -114,8 +122,10 @@ namespace adam::gui
         m_last_lang         = static_cast<adam::language>(255);
         m_modules_was_empty = true;
         m_log_was_empty     = true;
+        m_module_paths_was_empty = true;
         m_modules_table_id  = 0;
         m_log_table_id      = 0;
+        m_module_paths_table_id = 0;
 
         int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
         int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
@@ -180,15 +190,18 @@ namespace adam::gui
         {
             m_modules_table_id++;
             m_log_table_id++;
+            m_module_paths_table_id++;
             m_last_lang = lang;
         }
         
         bool modules_empty = true;
+        bool paths_empty = true;
         if (m_ctrl.is_commander_active())
         {
-            modules_empty = m_ctrl.get_commander().get_available_modules().empty() &&
-                            m_ctrl.get_commander().get_loaded_modules().empty() &&
-                            m_ctrl.get_commander().get_unavailable_modules().empty();
+            modules_empty = m_ctrl.get_commander().get_modules().get_available().empty() &&
+                            m_ctrl.get_commander().get_modules().get_loaded().empty() &&
+                            m_ctrl.get_commander().get_modules().get_unavailable().empty();
+            paths_empty = m_ctrl.get_commander().get_modules().get_paths().empty();
         }
         
         if (m_modules_was_empty && !modules_empty)
@@ -207,6 +220,14 @@ namespace adam::gui
         }
         else if (!m_log_was_empty && log_empty)
             m_log_was_empty = true;
+            
+        if (m_module_paths_was_empty && !paths_empty)
+        {
+            m_module_paths_table_id++;
+            m_module_paths_was_empty = false;
+        }
+        else if (!m_module_paths_was_empty && paths_empty)
+            m_module_paths_was_empty = true;
 
         //ImGui::ShowDemoWindow();
 
@@ -307,6 +328,78 @@ namespace adam::gui
                 }
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_modules, lang)))
                 {
+                    if (m_ctrl.is_commander_active())
+                    {
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_module_paths, lang));
+                        ImGui::Separator();
+
+                        float btn_add_width = std::max(ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_add_path, adam::language_english)).x,
+                                                       ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_add_path, adam::language_german)).x) + ImGui::GetStyle().FramePadding.x * 2.0f;
+
+                        static char new_path[384] = "";
+                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - btn_add_width - ImGui::GetStyle().ItemSpacing.x);
+                        ImGui::InputTextWithHint("##NewPath", get_gui_string(gui_string_id::ph_new_path, lang), new_path, sizeof(new_path));
+                        ImGui::SameLine();
+                        if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang), ImVec2(btn_add_width, 0)))
+                        {
+                            if (new_path[0] != '\0')
+                            {
+                                m_ctrl.get_commander().request_module_path_add(adam::string_hashed(&new_path[0]));
+                                new_path[0] = '\0';
+                            }
+                        }
+                        
+                        ImGui::Spacing();
+                        
+                        float top_height = ImGui::GetContentRegionAvail().y * 0.35f;
+                        ImGui::PushID(m_module_paths_table_id);
+                        if (ImGui::BeginTable("ModulePathsTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, top_height)))
+                        {
+                            ImGui::TableSetupScrollFreeze(0, 1);
+                            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_index, lang), ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("99").x);
+                            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_path, lang), ImGuiTableColumnFlags_WidthStretch);
+                            ImGui::TableSetupColumn("##Actions", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_remove_path, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f);
+                            ImGui::TableHeadersRow();
+
+                            const auto& paths = m_ctrl.get_commander().get_modules().get_paths();
+                            for (size_t i = 0; i < paths.size(); ++i)
+                            {
+                                ImGui::TableNextRow();
+
+                                ImGui::TableSetColumnIndex(0);
+                                ImGui::AlignTextToFramePadding();
+                                ImGui::Text("%zu", i);
+
+                                ImGui::TableSetColumnIndex(1);
+                                ImGui::AlignTextToFramePadding();
+                                ImGui::TextUnformatted(paths[i].c_str());
+
+                                ImGui::TableSetColumnIndex(2);
+                                ImGui::PushID(static_cast<int>(i));
+                                if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang), ImVec2(-1.0f, 0.0f)))
+                                    m_ctrl.get_commander().request_module_path_remove(paths[i]);
+                                ImGui::PopID();
+                            }
+                            ImGui::EndTable();
+                        }
+                        ImGui::PopID();
+                        
+                        ImGui::Spacing();
+                        
+                        if (ImGui::Button(get_gui_string(gui_string_id::btn_scan_modules, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))
+                            m_ctrl.get_commander().request_module_scan();
+                            
+                        ImGui::Spacing();
+                        
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_modules, lang));
+                        ImGui::Separator();
+                    }
+                    else
+                    {
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_commander_disconnected, lang));
+                        ImGui::Spacing();
+                    }
+
                     ImGui::PushID(m_modules_table_id);
                     if (ImGui::BeginTable("ModulesTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
                     {
@@ -360,7 +453,10 @@ namespace adam::gui
                             ImGui::PushID(name.c_str());
                             if (status == 2) ImGui::BeginDisabled();
                             if (ImGui::Checkbox("##load", &checkbox_val)) {
-                                // Module load/unload over IPC not yet supported
+                                if (checkbox_val)
+                                    m_ctrl.get_commander().request_module_load(adam::string_hashed(name));
+                                else
+                                    m_ctrl.get_commander().request_module_unload(adam::string_hashed(name));
                             }
                             if (status == 2) ImGui::EndDisabled();
                             ImGui::PopID();
@@ -376,10 +472,10 @@ namespace adam::gui
                             };
                             std::map<std::string, module_gui_info> merged;
 
-                            for (const auto& [name_hash, data] : m_ctrl.get_commander().get_available_modules())
+                            for (const auto& [name_hash, data] : m_ctrl.get_commander().get_modules().get_available())
                                 merged[std::string(name_hash.c_str())] = { 0, data.first, std::string(data.second.c_str()), 0 };
                                 
-                            for (const auto& [name_hash, ptr] : m_ctrl.get_commander().get_loaded_modules()) {
+                            for (const auto& [name_hash, ptr] : m_ctrl.get_commander().get_modules().get_loaded()) {
                                 std::string name_str(name_hash.c_str());
                                 if (merged.find(name_str) != merged.end())
                                     merged[name_str].status = 1;
@@ -387,7 +483,7 @@ namespace adam::gui
                                     merged[name_str] = { 1, 0, "", 0 }; // dynamically loaded modules miss version/path currently
                             }
                                 
-                            for (const auto& [name_hash, data] : m_ctrl.get_commander().get_unavailable_modules())
+                            for (const auto& [name_hash, data] : m_ctrl.get_commander().get_modules().get_unavailable())
                                 merged[std::string(name_hash.c_str())] = { 2, std::get<0>(data), std::string(std::get<1>(data).c_str()), std::get<2>(data) };
                                 
                             for (const auto& [name, info] : merged)

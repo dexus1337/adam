@@ -1,8 +1,8 @@
 #include "controller/registry.hpp"
 
 #include "controller/controller.hpp"
-#include "controller/controller-module-manager.hpp"
 #include "configuration/configuration-item.hpp"
+#include "module/module.hpp"
 #include "data/port/port-input-internal.hpp"
 #include "data/port/port-output-internal.hpp"
 #include "data/processors/filter.hpp"
@@ -50,19 +50,25 @@ namespace adam
         {
             adam::configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english));
+            
+            auto module_paths = std::make_unique<configuration_parameter_list>(string_hashed("module_paths"));
+            module_paths->add(std::make_unique<configuration_parameter_string>(string_hashed("0"), "./modules/"_ct));
+            p.add(std::move(module_paths));
+
             return p;
         }();
         return params;
     }
 
-    registry::registry(const controller& ctrl) 
+    registry::registry(controller& ctrl) 
      :  configuration_item(string_hashed("general")),
         m_ports(),
         m_filters(),
         m_converters(),
         m_connections(),
         m_default_port_factory(),
-        m_controller(ctrl)
+        m_controller(ctrl),
+        m_modules(ctrl)
     {
         add_parameters(get_default_parameters());
 
@@ -114,7 +120,7 @@ namespace adam
         // 2. Lookup the appropriate factory
         if (!module_name.empty())
         {
-            const module* mod = m_controller.get_modules().get_loaded_module(module_name);
+            const module* mod = m_modules.get_loaded_module(module_name);
             if (!mod)
                 return status_error_module_not_found; // Module not found or not loaded
 
@@ -181,11 +187,6 @@ namespace adam
         return status_success;
     }
 
-    registry::status registry::destroy_port(const string_hashed& name)
-    {
-        return destroy_port(name.get_hash());
-    }
-
     registry::status registry::create_connection(const string_hashed& name, connection** out_connection)
     {
         if (out_connection) 
@@ -210,12 +211,7 @@ namespace adam
         m_connections.erase(it);
         return status_success;
     }
-
-    registry::status registry::destroy_connection(const string_hashed& name)
-    {
-        return destroy_connection(name.get_hash());
-    }
-
+    
     bool registry::save(string_hashed::view filepath) const 
     {
         std::ofstream ofs(std::string(filepath), std::ios::binary);
@@ -304,6 +300,24 @@ namespace adam
                         if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get())) e_dbl->set_value(p_dbl->get_value());
                     } else if (auto* e_str = dynamic_cast<configuration_parameter_string*>(existing)) {
                         if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get())) e_str->set_value(p_str->get_value());
+                    } else if (auto* e_lst = dynamic_cast<configuration_parameter_list*>(existing)) {
+                        if (auto* p_lst = dynamic_cast<configuration_parameter_list*>(param.get())) {
+                            if (e_lst->get_name() == string_hashed("module_paths")) {
+                                for (auto& [child_name, child_param] : p_lst->get_children()) {
+                                    if (child_param->get_type() == configuration_parameter::string) {
+                                        if (auto* child_existing = e_lst->get(child_name)) {
+                                            if (auto* e_child_str = dynamic_cast<configuration_parameter_string*>(child_existing)) {
+                                                e_child_str->set_value(static_cast<configuration_parameter_string*>(child_param.get())->get_value());
+                                            }
+                                        } else {
+                                            auto new_param = std::make_unique<configuration_parameter_string>(child_param->get_name());
+                                            new_param->set_value(static_cast<configuration_parameter_string*>(child_param.get())->get_value());
+                                            e_lst->add(std::move(new_param));
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -317,6 +331,9 @@ namespace adam
                 copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(general_mock_param));
             }
         }
+
+        m_modules.clear_and_unload_all();
+        m_modules.scan_for_modules();
 
         // 2. Restore ports
         if (auto* ports_mock_param = root_list->get(string_hashed("ports")))
@@ -354,5 +371,55 @@ namespace adam
         }
 
         return ifs.good();
+    }
+
+    configuration_parameter_list* registry::get_module_paths() const
+    {
+        return dynamic_cast<configuration_parameter_list*>(m_parameters.get(string_hashed("module_paths")));
+    }
+
+    bool registry::add_module_path(const string_hashed& path)
+    {
+        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get(string_hashed("module_paths"))))
+        {
+            for (const auto& [name, param] : list->get_children())
+            {
+                if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
+                    if (str_param->get_value() == path) return false; // Already exists
+            }
+            
+            string_hashed new_key(std::to_string(path.get_hash()));
+            auto new_param = std::make_unique<configuration_parameter_string>(new_key);
+            new_param->set_value(path);
+            list->add(std::move(new_param));
+            return true;
+        }
+        return false;
+    }
+
+    bool registry::remove_module_path(const string_hashed& path)
+    {
+        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get(string_hashed("module_paths"))))
+        {
+            string_hashed key_to_remove;
+            bool found = false;
+            for (const auto& [name, param] : list->get_children())
+            {
+                if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
+                    if (str_param->get_value() == path)
+                    {
+                        key_to_remove = name;
+                        found = true;
+                        break;
+                    }
+            }
+            
+            if (found)
+            {
+                list->remove(key_to_remove);
+                return true;
+            }
+        }
+        return false;
     }
 }

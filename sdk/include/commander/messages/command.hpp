@@ -33,6 +33,12 @@ namespace adam
 
         set_language,
 
+        module_path_add,
+        module_path_remove,
+        module_scan,
+        module_load,
+        module_unload,
+
         port_create,
         port_set_parameter,
         port_destroy,
@@ -57,17 +63,31 @@ namespace adam
             language_info lang_info;
             struct module_base_info
             {
-                uint32_t available_modules      = 0;
-                uint32_t unavailable_modules    = 0;
-                uint32_t loaded_modules         = 0;
+                uint32_t    module_paths            = 0;
+                uint32_t    available_modules       = 0;
+                uint32_t    unavailable_modules     = 0;
+                uint32_t    loaded_modules          = 0;
             } mod_info;
         };
         static_assert(sizeof(initial_data_header) <= command::get_max_data_length(), "initial_data_header exceeds maximum command data size");
+
+        struct module_path_data
+        {
+            char path[384]; // matches module::max_path_length
+        };
+        static_assert(sizeof(module_path_data) <= command::get_max_data_length(), "module_path_data exceeds maximum command data size");
+
+        struct module_action_data
+        {
+            char module_name[64]; // matches module::max_name_length
+        };
+        static_assert(sizeof(module_action_data) <= command::get_max_data_length(), "module_action_data exceeds maximum command data size");
 
         struct port_destroy_data
         {
             string_hashed::hash_datatype port;
         };
+        static_assert(sizeof(port_destroy_data) <= command::get_max_data_length(), "port_destroy_data exceeds maximum command data size");
 
         struct port_parameter_updated_data
         {
@@ -91,6 +111,7 @@ namespace adam
         {
             string_hashed::hash_datatype connection;
         };
+        static_assert(sizeof(connection_destroy_data) <= command::get_max_data_length(), "connection_destroy_data exceeds maximum command data size");
 
         /** @brief Constructs a new command object.*/
         command(command_type t = command_type::invalid) : commander_message_template(t) {}
