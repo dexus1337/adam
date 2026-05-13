@@ -13,12 +13,14 @@
 
 #include <string_view>
 #include <memory>
+#include <unordered_map>
 
 #include "configuration/configuration-item.hpp"
-
+#include "factory/factory.hpp"
 
 namespace adam
 {
+    class data_format;
     class controller;
     class port;
     class converter;
@@ -35,15 +37,35 @@ namespace adam
 
     public:
     
+        /** @brief Retrieves the default configuration parameters for ports. */
+        static const configuration_parameter_list& get_default_parameters();
+
+        using data_format_map       = std::unordered_map<string_hashed, const data_format*>;            /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
+        
+        using port_map              = std::unordered_map<string_hashed, std::unique_ptr<port>>;         /**< A map for storing port instances. */
+        using filter_map            = std::unordered_map<string_hashed, std::unique_ptr<filter>>;       /**< A map for storing filter instances. */
+        using converter_map         = std::unordered_map<string_hashed, std::unique_ptr<converter>>;    /**< A map for storing converter instances. */
+        using connection_map        = std::unordered_map<string_hashed, std::unique_ptr<connection>>;   /**< A map for storing connection instances. */
+
+        using port_factory_map      = std::unordered_map<string_hashed, const factory<port>*>;          /**< A map of factories for creating ports provided by a module. */
+        using filter_factory_map    = std::unordered_map<string_hashed, const factory<filter>*>;        /**< A map of factories for creating filters provided by a module. */
+        using converter_factory_map = std::unordered_map<string_hashed, const factory<converter>*>;     /**< A map of factories for creating converters provided by a module. */
+
         /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
         registry(const registry&) = delete;
         registry& operator=(const registry&) = delete;
 
         /** @brief Retrieves the list of configuration parameters for input ports. */
-        std::unordered_map<string_hashed, std::unique_ptr<port>>&       ports()         { return m_ports; }
-        std::unordered_map<string_hashed, std::unique_ptr<filter>>&     filters()       { return m_filters; }
-        std::unordered_map<string_hashed, std::unique_ptr<converter>>&  converters()    { return m_converters; }
-        std::unordered_map<string_hashed, std::unique_ptr<connection>>& connections()   { return m_connections; }
+        port_map&       ports()         { return m_ports; }
+        filter_map&     filters()       { return m_filters; }
+        converter_map&  converters()    { return m_converters; }
+        connection_map& connections()   { return m_connections; }
+
+        /** @brief Creates a new port using the appropriate factory and adds it to the registry. */
+        port* create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name = string_hashed());
+
+        /** @brief Removes a port from the registry by its unique name, and cleans up its connections. */
+        bool remove_port(const string_hashed& name);
 
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;
@@ -62,11 +84,13 @@ namespace adam
         /** @brief Destroys the registry object. */
         ~registry();
 
-        std::unordered_map<string_hashed, std::unique_ptr<port>>        m_ports;        /**< The list of configuration parameters for ports. */
-        std::unordered_map<string_hashed, std::unique_ptr<filter>>      m_filters;      /**< The list of configuration parameters for filters. */
-        std::unordered_map<string_hashed, std::unique_ptr<converter>>   m_converters;   /**< The list of configuration parameters for converters. */
-        std::unordered_map<string_hashed, std::unique_ptr<connection>>  m_connections;  /**< The list of configuration parameters for connections. */
+        port_map            m_ports;                /**< The list of configuration parameters for ports. */
+        filter_map          m_filters;              /**< The list of configuration parameters for filters. */
+        converter_map       m_converters;           /**< The list of configuration parameters for converters. */
+        connection_map      m_connections;          /**< The list of configuration parameters for connections. */
 
-        const controller& m_controller;                                                 /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
+        port_factory_map    m_default_port_factory; /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
+
+        const controller& m_controller;             /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
     };
 }

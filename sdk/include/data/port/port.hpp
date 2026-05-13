@@ -24,15 +24,23 @@ namespace adam
     /**
      * @class port
      * @brief A base class for ports, providing a common interface for handling data flow in the ADAM system.
+     * 
+     *        Provides the following configuraton parameter:
+     *        - type:           The type of the port, used for identification and lookup in the ADAM system. Each port implementation should have a unique type string.
+     *        - data_format:    The name of the data format associated with this port
+     * 
      */
     class ADAM_SDK_API port : public configuration_item
     {
     public:
 
+        /** @brief Retrieves the default configuration parameters for ports. */
+        static const configuration_parameter_list& get_default_parameters();
+
         /** @brief Destroys the port object and cleans up resources. */
         virtual ~port();
 
-        virtual const string_hashed& get_type_name() const = 0;
+        virtual const string_hashed_ct& get_type_name() const = 0;
 
         const data_format* get_data_format() const { return m_data_format; }
 
@@ -42,11 +50,10 @@ namespace adam
         /** @brief Data management routine */
         virtual bool handle_data(buffer* buffer);
 
-
     protected:
 
         /** @brief Constructs a new port object. */
-        port(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        port(const string_hashed& item_name);
 
         const data_format* m_data_format;                                       /**< The data format associated with this port, used for parsing/serializing data. */
 

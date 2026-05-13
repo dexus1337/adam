@@ -83,10 +83,10 @@
         EXPECT_TRUE(test_map.contains(rt_key.get_hash())); \
     }
 
-/*GENERATE_STRING_HASHED_CT_TESTS(char, , char)
+GENERATE_STRING_HASHED_CT_TESTS(char, , char)
 GENERATE_STRING_HASHED_CT_TESTS(wchar_t, L, wchar)
 #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
 GENERATE_STRING_HASHED_CT_TESTS(char8_t, u8, char8)
 #endif
 GENERATE_STRING_HASHED_CT_TESTS(char16_t, u, char16)
-GENERATE_STRING_HASHED_CT_TESTS(char32_t, U, char32)*/
+GENERATE_STRING_HASHED_CT_TESTS(char32_t, U, char32)

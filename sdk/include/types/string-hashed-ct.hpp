@@ -25,7 +25,7 @@ namespace adam
      * @brief A class for handling hashed strings in the ADAM system.
      */
     template<typename char_type>
-    class ADAM_SDK_API string_hashed_ct_template
+    class string_hashed_ct_template
     {
     public:
 
@@ -33,7 +33,7 @@ namespace adam
         
         /** @brief Constructs a new string_hashed_ct_template object. */
         template<size_t string_len>
-        constexpr string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(arr), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
+        consteval string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(&arr[0]), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
 
         constexpr hash_datatype get_hash()  const { return m_hash; }
         
@@ -52,7 +52,7 @@ namespace adam
         constexpr bool operator<(const string_hashed_ct_template& other) const { return m_hash < other.m_hash; }
 
         /** @brief Assigns the value of another string_hashed_ct_template object to this one. */
-        constexpr string_hashed_ct_template& operator=(const string_hashed_ct_template& other);
+        string_hashed_ct_template& operator=(const string_hashed_ct_template&) = delete;
 
     private:
         const char_type*    m_text;

@@ -11,6 +11,11 @@
 #include "api/sdk-api.hpp"
 #include "types/string-hashed.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-string.hpp"
+#include "configuration/parameters/configuration-parameter-boolean.hpp"
+#include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "configuration/parameters/configuration-parameter-double.hpp"
+#include "configuration/parameters/configuration-parameter-reference.hpp"
 
 namespace adam 
 {
@@ -32,11 +37,18 @@ namespace adam
         const configuration_parameter_list& get_parameters() const { return m_parameters; }
         configuration_parameter_list&       get_parameters()       { return m_parameters; }
 
+        /** @brief Retrieves a specific configuration parameter by name. */
+        template<typename T>
+        T* get_parameter(const string_hashed& name) const { return dynamic_cast<T*>(m_parameters.get(name)); }
+
         /** @brief Saves the configuration item's parameters to a binary file. */
         virtual bool save(string_hashed::view filepath) const;
 
         /** @brief Loads the configuration item's parameters from a binary file. */
         virtual bool load(string_hashed::view filepath);
+
+        /** @brief Adds additional parameters to this configuration item. */
+        void add_parameters(const configuration_parameter_list& params);
 
     protected:
 

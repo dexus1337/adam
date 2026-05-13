@@ -11,8 +11,9 @@
  
 #include "api/sdk-api.hpp"
 
-#include <string_view>
 #include "configuration/parameters/configuration-parameter.hpp"
+#include "types/string-hashed.hpp"
+#include "types/string-hashed-ct.hpp"
 
 
 namespace adam 
@@ -25,7 +26,11 @@ namespace adam
     {
     public:
         /** @brief Constructs a new configuration_parameter_string object. */
-        configuration_parameter_string(const string_hashed& name, string_hashed::view value = "");
+        configuration_parameter_string(const string_hashed& name, const string_hashed_ct& default_value = string_hashed_ct(""));
+
+        /** @brief Constructs a new configuration_parameter_string from a string literal, enabling automatic compile-time hashing. */
+        template<size_t N>
+        configuration_parameter_string(const string_hashed& name, const char (&default_value)[N]) : configuration_parameter(name), m_value(string_hashed_ct(default_value)), m_value_default(default_value) {}
 
         /** @brief Destroys the configuration_parameter_string object and cleans up resources. */
         ~configuration_parameter_string();
@@ -35,16 +40,16 @@ namespace adam
         /** @brief Creates a deep copy of this configuration parameter. */
         std::unique_ptr<configuration_parameter> clone() const override;
 
-        const std::string& get_value() const { return m_value; }
-        void set_value(string_hashed::view value) { m_value = value; }
-        std::string& value() { return m_value; }
+        const string_hashed& get_value() const { return m_value; }
+        void set_value(const string_hashed& value) { m_value = value; }
+        string_hashed& value() { return m_value; }
 
-        const std::string& get_default_value() const { return m_value_default; }
+        const string_hashed_ct& get_default_value() const { return m_value_default; }
         void reset_to_default() { m_value = m_value_default; }
 
     private:
 
-        std::string m_value;
-        const std::string m_value_default;
+        string_hashed       m_value;
+        string_hashed_ct    m_value_default;
     };
 }

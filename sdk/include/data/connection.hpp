@@ -30,7 +30,7 @@ namespace adam
     public:
 
         /** @brief Constructs a new connection object. */
-        connection(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        connection(const string_hashed& item_name);
 
         /** @brief Destroys the connection object and cleans up resources. */
         ~connection();

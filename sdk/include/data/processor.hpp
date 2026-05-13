@@ -37,7 +37,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new data processor object. */
-        data_processor(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        data_processor(const string_hashed& item_name);
 
         const data_format* m_format_input;     /**< The data format of input data. */
         const data_format* m_format_output;    /**< The data format of data after leaving this class. */

@@ -25,15 +25,15 @@ namespace adam
     {
     public:
 
-        static inline string_hashed type_name = "input_internal";
+        static constexpr string_hashed_ct type_name = "input_internal";
 
         /** @brief Constructs a new input port object. */
-        port_input_internal(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        port_input_internal(const string_hashed& item_name);
 
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input_internal();
 
-        virtual const string_hashed& get_type_name() const override { return type_name; }
+        virtual const string_hashed_ct& get_type_name() const override { return type_name; }
 
     protected:
 

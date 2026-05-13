@@ -29,7 +29,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new input port object. */
-        port_output(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        port_output(const string_hashed& item_name);
 
     };
 }

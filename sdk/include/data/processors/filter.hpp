@@ -30,7 +30,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new filter object. */
-        filter(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        filter(const string_hashed& item_name);
 
     };
 }

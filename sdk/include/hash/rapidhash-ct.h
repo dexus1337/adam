@@ -55,22 +55,22 @@
  
  #ifdef __cplusplus
  # define RAPIDHASH_CT_NOEXCEPT noexcept
- # define RAPIDHASH_CT_CONSTEXPR constexpr
+ # define RAPIDHASH_CT_CONSTEVAL consteval
  # ifndef RAPIDHASH_CT_INLINE
  #   define RAPIDHASH_CT_INLINE RAPIDHASH_CT_ALWAYS_INLINE
  # endif
  # if __cplusplus >= 201402L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
- #   define RAPIDHASH_CT_INLINE_CONSTEXPR RAPIDHASH_CT_ALWAYS_INLINE constexpr
+ #   define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE consteval
  # else
- #   define RAPIDHASH_CT_INLINE_CONSTEXPR RAPIDHASH_CT_ALWAYS_INLINE
+ #   define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE
  # endif
  #else
  # define RAPIDHASH_CT_NOEXCEPT
- # define RAPIDHASH_CT_CONSTEXPR static const
+ # define RAPIDHASH_CT_CONSTEVAL static const
  # ifndef RAPIDHASH_CT_INLINE
  #   define RAPIDHASH_CT_INLINE static RAPIDHASH_CT_ALWAYS_INLINE
  # endif
- # define RAPIDHASH_CT_INLINE_CONSTEXPR RAPIDHASH_CT_INLINE
+ # define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_INLINE
  #endif
 
  /*
@@ -127,7 +127,7 @@
  /*
   *  Default secret parameters.
   */
-   RAPIDHASH_CT_CONSTEXPR uint64_t rapid_ct_secret[8] = {
+   constexpr uint64_t rapid_ct_secret[8] = {
      0x2d358dccaa6c78a5ull,
      0x8bb84b93962eacc9ull,
      0x4b33a62ed433d4a3ull,
@@ -153,7 +153,7 @@
   *  Xors and overwrites A contents with C's low 64 bits.
   *  Xors and overwrites B contents with C's high 64 bits.
   */
- RAPIDHASH_CT_INLINE_CONSTEXPR void rapid_ct_mum(uint64_t *A, uint64_t *B) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL void rapid_ct_mum(uint64_t *A, uint64_t *B) RAPIDHASH_CT_NOEXCEPT {
  #if defined(__SIZEOF_INT128__)
    __uint128_t r=*A; r*=*B;
    #ifdef RAPIDHASH_CT_PROTECTED
@@ -184,14 +184,14 @@
   *  Calculates 128-bit C = A * B.
   *  Returns 64-bit xor between high and low 64 bits of C.
   */
-  RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_mix(uint64_t A, uint64_t B) RAPIDHASH_CT_NOEXCEPT { rapid_ct_mum(&A,&B); return A^B; }
+  RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_mix(uint64_t A, uint64_t B) RAPIDHASH_CT_NOEXCEPT { rapid_ct_mum(&A,&B); return A^B; }
  
  /*
   *  Read functions.
   */
  #ifdef RAPIDHASH_CT_LITTLE_ENDIAN
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT  {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT  {
     static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
     uint64_t v = 0;
     for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
@@ -200,7 +200,7 @@
     return v;
 }
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
     static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
     uint32_t v = 0;
     for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
@@ -210,7 +210,7 @@
 }
  #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__clang__)
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
     static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
     uint64_t v = 0;
     for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
@@ -219,7 +219,7 @@
     return __builtin_bswap64(v);
 }
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint32_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
     static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
     uint32_t v = 0;
     for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
@@ -229,7 +229,7 @@
 }
  #else
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT {
     static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
     uint64_t v = 0;
     for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
@@ -238,7 +238,7 @@
    return (((v >> 56) & 0xff)| ((v >> 40) & 0xff00)| ((v >> 24) & 0xff0000)| ((v >>  8) & 0xff000000)| ((v <<  8) & 0xff00000000)| ((v << 24) & 0xff0000000000)| ((v << 40) & 0xff000000000000)| ((v << 56) & 0xff00000000000000));
  }
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_read32(const type *p) RAPIDHASH_CT_NOEXCEPT {
     static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
     uint32_t v = 0;
     for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
@@ -249,7 +249,7 @@
  #endif
  
 template<typename type>
-RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_get_byte(const type *p, size_t byte_idx) RAPIDHASH_CT_NOEXCEPT {
+RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_get_byte(const type *p, size_t byte_idx) RAPIDHASH_CT_NOEXCEPT {
     size_t elem_idx = byte_idx / sizeof(type);
 #ifdef RAPIDHASH_CT_LITTLE_ENDIAN
     size_t shift = (byte_idx % sizeof(type)) * 8;
@@ -270,7 +270,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapid_ct_get_byte(const type *p, size_t b
   *  Returns a 64-bit hash.
   */
 template<typename type>
-RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, size_t len, uint64_t seed, const uint64_t* secret) RAPIDHASH_CT_NOEXCEPT {
+RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_internal(const type *key, size_t len, uint64_t seed, const uint64_t* secret) RAPIDHASH_CT_NOEXCEPT {
   const type *p=key;
   seed ^= rapid_ct_mix(seed ^ secret[2], secret[1]);
   uint64_t a=0, b=0;
@@ -384,7 +384,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
   *  Returns a 64-bit hash.
   */
   template<typename type>
-  RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Micro_internal(const type *key, size_t len, uint64_t seed, const uint64_t* secret) RAPIDHASH_CT_NOEXCEPT {
+  RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_Micro_internal(const type *key, size_t len, uint64_t seed, const uint64_t* secret) RAPIDHASH_CT_NOEXCEPT {
     const type *p=(const type *)key;
     seed ^= rapid_ct_mix(seed ^ secret[2], secret[1]);
     uint64_t a=0, b=0;
@@ -455,7 +455,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
   *  Returns a 64-bit hash.
   */
   template<typename type>
-  RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhashNano_internal(const type *key, size_t len, uint64_t seed, const uint64_t* secret) RAPIDHASH_CT_NOEXCEPT {
+  RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhashNano_internal(const type *key, size_t len, uint64_t seed, const uint64_t* secret) RAPIDHASH_CT_NOEXCEPT {
     const type *p=(const type *)key;
     seed ^= rapid_ct_mix(seed ^ secret[2], secret[1]);
     uint64_t a=0, b=0;
@@ -516,7 +516,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_internal(const type *key, si
  *  Returns a 64-bit hash.
  */
 template<typename type>
-RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
+RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
   return rapidhash_ct_internal(key, len, seed, rapid_ct_secret);
 }
  
@@ -531,7 +531,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_withSeed(const type *key, si
  *  Returns a 64-bit hash.
  */
 template<typename type>
-RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
+RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
   return rapidhash_ct_withSeed(key, len, 0);
 }
 
@@ -551,7 +551,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct(const type *key, size_t len)
  *  Returns a 64-bit hash.
  */
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Micro_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_Micro_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
   return rapidhash_ct_Micro_internal(key, len, seed, rapid_ct_secret);
 }
  
@@ -566,7 +566,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct(const type *key, size_t len)
  *  Returns a 64-bit hash.
  */
 template<typename type>
-RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Micro(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
+RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_Micro(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
   return rapidhash_ct_Micro_withSeed(key, len, 0);
 }
 
@@ -582,7 +582,7 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Micro(const type *key, size_
  *  Returns a 64-bit hash.
  */
  template<typename type>
- RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Nano_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
+ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_Nano_withSeed(const type *key, size_t len, uint64_t seed) RAPIDHASH_CT_NOEXCEPT {
   return rapidhash_ct_Nano_internal(key, len, seed, rapid_ct_secret);
 }
  
@@ -601,6 +601,6 @@ RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Micro(const type *key, size_
  *  Returns a 64-bit hash.
  */
 template<typename type>
-RAPIDHASH_CT_INLINE_CONSTEXPR uint64_t rapidhash_ct_Nano(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
+RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_Nano(const type *key, size_t len) RAPIDHASH_CT_NOEXCEPT {
   return rapidhash_ct_Nano_withSeed(key, len, 0);
 }

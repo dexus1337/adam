@@ -141,32 +141,25 @@ namespace adam
         register_handler(static_cast<int>(command_type::inspector_destroy), [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<command::inspector_destroy_data>();
-            auto port = ctx.reg.ports().find(params->port);
-
-            if (port == ctx.reg.ports().end())
-            {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_port_unknown, ctx.ctrl.get_language()), ctx.tid, port_hash));
-                ctx.set_single_response_status(response_status::unknown);
-                return;
-            }
-
-            const auto& port_name = port->second->get_name();
             auto it = ctx.thread_inspectors.find(params->port);
 
             if (it == ctx.thread_inspectors.end())
             {
-                auto name_view = port_name.c_str();
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.ctrl.get_language()), ctx.tid, name_view));
+                std::string port_str = std::to_string(static_cast<uint64_t>(params->port));
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.ctrl.get_language()), ctx.tid, port_str));
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
 
-            port->second->inspectors().remove(it->second);
+            auto port = ctx.reg.ports().find(params->port);
+            std::string port_str = port != ctx.reg.ports().end() ? std::string(port->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->port));
+
+            if (port != ctx.reg.ports().end())
+                port->second->inspectors().remove(it->second);
+
             ctx.thread_inspectors.erase(it);
 
-            auto name_view = port_name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, name_view));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str));
             ctx.set_single_response_status(response_status::success);
         });
     }

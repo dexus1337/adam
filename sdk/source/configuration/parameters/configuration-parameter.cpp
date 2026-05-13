@@ -103,10 +103,18 @@ namespace adam
                 read_binary(is, value);
                 return std::make_unique<configuration_parameter_boolean>(name, value);
             }
-            case configuration_parameter::string: 
-                return std::make_unique<configuration_parameter_string>(name, read_string(is));
+            case configuration_parameter::string:
+            {
+                auto res = std::make_unique<configuration_parameter_string>(name);
+                res->set_value(read_string(is));
+                return res;
+            }
             case configuration_parameter::reference: 
-                return std::make_unique<configuration_parameter_reference>(name, read_string(is));
+            {
+                auto res = std::make_unique<configuration_parameter_reference>(name);
+                res->set_target(read_string(is));
+                return res;
+            }
             case configuration_parameter::list: 
             {
                 auto list_param = std::make_unique<configuration_parameter_list>(name);

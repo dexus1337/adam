@@ -280,14 +280,14 @@ namespace adam
 
         std::ostream m_log_outstream;
 
-        // PARAMETERS                                   /**< Storing commonly used parameters here for faster access */
-        configuration_parameter_integer* m_lang_param;
+        // PARAMETERS                                   
+        configuration_parameter_integer* m_lang_param;          /**< Storing commonly used parameters here for faster access */
 
         // MODULE MANAGEMENT
         controller_module_manager       m_modules;
         
         // REGISTRY
-        registry                        m_registry; /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
+        registry                        m_registry;             /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
 
         // DISPATCHER
         controller_cmd_dispatcher       m_dispatcher;

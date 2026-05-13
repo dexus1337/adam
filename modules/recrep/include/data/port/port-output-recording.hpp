@@ -24,14 +24,14 @@ namespace adam::modules::recrep
     {
     public:
 
-        static inline string_hashed type_name = "recording";
+        static constexpr string_hashed_ct type_name = "recording";
 
         /** @brief Constructs a new output port object. */
-        port_output_recording(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        port_output_recording(const string_hashed& item_name);
 
         /** @brief Destroys the output port object and cleans up resources. */
         ~port_output_recording();
 
-        virtual const string_hashed& get_type_name() const override { return type_name; }
+        virtual const string_hashed_ct& get_type_name() const override { return type_name; }
     };
 }

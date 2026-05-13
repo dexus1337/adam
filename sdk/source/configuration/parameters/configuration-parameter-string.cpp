@@ -2,8 +2,8 @@
 
 namespace adam
 {
-    configuration_parameter_string::configuration_parameter_string(const string_hashed& name, string_hashed::view value)
-        : configuration_parameter(name), m_value(value), m_value_default(value) {}
+    configuration_parameter_string::configuration_parameter_string(const string_hashed& name, const string_hashed_ct& default_value)
+        : configuration_parameter(name), m_value(default_value), m_value_default(default_value) {}
         
     configuration_parameter_string::~configuration_parameter_string() {}
 

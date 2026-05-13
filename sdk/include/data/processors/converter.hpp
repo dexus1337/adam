@@ -28,7 +28,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new data processor object. */
-        converter(const string_hashed& item_name, const configuration_parameter_list& default_params = configuration_parameter_list());
+        converter(const string_hashed& item_name);
 
     };
 }

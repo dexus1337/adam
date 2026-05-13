@@ -15,10 +15,7 @@ namespace adam
     configuration_item::configuration_item(const string_hashed& item_name, const configuration_parameter_list& default_params)
         : m_parameters(item_name)
     {
-        for (const auto& [name, param] : default_params.get_children())
-        {
-            if (param) m_parameters.add(param->clone());
-        }
+        add_parameters(default_params);
     }
 
     configuration_item::~configuration_item() {}
@@ -72,5 +69,13 @@ namespace adam
         }
 
         return ifs.good();
+    }
+
+    void configuration_item::add_parameters(const configuration_parameter_list& params)
+    {
+        for (const auto& [name, param] : params.get_children())
+        {
+            if (param) m_parameters.add(param->clone());
+        }
     }
 }

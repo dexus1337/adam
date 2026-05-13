@@ -4,29 +4,33 @@
 
 namespace adam::gui 
 {
-    static adam::configuration_parameter_list create_gui_defaults()
+    static const adam::configuration_parameter_list& get_gui_default_parameters()
     {
-        adam::configuration_parameter_list params;
-        params.add(std::make_unique<adam::configuration_parameter_boolean>("show_log", true));
-        params.add(std::make_unique<adam::configuration_parameter_boolean>("show_performance", false));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("perf_ovly_location", 1));
-        params.add(std::make_unique<adam::configuration_parameter_double>("perf_ovly_x", -1.0));
-        params.add(std::make_unique<adam::configuration_parameter_double>("perf_ovly_y", -1.0));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("perf_ovly_content", 7));
-        params.add(std::make_unique<adam::configuration_parameter_boolean>("dark_theme", true));
-        params.add(std::make_unique<adam::configuration_parameter_double>("log_height", 250.0));
-        params.add(std::make_unique<adam::configuration_parameter_double>("font_scale", 1.0));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("window_x", -1));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("window_y", -1));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("window_w", 1280));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("window_h", 720));
-        params.add(std::make_unique<adam::configuration_parameter_boolean>("window_maximized", false));
-        params.add(std::make_unique<adam::configuration_parameter_integer>("log_level", 0));
+        static adam::configuration_parameter_list params = []() 
+        {
+            adam::configuration_parameter_list p;
+            p.add(std::make_unique<adam::configuration_parameter_boolean>("show_log", true));
+            p.add(std::make_unique<adam::configuration_parameter_boolean>("show_performance", false));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("perf_ovly_location", 1));
+            p.add(std::make_unique<adam::configuration_parameter_double>("perf_ovly_x", -1.0));
+            p.add(std::make_unique<adam::configuration_parameter_double>("perf_ovly_y", -1.0));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("perf_ovly_content", 7));
+            p.add(std::make_unique<adam::configuration_parameter_boolean>("dark_theme", true));
+            p.add(std::make_unique<adam::configuration_parameter_double>("log_height", 250.0));
+            p.add(std::make_unique<adam::configuration_parameter_double>("font_scale", 1.0));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("window_x", -1));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("window_y", -1));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("window_w", 1280));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("window_h", 720));
+            p.add(std::make_unique<adam::configuration_parameter_boolean>("window_maximized", false));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("log_level", 0));
+            return p;
+        }();
         return params;
     }
 
     gui_controller::gui_controller() 
-        : adam::configuration_item("gui.controller", create_gui_defaults()),
+        : adam::configuration_item("gui.controller", get_gui_default_parameters()),
           m_running(false), m_commander_active(false)
     {
         load("adam-gui-config.bin");

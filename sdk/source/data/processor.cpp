@@ -4,8 +4,8 @@
 
 namespace adam 
 {
-    data_processor::data_processor(const string_hashed& name, const configuration_parameter_list& default_params)
-     :  configuration_item(name, default_params),
+    data_processor::data_processor(const string_hashed& name)
+     :  configuration_item(name),
         m_format_input(&data_format_transparent),
         m_format_output(&data_format_transparent)
     {
