@@ -51,7 +51,9 @@ namespace adam::gui
         tbl_path,
         stat_available,
         stat_loaded,
-        stat_unavailable
+        stat_unavailable,
+        tt_incompat_sdk,
+        tt_incompat_unknown
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

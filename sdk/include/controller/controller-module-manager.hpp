@@ -42,9 +42,16 @@ namespace adam
 
         static std::string_view get_log_event_text(log_event event, language lang);
 
-        using map_available_modules     = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>; /**< A type alias for a map of available modules, storing the version and file path indexed by hashed name. */
-        using map_unavailable_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>; /**< A type alias for a map of unavailable modules, storing the incompatability reason and file path indexed by hashed name. */
-        using map_loaded_modules        = std::unordered_map<string_hashed, const module*>;                      /**< A type alias for a map of loaded modules, indexed by their hashed string names. */
+        struct incompatible_module_info
+        {
+            uint32_t        version;
+            string_hashed   path;
+            uint8_t         rsn;
+        };
+
+        using map_available_modules     = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;            /**< A type alias for a map of available modules, storing the version and file path indexed by hashed name. */
+        using map_unavailable_modules   = std::unordered_map<string_hashed, std::tuple<uint32_t, string_hashed, uint8_t>>;  /**< A type alias for a map of unavailable modules, storing the incompatability reason and file path indexed by hashed name. */
+        using map_loaded_modules        = std::unordered_map<string_hashed, const module*>;                                 /**< A type alias for a map of loaded modules, indexed by their hashed string names. */
 
         /** @brief Constructs a new module manager object. */
         controller_module_manager(controller& ctrl);

@@ -45,6 +45,11 @@ namespace adam
 
         struct basic_info
         {
+            enum incompat_reason : uint8_t
+            {
+                incompat_reason_unknown     = 0,
+                incompat_reason_sdk_too_old = 1,
+            } rsn;
             enum status : uint8_t
             {
                 available = 0,
@@ -55,7 +60,7 @@ namespace adam
             char path[max_path_length];      /**< The file path to the module's shared library. */
             uint32_t version;                /**< The version of the module. */
 
-            void setup(status s, const char* n, const char* p, uint32_t v)
+            void setup(status s, const char* n, const char* p, uint32_t v, uint8_t r = incompat_reason_unknown)
             {
                 stat = s;
                 std::strncpy(name, n, sizeof(name) - 1);
@@ -63,6 +68,7 @@ namespace adam
                 std::strncpy(path, p, sizeof(path) - 1);
                 path[sizeof(path) - 1] = '\0';
                 version = v;
+                rsn = static_cast<incompat_reason>(r);
             }
         };
         static_assert(sizeof(module::basic_info) <= command::get_max_data_length(), "module::basic_info exceeds maximum command data size");

@@ -70,7 +70,7 @@ namespace adam
             string_hashed mod_name(mod_info->name);
             string_hashed mod_path(mod_info->path);
 
-            ctx.cmdr.m_unavailable_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+            ctx.cmdr.m_unavailable_modules_cache.emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
         });
 
         register_handler(static_cast<int>(event_type::shutdown), [](const event&, event_context& ctx) 

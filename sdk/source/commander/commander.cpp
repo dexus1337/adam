@@ -177,7 +177,7 @@ namespace adam
                     m_available_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
                     break;
                 case module::basic_info::unavailable:
-                    m_unavailable_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+                    m_unavailable_modules_cache.emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
                     break;
                 case module::basic_info::loaded:
                     m_loaded_modules_cache.emplace(mod_name, nullptr); // we don't have the module pointer here, so we just put nullptr, it will be updated when we receive the module load events

@@ -80,7 +80,9 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::tbl_path),                    { "Path", "Pfad" } },
             { static_cast<int>(gui_string_id::stat_available),              { "Available", "Verfügbar" } },
             { static_cast<int>(gui_string_id::stat_loaded),                 { "Loaded", "Geladen" } },
-            { static_cast<int>(gui_string_id::stat_unavailable),            { "Unavailable", "Nicht verfügbar" } }
+            { static_cast<int>(gui_string_id::stat_unavailable),            { "Unavailable", "Nicht verfügbar" } },
+            { static_cast<int>(gui_string_id::tt_incompat_sdk),             { "Requires newer SDK version", "Benötigt neuere SDK-Version" } },
+            { static_cast<int>(gui_string_id::tt_incompat_unknown),         { "Unknown incompatibility reason", "Unbekannter Inkompatibilitätsgrund" } }
         };
 
         auto val = static_cast<int>(id);
@@ -265,7 +267,7 @@ namespace adam::gui
                         ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_load, lang), ImGuiTableColumnFlags_WidthFixed);
                         ImGui::TableHeadersRow();
 
-                        auto draw_module_row = [&](const std::string& name, int status, const std::string& path, uint32_t version) {
+                        auto draw_module_row = [&](const std::string& name, int status, const std::string& path, uint32_t version, uint8_t reason) {
                             ImGui::TableNextRow();
 
                             ImGui::TableSetColumnIndex(0);
@@ -276,6 +278,13 @@ namespace adam::gui
                                 ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s", get_gui_string(gui_string_id::stat_loaded, lang));
                             } else if (status == 2) {
                                 ImGui::TextColored(get_gui_color(gui_color_id::log_warning), "%s", get_gui_string(gui_string_id::stat_unavailable, lang));
+                                if (ImGui::IsItemHovered())
+                                {
+                                    if (reason == 1) // adam::module::basic_info::incompat_reason_sdk_too_old
+                                        ImGui::SetTooltip("%s", get_gui_string(gui_string_id::tt_incompat_sdk, lang));
+                                    else
+                                        ImGui::SetTooltip("%s", get_gui_string(gui_string_id::tt_incompat_unknown, lang));
+                                }
                             }
 
                             ImGui::TableSetColumnIndex(1);
@@ -312,25 +321,26 @@ namespace adam::gui
                                 int status; // 0=Avail, 1=Loaded, 2=Unavail
                                 uint32_t version;
                                 std::string path;
+                                uint8_t reason;
                             };
                             std::map<std::string, module_gui_info> merged;
 
                             for (const auto& [name_hash, data] : m_ctrl.get_commander().get_available_modules())
-                                merged[std::string(name_hash.c_str())] = { 0, data.first, std::string(data.second.c_str()) };
+                                merged[std::string(name_hash.c_str())] = { 0, data.first, std::string(data.second.c_str()), 0 };
                                 
                             for (const auto& [name_hash, ptr] : m_ctrl.get_commander().get_loaded_modules()) {
                                 std::string name_str(name_hash.c_str());
                                 if (merged.find(name_str) != merged.end())
                                     merged[name_str].status = 1;
                                 else
-                                    merged[name_str] = { 1, 0, "" }; // dynamically loaded modules miss version/path currently
+                                    merged[name_str] = { 1, 0, "", 0 }; // dynamically loaded modules miss version/path currently
                             }
                                 
                             for (const auto& [name_hash, data] : m_ctrl.get_commander().get_unavailable_modules())
-                                merged[std::string(name_hash.c_str())] = { 2, data.first, std::string(data.second.c_str()) };
+                                merged[std::string(name_hash.c_str())] = { 2, std::get<0>(data), std::string(std::get<1>(data).c_str()), std::get<2>(data) };
                                 
                             for (const auto& [name, info] : merged)
-                                draw_module_row(name, info.status, info.path, info.version);
+                                draw_module_row(name, info.status, info.path, info.version, info.reason);
                         }
 
                         ImGui::EndTable();

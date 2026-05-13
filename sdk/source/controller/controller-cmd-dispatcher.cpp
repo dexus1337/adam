@@ -75,7 +75,7 @@ namespace adam
             {
                 ctx.responses[resp_idx-1].set_extended(true);
                 auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
-                mod_info->setup(module::basic_info::unavailable, mod.first.c_str(), mod.second.second.c_str(), mod.second.first);
+                mod_info->setup(module::basic_info::unavailable, mod.first.c_str(), std::get<1>(mod.second).c_str(), std::get<0>(mod.second), std::get<2>(mod.second));
                 resp_idx++;
 
                 if (resp_idx >= ctx.responses.size())

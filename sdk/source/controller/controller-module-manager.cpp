@@ -93,7 +93,7 @@ namespace adam
         for (const auto& path : possible_module_paths)
         {
             module* mod         = nullptr;
-            auto path_str       = std::string(path.string());
+            auto path_str       = string_hashed(path.string());
 
             #ifdef ADAM_PLATFORM_LINUX
             auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
@@ -126,9 +126,9 @@ namespace adam
                 auto sdk_pat = adam::get_patch(adam::sdk_version);
 
                 m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_sdk, m_controller.get_language()),
-                    path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
+                    path_str.c_str(), req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
 
-                m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
+                m_unavailable_modules.emplace(mod->get_name(), std::make_tuple(mod->get_version(), path_str, module::basic_info::incompat_reason_sdk_too_old));
 
                 event evt(event_type::module_unavailable);
                 auto* mod_info = evt.data_as<module::basic_info>();
@@ -143,7 +143,7 @@ namespace adam
                 auto ver_maj = adam::get_major(mod->get_version());
                 auto ver_min = adam::get_minor(mod->get_version());
                 auto ver_pat = adam::get_patch(mod->get_version());
-                m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.get_language()), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str);
+                m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.get_language()), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str.c_str());
 
                 event evt(event_type::module_available);
                 auto* mod_info = evt.data_as<module::basic_info>();
@@ -208,7 +208,7 @@ namespace adam
             auto sdk_pat = adam::get_patch(adam::sdk_version);
 
             m_controller.log(log::error, get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_controller.get_language()),
-                path_str, req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
+                path_str.c_str(), req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
             return false;
         }
 
