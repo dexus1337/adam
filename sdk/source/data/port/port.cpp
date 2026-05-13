@@ -12,8 +12,9 @@ namespace adam
         static adam::configuration_parameter_list params = []() 
         {
             adam::configuration_parameter_list p;
-            p.add(std::make_unique<adam::configuration_parameter_string>("type"));
-            p.add(std::make_unique<adam::configuration_parameter_string>("data_format"));
+            p.add(std::make_unique<adam::configuration_parameter_string>("type"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_string>("data_format"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_string>("module_name"_ct));
             return p;
         }();
         return params;

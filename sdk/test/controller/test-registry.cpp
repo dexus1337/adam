@@ -178,3 +178,32 @@ TEST_F(registry_test, clear_registry)
     EXPECT_TRUE(reg.converters().empty());
     EXPECT_TRUE(reg.connections().empty());
 }
+
+/** @brief Tests that port properties like type and module_name are persisted. */
+TEST_F(registry_test, port_type_and_module_persistence)
+{
+    adam::test::testable_registry reg;
+    adam::string_hashed port_name("type_test_port");
+
+    adam::port* created_port = reg.create_port(port_name, adam::port_input_internal::type_name);
+    ASSERT_NE(created_port, nullptr);
+
+    // Verify type was populated correctly in the constructor
+    auto* type_param = static_cast<adam::configuration_parameter_string*>(created_port->get_parameters().get(adam::string_hashed("type")));
+    ASSERT_NE(type_param, nullptr);
+    EXPECT_EQ(type_param->get_value(), adam::port_input_internal::type_name);
+
+    EXPECT_TRUE(reg.save(test_filepath));
+
+    adam::test::testable_registry loaded_reg;
+    EXPECT_TRUE(loaded_reg.load(test_filepath));
+
+    // Verify the port was correctly recreated from the saved type
+    EXPECT_TRUE(loaded_reg.ports().contains(port_name));
+    adam::port* loaded_port = loaded_reg.ports().at(port_name).get();
+    ASSERT_NE(loaded_port, nullptr);
+    
+    auto* loaded_type_param = static_cast<adam::configuration_parameter_string*>(loaded_port->get_parameters().get(adam::string_hashed("type")));
+    ASSERT_NE(loaded_type_param, nullptr);
+    EXPECT_EQ(loaded_type_param->get_value(), adam::port_input_internal::type_name);
+}

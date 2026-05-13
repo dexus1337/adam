@@ -50,4 +50,13 @@ namespace adam
             
         return nullptr;
     }
+
+    configuration_parameter* configuration_parameter_list::get(const string_hashed_ct& name) const
+    {
+        auto it = m_children.find(name.get_hash());
+        if (it != m_children.end())
+            return it->second.get();
+            
+        return nullptr;
+    }
 }

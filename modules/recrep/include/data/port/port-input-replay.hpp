@@ -26,6 +26,8 @@ namespace adam::modules::recrep
 
         static constexpr string_hashed_ct type_name = "replay";
 
+        static const configuration_parameter_list& get_default_parameters();
+
         /** @brief Constructs a new input port object. */
         port_input_replay(const string_hashed& item_name);
 

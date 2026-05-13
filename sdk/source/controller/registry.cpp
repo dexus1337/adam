@@ -113,7 +113,14 @@ namespace adam
         // 3. Create the port and immediately take ownership in the registry
         port* new_port = port_factory->create(name);
         if (new_port)
+        {
+            if (!module_name.empty())
+            {
+                if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get(string_hashed("module_name"))))
+                    mod_param->set_value(module_name);
+            }
             m_ports.emplace(name, std::unique_ptr<port>(new_port));
+        }
         
         return new_port;
     }
@@ -247,17 +254,6 @@ namespace adam
             if (general_mock_param->get_type() == configuration_parameter::list)
             {
                 copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(general_mock_param));
-            }
-        }
-
-        if (this == &m_controller.get_registry())
-            {
-            const_cast<controller&>(m_controller).m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get(string_hashed("language")));
-            if (!m_controller.m_lang_param)
-            {
-                auto lang_param = std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english);
-                const_cast<controller&>(m_controller).m_lang_param = lang_param.get();
-                m_parameters.add(std::move(lang_param));
             }
         }
 

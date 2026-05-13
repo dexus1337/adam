@@ -33,7 +33,12 @@ namespace adam
         
         /** @brief Constructs a new string_hashed_ct_template object. */
         template<size_t string_len>
-        consteval string_hashed_ct_template(const char_type (&arr)[string_len]) : m_text(&arr[0]), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
+        consteval string_hashed_ct_template(const char_type (&arr)[string_len]) 
+            : m_text(&arr[0]), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
+
+        /** @brief Internal constructor for User-Defined Literals. */
+        consteval string_hashed_ct_template(const char_type* str, size_t len) 
+            : m_text(str), m_length(len), m_hash(rapidhash_ct(str, len * sizeof(char_type))) { }
 
         constexpr hash_datatype get_hash()  const { return m_hash; }
         
@@ -68,6 +73,33 @@ namespace adam
     #endif
     using string_hashed_ct_utf16    = string_hashed_ct_template<char16_t>;
     using string_hashed_ct_utf32    = string_hashed_ct_template<char32_t>;
+
+    consteval string_hashed_ct operator""_ct(const char* str, size_t len) 
+    {
+        return string_hashed_ct(str, len);
+    }
+
+    consteval wstring_hashed_ct operator""_ct(const wchar_t* str, size_t len) 
+    {
+        return wstring_hashed_ct(str, len);
+    }
+
+    #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
+    consteval string_hashed_ct_utf8 operator""_ct(const char8_t* str, size_t len) 
+    {
+        return string_hashed_ct_utf8(str, len);
+    }
+    #endif
+
+    consteval string_hashed_ct_utf16 operator""_ct(const char16_t* str, size_t len) 
+    {
+        return string_hashed_ct_utf16(str, len);
+    }
+    
+    consteval string_hashed_ct_utf32 operator""_ct(const char32_t* str, size_t len) 
+    {
+        return string_hashed_ct_utf32(str, len);
+    }
 }
 
 namespace std 
@@ -173,7 +205,7 @@ namespace std
         using is_transparent = void;
 
         /**
-         * @brief Returns the pre-calculated hash stored in the adam::string_hashed.
+         * @brief Returns the pre-calculated hash stored in the adam::string_hashed_ct_utf16.
          * This is O(1) and involves zero string processing.
          */
         size_t operator() (const adam::string_hashed_ct_utf16& hs) const noexcept 
@@ -204,7 +236,7 @@ namespace std
         using is_transparent = void;
 
         /**
-         * @brief Returns the pre-calculated hash stored in the adam::string_hashed.
+         * @brief Returns the pre-calculated hash stored in the adam::string_hashed_ct_utf32.
          * This is O(1) and involves zero string processing.
          */
         size_t operator() (const adam::string_hashed_ct_utf32& hs) const noexcept 

@@ -78,29 +78,29 @@ namespace adam::gui
         
         return "UNKNOWN_STRING";
     }
-
+    
     main_window::main_window(gui_controller& ctrl, SDL_Window* window) 
         : m_ctrl(ctrl),
           m_window(window)
     {
         auto& params = m_ctrl.get_parameters();
 
-        m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"));
-        m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"));
-        m_p_perf_ovly_location  = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"));
-        m_p_perf_ovly_x         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"));
-        m_p_perf_ovly_y         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"));
-        m_p_perf_ovly_content   = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_content"));
-        m_p_dark_theme          = static_cast<adam::configuration_parameter_boolean*>(params.get("dark_theme"));
-        m_p_font_scale          = static_cast<adam::configuration_parameter_double*>(params.get("font_scale"));
-        m_p_log_height          = static_cast<adam::configuration_parameter_double*>(params.get("log_height"));
-        m_p_log_level           = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"));
+        m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"_ct));
+        m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
+        m_p_perf_ovly_location  = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"_ct));
+        m_p_perf_ovly_x         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"_ct));
+        m_p_perf_ovly_y         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
+        m_p_perf_ovly_content   = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_content"_ct));
+        m_p_dark_theme          = static_cast<adam::configuration_parameter_boolean*>(params.get("dark_theme"_ct));
+        m_p_font_scale          = static_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
+        m_p_log_height          = static_cast<adam::configuration_parameter_double*>(params.get("log_height"_ct));
+        m_p_log_level           = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"_ct));
 
-        int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"))->get_value_as<int>();
-        int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"))->get_value_as<int>();
-        int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"))->get_value_as<int>();
-        int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"))->get_value_as<int>();
-        bool maximized = static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"))->get_value();
+        int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
+        int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
+        int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->get_value_as<int>();
+        int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->get_value_as<int>();
+        bool maximized = static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->get_value();
         
         if (x != -1 && y != -1)
             SDL_SetWindowPosition(m_window, x, y);
@@ -134,11 +134,11 @@ namespace adam::gui
             Uint32 flags = SDL_GetWindowFlags(m_window);
 
             auto& params = m_ctrl.get_parameters();
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_x"))->set_value(static_cast<int64_t>(x));
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_y"))->set_value(static_cast<int64_t>(y));
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_w"))->set_value(static_cast<int64_t>(w));
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_h"))->set_value(static_cast<int64_t>(h));
-            static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"))->set_value((flags & SDL_WINDOW_MAXIMIZED) != 0);
+            static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->set_value(static_cast<int64_t>(x));
+            static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->set_value(static_cast<int64_t>(y));
+            static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->set_value(static_cast<int64_t>(w));
+            static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->set_value(static_cast<int64_t>(h));
+            static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->set_value((flags & SDL_WINDOW_MAXIMIZED) != 0);
         }
     }
 

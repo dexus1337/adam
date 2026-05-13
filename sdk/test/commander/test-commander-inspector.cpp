@@ -19,6 +19,9 @@ protected:
         // 1. Initialize buffer memory pools
         adam::buffer_manager::get().initialize();
 
+        // Ensure a completely clean state for the controller's registry across tests
+        adam::controller::get().get_registry().clear();
+
         // 2. Start the controller in asynchronous mode so it processes IPC queues in the background
         ASSERT_TRUE(adam::controller::get().run(true));
     }
@@ -35,10 +38,9 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     adam::string_hashed port_name("adam::test_inspector_port");
 
     // 1. Create a data port and register it in the controller context
-    auto port_instance = std::make_unique<adam::port_output_internal>(port_name);
-    adam::port_output_internal* test_port = port_instance.get();
+    adam::port* test_port = adam::controller::get().get_registry().create_port(port_name, adam::port_output_internal::type_name);
     
-    adam::controller::get().get_registry().ports().emplace(port_name, std::move(port_instance));
+    ASSERT_NE(test_port, nullptr);
 
     // 2. Connect the external commander
     adam::commander cmd;

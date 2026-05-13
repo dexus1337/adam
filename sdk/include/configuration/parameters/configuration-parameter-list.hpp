@@ -65,6 +65,9 @@ namespace adam
         /** @brief Retrieves a child parameter by its name. Returns nullptr if not found. */
         configuration_parameter* get(const string_hashed& name) const;
 
+        /** @brief Retrieves a child parameter by its name. Returns nullptr if not found. */
+        configuration_parameter* get(const string_hashed_ct& name) const;
+
     private:
 
         std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>> m_children;
