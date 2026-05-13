@@ -70,7 +70,8 @@ TEST_F(registry_test, save_modify_reload_verify)
     
     // 2. Create a port
     adam::string_hashed port_name("my_input_port");
-    adam::port* created_port = reg.create_port(port_name, adam::port_input_internal::type_name);
+    adam::port* created_port = nullptr;
+    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, adam::string_hashed(), &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Change a parameter in the port to verify it restores correctly
@@ -139,27 +140,30 @@ TEST_F(registry_test, create_and_remove_port)
     adam::string_hashed port_name("test_port_1");
 
     // Attempt to create a port with an invalid type should gracefully fail
-    adam::port* invalid_port = reg.create_port(port_name, adam::string_hashed("non_existent_type"));
+    adam::port* invalid_port = nullptr;
+    EXPECT_EQ(reg.create_port(port_name, adam::string_hashed("non_existent_type"), adam::string_hashed(), &invalid_port), adam::registry::status_error_factory_not_found);
     EXPECT_EQ(invalid_port, nullptr);
 
     // Create the port using the internal factory
-    adam::port* created_port = reg.create_port(port_name, adam::port_input_internal::type_name);
+    adam::port* created_port = nullptr;
+    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, adam::string_hashed(), &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
     EXPECT_TRUE(reg.ports().contains(port_name));
 
     // Attempt to create a duplicate port should gracefully fail
-    adam::port* duplicate_port = reg.create_port(port_name, adam::port_input_internal::type_name);
+    adam::port* duplicate_port = nullptr;
+    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, adam::string_hashed(), &duplicate_port), adam::registry::status_error_port_already_exists);
     EXPECT_EQ(duplicate_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
 
     // Remove the port
-    EXPECT_TRUE(reg.remove_port(port_name));
+    EXPECT_EQ(reg.destroy_port(port_name), adam::registry::status_success);
     EXPECT_EQ(reg.ports().size(), 0u);
     EXPECT_FALSE(reg.ports().contains(port_name));
     
     // Attempt to remove a non-existent port should gracefully fail
-    EXPECT_FALSE(reg.remove_port(port_name));
+    EXPECT_EQ(reg.destroy_port(port_name), adam::registry::status_error_port_not_found);
 }
 
 /** @brief Tests clearing the registry and verifying state reset. */
@@ -168,7 +172,7 @@ TEST_F(registry_test, clear_registry)
     adam::test::testable_registry reg;
     adam::string_hashed port_name("test_port_clear");
     
-    reg.create_port(port_name, adam::port_input_internal::type_name);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, adam::string_hashed()), adam::registry::status_success);
     EXPECT_EQ(reg.ports().size(), 1u);
     
     reg.clear();
@@ -185,7 +189,8 @@ TEST_F(registry_test, port_type_and_module_persistence)
     adam::test::testable_registry reg;
     adam::string_hashed port_name("type_test_port");
 
-    adam::port* created_port = reg.create_port(port_name, adam::port_input_internal::type_name);
+    adam::port* created_port = nullptr;
+    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, adam::string_hashed(), &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Verify type was populated correctly in the constructor

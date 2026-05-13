@@ -40,7 +40,18 @@ namespace adam::gui
         menu_overlay_content,
         menu_overlay_show_fps,
         menu_overlay_show_cpu,
-        menu_overlay_show_ram
+        menu_overlay_show_ram,
+        tab_management,
+        tab_modules,
+        tab_information,
+        tbl_load,
+        tbl_name,
+        tbl_status,
+        tbl_version,
+        tbl_path,
+        stat_available,
+        stat_loaded,
+        stat_unavailable
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

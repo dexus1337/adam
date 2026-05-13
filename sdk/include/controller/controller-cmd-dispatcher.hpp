@@ -62,7 +62,15 @@ namespace adam
             inspector_create_failed_port_unknown,
             inspector_create_failed_open,
             inspector_destroy_failed_port_unknown,
-            inspector_destroy_failed_not_found
+            inspector_destroy_failed_not_found,
+            port_created,
+            port_create_failed,
+            port_destroyed,
+            port_destroy_failed,
+            connection_created,
+            connection_create_failed,
+            connection_destroyed,
+            connection_destroy_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

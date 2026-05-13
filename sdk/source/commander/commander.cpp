@@ -6,6 +6,8 @@
 #include "commander/messages/command.hpp"
 #include "commander/messages/response.hpp"
 #include "resources/language-strings.hpp"
+#include "data/port/port.hpp"
+#include "data/connection.hpp"
 
 
 namespace adam 
@@ -83,16 +85,28 @@ namespace adam
         return true;
     }
 
+    bool commander::disable() 
+    {
+        m_queue_command.disable();
+        m_queue_event.disable();
+
+        return true;
+    }
+
     bool commander::destroy() 
     {
         bool m_cmd_active = m_queue_command.is_active();
         bool m_evt_active = m_queue_event.is_active();
 
-        m_queue_command.disable();
-        m_queue_event.disable();
+        disable();
 
         if (m_event_thread.joinable())
-            m_event_thread.join();
+        {
+            if (std::this_thread::get_id() == m_event_thread.get_id())
+                m_event_thread.detach();
+            else
+                m_event_thread.join();
+        }
 
         bool res = true;
         
@@ -130,7 +144,7 @@ namespace adam
     /** @brief Requests the initial data from the controller. */
     response_status commander::request_initial_data()
     {
-        command cmd(command_type::receive_initial_data);
+        command cmd(command_type::acquire_initial_data);
 
         response* resp = nullptr;
         
@@ -139,7 +153,7 @@ namespace adam
         if (res != response_status::success || !resp)
             return response_status::response_receive_failed;
 
-        auto* head = resp->data_as<command::initial_data::header>();
+        auto* head = resp->data_as<command::initial_data_header>();
 
         m_lang = head->lang_info;
 
@@ -152,26 +166,58 @@ namespace adam
             if (!resp[i-1].is_extended())
                 break;
             
-            auto* mod_info = resp[i].data_as<command::initial_data::module_info>();
+            auto* mod_info = resp[i].data_as<module::basic_info>();
     
             string_hashed mod_name(&mod_info->name[0]);
             string_hashed mod_path(&mod_info->path[0]);
     
-            switch (mod_info->status)
+            switch (mod_info->stat)
             {
-                case command::initial_data::module_info::available:
+                case module::basic_info::available:
                     m_available_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
                     break;
-                case command::initial_data::module_info::unavailable:
+                case module::basic_info::unavailable:
                     m_unavailable_modules_cache.emplace(mod_name, std::make_pair(mod_info->version, mod_path));
                     break;
-                case command::initial_data::module_info::loaded:
+                case module::basic_info::loaded:
                     m_loaded_modules_cache.emplace(mod_name, nullptr); // we don't have the module pointer here, so we just put nullptr, it will be updated when we receive the module load events
                     break;
             }
         }
 
         return res;
+    }
+
+    response_status commander::request_port_create(const string_hashed& name, const string_hashed& type, const string_hashed& module_name)
+    {
+        command cmd(command_type::port_create);
+        cmd.data_as<port::basic_info>()->setup(name, type, module_name);
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_port_destroy(const string_hashed& port_name)
+    {
+        command cmd(command_type::port_destroy);
+        cmd.data_as<command::port_destroy_data>()->port = port_name.get_hash();
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_create(const string_hashed& name)
+    {
+        command cmd(command_type::connection_create);
+        cmd.data_as<connection::basic_info>()->setup(name);
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_destroy(const string_hashed& name)
+    {
+        command cmd(command_type::connection_destroy);
+        cmd.data_as<command::connection_destroy_data>()->connection = name.get_hash();
+
+        return send_command(cmd);
     }
 
     response_status commander::request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector)

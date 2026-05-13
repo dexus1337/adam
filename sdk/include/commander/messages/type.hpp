@@ -32,6 +32,8 @@ namespace adam
 
         static constexpr size_t size_in_bytes = 512;
 
+        static constexpr size_t get_max_data_length() { return max_data_length; }
+
         /** @brief Constructs a new commander_message_template object.*/
         commander_message_template(message_type t = static_cast<message_type>(0)) : m_type(t), m_b_extended(false) {}
 

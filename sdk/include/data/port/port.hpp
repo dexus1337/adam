@@ -12,7 +12,10 @@
 #include "api/sdk-api.hpp"
 #include "configuration/configuration-item.hpp"
 #include "types/vector-double-buffer.hpp"
+#include "commander/messages/command.hpp"
+
 #include <memory>
+#include <cstring>
 
 namespace adam 
 {
@@ -33,6 +36,29 @@ namespace adam
     class ADAM_SDK_API port : public configuration_item
     {
     public:
+
+        static constexpr size_t max_name_length = 64;
+        static constexpr size_t max_type_length = 64;
+        static constexpr size_t max_module_name_length = 64;
+
+        struct basic_info
+        {
+            char name[max_name_length];
+            char type[max_type_length];
+            char module_name[max_module_name_length];
+
+            void setup(const string_hashed& n, const string_hashed& t, const string_hashed& m = string_hashed())
+            {
+                std::strncpy(name, n.c_str(), sizeof(name) - 1);
+                name[sizeof(name) - 1] = '\0';
+                std::strncpy(type, t.c_str(), sizeof(type) - 1);
+                type[sizeof(type) - 1] = '\0';
+                std::strncpy(module_name, m.c_str(), sizeof(module_name) - 1);
+                module_name[sizeof(module_name) - 1] = '\0';
+            }
+        };
+        static_assert(sizeof(port::basic_info) <= command::get_max_data_length(), "port::basic_info exceeds maximum command data size");
+
 
         /** @brief Retrieves the default configuration parameters for ports. */
         static const configuration_parameter_list& get_default_parameters();

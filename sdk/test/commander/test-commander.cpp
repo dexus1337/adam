@@ -74,10 +74,10 @@ TEST_F(commander_test, initial_data_module_sync)
     adam::controller& ctrl = adam::controller::get();
     
     // Override the initial data handler to return some mock modules
-    ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::receive_initial_data), [](const adam::command*, size_t, adam::command_context& ctx)
+    ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::acquire_initial_data), [](const adam::command*, size_t, adam::command_context& ctx)
     {
         ctx.set_single_response_status(adam::response_status::success);
-        auto* data = ctx.responses.front().data_as<adam::command::initial_data::header>();
+        auto* data = ctx.responses.front().data_as<adam::command::initial_data_header>();
         data->lang_info.lang = adam::language_english;
         
         data->mod_info.available_modules = 1;
@@ -87,20 +87,20 @@ TEST_F(commander_test, initial_data_module_sync)
         // available module
         ctx.responses.front().set_extended(true);
         ctx.responses.emplace_back();
-        auto* mod_info1 = ctx.responses[1].data_as<adam::command::initial_data::module_info>();
-        mod_info1->setup(adam::command::initial_data::module_info::available, "mock_avail", "/mock/path/avail.so", adam::make_version(1, 0, 0));
+        auto* mod_info1 = ctx.responses[1].data_as<adam::module::basic_info>();
+        mod_info1->setup(adam::module::basic_info::available, "mock_avail", "/mock/path/avail.so", adam::make_version(1, 0, 0));
         
         // unavailable module
         ctx.responses[1].set_extended(true);
         ctx.responses.emplace_back();
-        auto* mod_info2 = ctx.responses[2].data_as<adam::command::initial_data::module_info>();
-        mod_info2->setup(adam::command::initial_data::module_info::unavailable, "mock_unavail", "/mock/path/unavail.so", adam::make_version(2, 0, 0));
+        auto* mod_info2 = ctx.responses[2].data_as<adam::module::basic_info>();
+        mod_info2->setup(adam::module::basic_info::unavailable, "mock_unavail", "/mock/path/unavail.so", adam::make_version(2, 0, 0));
         
         // loaded module
         ctx.responses[2].set_extended(true);
         ctx.responses.emplace_back();
-        auto* mod_info3 = ctx.responses[3].data_as<adam::command::initial_data::module_info>();
-        mod_info3->setup(adam::command::initial_data::module_info::loaded, "mock_loaded", "/mock/path/loaded.so", adam::make_version(3, 0, 0));
+        auto* mod_info3 = ctx.responses[3].data_as<adam::module::basic_info>();
+        mod_info3->setup(adam::module::basic_info::loaded, "mock_loaded", "/mock/path/loaded.so", adam::make_version(3, 0, 0));
     });
 
     adam::commander cmdr;
@@ -135,34 +135,34 @@ TEST_F(commander_test, module_events_sync)
 
     // 1. Broadcast module_available event
     adam::event evt_avail(adam::event_type::module_available);
-    auto* mod_info1 = evt_avail.data_as<adam::command::initial_data::module_info>();
-    mod_info1->setup(adam::command::initial_data::module_info::available, "evt_mock_avail", "/mock/path/evt_avail.so", adam::make_version(1, 0, 0));
+    auto* mod_info1 = evt_avail.data_as<adam::module::basic_info>();
+    mod_info1->setup(adam::module::basic_info::available, "evt_mock_avail", "/mock/path/evt_avail.so", adam::make_version(1, 0, 0));
 
     adam::controller::get().broadcast_event(evt_avail);
 
     // 2. Broadcast module_unavailable event
     adam::event evt_unavail(adam::event_type::module_unavailable);
-    auto* mod_info2 = evt_unavail.data_as<adam::command::initial_data::module_info>();
-    mod_info2->setup(adam::command::initial_data::module_info::unavailable, "evt_mock_unavail", "/mock/path/evt_unavail.so", adam::make_version(1, 0, 0));
+    auto* mod_info2 = evt_unavail.data_as<adam::module::basic_info>();
+    mod_info2->setup(adam::module::basic_info::unavailable, "evt_mock_unavail", "/mock/path/evt_unavail.so", adam::make_version(1, 0, 0));
 
     adam::controller::get().broadcast_event(evt_unavail);
 
     // 3. Broadcast module_loaded event (this also tests that it dynamically moves from available to loaded cache)
     adam::event evt_avail2(adam::event_type::module_available);
-    auto* mod_info_avail2 = evt_avail2.data_as<adam::command::initial_data::module_info>();
-    mod_info_avail2->setup(adam::command::initial_data::module_info::available, "evt_mock_to_load", "/mock/path/evt_to_load.so", adam::make_version(1, 0, 0));
+    auto* mod_info_avail2 = evt_avail2.data_as<adam::module::basic_info>();
+    mod_info_avail2->setup(adam::module::basic_info::available, "evt_mock_to_load", "/mock/path/evt_to_load.so", adam::make_version(1, 0, 0));
 
     adam::controller::get().broadcast_event(evt_avail2);
     
     adam::event evt_loaded(adam::event_type::module_loaded);
-    auto* mod_info3 = evt_loaded.data_as<adam::command::initial_data::module_info>();
-    mod_info3->setup(adam::command::initial_data::module_info::loaded, "evt_mock_to_load", "/mock/path/evt_to_load.so", adam::make_version(1, 0, 0));
+    auto* mod_info3 = evt_loaded.data_as<adam::module::basic_info>();
+    mod_info3->setup(adam::module::basic_info::loaded, "evt_mock_to_load", "/mock/path/evt_to_load.so", adam::make_version(1, 0, 0));
 
     adam::controller::get().broadcast_event(evt_loaded);
 
     // Give events time to propagate over the IPC queue and be dispatched by the thread
     auto start = std::chrono::steady_clock::now();
-    while (cmdr.get_available_modules().size() == initial_available && std::chrono::steady_clock::now() - start < std::chrono::seconds(2))
+    while (cmdr.get_available_modules().size() == initial_available && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -206,3 +206,26 @@ TEST_F(commander_test, request_language_change_flow)
 
     EXPECT_TRUE(cmdr.destroy());
 }
+
+/** @brief Tests the behavior when a shutdown event is received from the controller. 
+TEST_F(commander_test, shutdown_event_flow)
+{
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+    EXPECT_TRUE(cmdr.is_active());
+
+    // Broadcast the shutdown event
+    adam::event evt(adam::event_type::shutdown);
+    adam::controller::get().broadcast_event(evt);
+
+    // Wait for the event to propagate and the commander to destroy itself
+    auto start = std::chrono::steady_clock::now();
+    while (cmdr.is_active() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Verify the commander is no longer active
+    EXPECT_FALSE(cmdr.is_active());
+    EXPECT_TRUE(cmdr.destroy());
+}*/

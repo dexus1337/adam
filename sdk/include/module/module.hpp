@@ -13,11 +13,13 @@
 
 #include <array>
 #include <string>
+#include <cstring>
 
 #include "data/format.hpp"
 #include "version/version.hpp"
 #include "resources/language.hpp"
 #include "controller/registry.hpp"
+#include "commander/messages/command.hpp"
 
 namespace adam 
 {
@@ -37,6 +39,33 @@ namespace adam
 
         typedef adam::module* (*get_adam_module_fn)();                              /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
         static constexpr string_hashed_ct entry_point_name = "get_adam_module";     /**< The name of the entry point function that modules must export to provide access to their module instance. */
+
+        static constexpr size_t max_name_length = 64;
+        static constexpr size_t max_path_length = 256;
+
+        struct basic_info
+        {
+            enum status : uint8_t
+            {
+                available = 0,
+                unavailable = 1,
+                loaded = 2
+            } stat;
+            char name[max_name_length];      /**< The name of the module. */
+            char path[max_path_length];      /**< The file path to the module's shared library. */
+            uint32_t version;                /**< The version of the module. */
+
+            void setup(status s, const char* n, const char* p, uint32_t v)
+            {
+                stat = s;
+                std::strncpy(name, n, sizeof(name) - 1);
+                name[sizeof(name) - 1] = '\0';
+                std::strncpy(path, p, sizeof(path) - 1);
+                path[sizeof(path) - 1] = '\0';
+                version = v;
+            }
+        };
+        static_assert(sizeof(module::basic_info) <= command::get_max_data_length(), "module::basic_info exceeds maximum command data size");
 
         /** @brief Constructs a new module object. */
         module(const string_hashed& name, uint32_t version = adam::make_version(1, 0, 0), uint32_t req_sdk_ver = adam::sdk_version);

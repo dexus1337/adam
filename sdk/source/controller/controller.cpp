@@ -14,7 +14,7 @@
 
 namespace adam
 {
-    static constexpr uint16_t xtea_delta    = 0x9E37;
+    static constexpr uint16_t xtea_delta    = 0x9e37;
     static constexpr uint16_t xtea_key[2]   = { 0xbeef, 0xbabe };
 
     /** @brief Calculates a small secret based on the XTEA-lite algorith, using ther thread id . Only this source file knows how to reverse for authorization to commands */
@@ -440,6 +440,9 @@ namespace adam
 
             m_master_queue.response_queue().push(status_success);
         }
+
+        this->log(log::info, get_log_event_text(log_event::controller_shutting_down, get_language()));
+        broadcast_event(event(event_type::shutdown));
     }
 
     void controller::run_queue_command(queue_command_data* data)
@@ -563,6 +566,10 @@ namespace adam
             {
                 static_cast<int>(log_event::slave_queue_worker_failed_to_destroy),
                 { "Failed to destroy queue + worker of client {:d}. Ignoring.", "Fehler beim Entfernen der Warteschlange + Worker von Client {:d}. Wird ignoriert." }
+            },
+            {
+                static_cast<int>(log_event::controller_shutting_down),
+                { "Controller is shutting down.", "Controller wird heruntergefahren." }
             }
         };
 

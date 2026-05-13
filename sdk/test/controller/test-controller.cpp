@@ -5,7 +5,7 @@
 #include <commander/messages/response.hpp>
 
 /** @brief Tests controller's ability to process and send initial data. */
-TEST(controller, receive_initial_data)
+TEST(controller, acquire_initial_data)
 {
     adam::controller& ctrl = adam::controller::get();
     ctrl.set_language(adam::language_german);

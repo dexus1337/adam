@@ -131,8 +131,8 @@ namespace adam
                 m_unavailable_modules.emplace(mod->get_name(), std::make_pair(1, path_str));
 
                 event evt(event_type::module_unavailable);
-                auto* mod_info = evt.data_as<command::initial_data::module_info>();
-                mod_info->setup(command::initial_data::module_info::unavailable, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
+                auto* mod_info = evt.data_as<module::basic_info>();
+                mod_info->setup(module::basic_info::unavailable, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
                 m_controller.broadcast_event(evt);
                 goto UNLOAD_AND_CONTINUE;
             }
@@ -146,8 +146,8 @@ namespace adam
                 m_controller.log(log::info, get_log_event_text(log_event::module_available, m_controller.get_language()), mod->get_name().c_str(), ver_maj, ver_min, ver_pat, path_str);
 
                 event evt(event_type::module_available);
-                auto* mod_info = evt.data_as<command::initial_data::module_info>();
-                mod_info->setup(command::initial_data::module_info::available, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
+                auto* mod_info = evt.data_as<module::basic_info>();
+                mod_info->setup(module::basic_info::available, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
                 m_controller.broadcast_event(evt);
             }
 
@@ -221,8 +221,8 @@ namespace adam
 
         {
             event evt(event_type::module_loaded);
-            auto* mod_info = evt.data_as<command::initial_data::module_info>();
-            mod_info->setup(command::initial_data::module_info::loaded, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
+            auto* mod_info = evt.data_as<module::basic_info>();
+            mod_info->setup(module::basic_info::loaded, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
             m_controller.broadcast_event(evt);
         }
         return true;

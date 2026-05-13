@@ -12,6 +12,9 @@
 #include "api/sdk-api.hpp"
 #include "configuration/configuration-item.hpp"
 #include "types/vector-double-buffer.hpp"
+#include "commander/messages/command.hpp"
+
+#include <cstring>
 
 
 namespace adam 
@@ -28,6 +31,20 @@ namespace adam
     class ADAM_SDK_API connection : public configuration_item
     {
     public:
+
+        static constexpr size_t max_name_length = 64;
+
+        struct basic_info
+        {
+            char name[max_name_length];
+
+            void setup(const string_hashed& n)
+            {
+                std::strncpy(name, n.c_str(), sizeof(name) - 1);
+                name[sizeof(name) - 1] = '\0';
+            }
+        };
+        static_assert(sizeof(connection::basic_info) <= command::get_max_data_length(), "connection::basic_info exceeds maximum command data size");
 
         /** @brief Constructs a new connection object. */
         connection(const string_hashed& item_name);

@@ -18,11 +18,31 @@
 #include <fstream>
 #include <string>
 #include <stdexcept>
+#include <array>
 
 namespace adam
 {
     static default_factory<port, port_input_internal>   global_port_input_internal_factory  = default_factory<port, port_input_internal>();
     static default_factory<port, port_output_internal>  global_port_output_internal_factory = default_factory<port, port_output_internal>();
+
+    std::string_view registry::get_status_text(status status, language lang)
+    {
+        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        {
+            { static_cast<int>(status_success), { "Success.", "Erfolgreich." } },
+            { static_cast<int>(status_error_port_already_exists), { "A port with this name already exists.", "Ein Port mit diesem Namen existiert bereits." } },
+            { static_cast<int>(status_error_module_not_found), { "The specified module was not found or is not loaded.", "Das angegebene Modul wurde nicht gefunden oder ist nicht geladen." } },
+            { static_cast<int>(status_error_factory_not_found), { "No factory found for the specified port type.", "Für den angegebenen Port-Typ wurde keine Factory gefunden." } },
+            { static_cast<int>(status_error_port_not_found), { "The specified port was not found.", "Der angegebene Port wurde nicht gefunden." } },
+            { static_cast<int>(status_error_creation_failed), { "Port creation failed internally.", "Die interne Erstellung des Ports ist fehlgeschlagen." } },
+            { static_cast<int>(status_error_connection_already_exists), { "A connection with this name already exists.", "Eine Verbindung mit diesem Namen existiert bereits." } },
+            { static_cast<int>(status_error_connection_not_found), { "The specified connection was not found.", "Die angegebene Verbindung wurde nicht gefunden." } }
+        };
+
+        auto it = translations.find(static_cast<int>(status));
+        if (it != translations.end()) return it->second[static_cast<size_t>(lang)];
+        return "Unknown registry status.";
+    }
 
     const configuration_parameter_list& registry::get_default_parameters()
     {
@@ -80,11 +100,14 @@ namespace adam
         m_connections.clear();
     }
 
-    port* registry::create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name)
+    registry::status registry::create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name, port** out_port)
     {
+        if (out_port) 
+            *out_port = nullptr;
+
         // 1. Ensure the port name is unique across all ports
         if (m_ports.find(name) != m_ports.end())
-            return nullptr;
+            return status_error_port_already_exists;
 
         const factory<port>* port_factory = nullptr;
 
@@ -93,7 +116,7 @@ namespace adam
         {
             const module* mod = m_controller.get_modules().get_loaded_module(module_name);
             if (!mod)
-                return nullptr; // Module not found or not loaded
+                return status_error_module_not_found; // Module not found or not loaded
 
             const auto& mod_factories = mod->get_port_factories();
             auto it = mod_factories.find(type);
@@ -108,28 +131,31 @@ namespace adam
         }
 
         if (!port_factory)
-            return nullptr; // Unknown port type
+            return status_error_factory_not_found; // Unknown port type
 
         // 3. Create the port and immediately take ownership in the registry
         port* new_port = port_factory->create(name);
-        if (new_port)
+        if (!new_port)
+            return status_error_creation_failed;
+
+        if (!module_name.empty())
         {
-            if (!module_name.empty())
-            {
-                if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get(string_hashed("module_name"))))
-                    mod_param->set_value(module_name);
-            }
-            m_ports.emplace(name, std::unique_ptr<port>(new_port));
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get(string_hashed("module_name"))))
+                mod_param->set_value(module_name);
         }
+        m_ports.emplace(name, std::unique_ptr<port>(new_port));
         
-        return new_port;
+        if (out_port) 
+            *out_port = new_port;
+            
+        return status_success;
     }
 
-    bool registry::remove_port(const string_hashed& name)
+    registry::status registry::destroy_port(string_hashed::hash_datatype hash)
     {
-        auto port_it = m_ports.find(name);
+        auto port_it = m_ports.find(hash);
         if (port_it == m_ports.end())
-            return false;
+            return status_error_port_not_found;
 
         port* port_to_remove = port_it->second.get();
 
@@ -152,7 +178,42 @@ namespace adam
         }
 
         m_ports.erase(port_it);
-        return true;
+        return status_success;
+    }
+
+    registry::status registry::destroy_port(const string_hashed& name)
+    {
+        return destroy_port(name.get_hash());
+    }
+
+    registry::status registry::create_connection(const string_hashed& name, connection** out_connection)
+    {
+        if (out_connection) 
+            *out_connection = nullptr;
+
+        if (m_connections.find(name) != m_connections.end())
+            return status_error_connection_already_exists;
+
+        auto new_connection = std::make_unique<connection>(name);
+        if (out_connection) 
+            *out_connection = new_connection.get();
+        m_connections.emplace(name, std::move(new_connection));
+        return status_success;
+    }
+
+    registry::status registry::destroy_connection(string_hashed::hash_datatype hash)
+    {
+        auto it = m_connections.find(hash);
+        if (it == m_connections.end())
+            return status_error_connection_not_found;
+
+        m_connections.erase(it);
+        return status_success;
+    }
+
+    registry::status registry::destroy_connection(const string_hashed& name)
+    {
+        return destroy_connection(name.get_hash());
     }
 
     bool registry::save(string_hashed::view filepath) const 
@@ -280,8 +341,9 @@ namespace adam
                                     module_name = static_cast<configuration_parameter_string*>(mod_param)->get_value();
                             }
 
-                            port* new_port = create_port(port_name, port_type, module_name);
-                            if (new_port)
+                            port* new_port = nullptr;
+                            status status = create_port(port_name, port_type, module_name, &new_port);
+                            if (status == status_success && new_port)
                             {
                                 copy_parameters(&new_port->get_parameters(), port_params);
                             }

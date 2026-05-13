@@ -95,6 +95,14 @@ namespace adam::gui
 
                     if (!commander_active)
                     {
+                        // Also destroy the log sink as when commander has no con, controller is dead
+                        if (log_sink_active)
+                        {
+                            m_log_sink.destroy();
+                            log_sink_active = false;
+                        }
+
+                        m_commander.destroy();
                         m_commander.connect();
                         commander_active = m_commander.is_active();
                     }
@@ -109,6 +117,7 @@ namespace adam::gui
                             auto* p_log_level = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("log_level"_ct));
                             m_log_sink.queue().metadata()->store(static_cast<adam::log::level>(p_log_level->get_value() + 1), std::memory_order_relaxed);
                             
+                            // Remove any logs that might have been received while we were disconnected to avoid showing stale logs on reconnect
                             adam::log discard;
                             while (m_log_sink.queue().pop(discard, 0)) {}
                         }

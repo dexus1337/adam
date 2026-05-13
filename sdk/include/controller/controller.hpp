@@ -273,7 +273,8 @@ namespace adam
             slave_queue_does_not_exist,
             slave_queue_failed_to_destroy,
             slave_queue_worker_does_not_exist,
-            slave_queue_worker_failed_to_destroy
+            slave_queue_worker_failed_to_destroy,
+            controller_shutting_down
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

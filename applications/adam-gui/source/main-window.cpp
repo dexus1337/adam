@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include <unordered_map>
 #include <array>
+#include <map>
 
 namespace adam::gui 
 {
@@ -37,16 +38,16 @@ namespace adam::gui
     {
         static const std::unordered_map<int, std::array<const char*, adam::languages_count>> translations =
         {
-            { static_cast<int>(gui_string_id::main_ui),                     { "Main UI##MainUI", "Hauptbenutzeroberfläche##MainUI" } },
+            { static_cast<int>(gui_string_id::main_ui),                     { "Main UI###MainUI", "Hauptbenutzeroberfläche###MainUI" } },
             { static_cast<int>(gui_string_id::menu_view),                   { "View", "Ansicht" } },
             { static_cast<int>(gui_string_id::menu_show_log),               { "Show Log", "Protokoll anzeigen" } },
             { static_cast<int>(gui_string_id::menu_show_performance),       { "Show Performance", "Leistung anzeigen" } },
             { static_cast<int>(gui_string_id::menu_settings),               { "Settings", "Einstellungen" } },
-            { static_cast<int>(gui_string_id::combo_language),              { "Language##Lang", "Sprache##Lang" } },
-            { static_cast<int>(gui_string_id::slider_font_scale),           { "Font Scale##FontScale", "Schriftskalierung##FontScale" } },
-            { static_cast<int>(gui_string_id::btn_reset_default),           { "Reset to Default##Reset", "Auf Standard zurücksetzen##Reset" } },
-            { static_cast<int>(gui_string_id::checkbox_dark_theme),         { "Dark Theme##DarkTheme", "Dunkles Design##DarkTheme" } },
-            { static_cast<int>(gui_string_id::btn_clear_log),               { "Clear Log##ClearLog", "Protokoll leeren##ClearLog" } },
+            { static_cast<int>(gui_string_id::combo_language),              { "Language###Lang", "Sprache###Lang" } },
+            { static_cast<int>(gui_string_id::slider_font_scale),           { "Font Scale###FontScale", "Schriftskalierung###FontScale" } },
+            { static_cast<int>(gui_string_id::btn_reset_default),           { "Reset to Default###Reset", "Auf Standard zurücksetzen###Reset" } },
+            { static_cast<int>(gui_string_id::checkbox_dark_theme),         { "Dark Theme###DarkTheme", "Dunkles Design###DarkTheme" } },
+            { static_cast<int>(gui_string_id::btn_clear_log),               { "Clear Log###ClearLog", "Protokoll leeren###ClearLog" } },
             { static_cast<int>(gui_string_id::lbl_control_panel),           { "ADAM Control Panel", "ADAM-Bedienfeld" } },
             { static_cast<int>(gui_string_id::lbl_commander_connected),     { "Commander connected.", "Commander verbunden." } },
             { static_cast<int>(gui_string_id::lbl_commander_disconnected),  { "Commander disconnected.", "Commander getrennt." } },
@@ -55,7 +56,7 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::tbl_time),                    { "Time", "Zeit" } },
             { static_cast<int>(gui_string_id::tbl_level),                   { "Level", "Ebene" } },
             { static_cast<int>(gui_string_id::tbl_message),                 { "Message", "Nachricht" } },
-            { static_cast<int>(gui_string_id::lbl_performance_overlay),     { "Performance Overlay", "Leistungs-Overlay" } },
+            { static_cast<int>(gui_string_id::lbl_performance_overlay),     { "Performance Overlay###PerfOverlay", "Leistungs-Overlay###PerfOverlay" } },
             { static_cast<int>(gui_string_id::lbl_fps),                     { "FPS: %.1f (%.3f ms/frame)", "FPS: %.1f (%.3f ms/Frame)" } },
             { static_cast<int>(gui_string_id::lbl_cpu),                     { "CPU: %.1f%%", "CPU: %.1f%%" } },
             { static_cast<int>(gui_string_id::lbl_ram),                     { "RAM: %.1f/%.1f GB (%.0f%%)", "RAM: %.1f/%.1f GB (%.0f%%)" } },
@@ -68,7 +69,18 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::menu_overlay_content),        { "Content", "Inhalt" } },
             { static_cast<int>(gui_string_id::menu_overlay_show_fps),       { "Frames per Second (FPS)", "Bilder pro Sekunde (FPS)" } },
             { static_cast<int>(gui_string_id::menu_overlay_show_cpu),       { "Processor (CPU) Usage", "Prozessor (CPU) Auslastung" } },
-            { static_cast<int>(gui_string_id::menu_overlay_show_ram),       { "Memory (RAM) Usage", "Arbeitsspeicher (RAM) Auslastung" } }
+            { static_cast<int>(gui_string_id::menu_overlay_show_ram),       { "Memory (RAM) Usage", "Arbeitsspeicher (RAM) Auslastung" } },
+            { static_cast<int>(gui_string_id::tab_management),              { "Management###TabManagement", "Verwaltung###TabManagement" } },
+            { static_cast<int>(gui_string_id::tab_modules),                 { "Modules###TabModules", "Module###TabModules" } },
+            { static_cast<int>(gui_string_id::tab_information),             { "Information###TabInformation", "Informationen###TabInformation" } },
+            { static_cast<int>(gui_string_id::tbl_load),                    { "Load", "Laden" } },
+            { static_cast<int>(gui_string_id::tbl_name),                    { "Name", "Name" } },
+            { static_cast<int>(gui_string_id::tbl_status),                  { "Status", "Status" } },
+            { static_cast<int>(gui_string_id::tbl_version),                 { "Version", "Version" } },
+            { static_cast<int>(gui_string_id::tbl_path),                    { "Path", "Pfad" } },
+            { static_cast<int>(gui_string_id::stat_available),              { "Available", "Verfügbar" } },
+            { static_cast<int>(gui_string_id::stat_loaded),                 { "Loaded", "Geladen" } },
+            { static_cast<int>(gui_string_id::stat_unavailable),            { "Unavailable", "Nicht verfügbar" } }
         };
 
         auto val = static_cast<int>(id);
@@ -220,16 +232,122 @@ namespace adam::gui
         ImGui::Separator();
         
         float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
+        float content_avail_y = ImGui::GetWindowHeight() - ImGui::GetCursorPosY() - status_bar_height;
+        float log_height_val = static_cast<float>(m_p_log_height->get_value());
+        float max_height = content_avail_y - 100.0f;
+        if (max_height < 100.0f) max_height = 100.0f;
 
         if (m_p_show_log->get_value())
         {
-            float log_height_val = static_cast<float>(m_p_log_height->get_value());
-            float max_height = ImGui::GetWindowHeight() - 100.0f - status_bar_height;
-            if (max_height < 100.0f) max_height = 100.0f;
             if (log_height_val > max_height) log_height_val = max_height;
             if (log_height_val < 100.0f) log_height_val = 100.0f;
 
-            ImGui::SetCursorPosY(ImGui::GetWindowHeight() - log_height_val - status_bar_height);
+            content_avail_y -= log_height_val + ImGui::GetStyle().ItemSpacing.y * 2.0f + 4.0f;
+        }
+
+        if (ImGui::BeginChild("MainContent", ImVec2(0, content_avail_y), false))
+        {
+            if (ImGui::BeginTabBar("MainTabs"))
+            {
+                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_management, lang)))
+                {
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_modules, lang)))
+                {
+                    if (ImGui::BeginTable("ModulesTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
+                    {
+                        ImGui::TableSetupScrollFreeze(0, 1);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_status, lang), ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_path, lang), ImGuiTableColumnFlags_WidthStretch);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_version, lang), ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_load, lang), ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableHeadersRow();
+
+                        auto draw_module_row = [&](const std::string& name, int status, const std::string& path, uint32_t version) {
+                            ImGui::TableNextRow();
+
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::AlignTextToFramePadding();
+                            if (status == 0) {
+                                ImGui::TextColored(get_gui_color(gui_color_id::log_trace), "%s", get_gui_string(gui_string_id::stat_available, lang));
+                            } else if (status == 1) {
+                                ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s", get_gui_string(gui_string_id::stat_loaded, lang));
+                            } else if (status == 2) {
+                                ImGui::TextColored(get_gui_color(gui_color_id::log_warning), "%s", get_gui_string(gui_string_id::stat_unavailable, lang));
+                            }
+
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::AlignTextToFramePadding();
+                            ImGui::TextUnformatted(name.c_str());
+
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::AlignTextToFramePadding();
+                            ImGui::TextUnformatted(path.empty() ? "N/A" : path.c_str());
+
+                            ImGui::TableSetColumnIndex(3);
+                            ImGui::AlignTextToFramePadding();
+                            if (version != 0) {
+                                ImGui::Text("%d.%d.%d", adam::get_major(version), adam::get_minor(version), adam::get_patch(version));
+                            } else {
+                                ImGui::TextUnformatted("N/A");
+                            }
+
+                            ImGui::TableSetColumnIndex(4);
+                            bool is_loaded = (status == 1);
+                            bool checkbox_val = is_loaded;
+                            ImGui::PushID(name.c_str());
+                            if (status == 2) ImGui::BeginDisabled();
+                            if (ImGui::Checkbox("##load", &checkbox_val)) {
+                                // Module load/unload over IPC not yet supported
+                            }
+                            if (status == 2) ImGui::EndDisabled();
+                            ImGui::PopID();
+                        };
+
+                        if (m_ctrl.is_commander_active())
+                        {
+                            struct module_gui_info {
+                                int status; // 0=Avail, 1=Loaded, 2=Unavail
+                                uint32_t version;
+                                std::string path;
+                            };
+                            std::map<std::string, module_gui_info> merged;
+
+                            for (const auto& [name_hash, data] : m_ctrl.get_commander().get_available_modules())
+                                merged[std::string(name_hash.c_str())] = { 0, data.first, std::string(data.second.c_str()) };
+                                
+                            for (const auto& [name_hash, ptr] : m_ctrl.get_commander().get_loaded_modules()) {
+                                std::string name_str(name_hash.c_str());
+                                if (merged.find(name_str) != merged.end())
+                                    merged[name_str].status = 1;
+                                else
+                                    merged[name_str] = { 1, 0, "" }; // dynamically loaded modules miss version/path currently
+                            }
+                                
+                            for (const auto& [name_hash, data] : m_ctrl.get_commander().get_unavailable_modules())
+                                merged[std::string(name_hash.c_str())] = { 2, data.first, std::string(data.second.c_str()) };
+                                
+                            for (const auto& [name, info] : merged)
+                                draw_module_row(name, info.status, info.path, info.version);
+                        }
+
+                        ImGui::EndTable();
+                    }
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_information, lang)))
+                {
+                    ImGui::EndTabItem();
+                }
+                ImGui::EndTabBar();
+            }
+        }
+        ImGui::EndChild();
+
+        if (m_p_show_log->get_value())
+        {
             
             // Visible splitter for vertical resizing
             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
@@ -283,8 +401,8 @@ namespace adam::gui
             if (ImGui::BeginTable("LogTable", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, -status_bar_height)))
             {
                 ImGui::TableSetupScrollFreeze(0, 1);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_time, lang), ImGuiTableColumnFlags_WidthFixed, 90.0f);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_level, lang), ImGuiTableColumnFlags_WidthFixed, 50.0f);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_time, lang), ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_level, lang), ImGuiTableColumnFlags_WidthFixed);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_message, lang), ImGuiTableColumnFlags_WidthStretch);
                 ImGui::TableHeadersRow();
 

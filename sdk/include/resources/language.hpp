@@ -21,4 +21,11 @@ namespace adam
 
         languages_count
     };
+
+    struct language_info
+    {
+        language lang                = language_english;                                    /**< The current language of the controller. */
+        uint32_t supported_languages = (1 << language_english) | (1 << language_german);    /**< Bitfield of supported languages, indexed by the language enum value. */
+    };
+
 }

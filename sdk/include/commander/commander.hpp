@@ -48,11 +48,26 @@ namespace adam
         /** @brief Establishes a connection to the main commander. */
         bool connect();
 
+        /** @brief Disable all functionality. */
+        bool disable();
+
         /** @brief Disconnect and free resources. */
         bool destroy();
 
         /** @brief Requests the initial data from the controller. */
         response_status request_initial_data();
+
+        /** @brief Requests the creation of a port. */
+        response_status request_port_create(const string_hashed& name, const string_hashed& type, const string_hashed& module_name = string_hashed());
+
+        /** @brief Requests the destruction of a port. */
+        response_status request_port_destroy(const string_hashed& port_name);
+
+        /** @brief Requests the creation of a connection. */
+        response_status request_connection_create(const string_hashed& name);
+
+        /** @brief Requests the destruction of a connection. */
+        response_status request_connection_destroy(const string_hashed& name);
 
         /** @brief Requests the creation of a data inspector on a specific port. */
         response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
@@ -96,7 +111,7 @@ namespace adam
 
         std::ostream                m_log_outstream;
 
-        command::initial_data::header::language_info m_lang;
+        language_info               m_lang;
 
         std::unordered_map<string_hashed::hash_datatype, data_inspector*> m_inspectors;
 

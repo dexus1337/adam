@@ -49,8 +49,8 @@ int main()
     {
         while (controller.is_active())
         {
-            std::this_thread::sleep_for(std::chrono::seconds(2));
             controller.log(adam::log::info, "adam is alife!");
+            std::this_thread::sleep_for(std::chrono::seconds(2));
         }
     });
 

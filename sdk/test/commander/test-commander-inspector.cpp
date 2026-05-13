@@ -38,8 +38,11 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     adam::string_hashed port_name("adam::test_inspector_port");
 
     // 1. Create a data port and register it in the controller context
-    adam::port* test_port = adam::controller::get().get_registry().create_port(port_name, adam::port_output_internal::type_name);
+    adam::port* test_port = nullptr;
+    adam::registry::status stat = adam::controller::get().get_registry().create_port(port_name, adam::port_output_internal::type_name, adam::string_hashed(), &test_port);
     
+    ASSERT_EQ(stat, adam::registry::status_success);
+    ASSERT_NE(test_port, nullptr);
     ASSERT_NE(test_port, nullptr);
 
     // 2. Connect the external commander

@@ -17,6 +17,7 @@
 
 #include "configuration/configuration-item.hpp"
 #include "factory/factory.hpp"
+#include "resources/language.hpp"
 
 namespace adam
 {
@@ -37,6 +38,20 @@ namespace adam
 
     public:
     
+        enum status : uint16_t
+        {
+            status_success = 0,
+            status_error_port_already_exists,
+            status_error_module_not_found,
+            status_error_factory_not_found,
+            status_error_port_not_found,
+            status_error_creation_failed,
+            status_error_connection_already_exists,
+            status_error_connection_not_found
+        };
+
+        static std::string_view get_status_text(status status, language lang);
+
         /** @brief Retrieves the default configuration parameters for ports. */
         static const configuration_parameter_list& get_default_parameters();
 
@@ -61,11 +76,23 @@ namespace adam
         converter_map&  converters()    { return m_converters; }
         connection_map& connections()   { return m_connections; }
 
-        /** @brief Creates a new port using the appropriate factory and adds it to the registry. */
-        port* create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name = string_hashed());
+        /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
+        status create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name = string_hashed(), port** out_port = nullptr);
 
-        /** @brief Removes a port from the registry by its unique name, and cleans up its connections. */
-        bool remove_port(const string_hashed& name);
+        /** @brief Destroys a port from the registry by its unique name, and cleans up its connections. */
+        status destroy_port(const string_hashed& name);
+
+        /** @brief Destroys a port from the registry by its hash, and cleans up its connections. */
+        status destroy_port(string_hashed::hash_datatype hash);
+
+        /** @brief Creates a new connection and adds it to the registry. Returns the status of the operation. */
+        status create_connection(const string_hashed& name, connection** out_connection = nullptr);
+
+        /** @brief Destroys a connection from the registry by its unique name. */
+        status destroy_connection(const string_hashed& name);
+
+        /** @brief Destroys a connection from the registry by its hash. */
+        status destroy_connection(string_hashed::hash_datatype hash);
 
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;

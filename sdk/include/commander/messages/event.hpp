@@ -26,7 +26,16 @@ namespace adam
         module_loaded,
         module_unloaded,
         module_available,
-        module_unavailable
+        module_unavailable,
+
+        port_created,
+        port_parameter_updated,
+        port_destroyed,
+
+        connection_created,
+        connection_destroyed,
+
+        shutdown
     };
 
     /**
