@@ -202,7 +202,7 @@ namespace adam
                     m_module_view.unavailable().emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
                     break;
                 case module::basic_info::loaded:
-                    m_module_view.loaded().emplace(mod_name, nullptr); // we don't have the module pointer here, so we just put nullptr, it will be updated when we receive the module load events
+                    m_module_view.loaded().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
                     break;
             }
             current_idx++;

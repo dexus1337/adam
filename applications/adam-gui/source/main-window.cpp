@@ -550,12 +550,12 @@ namespace adam::gui
                 for (const auto& [name_hash, data] : m_ctrl.get_commander().get_modules().get_available())
                     merged[std::string(name_hash.c_str())] = { 0, data.first, std::string(data.second.c_str()), 0 };
                     
-                for (const auto& [name_hash, ptr] : m_ctrl.get_commander().get_modules().get_loaded()) {
+                for (const auto& [name_hash, data] : m_ctrl.get_commander().get_modules().get_loaded()) {
                     std::string name_str(name_hash.c_str());
                     if (merged.find(name_str) != merged.end())
                         merged[name_str].status = 1;
                     else
-                        merged[name_str] = { 1, 0, "", 0 }; // dynamically loaded modules miss version/path currently
+                        merged[name_str] = { 1, data.first, std::string(data.second.c_str()), 0 };
                 }
                     
                 for (const auto& [name_hash, data] : m_ctrl.get_commander().get_modules().get_unavailable())

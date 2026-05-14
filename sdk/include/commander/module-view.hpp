@@ -9,9 +9,11 @@
  */
 
 #include "api/sdk-api.hpp"
-#include "controller/registry-module-manager.hpp"
 #include <vector>
 #include <string>
+#include <tuple>
+#include <utility>
+#include <unordered_map>
 
 namespace adam 
 {
@@ -22,15 +24,19 @@ namespace adam
     class ADAM_SDK_API module_view
     {
     public:
-        registry_module_manager::map_available_modules&       available()     { return m_available_modules; }
-        registry_module_manager::map_unavailable_modules&     unavailable()   { return m_unavailable_modules; }
-        registry_module_manager::map_loaded_modules&          loaded()        { return m_loaded_modules; }
-        std::vector<string_hashed>&                             paths()         { return m_paths; }
+        using map_available_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
+        using map_unavailable_modules = std::unordered_map<string_hashed, std::tuple<uint32_t, string_hashed, uint8_t>>;
+        using map_loaded_modules      = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
 
-        const registry_module_manager::map_available_modules&     get_available()     const { return m_available_modules; }
-        const registry_module_manager::map_unavailable_modules&   get_unavailable()   const { return m_unavailable_modules; }
-        const registry_module_manager::map_loaded_modules&        get_loaded()        const { return m_loaded_modules; }
-        const std::vector<string_hashed>&                           get_paths()         const { return m_paths; }
+        map_available_modules&       available()     { return m_available_modules; }
+        map_unavailable_modules&     unavailable()   { return m_unavailable_modules; }
+        map_loaded_modules&          loaded()        { return m_loaded_modules; }
+        std::vector<string_hashed>&  paths()         { return m_paths; }
+
+        const map_available_modules&     get_available()     const { return m_available_modules; }
+        const map_unavailable_modules&   get_unavailable()   const { return m_unavailable_modules; }
+        const map_loaded_modules&        get_loaded()        const { return m_loaded_modules; }
+        const std::vector<string_hashed>& get_paths()         const { return m_paths; }
 
         void clear()
         {
@@ -41,9 +47,9 @@ namespace adam
         }
 
     private:
-        registry_module_manager::map_available_modules    m_available_modules;
-        registry_module_manager::map_unavailable_modules  m_unavailable_modules;
-        registry_module_manager::map_loaded_modules       m_loaded_modules;
+        map_available_modules    m_available_modules;
+        map_unavailable_modules  m_unavailable_modules;
+        map_loaded_modules       m_loaded_modules;
         std::vector<string_hashed>                          m_paths;
     };
 }

@@ -69,8 +69,9 @@ namespace adam
         {
             auto* mod_info = e.get_data_as<module::basic_info>();
             string_hashed mod_name(mod_info->name);
+            string_hashed mod_path(mod_info->path);
 
-            ctx.cmdr.modules().loaded().emplace(mod_name, nullptr);
+            ctx.cmdr.modules().loaded().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
             ctx.cmdr.modules().available().erase(mod_name);
         });
 
