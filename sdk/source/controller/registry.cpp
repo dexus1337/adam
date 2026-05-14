@@ -107,7 +107,7 @@ namespace adam
         m_connections.clear();
     }
 
-    registry::status registry::create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name, port** out_port)
+    registry::status registry::create_port(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype module_name, port** out_port)
     {
         if (out_port) 
             *out_port = nullptr;
@@ -117,18 +117,26 @@ namespace adam
             return status_error_port_already_exists;
 
         const factory<port>* port_factory = nullptr;
+        string_hashed resolved_module_name;
 
         // 2. Lookup the appropriate factory
-        if (!module_name.empty())
+        if (module_name != 0)
         {
-            const module* mod = m_modules.get_loaded_module(module_name);
+            const module* mod = nullptr;
+            auto it = m_modules.get_loaded_modules().find(module_name);
+            if (it != m_modules.get_loaded_modules().end())
+            {
+                mod = it->second;
+                resolved_module_name = it->first;
+            }
+
             if (!mod)
                 return status_error_module_not_found; // Module not found or not loaded
 
             const auto& mod_factories = mod->get_port_factories();
-            auto it = mod_factories.find(type);
-            if (it != mod_factories.end())
-                port_factory = it->second;
+            auto factory_it = mod_factories.find(type);
+            if (factory_it != mod_factories.end())
+                port_factory = factory_it->second;
         }
         else
         {
@@ -145,10 +153,10 @@ namespace adam
         if (!new_port)
             return status_error_creation_failed;
 
-        if (!module_name.empty())
+        if (module_name != 0)
         {
             if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("module_name"_ct)))
-                mod_param->set_value(module_name);
+                mod_param->set_value(resolved_module_name);
         }
         m_ports.emplace(name, std::unique_ptr<port>(new_port));
         
@@ -377,7 +385,7 @@ namespace adam
                             }
 
                             port* new_port = nullptr;
-                            status status = create_port(port_name, port_type, module_name, &new_port);
+                            status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), &new_port);
                             if (status == status_success && new_port)
                             {
                                 copy_parameters(&new_port->get_parameters(), port_params);

@@ -212,12 +212,9 @@ namespace adam
         register_handler(static_cast<int>(command_type::port_create), [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<port::basic_info>();
-            
             string_hashed name(params->name);
-            string_hashed type(params->type);
-            string_hashed module_name(params->module_name);
-
-            registry::status res = ctx.reg.create_port(name, type, module_name);
+            
+            registry::status res = ctx.reg.create_port(name, params->type, params->module);
 
             if (res != registry::status_success)
             {
@@ -234,8 +231,7 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             auto name_view = name.c_str();
-            auto type_view = type.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, type_view));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, params->type));
             ctx.set_single_response_status(response_status::success);
         });
 

@@ -123,8 +123,7 @@ namespace adam
             auto* info = e.get_data_as<port::basic_info>();
             auto view = std::make_unique<port_view>();
             view->name = string_hashed(info->name);
-            view->type = string_hashed(info->type);
-            view->module_name = string_hashed(info->module_name);
+            ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->module, view->type, view->module_name);
             ctx.cmdr.registry().ports()[view->name.get_hash()] = std::move(view);
         });
 

@@ -253,10 +253,10 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_port_create(const string_hashed& name, const string_hashed& type, const string_hashed& module_name)
+    response_status commander::request_port_create(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype module)
     {
         command cmd(command_type::port_create);
-        cmd.data_as<port::basic_info>()->setup(name, type, module_name);
+        cmd.data_as<port::basic_info>()->setup(name, type, module);
 
         return send_command(cmd);
     }

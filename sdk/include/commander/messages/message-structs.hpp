@@ -20,6 +20,7 @@
 namespace adam 
 {
     static constexpr size_t max_name_length = 64;
+    static constexpr size_t max_port_type_length = 64;
     static constexpr size_t max_path_length = 384;
 
     namespace messages

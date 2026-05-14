@@ -82,7 +82,7 @@ namespace adam
         const registry_module_manager& get_modules() const { return m_modules; }
 
         /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
-        status create_port(const string_hashed& name, const string_hashed& type, const string_hashed& module_name = string_hashed(), port** out_port = nullptr);
+        status create_port(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype module_name = 0, port** out_port = nullptr);
 
         /** @brief Destroys a port from the registry by its hash, and cleans up its connections. */
         status destroy_port(string_hashed::hash_datatype hash);

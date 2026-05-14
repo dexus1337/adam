@@ -4,6 +4,24 @@
 
 namespace adam 
 {
+    void module_view::extract_port_type_and_module(string_hashed::hash_datatype type_hash, string_hashed::hash_datatype module_hash, string_hashed& out_type, string_hashed& out_module) const
+    {
+        auto it = m_loaded_modules.find(module_hash);
+        if (it != m_loaded_modules.end())
+        {
+            out_module = it->first;
+            if (it->second)
+            {
+                auto factory_it = it->second->get_port_factories().find(type_hash);
+                if (factory_it != it->second->get_port_factories().end() && factory_it->second)
+                {
+                    out_type = it->first;
+                    return;
+                }
+            }
+        }
+    }
+    
     void module_view::load_module(const string_hashed& name, const string_hashed& path)
     {
         void* handle = os::load_library(path.c_str());

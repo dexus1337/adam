@@ -31,18 +31,22 @@ namespace adam
         using map_available_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
         using map_unavailable_modules = std::unordered_map<string_hashed, std::tuple<uint32_t, string_hashed, uint8_t>>;
         using map_loaded_modules      = std::unordered_map<string_hashed, const module*>;
+        using handle_map              = std::unordered_map<string_hashed, void*>;
 
-        map_available_modules&       available()     { return m_available_modules; }
-        map_unavailable_modules&     unavailable()   { return m_unavailable_modules; }
-        map_loaded_modules&          loaded()        { return m_loaded_modules; }
-        std::unordered_map<string_hashed, void*>& handles() { return m_handles; }
-        std::vector<string_hashed>&  paths()         { return m_paths; }
+        map_available_modules&              available()     { return m_available_modules; }
+        map_unavailable_modules&            unavailable()   { return m_unavailable_modules; }
+        map_loaded_modules&                 loaded()        { return m_loaded_modules; }
+        handle_map&                         handles()       { return m_handles; }
+        std::vector<string_hashed>&         paths()         { return m_paths; }
 
-        const map_available_modules&     get_available()     const { return m_available_modules; }
-        const map_unavailable_modules&   get_unavailable()   const { return m_unavailable_modules; }
-        const map_loaded_modules&        get_loaded()        const { return m_loaded_modules; }
-        const std::unordered_map<string_hashed, void*>& get_handles() const { return m_handles; }
-        const std::vector<string_hashed>& get_paths()         const { return m_paths; }
+        const map_available_modules&        get_available()     const { return m_available_modules; }
+        const map_unavailable_modules&      get_unavailable()   const { return m_unavailable_modules; }
+        const map_loaded_modules&           get_loaded()        const { return m_loaded_modules; }
+        const handle_map&                   get_handles()       const { return m_handles; }
+        const std::vector<string_hashed>&   get_paths()         const { return m_paths; }
+
+        /** @brief Extracts the type and module names for a given port hash. */
+        void extract_port_type_and_module(string_hashed::hash_datatype type_hash, string_hashed::hash_datatype module_hash, string_hashed& out_type, string_hashed& out_module) const;
 
         void load_module(const string_hashed& name, const string_hashed& path);
 
@@ -54,7 +58,7 @@ namespace adam
         map_available_modules       m_available_modules;
         map_unavailable_modules     m_unavailable_modules;
         map_loaded_modules          m_loaded_modules;
-        std::unordered_map<string_hashed, void*> m_handles;
+        handle_map                  m_handles;
         std::vector<string_hashed>  m_paths;
     };
 }
