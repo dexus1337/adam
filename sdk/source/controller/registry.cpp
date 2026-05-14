@@ -19,6 +19,7 @@
 #include <string>
 #include <stdexcept>
 #include <array>
+#include <cstdlib>
 
 namespace adam
 {
@@ -382,13 +383,18 @@ namespace adam
     {
         if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get(string_hashed("module_paths"))))
         {
+            uint64_t max_index = 0;
             for (const auto& [name, param] : list->get_children())
             {
                 if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
+                {
                     if (str_param->get_value() == path) return false; // Already exists
+                }
+                uint64_t idx = std::strtoull(name.c_str(), nullptr, 10);
+                if (idx > max_index) max_index = idx;
             }
             
-            string_hashed new_key(std::to_string(path.get_hash()));
+            string_hashed new_key(std::to_string(max_index + 1));
             auto new_param = std::make_unique<configuration_parameter_string>(new_key);
             new_param->set_value(path);
             list->add(std::move(new_param));

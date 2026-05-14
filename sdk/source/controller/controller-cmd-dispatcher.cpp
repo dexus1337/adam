@@ -13,6 +13,8 @@
 #include <array>
 #include <format>
 #include <vector>
+#include <algorithm>
+#include <cstdlib>
 
 namespace adam
 {
@@ -67,32 +69,26 @@ namespace adam
             uint32_t path_count = 0;
             if (module_paths_list)
             {
-                // Ensure default path is always sent first so GUI logic relies on index 0 safely
-                if (auto* default_param = module_paths_list->get(string_hashed("0")))
-                {
-                    if (auto* str_param = dynamic_cast<configuration_parameter_string*>(default_param))
-                    {
-                        ctx.responses[resp_idx-1].set_extended(true);
-                        auto* path_info = ctx.responses[resp_idx].data_as<module::path_info>();
-                        path_info->setup(str_param->get_value().c_str(), path_count);
-                        resp_idx++;
-                        path_count++;
-
-                        if (resp_idx >= ctx.responses.size())
-                            ctx.responses.emplace_back();
-                    }
-                }
+                std::vector<std::pair<uint64_t, std::string>> sorted_paths;
 
                 for (const auto& [name, param] : module_paths_list->get_children())
                 {
-                    if (name == string_hashed("0")) continue; // Already processed
-
                     auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get());
                     if (!str_param) continue;
 
+                    uint64_t idx = std::strtoull(name.c_str(), nullptr, 10);
+                    sorted_paths.push_back({idx, std::string(str_param->get_value().c_str())});
+                }
+
+                std::sort(sorted_paths.begin(), sorted_paths.end(), [](const auto& a, const auto& b) {
+                    return a.first < b.first;
+                });
+
+                for (const auto& p : sorted_paths)
+                {
                     ctx.responses[resp_idx-1].set_extended(true);
                     auto* path_info = ctx.responses[resp_idx].data_as<module::path_info>();
-                    path_info->setup(str_param->get_value().c_str(), path_count);
+                    path_info->setup(p.second.c_str(), path_count);
                     resp_idx++;
                     path_count++;
 
