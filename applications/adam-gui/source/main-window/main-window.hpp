@@ -1,7 +1,7 @@
 #pragma once
 
 #include <adam-sdk.hpp>
-#include "gui-controller.hpp"
+#include "../gui-controller.hpp"
 
 struct SDL_Window;
 
@@ -61,7 +61,17 @@ namespace adam::gui
         btn_scan_modules,
         ph_new_path,
         lbl_modules,
-        tbl_index
+        tbl_index,
+        btn_create_connection,
+        btn_create_port,
+        lbl_inputs,
+        lbl_outputs,
+        lbl_processors,
+        dlg_create_connection,
+        dlg_create_port,
+        btn_cancel,
+        btn_create,
+        lbl_port_type
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

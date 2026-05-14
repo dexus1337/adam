@@ -1,5 +1,5 @@
 #include "setup.hpp"
-#include "main-window.hpp"
+#include "main-window/main-window.hpp"
 #include "gui-controller.hpp"
 
 #include <SDL.h>

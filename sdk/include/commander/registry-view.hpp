@@ -10,6 +10,7 @@
 
 #include "api/sdk-api.hpp"
 #include "types/string-hashed.hpp"
+#include <vector>
 #include <unordered_map>
 #include <memory>
 
@@ -43,6 +44,10 @@ namespace adam
     struct connection_view
     {
         string_hashed name;
+        std::vector<string_hashed::hash_datatype> inputs;
+        std::vector<string_hashed::hash_datatype> outputs;
+        std::vector<string_hashed::hash_datatype> filters;
+        std::vector<string_hashed::hash_datatype> converters;
     };
 
     /**

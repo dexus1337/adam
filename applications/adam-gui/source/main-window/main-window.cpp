@@ -91,7 +91,17 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::btn_scan_modules),            { "Scan for Modules", "Nach Modulen suchen" } },
             { static_cast<int>(gui_string_id::ph_new_path),                 { "Enter new path...", "Neuen Pfad eingeben..." } },
             { static_cast<int>(gui_string_id::lbl_modules),                 { "Modules", "Module" } },
-            { static_cast<int>(gui_string_id::tbl_index),                   { "#", "#" } }
+            { static_cast<int>(gui_string_id::tbl_index),                   { "#", "#" } },
+            { static_cast<int>(gui_string_id::btn_create_connection),       { "Create Connection", "Verbindung erstellen" } },
+            { static_cast<int>(gui_string_id::btn_create_port),             { "Create Port", "Port erstellen" } },
+            { static_cast<int>(gui_string_id::lbl_inputs),                  { "Inputs", "Eingänge" } },
+            { static_cast<int>(gui_string_id::lbl_outputs),                 { "Outputs", "Ausgänge" } },
+            { static_cast<int>(gui_string_id::lbl_processors),              { "Processors", "Prozessoren" } },
+            { static_cast<int>(gui_string_id::dlg_create_connection),       { "Create New Connection", "Neue Verbindung erstellen" } },
+            { static_cast<int>(gui_string_id::dlg_create_port),             { "Create New Port", "Neuen Port erstellen" } },
+            { static_cast<int>(gui_string_id::btn_cancel),                  { "Cancel", "Abbrechen" } },
+            { static_cast<int>(gui_string_id::btn_create),                  { "Create", "Erstellen" } },
+            { static_cast<int>(gui_string_id::lbl_port_type),               { "Port Type", "Port-Typ" } }
         };
 
         auto val = static_cast<int>(id);
@@ -389,8 +399,313 @@ namespace adam::gui
         }
     }
 
-    void main_window::render_tab_management(adam::language /*lang*/)
+    void main_window::render_tab_management(adam::language lang)
     {
+        bool commander_active = m_ctrl.is_commander_active();
+
+        if (!commander_active) ImGui::BeginDisabled();
+
+        if (ImGui::Button(get_gui_string(gui_string_id::btn_create_connection, lang)))
+            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_create_connection, lang));
+        ImGui::SameLine();
+        if (ImGui::Button(get_gui_string(gui_string_id::btn_create_port, lang)))
+            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_create_port, lang));
+
+        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            static char conn_name[256] = "";
+            ImGui::InputText(get_gui_string(gui_string_id::tbl_name, lang), conn_name, sizeof(conn_name));
+
+            ImGui::Spacing();
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang), ImVec2(120, 0)))
+            {
+                if (conn_name[0] != '\0')
+                {
+                    m_ctrl.get_commander().request_connection_create(adam::string_hashed(&conn_name[0]));
+                    conn_name[0] = '\0';
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120, 0)))
+                ImGui::CloseCurrentPopup();
+            
+            ImGui::EndPopup();
+        }
+
+        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_port, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            static char port_name[256] = "";
+            ImGui::InputText(get_gui_string(gui_string_id::tbl_name, lang), port_name, sizeof(port_name));
+            
+            static int port_type_idx = 0;
+            const char* types[] = { "Input", "Output" };
+            ImGui::Combo(get_gui_string(gui_string_id::lbl_port_type, lang), &port_type_idx, types, 2);
+
+            ImGui::Spacing();
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang), ImVec2(120, 0)))
+            {
+                if (port_name[0] != '\0')
+                {
+                    adam::string_hashed ptype = (port_type_idx == 0) ? adam::string_hashed("adam::port_input_internal") : adam::string_hashed("adam::port_output_internal");
+                    m_ctrl.get_commander().request_port_create(adam::string_hashed(&port_name[0]), ptype.get_hash(), 0);
+                    port_name[0] = '\0';
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120, 0)))
+                ImGui::CloseCurrentPopup();
+                
+            ImGui::EndPopup();
+        }
+
+        if (!commander_active) ImGui::EndDisabled();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        auto& reg_view = m_ctrl.get_commander().registry();
+
+        #ifdef ADAM_BUILD_DEBUG
+        // Inject a test connection if it doesn't exist to test layout
+        static bool test_injected = false;
+        if (!test_injected)
+        {
+            auto conn = std::make_unique<adam::connection_view>();
+            conn->name = adam::string_hashed("Debug_Connection");
+            
+            auto p_in1 = std::make_unique<adam::port_view>(); p_in1->name = adam::string_hashed("Video_In"); p_in1->type = adam::string_hashed("adam::port_input_internal");
+            auto p_in2 = std::make_unique<adam::port_view>(); p_in2->name = adam::string_hashed("Audio_In"); p_in2->type = adam::string_hashed("adam::port_input_internal");
+            
+            auto p_out1 = std::make_unique<adam::port_view>(); p_out1->name = adam::string_hashed("Stream_Out"); p_out1->type = adam::string_hashed("adam::port_output_internal");
+            auto p_out2 = std::make_unique<adam::port_view>(); p_out2->name = adam::string_hashed("Preview_Out"); p_out2->type = adam::string_hashed("adam::port_output_internal");
+
+            conn->inputs.push_back(p_in1->name.get_hash());
+            conn->inputs.push_back(p_in2->name.get_hash());
+            conn->outputs.push_back(p_out1->name.get_hash());
+            conn->outputs.push_back(p_out2->name.get_hash());
+
+            // Mock processor
+            conn->filters.push_back(1234);
+
+            reg_view.ports()[p_in1->name.get_hash()] = std::move(p_in1);
+            reg_view.ports()[p_in2->name.get_hash()] = std::move(p_in2);
+            reg_view.ports()[p_out1->name.get_hash()] = std::move(p_out1);
+            reg_view.ports()[p_out2->name.get_hash()] = std::move(p_out2);
+
+            reg_view.connections()[conn->name.get_hash()] = std::move(conn);
+
+            auto conn2 = std::make_unique<adam::connection_view>();
+            conn2->name = adam::string_hashed("Converter_Connection");
+            
+            auto p2_in1 = std::make_unique<adam::port_view>(); p2_in1->name = adam::string_hashed("Raw_Data_In"); p2_in1->type = adam::string_hashed("adam::port_input_internal");
+            auto p2_out1 = std::make_unique<adam::port_view>(); p2_out1->name = adam::string_hashed("Processed_Out"); p2_out1->type = adam::string_hashed("adam::port_output_internal");
+
+            conn2->inputs.push_back(p2_in1->name.get_hash());
+            conn2->outputs.push_back(p2_out1->name.get_hash());
+            
+            // Mock converter
+            conn2->converters.push_back(5678);
+
+            reg_view.ports()[p2_in1->name.get_hash()] = std::move(p2_in1);
+            reg_view.ports()[p2_out1->name.get_hash()] = std::move(p2_out1);
+            
+            reg_view.connections()[conn2->name.get_hash()] = std::move(conn2);
+
+            auto conn3 = std::make_unique<adam::connection_view>();
+            conn3->name = adam::string_hashed("Splitter_Connection");
+            
+            auto p3_in1 = std::make_unique<adam::port_view>(); p3_in1->name = adam::string_hashed("Sensor_1"); p3_in1->type = adam::string_hashed("adam::port_input_internal");
+            auto p3_in2 = std::make_unique<adam::port_view>(); p3_in2->name = adam::string_hashed("Sensor_2"); p3_in2->type = adam::string_hashed("adam::port_input_internal");
+            
+            auto p3_out1 = std::make_unique<adam::port_view>(); p3_out1->name = adam::string_hashed("Log_Out"); p3_out1->type = adam::string_hashed("adam::port_output_internal");
+            auto p3_out2 = std::make_unique<adam::port_view>(); p3_out2->name = adam::string_hashed("Display_Out"); p3_out2->type = adam::string_hashed("adam::port_output_internal");
+            auto p3_out3 = std::make_unique<adam::port_view>(); p3_out3->name = adam::string_hashed("Network_Out"); p3_out3->type = adam::string_hashed("adam::port_output_internal");
+
+            conn3->inputs.push_back(p3_in1->name.get_hash());
+            conn3->inputs.push_back(p3_in2->name.get_hash());
+            conn3->outputs.push_back(p3_out1->name.get_hash());
+            conn3->outputs.push_back(p3_out2->name.get_hash());
+            conn3->outputs.push_back(p3_out3->name.get_hash());
+
+            reg_view.ports()[p3_in1->name.get_hash()] = std::move(p3_in1);
+            reg_view.ports()[p3_in2->name.get_hash()] = std::move(p3_in2);
+            reg_view.ports()[p3_out1->name.get_hash()] = std::move(p3_out1);
+            reg_view.ports()[p3_out2->name.get_hash()] = std::move(p3_out2);
+            reg_view.ports()[p3_out3->name.get_hash()] = std::move(p3_out3);
+            
+            reg_view.connections()[conn3->name.get_hash()] = std::move(conn3);
+            
+            test_injected = true;
+        }
+        #endif
+
+        const auto& connections = reg_view.get_connections();
+        const auto& ports = reg_view.get_ports();
+
+        if (ImGui::BeginChild("ConnectionsList", ImVec2(0, 0), true))
+        {
+            for (const auto& [hash, conn] : connections)
+            {
+                ImGui::PushID(static_cast<int>(hash));
+                
+                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 16.0f));
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+
+                size_t max_rows = std::max({conn->inputs.size(), conn->outputs.size(), conn->filters.size() + conn->converters.size()});
+                if (max_rows == 0) max_rows = 1;
+                
+                float node_h = ImGui::GetTextLineHeight() * 2.0f;
+                if (node_h < 40.0f) node_h = 40.0f;
+                float row_height = node_h + 24.0f;
+                
+                float base_height = ImGui::GetTextLineHeight() * 2.0f + 60.0f;
+                float child_height = base_height + static_cast<float>(max_rows) * row_height;
+
+                if (ImGui::BeginChild("ConnCard", ImVec2(0, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+                {
+                    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "CONNECTION");
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted(conn->name.c_str());
+
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+                    float col_width = ImGui::GetContentRegionAvail().x / 3.0f;
+                    ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+                    
+                    auto draw_node = [&](const char* name, int col, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out)
+                    {
+                        float node_w = col_width * 0.85f;
+                        float node_x = cur_pos.x + static_cast<float>(col) * col_width + (col_width - node_w) * 0.5f;
+                        float node_y = cur_pos.y + row * row_height + (row_height - node_h) * 0.5f;
+                        
+                        ImVec2 p_min(node_x, node_y);
+                        ImVec2 p_max(node_x + node_w, node_y + node_h);
+                        
+                        draw_list->AddRectFilled(p_min, p_max, color, 6.0f);
+                        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f, 0, 1.5f);
+                        
+                        // Text with clipping
+                        float text_padding = 8.0f;
+                        ImVec2 text_pos(p_min.x + text_padding, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
+                        draw_list->PushClipRect(p_min, p_max, true);
+                        draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
+                        draw_list->PopClipRect();
+
+                        // Pin positions
+                        out_pin_in = ImVec2(p_min.x, p_min.y + node_h * 0.5f);
+                        out_pin_out = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
+
+                        // Draw pins as circles
+                        draw_list->AddCircleFilled(out_pin_in, 4.0f, ImColor(200, 200, 200, 200));
+                        draw_list->AddCircleFilled(out_pin_out, 4.0f, ImColor(200, 200, 200, 200));
+                    };
+
+                    std::vector<ImVec2> input_pins;
+                    std::vector<ImVec2> output_pins;
+                    std::vector<std::pair<ImVec2, ImVec2>> processor_pins;
+
+                    ImColor in_col(0x26, 0x76, 0xA6, 220);
+                    ImColor proc_col(0xA6, 0x76, 0x26, 220);
+                    ImColor out_col(0xA6, 0x26, 0x26, 220);
+
+                    float in_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->inputs.size())) * 0.5f;
+                    float proc_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->filters.size() + conn->converters.size())) * 0.5f;
+                    float out_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->outputs.size())) * 0.5f;
+
+                    float row_val = in_offset;
+                    for (auto pid : conn->inputs)
+                    {
+                        ImVec2 p_in, p_out;
+                        auto it = ports.find(pid);
+                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, in_col, p_in, p_out);
+                        input_pins.push_back(p_out);
+                        row_val += 1.0f;
+                    }
+
+                    row_val = proc_offset;
+                    for (auto fid : conn->filters)
+                    {
+                        ImVec2 p_in, p_out;
+                        draw_node("Filter", 1, row_val, proc_col, p_in, p_out);
+                        processor_pins.push_back({p_in, p_out});
+                        row_val += 1.0f;
+                    }
+                    for (auto cid : conn->converters)
+                    {
+                        ImVec2 p_in, p_out;
+                        draw_node("Converter", 1, row_val, proc_col, p_in, p_out);
+                        processor_pins.push_back({p_in, p_out});
+                        row_val += 1.0f;
+                    }
+
+                    row_val = out_offset;
+                    for (auto pid : conn->outputs)
+                    {
+                        ImVec2 p_in, p_out;
+                        auto it = ports.find(pid);
+                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", 2, row_val, out_col, p_in, p_out);
+                        output_pins.push_back(p_in);
+                        row_val += 1.0f;
+                    }
+
+                    ImColor line_col(200, 200, 200, 180);
+                    
+                    if (processor_pins.empty())
+                    {
+                        for (const auto& pin_in : input_pins)
+                        {
+                            for (const auto& pin_out : output_pins)
+                            {
+                                float b_strength = (pin_out.x - pin_in.x) * 0.5f;
+                                draw_list->AddBezierCubic(
+                                    pin_in, ImVec2(pin_in.x + b_strength, pin_in.y), ImVec2(pin_out.x - b_strength, pin_out.y), pin_out,
+                                    line_col, 2.5f);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (const auto& pin_in : input_pins)
+                        {
+                            for (const auto& proc : processor_pins)
+                            {
+                                float b_strength = (proc.first.x - pin_in.x) * 0.5f;
+                                draw_list->AddBezierCubic(
+                                    pin_in, ImVec2(pin_in.x + b_strength, pin_in.y), ImVec2(proc.first.x - b_strength, proc.first.y), proc.first,
+                                    line_col, 2.5f);
+                            }
+                        }
+                        for (const auto& proc : processor_pins)
+                        {
+                            for (const auto& pin_out : output_pins)
+                            {
+                                float b_strength = (pin_out.x - proc.second.x) * 0.5f;
+                                draw_list->AddBezierCubic(
+                                    proc.second, ImVec2(proc.second.x + b_strength, proc.second.y), ImVec2(pin_out.x - b_strength, pin_out.y), pin_out,
+                                    line_col, 2.5f);
+                            }
+                        }
+                    }
+
+                    ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + static_cast<float>(max_rows) * row_height));
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
+                }
+                ImGui::EndChild();
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar(2);
+                ImGui::PopID();
+            }
+        }
+        ImGui::EndChild();
     }
 
     void main_window::render_tab_modules(adam::language lang)
