@@ -406,12 +406,15 @@ namespace adam
             for (const auto& [name, param] : list->get_children())
             {
                 if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
+                {
                     if (str_param->get_value() == path)
                     {
+                        if (name == string_hashed("0")) return false; // Deny removal of the default (first) module path
                         key_to_remove = name;
                         found = true;
                         break;
                     }
+                }
             }
             
             if (found)

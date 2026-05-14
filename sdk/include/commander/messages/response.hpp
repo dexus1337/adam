@@ -26,6 +26,7 @@ namespace adam
         success,
         unknown,
         failed,
+        denied,
         command_send_failed,
         response_receive_failed,
         inspector_already_exists,

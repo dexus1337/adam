@@ -67,8 +67,26 @@ namespace adam
             uint32_t path_count = 0;
             if (module_paths_list)
             {
+                // Ensure default path is always sent first so GUI logic relies on index 0 safely
+                if (auto* default_param = module_paths_list->get(string_hashed("0")))
+                {
+                    if (auto* str_param = dynamic_cast<configuration_parameter_string*>(default_param))
+                    {
+                        ctx.responses[resp_idx-1].set_extended(true);
+                        auto* path_info = ctx.responses[resp_idx].data_as<module::path_info>();
+                        path_info->setup(str_param->get_value().c_str(), path_count);
+                        resp_idx++;
+                        path_count++;
+
+                        if (resp_idx >= ctx.responses.size())
+                            ctx.responses.emplace_back();
+                    }
+                }
+
                 for (const auto& [name, param] : module_paths_list->get_children())
                 {
+                    if (name == string_hashed("0")) continue; // Already processed
+
                     auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get());
                     if (!str_param) continue;
 
@@ -161,7 +179,7 @@ namespace adam
             if (!ctx.reg.remove_module_path(path))
             {
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
-                ctx.set_single_response_status(response_status::failed);
+                ctx.set_single_response_status(response_status::denied);
                 return;
             }
 

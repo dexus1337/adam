@@ -10,24 +10,29 @@ namespace adam::gui
 {
     bool initialize(SDL_Window*& window, SDL_GLContext& gl_context, const char*& glsl_version)
     {
+        // Tell Windows we handle DPI ourselves to prevent blurry upscaling
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+        #endif
+
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
             return false;
 
-#if defined(ADAM_PLATFORM_LINUX) || defined(ADAM_PLATFORM_WINDOWS)
+        #if defined(ADAM_PLATFORM_LINUX) || defined(ADAM_PLATFORM_WINDOWS)
         glsl_version = "#version 130";
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#elif defined(__APPLE__)
+        #elif defined(__APPLE__)
         glsl_version = "#version 150";
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // Always required on Mac
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-#else
+        #else
         glsl_version = "#version 130";
-#endif
+        #endif
 
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -52,21 +57,29 @@ namespace adam::gui
         io.IniFilename = NULL;
 
         ImGui::StyleColorsDark();
+        
+        // Calculate DPI scale (using standard 96 DPI as base)
+        float ddpi = 96.0f, hdpi = 96.0f, vdpi = 96.0f;
+        int display_index = SDL_GetWindowDisplayIndex(window);
+        if (display_index >= 0)
+            SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi);
+        float dpi_scale = ddpi / 96.0f;
+        ImGui::GetStyle().ScaleAllSizes(dpi_scale);
 
         // Load nicer system fonts instead of the default pixel font
         #if defined(ADAM_PLATFORM_WINDOWS)
         if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f * dpi_scale);
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\arial.ttf"))
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 16.0f);
+            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 16.0f * dpi_scale);
         #elif defined(ADAM_PLATFORM_LINUX)
         if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f);
+            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f * dpi_scale);
         else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f);
+            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f * dpi_scale);
         #elif defined(__APPLE__)
         if (std::filesystem::exists("/System/Library/Fonts/Helvetica.ttc"))
-            io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
+            io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f * dpi_scale);
         #endif
 
         ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
