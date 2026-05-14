@@ -19,6 +19,9 @@
 
 namespace adam 
 {
+    static constexpr size_t max_name_length = 64;
+    static constexpr size_t max_path_length = 384;
+
     namespace messages
     {
         struct initial_data_header
@@ -37,7 +40,7 @@ namespace adam
         struct module_path_data
         {
             uint32_t idx;
-            char path[384]; // matches module::max_path_length
+            char path[max_path_length];
 
             void setup(const char* p, uint32_t i)
             {
@@ -56,7 +59,7 @@ namespace adam
 
         struct module_action_data
         {
-            char module_name[64]; // matches module::max_name_length
+            char module_name[max_name_length];
 
             void setup(const char* n)
             {

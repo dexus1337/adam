@@ -71,7 +71,7 @@ namespace adam
             string_hashed mod_name(mod_info->name);
             string_hashed mod_path(mod_info->path);
 
-            ctx.cmdr.modules().loaded().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+            ctx.cmdr.modules().load_module(mod_name, mod_path);
             ctx.cmdr.modules().available().erase(mod_name);
         });
 
@@ -81,7 +81,7 @@ namespace adam
             string_hashed mod_name(mod_info->name);
             string_hashed mod_path(mod_info->path);
 
-            ctx.cmdr.modules().loaded().erase(mod_name);
+            ctx.cmdr.modules().unload_module(mod_name);
             ctx.cmdr.modules().available().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
         });
 
@@ -108,7 +108,7 @@ namespace adam
             auto* mod_info = e.get_data_as<module::basic_info>();
             string_hashed mod_name(mod_info->name);
 
-            ctx.cmdr.modules().loaded().erase(mod_name);
+            ctx.cmdr.modules().unload_module(mod_name);
             ctx.cmdr.modules().available().erase(mod_name);
             ctx.cmdr.modules().unavailable().erase(mod_name);
         });

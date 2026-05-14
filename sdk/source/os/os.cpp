@@ -4,6 +4,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <dlfcn.h>
 #elifdef    ADAM_PLATFORM_WINDOWS
 #include <windows.h>
 #endif
@@ -142,4 +143,38 @@ namespace adam::os
         available_mb = last_avail;
     }
 
+    void* load_library(const char* path)
+    {
+        #ifdef ADAM_PLATFORM_LINUX
+        return dlopen(path, RTLD_LAZY);
+        #elifdef ADAM_PLATFORM_WINDOWS
+        return LoadLibraryA(path);
+        #else
+        return nullptr;
+        #endif
+    }
+
+    bool unload_library(void* handle)
+    {
+        if (!handle) return false;
+        #ifdef ADAM_PLATFORM_LINUX
+        return dlclose(handle) == 0;
+        #elifdef ADAM_PLATFORM_WINDOWS
+        return FreeLibrary(reinterpret_cast<HMODULE>(handle)) != 0;
+        #else
+        return false;
+        #endif
+    }
+
+    void* get_library_symbol(void* handle, const char* symbol)
+    {
+        if (!handle || !symbol) return nullptr;
+        #ifdef ADAM_PLATFORM_LINUX
+        return dlsym(handle, symbol);
+        #elifdef ADAM_PLATFORM_WINDOWS
+        return reinterpret_cast<void*>(GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol));
+        #else
+        return nullptr;
+        #endif
+    }
 }

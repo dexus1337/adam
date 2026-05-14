@@ -13,12 +13,6 @@
 #include <format>
 #include <cstring>
 
-#ifdef   ADAM_PLATFORM_LINUX
-#include <dlfcn.h>
-#elifdef ADAM_PLATFORM_WINDOWS
-#include <windows.h>
-#endif
-
 namespace adam
 {
     registry_module_manager::registry_module_manager(controller& ctrl) : m_controller(ctrl) {}
@@ -46,7 +40,7 @@ namespace adam
             },
             {
                 static_cast<int>(log_event::module_loaded),
-                { "Loaded module \"{}\" at 0x{:x}", "Modul \"{}\" geladen an 0x{:x}" }
+                { "Loaded module \"{}\"", "Modul \"{}\" geladen" }
             },
             {
                 static_cast<int>(log_event::module_load_failed),
@@ -145,11 +139,7 @@ namespace adam
                 uint32_t version = it->second->get_version();
                 uintptr_t handle = it->second->get_module_handle();
 
-                #ifdef ADAM_PLATFORM_LINUX
-                dlclose(reinterpret_cast<void*>(handle));
-                #elifdef ADAM_PLATFORM_WINDOWS
-                FreeLibrary(reinterpret_cast<HMODULE>(handle));
-                #endif
+                os::unload_library(reinterpret_cast<void*>(handle));
 
                 it = m_loaded_modules.erase(it);
 
@@ -225,19 +215,11 @@ namespace adam
             module* mod         = nullptr;
             auto path_str       = string_hashed(path.string());
 
-            #ifdef ADAM_PLATFORM_LINUX
-            auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
+            auto handle = os::load_library(path_str.c_str());
             if (!handle) 
                 continue;
 
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name.c_str()));
-            #elifdef ADAM_PLATFORM_WINDOWS
-            auto handle = LoadLibraryW(std::filesystem::absolute(path).c_str());
-            if (!handle) 
-                continue;
-
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name.c_str()));
-            #endif
+            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::entry_point_name.c_str()));
 
             mod = fn_get_adam_module();
             if (!mod) 
@@ -288,11 +270,7 @@ namespace adam
             goto UNLOAD_AND_CONTINUE; // Ensure handle is closed after checking, avoiding leaks
 
         UNLOAD_AND_CONTINUE:
-            #ifdef ADAM_PLATFORM_LINUX
-            dlclose(handle);
-            #elifdef ADAM_PLATFORM_WINDOWS
-            FreeLibrary(handle);
-            #endif
+            os::unload_library(handle);
             
             any_success = true;
             continue;
@@ -312,23 +290,13 @@ namespace adam
         const auto& path_str = it->second.second;
         module* mod          = nullptr;
 
-        #ifdef ADAM_PLATFORM_LINUX
-        auto handle = dlopen(path_str.c_str(), RTLD_LAZY);
+        auto handle = os::load_library(path_str.c_str());
         if (!handle) 
         {
             m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
             return false;
         }
-        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(dlsym(handle, module::entry_point_name.c_str()));
-        #elifdef ADAM_PLATFORM_WINDOWS
-        auto handle = LoadLibraryA(path_str.c_str());
-        if (!handle) 
-        {
-            m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
-            return false;
-        }
-        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(GetProcAddress(handle, module::entry_point_name.c_str()));
-        #endif
+        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::entry_point_name.c_str()));
 
         if (!fn_get_adam_module) goto UNLOAD_AND_RETURN;
         mod = fn_get_adam_module();
@@ -351,9 +319,10 @@ namespace adam
         mod->m_mod_handle   = reinterpret_cast<uintptr_t>(handle);
         mod->m_str_filepath = path_str;
         m_loaded_modules.emplace(mod->get_name(), mod);
+
         if (out_module) *out_module = mod;
         
-        m_controller.log(log::info, get_log_event_text(log_event::module_loaded, m_controller.get_language()), name.c_str(), reinterpret_cast<uintptr_t>(handle));
+        m_controller.log(log::info, get_log_event_text(log_event::module_loaded, m_controller.get_language()), name.c_str());
 
         {
             event evt(event_type::module_loaded);
@@ -361,15 +330,12 @@ namespace adam
             mod_info->setup(module::basic_info::loaded, mod->get_name().c_str(), path_str.c_str(), mod->get_version());
             m_controller.broadcast_event(evt);
         }
+
         return true;
 
     UNLOAD_AND_RETURN:
         m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
-        #ifdef ADAM_PLATFORM_LINUX
-        if (handle) dlclose(handle);
-        #elifdef ADAM_PLATFORM_WINDOWS
-        if (handle) FreeLibrary(handle);
-        #endif
+        if (handle) os::unload_library(handle);
         return false;
     }
 
@@ -387,19 +353,11 @@ namespace adam
         string_hashed path_str = mod->get_filepath();
         uintptr_t handle = mod->get_module_handle();
 
-        #ifdef ADAM_PLATFORM_LINUX
-        if (dlclose(reinterpret_cast<void*>(handle)) != 0)
+        if (!os::unload_library(reinterpret_cast<void*>(handle)))
         {
             m_controller.log(log::error, get_log_event_text(log_event::module_unload_failed, m_controller.get_language()), name.c_str());
             return false;
         }
-        #elifdef ADAM_PLATFORM_WINDOWS
-        if (!FreeLibrary(reinterpret_cast<HMODULE>(handle)))
-        {
-            m_controller.log(log::error, get_log_event_text(log_event::module_unload_failed, m_controller.get_language()), name.c_str());
-            return false;
-        }
-        #endif
 
         m_loaded_modules.erase(it);
         m_available_modules.emplace(name, std::make_pair(version, path_str));
@@ -419,11 +377,7 @@ namespace adam
         for (const auto& [name, mod] : m_loaded_modules)
         {
             uintptr_t handle = mod->get_module_handle();
-            #ifdef ADAM_PLATFORM_LINUX
-            dlclose(reinterpret_cast<void*>(handle));
-            #elifdef ADAM_PLATFORM_WINDOWS
-            FreeLibrary(reinterpret_cast<HMODULE>(handle));
-            #endif
+            os::unload_library(reinterpret_cast<void*>(handle));
         }
 
         m_loaded_modules.clear();

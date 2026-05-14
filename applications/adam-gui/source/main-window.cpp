@@ -42,7 +42,7 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::main_ui),                     { "Main UI###MainUI", "Hauptbenutzeroberfläche###MainUI" } },
             { static_cast<int>(gui_string_id::menu_view),                   { "View", "Ansicht" } },
             { static_cast<int>(gui_string_id::menu_show_log),               { "Show Log", "Protokoll anzeigen" } },
-            { static_cast<int>(gui_string_id::menu_show_performance),       { "Show Performance", "Leistung anzeigen" } },
+            { static_cast<int>(gui_string_id::menu_show_performance),       { "Show Performance Overlay", "Leistungsübersicht anzeigen" } },
             { static_cast<int>(gui_string_id::menu_settings),               { "Settings", "Einstellungen" } },
             { static_cast<int>(gui_string_id::combo_language),              { "Language###Lang", "Sprache###Lang" } },
             { static_cast<int>(gui_string_id::slider_font_scale),           { "Font Scale###FontScale", "Schriftskalierung###FontScale" } },
@@ -57,7 +57,7 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::tbl_time),                    { "Time", "Zeit" } },
             { static_cast<int>(gui_string_id::tbl_level),                   { "Level", "Ebene" } },
             { static_cast<int>(gui_string_id::tbl_message),                 { "Message", "Nachricht" } },
-            { static_cast<int>(gui_string_id::lbl_performance_overlay),     { "Performance Overlay###PerfOverlay", "Leistungs-Overlay###PerfOverlay" } },
+            { static_cast<int>(gui_string_id::lbl_performance_overlay),     { "Performance Overlay###PerfOverlay", "Leistungsübersicht###PerfOverlay" } },
             { static_cast<int>(gui_string_id::lbl_fps),                     { "FPS: %.1f (%.3f ms/frame)", "FPS: %.1f (%.3f ms/Frame)" } },
             { static_cast<int>(gui_string_id::lbl_cpu),                     { "CPU: %.1f%%", "CPU: %.1f%%" } },
             { static_cast<int>(gui_string_id::lbl_ram),                     { "RAM: %.1f/%.1f GB (%.0f%%)", "RAM: %.1f/%.1f GB (%.0f%%)" } },
@@ -555,7 +555,12 @@ namespace adam::gui
                     if (merged.find(name_str) != merged.end())
                         merged[name_str].status = 1;
                     else
-                        merged[name_str] = { 1, data.first, std::string(data.second.c_str()), 0 };
+                    {
+                        if (data)
+                            merged[name_str] = { 1, data->get_version(), std::string(data->get_filepath().c_str()), 0 };
+                        else
+                            merged[name_str] = { 1, 0, "", 0 };
+                    }
                 }
                     
                 for (const auto& [name_hash, data] : m_ctrl.get_commander().get_modules().get_unavailable())

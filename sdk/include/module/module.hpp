@@ -20,6 +20,7 @@
 #include "resources/language.hpp"
 #include "controller/registry.hpp"
 #include "commander/messages/command.hpp"
+#include "commander/messages/message-structs.hpp"
 
 namespace adam 
 {
@@ -34,30 +35,12 @@ namespace adam
     class ADAM_SDK_API module 
     {
         friend class registry_module_manager; /**< The registry_module_manager class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
+        friend class module_view;              /**< The module_view class is declared as a friend to allow it to access the protected members of the module class for managing the local view of modules in the commander. */
 
     public:
 
         typedef adam::module* (*get_adam_module_fn)();                              /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
         static constexpr string_hashed_ct entry_point_name = "get_adam_module";     /**< The name of the entry point function that modules must export to provide access to their module instance. */
-
-        static constexpr size_t max_name_length = 64;
-        static constexpr size_t max_path_length = 384;
-
-        #pragma pack(push, 1) // align to 1 byte
-        struct path_info
-        {
-            char        path[max_path_length];
-            uint32_t    idx;
-
-            void setup(const char* p, uint32_t i)
-            {
-                std::strncpy(path, p, sizeof(path) - 1);
-                path[sizeof(path) - 1] = '\0';
-                idx = i;
-            }
-        };
-        #pragma pack(pop)
-        static_assert(sizeof(module::path_info) <= command::get_max_data_length(), "module::path_info exceeds maximum command data size");
 
         #pragma pack(push, 1) // align to 1 byte
         struct basic_info

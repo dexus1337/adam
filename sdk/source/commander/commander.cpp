@@ -202,7 +202,7 @@ namespace adam
                     m_module_view.unavailable().emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
                     break;
                 case module::basic_info::loaded:
-                    m_module_view.loaded().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
+                    m_module_view.load_module(mod_name, mod_path);
                     break;
             }
             current_idx++;

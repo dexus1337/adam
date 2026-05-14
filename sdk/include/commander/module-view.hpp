@@ -9,6 +9,8 @@
  */
 
 #include "api/sdk-api.hpp"
+#include "types/string-hashed.hpp"
+
 #include <vector>
 #include <string>
 #include <tuple>
@@ -17,6 +19,8 @@
 
 namespace adam 
 {
+    class module;
+
     /**
      * @class module_view
      * @brief Holds a local view of the controller's available, unavailable, and loaded modules.
@@ -26,30 +30,31 @@ namespace adam
     public:
         using map_available_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
         using map_unavailable_modules = std::unordered_map<string_hashed, std::tuple<uint32_t, string_hashed, uint8_t>>;
-        using map_loaded_modules      = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
+        using map_loaded_modules      = std::unordered_map<string_hashed, const module*>;
 
         map_available_modules&       available()     { return m_available_modules; }
         map_unavailable_modules&     unavailable()   { return m_unavailable_modules; }
         map_loaded_modules&          loaded()        { return m_loaded_modules; }
+        std::unordered_map<string_hashed, void*>& handles() { return m_handles; }
         std::vector<string_hashed>&  paths()         { return m_paths; }
 
         const map_available_modules&     get_available()     const { return m_available_modules; }
         const map_unavailable_modules&   get_unavailable()   const { return m_unavailable_modules; }
         const map_loaded_modules&        get_loaded()        const { return m_loaded_modules; }
+        const std::unordered_map<string_hashed, void*>& get_handles() const { return m_handles; }
         const std::vector<string_hashed>& get_paths()         const { return m_paths; }
 
-        void clear()
-        {
-            m_available_modules.clear();
-            m_unavailable_modules.clear();
-            m_loaded_modules.clear();
-            m_paths.clear();
-        }
+        void load_module(const string_hashed& name, const string_hashed& path);
+
+        void unload_module(const string_hashed& name);
+
+        void clear();
 
     private:
-        map_available_modules    m_available_modules;
-        map_unavailable_modules  m_unavailable_modules;
-        map_loaded_modules       m_loaded_modules;
-        std::vector<string_hashed>                          m_paths;
+        map_available_modules       m_available_modules;
+        map_unavailable_modules     m_unavailable_modules;
+        map_loaded_modules          m_loaded_modules;
+        std::unordered_map<string_hashed, void*> m_handles;
+        std::vector<string_hashed>  m_paths;
     };
 }
