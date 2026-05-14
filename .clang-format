@@ -1,0 +1,14 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Enforce the Allman style (braces on a new line)
+BreakBeforeBraces: Allman
+
+# Indentation preferences based on your current codebase
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+NamespaceIndentation: All
+PointerAlignment: Left
+ReferenceAlignment: Left

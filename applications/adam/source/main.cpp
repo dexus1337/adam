@@ -38,20 +38,9 @@ int main()
         controller.log(adam::log::error, "failed to start adam!");
     }
 
-    std::thread test_heartbeat([&]()
-    {
-        while (controller.is_active())
-        {
-            controller.log(adam::log::info, "adam is alife!");
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-        }
-    });
-
     getchar();
 
     controller.destroy();
-
-    test_heartbeat.join();
 
     return 0;
 }

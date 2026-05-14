@@ -4,6 +4,7 @@
 
 #include "controller/controller.hpp"
 #include "commander/messages/command.hpp"
+#include "commander/messages/message-structs.hpp"
 #include "commander/messages/response.hpp"
 #include "resources/language-strings.hpp"
 #include "data/port/port.hpp"
@@ -158,7 +159,7 @@ namespace adam
         if (res != response_status::success || !resp)
             return response_status::response_receive_failed;
 
-        auto* head = resp->data_as<command::initial_data_header>();
+        auto* head = resp->data_as<messages::initial_data_header>();
 
         m_lang = head->lang_info;
 
@@ -166,6 +167,7 @@ namespace adam
         m_module_view.unavailable().reserve(head->mod_info.unavailable_modules);
         m_module_view.loaded().reserve(head->mod_info.loaded_modules);
 
+        m_module_view.paths().resize(head->mod_info.module_paths);
         size_t current_idx = 1;
 
         for (size_t i = 0; i < head->mod_info.module_paths; i++)
@@ -173,8 +175,11 @@ namespace adam
             if (!resp[current_idx-1].is_extended())
                 break;
             
-            auto* path_info = resp[current_idx].data_as<module::path_info>();
-            m_module_view.paths().push_back(&path_info->path[0]);
+            auto* path_info = resp[current_idx].data_as<messages::module_path_data>();
+            if (path_info->idx >= m_module_view.paths().size()) {
+                m_module_view.paths().resize(path_info->idx + 1);
+            }
+            m_module_view.paths()[path_info->idx] = &path_info->path[0];
             current_idx++;
         }
 
@@ -206,22 +211,20 @@ namespace adam
         return res;
     }
 
-    response_status commander::request_module_path_add(const string_hashed& path)
+    response_status commander::request_module_path_add(const string_hashed& path, uint32_t index)
     {
         command cmd(command_type::module_path_add);
-        auto* data = cmd.data_as<command::module_path_data>();
-        std::strncpy(data->path, path.c_str(), sizeof(data->path) - 1);
-        data->path[sizeof(data->path) - 1] = '\0';
+        auto* data = cmd.data_as<messages::module_path_data>();
+        data->setup(path.c_str(), index);
 
         return send_command(cmd);
     }
 
-    response_status commander::request_module_path_remove(const string_hashed& path)
+    response_status commander::request_module_path_remove(uint32_t index)
     {
         command cmd(command_type::module_path_remove);
-        auto* data = cmd.data_as<command::module_path_data>();
-        std::strncpy(data->path, path.c_str(), sizeof(data->path) - 1);
-        data->path[sizeof(data->path) - 1] = '\0';
+        auto* data = cmd.data_as<messages::module_path_remove_data>();
+        data->idx = index;
 
         return send_command(cmd);
     }
@@ -235,9 +238,8 @@ namespace adam
     response_status commander::request_module_load(const string_hashed& name)
     {
         command cmd(command_type::module_load);
-        auto* data = cmd.data_as<command::module_action_data>();
-        std::strncpy(data->module_name, name.c_str(), sizeof(data->module_name) - 1);
-        data->module_name[sizeof(data->module_name) - 1] = '\0';
+        auto* data = cmd.data_as<messages::module_action_data>();
+        data->setup(name.c_str());
 
         return send_command(cmd);
     }
@@ -245,9 +247,8 @@ namespace adam
     response_status commander::request_module_unload(const string_hashed& name)
     {
         command cmd(command_type::module_unload);
-        auto* data = cmd.data_as<command::module_action_data>();
-        std::strncpy(data->module_name, name.c_str(), sizeof(data->module_name) - 1);
-        data->module_name[sizeof(data->module_name) - 1] = '\0';
+        auto* data = cmd.data_as<messages::module_action_data>();
+        data->setup(name.c_str());
 
         return send_command(cmd);
     }
@@ -263,7 +264,7 @@ namespace adam
     response_status commander::request_port_destroy(const string_hashed& port_name)
     {
         command cmd(command_type::port_destroy);
-        cmd.data_as<command::port_destroy_data>()->port = port_name.get_hash();
+        cmd.data_as<messages::port_destroy_data>()->port = port_name.get_hash();
 
         return send_command(cmd);
     }
@@ -279,7 +280,7 @@ namespace adam
     response_status commander::request_connection_destroy(const string_hashed& name)
     {
         command cmd(command_type::connection_destroy);
-        cmd.data_as<command::connection_destroy_data>()->connection = name.get_hash();
+        cmd.data_as<messages::connection_destroy_data>()->connection = name.get_hash();
 
         return send_command(cmd);
     }
@@ -307,7 +308,7 @@ namespace adam
         }
 
         command cmd(command_type::inspector_create);
-        cmd.data_as<command::inspector_create_data>()->port = port_hash;
+        cmd.data_as<messages::inspector_create_data>()->port = port_hash;
 
         response_status res = send_command(cmd);
         if (res != response_status::success)
@@ -333,7 +334,7 @@ namespace adam
         if (it != m_inspectors.end() && it->second == inspector)
         {
             command cmd(command_type::inspector_destroy);
-            cmd.data_as<command::inspector_destroy_data>()->port = it->first;
+            cmd.data_as<messages::inspector_destroy_data>()->port = it->first;
 
             response_status res = send_command(cmd);
             if (res == response_status::success)

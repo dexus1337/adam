@@ -71,6 +71,9 @@ namespace adam
         /** @brief Retrieves a child parameter by its name. Returns nullptr if not found. */
         configuration_parameter* get(const string_hashed_ct& name) const;
 
+        /** @brief Renames a child parameter and updates the internal map. */
+        bool rename_child(const string_hashed& old_name, const string_hashed& new_name);
+
     private:
 
         std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>> m_children;

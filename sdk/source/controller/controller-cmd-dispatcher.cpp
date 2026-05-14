@@ -6,6 +6,7 @@
 #include "module/module.hpp"
 #include "data/inspector.hpp"
 #include "commander/messages/event.hpp"
+#include "commander/messages/message-structs.hpp"
 #include "data/connection.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
@@ -15,6 +16,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 
 namespace adam
 {
@@ -53,7 +55,7 @@ namespace adam
         register_handler(static_cast<int>(command_type::acquire_initial_data), [](const command*, size_t, command_context& ctx)
         {
             ctx.set_single_response_status(response_status::success);
-            auto* data = ctx.responses.front().data_as<command::initial_data_header>();
+            auto* data = ctx.responses.front().data_as<messages::initial_data_header>();
 
             data->lang_info.lang                  = ctx.ctrl.get_language();
             data->lang_info.supported_languages   |= ( 1 << language_english );
@@ -69,26 +71,16 @@ namespace adam
             uint32_t path_count = 0;
             if (module_paths_list)
             {
-                std::vector<std::pair<uint64_t, std::string>> sorted_paths;
-
                 for (const auto& [name, param] : module_paths_list->get_children())
                 {
                     auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get());
                     if (!str_param) continue;
 
-                    uint64_t idx = std::strtoull(name.c_str(), nullptr, 10);
-                    sorted_paths.push_back({idx, std::string(str_param->get_value().c_str())});
-                }
+                    uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
 
-                std::sort(sorted_paths.begin(), sorted_paths.end(), [](const auto& a, const auto& b) {
-                    return a.first < b.first;
-                });
-
-                for (const auto& p : sorted_paths)
-                {
                     ctx.responses[resp_idx-1].set_extended(true);
-                    auto* path_info = ctx.responses[resp_idx].data_as<module::path_info>();
-                    path_info->setup(p.second.c_str(), path_count);
+                    auto* path_info = ctx.responses[resp_idx].data_as<messages::module_path_data>();
+                    path_info->setup(str_param->get_value().c_str(), idx);
                     resp_idx++;
                     path_count++;
 
@@ -147,10 +139,11 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::module_path_add), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::module_path_data>();
+            auto params = cmds->get_data_as<messages::module_path_data>();
             string_hashed path(params->path);
+            uint32_t idx = params->idx;
 
-            if (!ctx.reg.add_module_path(path))
+            if (!ctx.reg.add_module_path(path, &idx))
             {
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_add_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
                 ctx.set_single_response_status(response_status::failed);
@@ -158,9 +151,8 @@ namespace adam
             }
 
             event evt(event_type::module_path_added);
-            auto* evt_data = evt.data_as<command::module_path_data>();
-            std::strncpy(evt_data->path, params->path, sizeof(evt_data->path) - 1);
-            evt_data->path[sizeof(evt_data->path) - 1] = '\0';
+            auto* evt_data = evt.data_as<messages::module_path_data>();
+            evt_data->setup(params->path, idx);
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_added, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
@@ -169,23 +161,21 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::module_path_remove), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::module_path_data>();
-            string_hashed path(params->path);
+            auto params = cmds->get_data_as<messages::module_path_remove_data>();
 
-            if (!ctx.reg.remove_module_path(path))
+            if (!ctx.reg.remove_module_path(params->idx))
             {
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
-                ctx.set_single_response_status(response_status::denied);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, params->idx));
+                ctx.set_single_response_status(response_status::failed);
                 return;
             }
 
             event evt(event_type::module_path_removed);
-            auto* evt_data = evt.data_as<command::module_path_data>();
-            std::strncpy(evt_data->path, params->path, sizeof(evt_data->path) - 1);
-            evt_data->path[sizeof(evt_data->path) - 1] = '\0';
+            auto* evt_data = evt.data_as<messages::module_path_remove_data>();
+            evt_data->idx = params->idx;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_removed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_removed, ctx.ctrl.get_language()), ctx.tid, params->idx));
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -199,7 +189,7 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::module_load), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::module_action_data>();
+            auto params = cmds->get_data_as<messages::module_action_data>();
             string_hashed name(params->module_name);
 
             if (ctx.reg.modules().load_module(name))
@@ -210,7 +200,7 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::module_unload), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::module_action_data>();
+            auto params = cmds->get_data_as<messages::module_action_data>();
             string_hashed name(params->module_name);
 
             if (ctx.reg.modules().unload_module(name))
@@ -251,7 +241,7 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::port_destroy), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::port_destroy_data>();
+            auto params = cmds->get_data_as<messages::port_destroy_data>();
 
             // Get port string if it exists for success logging
             std::string port_str;
@@ -271,7 +261,7 @@ namespace adam
             }
 
             event evt(event_type::port_destroyed);
-            evt.data_as<command::port_destroy_data>()->port = params->port;
+            evt.data_as<messages::port_destroy_data>()->port = params->port;
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str));
@@ -307,7 +297,7 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::connection_destroy), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::connection_destroy_data>();
+            auto params = cmds->get_data_as<messages::connection_destroy_data>();
 
             std::string conn_str;
             auto it = ctx.reg.connections().find(params->connection);
@@ -326,7 +316,7 @@ namespace adam
             }
 
             event evt(event_type::connection_destroyed);
-            evt.data_as<command::connection_destroy_data>()->connection = params->connection;
+            evt.data_as<messages::connection_destroy_data>()->connection = params->connection;
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str));
@@ -335,7 +325,7 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::inspector_create_data>();
+            auto params = cmds->get_data_as<messages::inspector_create_data>();
             auto port = ctx.reg.ports().find(params->port);
 
             if (port == ctx.reg.ports().end())
@@ -367,7 +357,7 @@ namespace adam
 
         register_handler(static_cast<int>(command_type::inspector_destroy), [](const command* cmds, size_t, command_context& ctx) 
         {
-            auto params = cmds->get_data_as<command::inspector_destroy_data>();
+            auto params = cmds->get_data_as<messages::inspector_destroy_data>();
             auto it = ctx.thread_inspectors.find(params->port);
 
             if (it == ctx.thread_inspectors.end())
@@ -433,11 +423,11 @@ namespace adam
         },
         {
             static_cast<int>(log_event::module_path_removed),
-            { "Thread {:d} successfully removed module path \"{}\".", "Thread {:d} hat Modulpfad \"{}\" erfolgreich entfernt." }
+            { "Thread {:d} successfully removed module path {:d}.", "Thread {:d} hat Modulpfad {:d} erfolgreich entfernt." }
         },
         {
             static_cast<int>(log_event::module_path_remove_failed),
-            { "Thread {:d} failed to remove module path \"{}\".", "Thread {:d} konnte Modulpfad \"{}\" nicht entfernen." }
+            { "Thread {:d} failed to remove module path {:d}.", "Thread {:d} konnte Modulpfad {:d} nicht entfernen." }
         },
         {
             static_cast<int>(log_event::module_scan_requested),

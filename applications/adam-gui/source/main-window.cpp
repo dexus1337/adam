@@ -451,7 +451,7 @@ namespace adam::gui
                     ImGui::PushID(static_cast<int>(i));
                     if (i == 0) ImGui::BeginDisabled();
                     if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang), ImVec2(-1.0f, 0.0f)))
-                        m_ctrl.get_commander().request_module_path_remove(paths[i]);
+                        m_ctrl.get_commander().request_module_path_remove(i);
                     if (i == 0) ImGui::EndDisabled();
                     ImGui::PopID();
                 }

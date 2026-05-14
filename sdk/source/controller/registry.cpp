@@ -50,10 +50,10 @@ namespace adam
         static adam::configuration_parameter_list params = []() 
         {
             adam::configuration_parameter_list p;
-            p.add(std::make_unique<configuration_parameter_integer>(string_hashed("language"), language_english));
+            p.add(std::make_unique<configuration_parameter_integer>("language"_ct, language_english));
             
-            auto module_paths = std::make_unique<configuration_parameter_list>(string_hashed("module_paths"));
-            module_paths->add(std::make_unique<configuration_parameter_string>(string_hashed("0"), "./modules/"_ct));
+            auto module_paths = std::make_unique<configuration_parameter_list>("module_paths"_ct);
+            module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
             p.add(std::move(module_paths));
 
             return p;
@@ -62,7 +62,7 @@ namespace adam
     }
 
     registry::registry(controller& ctrl) 
-     :  configuration_item(string_hashed("general")),
+     :  configuration_item("general"_ct),
         m_ports(),
         m_filters(),
         m_converters(),
@@ -76,7 +76,7 @@ namespace adam
         // Guarantee the global fast-access pointer is bound even if load() fails due to a missing file.
         if (this == &m_controller.get_registry())
         {
-            const_cast<controller&>(m_controller).m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get(string_hashed("language")));
+            const_cast<controller&>(m_controller).m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get("language"_ct));
         }
 
         m_default_port_factory.emplace
@@ -147,7 +147,7 @@ namespace adam
 
         if (!module_name.empty())
         {
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get(string_hashed("module_name"))))
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("module_name"_ct)))
                 mod_param->set_value(module_name);
         }
         m_ports.emplace(name, std::unique_ptr<port>(new_port));
@@ -293,24 +293,41 @@ namespace adam
             {
                 if (auto* existing = target->get(name)) 
                 {
-                    if (auto* e_bool = dynamic_cast<configuration_parameter_boolean*>(existing)) {
+                    if (auto* e_bool = dynamic_cast<configuration_parameter_boolean*>(existing))
+                    {
                         if (auto* p_bool = dynamic_cast<configuration_parameter_boolean*>(param.get())) e_bool->set_value(p_bool->get_value());
-                    } else if (auto* e_int = dynamic_cast<configuration_parameter_integer*>(existing)) {
+                    }
+                    else if (auto* e_int = dynamic_cast<configuration_parameter_integer*>(existing))
+                    {
                         if (auto* p_int = dynamic_cast<configuration_parameter_integer*>(param.get())) e_int->set_value(p_int->get_value());
-                    } else if (auto* e_dbl = dynamic_cast<configuration_parameter_double*>(existing)) {
+                    }
+                    else if (auto* e_dbl = dynamic_cast<configuration_parameter_double*>(existing))
+                    {
                         if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get())) e_dbl->set_value(p_dbl->get_value());
-                    } else if (auto* e_str = dynamic_cast<configuration_parameter_string*>(existing)) {
+                    }
+                    else if (auto* e_str = dynamic_cast<configuration_parameter_string*>(existing))
+                    {
                         if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get())) e_str->set_value(p_str->get_value());
-                    } else if (auto* e_lst = dynamic_cast<configuration_parameter_list*>(existing)) {
-                        if (auto* p_lst = dynamic_cast<configuration_parameter_list*>(param.get())) {
-                            if (e_lst->get_name() == string_hashed("module_paths")) {
-                                for (auto& [child_name, child_param] : p_lst->get_children()) {
-                                    if (child_param->get_type() == configuration_parameter::string) {
-                                        if (auto* child_existing = e_lst->get(child_name)) {
-                                            if (auto* e_child_str = dynamic_cast<configuration_parameter_string*>(child_existing)) {
+                    }
+                    else if (auto* e_lst = dynamic_cast<configuration_parameter_list*>(existing))
+                    {
+                        if (auto* p_lst = dynamic_cast<configuration_parameter_list*>(param.get()))
+                        {
+                            if (e_lst->get_name() == "module_paths"_ct)
+                            {
+                                for (auto& [child_name, child_param] : p_lst->get_children())
+                                {
+                                    if (child_param->get_type() == configuration_parameter::string)
+                                    {
+                                        if (auto* child_existing = e_lst->get(child_name))
+                                        {
+                                            if (auto* e_child_str = dynamic_cast<configuration_parameter_string*>(child_existing))
+                                            {
                                                 e_child_str->set_value(static_cast<configuration_parameter_string*>(child_param.get())->get_value());
                                             }
-                                        } else {
+                                        }
+                                        else
+                                        {
                                             auto new_param = std::make_unique<configuration_parameter_string>(child_param->get_name());
                                             new_param->set_value(static_cast<configuration_parameter_string*>(child_param.get())->get_value());
                                             e_lst->add(std::move(new_param));
@@ -325,7 +342,7 @@ namespace adam
         };
 
         // 1. Restore general settings
-        if (auto* general_mock_param = root_list->get(string_hashed("general")))
+        if (auto* general_mock_param = root_list->get("general"_ct))
         {
             if (general_mock_param->get_type() == configuration_parameter::list)
             {
@@ -337,7 +354,7 @@ namespace adam
         m_modules.scan_for_modules();
 
         // 2. Restore ports
-        if (auto* ports_mock_param = root_list->get(string_hashed("ports")))
+        if (auto* ports_mock_param = root_list->get("ports"_ct))
         {
             if (ports_mock_param->get_type() == configuration_parameter::list)
             {
@@ -347,13 +364,13 @@ namespace adam
                     if (port_param && port_param->get_type() == configuration_parameter::list)
                     {
                         auto* port_params = static_cast<configuration_parameter_list*>(port_param.get());
-                        auto* type_param = port_params->get(string_hashed("type"));
+                        auto* type_param = port_params->get("type"_ct);
                         if (type_param && type_param->get_type() == configuration_parameter::string)
                         {
                             string_hashed port_type = static_cast<configuration_parameter_string*>(type_param)->get_value();
                             string_hashed module_name;
                             
-                            if (auto* mod_param = port_params->get(string_hashed("module_name")))
+                            if (auto* mod_param = port_params->get("module_name"_ct))
                             {
                                 if (mod_param->get_type() == configuration_parameter::string)
                                     module_name = static_cast<configuration_parameter_string*>(mod_param)->get_value();
@@ -376,58 +393,76 @@ namespace adam
 
     configuration_parameter_list* registry::get_module_paths() const
     {
-        return dynamic_cast<configuration_parameter_list*>(m_parameters.get(string_hashed("module_paths")));
+        return dynamic_cast<configuration_parameter_list*>(m_parameters.get("module_paths"_ct));
     }
 
-    bool registry::add_module_path(const string_hashed& path)
+    bool registry::add_module_path(const string_hashed& path, uint32_t* index)
     {
-        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get(string_hashed("module_paths"))))
+        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get("module_paths"_ct)))
         {
-            uint64_t max_index = 0;
+            uint32_t max_idx = 0;
             for (const auto& [name, param] : list->get_children())
             {
                 if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
                 {
                     if (str_param->get_value() == path) return false; // Already exists
                 }
-                uint64_t idx = std::strtoull(name.c_str(), nullptr, 10);
-                if (idx > max_index) max_index = idx;
+                uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
+                if (idx >= max_idx) max_idx = idx + 1;
             }
             
-            string_hashed new_key(std::to_string(max_index + 1));
+            uint32_t target_idx = max_idx;
+            if (index && *index > 0 && *index < max_idx)
+            {
+                target_idx = *index;
+            }
+            
+            if (index)
+            {
+                *index = target_idx;
+            }
+            
+            for (uint32_t i = max_idx; i > target_idx; --i)
+            {
+                string_hashed old_key(std::to_string(i - 1));
+                string_hashed new_key(std::to_string(i));
+                list->rename_child(old_key, new_key);
+            }
+            
+            string_hashed new_key(std::to_string(target_idx));
             auto new_param = std::make_unique<configuration_parameter_string>(new_key);
             new_param->set_value(path);
             list->add(std::move(new_param));
+
             return true;
         }
         return false;
     }
 
-    bool registry::remove_module_path(const string_hashed& path)
+    bool registry::remove_module_path(uint32_t index)
     {
-        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get(string_hashed("module_paths"))))
+        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get("module_paths"_ct)))
         {
-            string_hashed key_to_remove;
-            bool found = false;
+            uint32_t max_idx = 0;
+            
             for (const auto& [name, param] : list->get_children())
             {
-                if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
-                {
-                    if (str_param->get_value() == path)
-                    {
-                        if (name == string_hashed("0")) return false; // Deny removal of the default (first) module path
-                        key_to_remove = name;
-                        found = true;
-                        break;
-                    }
-                }
+                uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
+                if (idx >= max_idx) max_idx = idx + 1;
             }
+
+            if (index == 0 || index >= max_idx) return false; // Deny removal of the default (first) module path
+
+            list->remove(string_hashed(std::to_string(index)));
             
-            if (found)
+            for (uint32_t i = index + 1; i < max_idx; ++i)
             {
-                list->remove(key_to_remove);
-                return true;
+                string_hashed old_key(std::to_string(i));
+                string_hashed new_key(std::to_string(i - 1));
+                list->rename_child(old_key, new_key);
             }
+
+            return true;
         }
         return false;
     }

@@ -17,8 +17,8 @@ TEST_F(registry_module_manager_test, scan_for_modules_invalid_dir)
     
     ctrl.get_registry().add_module_path(adam::string_hashed("/invalid_adam_directory_that_does_not_exist_1337"));
 
-    // Should handle non-existent directories gracefully and return true (yielding an empty scan)
-    EXPECT_TRUE(ctrl.get_registry().modules().scan_for_modules());
+    // Should handle non-existent directories gracefully and return false since no changes were made to the module cache
+    EXPECT_FALSE(ctrl.get_registry().modules().scan_for_modules());
 }
 
 /** @brief Tests attempting to load a module that has not been scanned or doesn't exist. */

@@ -60,10 +60,10 @@ namespace adam
         response_status request_initial_data();
 
         /** @brief Requests to add a new module path. */
-        response_status request_module_path_add(const string_hashed& path);
+        response_status request_module_path_add(const string_hashed& path, uint32_t index = 0);
 
         /** @brief Requests to remove an existing module path. */
-        response_status request_module_path_remove(const string_hashed& path);
+        response_status request_module_path_remove(uint32_t index);
 
         /** @brief Requests a module scan. */
         response_status request_module_scan();

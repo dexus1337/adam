@@ -3,6 +3,7 @@
 #include <controller/controller.hpp>
 #include <commander/messages/command.hpp>
 #include <commander/messages/event.hpp>
+#include <commander/messages/message-structs.hpp>
 #include <version/version.hpp>
 #include <module/module.hpp>
 #include <algorithm>
@@ -47,7 +48,8 @@ TEST_F(commander_test, event_broadcast_and_receive)
     std::atomic<bool> event_received{false};
     adam::event_type received_type = adam::event_type::invalid;
 
-    cmdr.dispatcher().register_handler(static_cast<int>(adam::event_type::language_changed), [&](const adam::event& e, adam::event_context&) {
+    cmdr.dispatcher().register_handler(static_cast<int>(adam::event_type::language_changed), [&](const adam::event& e, adam::event_context&)
+    {
         received_type = e.get_type();
         event_received = true;
     });
@@ -79,7 +81,7 @@ TEST_F(commander_test, initial_data_module_sync)
     ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::acquire_initial_data), [](const adam::command*, size_t, adam::command_context& ctx)
     {
         ctx.set_single_response_status(adam::response_status::success);
-        auto* data = ctx.responses.front().data_as<adam::command::initial_data_header>();
+        auto* data = ctx.responses.front().data_as<adam::messages::initial_data_header>();
         data->lang_info.lang = adam::language_english;
         
         data->mod_info.module_paths = 1;
@@ -90,7 +92,7 @@ TEST_F(commander_test, initial_data_module_sync)
         // module paths
         ctx.responses.front().set_extended(true);
         ctx.responses.emplace_back();
-        auto* path_info = ctx.responses[1].data_as<adam::module::path_info>();
+        auto* path_info = ctx.responses[1].data_as<adam::messages::module_path_data>();
         path_info->setup("/mock/registry/path", 0);
 
         // available module
@@ -242,7 +244,7 @@ TEST_F(commander_test, request_module_path_add_remove_flow)
     EXPECT_TRUE(std::find(cmdr.get_modules().get_paths().begin(), cmdr.get_modules().get_paths().end(), test_path) != cmdr.get_modules().get_paths().end());
 
     // 2. Request to remove the module path
-    status = cmdr.request_module_path_remove(test_path);
+    status = cmdr.request_module_path_remove(static_cast<uint32_t>(initial_path_count));
     EXPECT_EQ(status, adam::response_status::success);
 
     // Wait for the event to propagate
@@ -277,7 +279,7 @@ TEST_F(commander_test, request_module_load_unload_flow)
     // Override the default handlers to mock the controller's backend success
     ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::module_load), [](const adam::command* cmds, size_t, adam::command_context& ctx)
     {
-        auto params = cmds->get_data_as<adam::command::module_action_data>();
+        auto params = cmds->get_data_as<adam::messages::module_action_data>();
         adam::string_hashed name(params->module_name);
 
         adam::event evt(adam::event_type::module_loaded);
@@ -290,7 +292,7 @@ TEST_F(commander_test, request_module_load_unload_flow)
 
     ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::module_unload), [](const adam::command* cmds, size_t, adam::command_context& ctx)
     {
-        auto params = cmds->get_data_as<adam::command::module_action_data>();
+        auto params = cmds->get_data_as<adam::messages::module_action_data>();
         adam::string_hashed name(params->module_name);
 
         adam::event evt(adam::event_type::module_unloaded);

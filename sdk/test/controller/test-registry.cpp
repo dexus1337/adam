@@ -221,7 +221,8 @@ TEST_F(registry_test, add_and_remove_module_paths)
     adam::string_hashed new_path("/custom/registry/path");
 
     // Add the path
-    EXPECT_TRUE(reg.add_module_path(new_path));
+    uint32_t added_idx = 0;
+    EXPECT_TRUE(reg.add_module_path(new_path, &added_idx));
     
     // Adding the same path again should fail
     EXPECT_FALSE(reg.add_module_path(new_path));
@@ -245,10 +246,10 @@ TEST_F(registry_test, add_and_remove_module_paths)
     EXPECT_TRUE(found);
 
     // Remove the path
-    EXPECT_TRUE(reg.remove_module_path(new_path));
+    EXPECT_TRUE(reg.remove_module_path(added_idx));
     
     // Removing it again should fail
-    EXPECT_FALSE(reg.remove_module_path(new_path));
+    EXPECT_FALSE(reg.remove_module_path(added_idx));
 
     // Verify it was removed (using the internal get method to prove it's gone from the config)
     for (const auto& [name, param] : paths_list->get_children())

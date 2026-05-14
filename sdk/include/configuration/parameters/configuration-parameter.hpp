@@ -42,6 +42,7 @@ namespace adam
 
         virtual type get_type()         const = 0;
         const string_hashed& get_name() const { return m_str_name; }
+        void set_name(const string_hashed& name) { m_str_name = name; }
 
         /** @brief Creates a deep copy of this configuration parameter. */
         virtual std::unique_ptr<configuration_parameter> clone() const = 0;

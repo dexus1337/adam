@@ -106,10 +106,10 @@ namespace adam
         configuration_parameter_list* get_module_paths() const;
 
         /** @brief Adds a new module path to the configuration if it doesn't already exist. */
-        bool add_module_path(const string_hashed& path);
+        bool add_module_path(const string_hashed& path, uint32_t* index = nullptr);
 
         /** @brief Removes a module path from the configuration. */
-        bool remove_module_path(const string_hashed& path);
+        bool remove_module_path(uint32_t index);
 
     protected:
 

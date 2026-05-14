@@ -2,6 +2,7 @@
 
 #include "commander/commander.hpp"
 #include "commander/messages/command.hpp"
+#include "commander/messages/message-structs.hpp"
 #include "data/port/port.hpp"
 #include "module/module.hpp"
 #include "data/connection.hpp"
@@ -37,7 +38,31 @@ namespace adam
     {
         register_handler(static_cast<int>(event_type::language_changed), [](const event& e, event_context& ctx) 
         {
-            ctx.cmdr.m_lang.lang = e.get_data_as<command::initial_data_header>()->lang_info.lang;
+            ctx.cmdr.m_lang.lang = e.get_data_as<messages::initial_data_header>()->lang_info.lang;
+        });
+
+        register_handler(static_cast<int>(event_type::module_path_added), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::module_path_data>();
+            auto& paths = ctx.cmdr.modules().paths();
+            if (data->idx >= paths.size())
+            {
+                paths.push_back(data->path);
+            }
+            else
+            {
+                paths.insert(paths.begin() + data->idx, data->path);
+            }
+        });
+
+        register_handler(static_cast<int>(event_type::module_path_removed), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::module_path_remove_data>();
+            auto& paths = ctx.cmdr.modules().paths();
+            if (data->idx < paths.size())
+            {
+                paths.erase(paths.begin() + data->idx);
+            }
         });
 
         register_handler(static_cast<int>(event_type::module_loaded), [](const event& e, event_context& ctx) 
@@ -87,19 +112,6 @@ namespace adam
             ctx.cmdr.modules().unavailable().erase(mod_name);
         });
 
-        register_handler(static_cast<int>(event_type::module_path_added), [](const event& e, event_context& ctx) 
-        {
-            auto* data = e.get_data_as<command::module_path_data>();
-            ctx.cmdr.modules().paths().push_back(data->path);
-        });
-
-        register_handler(static_cast<int>(event_type::module_path_removed), [](const event& e, event_context& ctx) 
-        {
-            auto* data = e.get_data_as<command::module_path_data>();
-            auto& paths = ctx.cmdr.modules().paths();
-            paths.erase(std::remove(paths.begin(), paths.end(), std::string(data->path)), paths.end());
-        });
-
         register_handler(static_cast<int>(event_type::shutdown), [](const event&, event_context& ctx) 
         {
             ctx.cmdr.destroy();
@@ -117,7 +129,7 @@ namespace adam
 
         register_handler(static_cast<int>(event_type::port_destroyed), [](const event& e, event_context& ctx) 
         {
-            auto* data = e.get_data_as<command::port_destroy_data>();
+            auto* data = e.get_data_as<messages::port_destroy_data>();
             ctx.cmdr.registry().ports().erase(data->port);
         });
 
@@ -131,7 +143,7 @@ namespace adam
 
         register_handler(static_cast<int>(event_type::connection_destroyed), [](const event& e, event_context& ctx) 
         {
-            auto* data = e.get_data_as<command::connection_destroy_data>();
+            auto* data = e.get_data_as<messages::connection_destroy_data>();
             ctx.cmdr.registry().connections().erase(data->connection);
         });
     }
