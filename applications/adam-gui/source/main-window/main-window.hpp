@@ -4,9 +4,23 @@
 #include "../gui-controller.hpp"
 
 struct SDL_Window;
+struct ImVec4;
 
 namespace adam::gui 
 {
+    enum class gui_color_id : size_t
+    {
+        commander_connected = 0,
+        commander_disconnected,
+        log_trace,
+        log_info,
+        log_warning,
+        log_error,
+        count
+    };
+
+    const ImVec4& get_gui_color(gui_color_id id);
+
     enum class gui_string_id
     {
         main_ui,
@@ -88,10 +102,6 @@ namespace adam::gui
 
     private:
         void render_menu_bar(adam::language lang);
-        void render_tab_management(adam::language lang);
-        void render_tab_modules(adam::language lang);
-        void render_tab_information(adam::language lang);
-        void render_tab_configuration(adam::language lang);
         void render_log_window(adam::language lang, float& log_height_val, float max_height, float status_bar_height);
         void render_performance_overlay(adam::language lang);
 
