@@ -540,6 +540,65 @@ namespace adam::gui
             
             reg_view.connections()[conn3->name.get_hash()] = std::move(conn3);
             
+            auto conn4 = std::make_unique<adam::connection_view>();
+            conn4->name = adam::string_hashed("Complex_Filter_Connection");
+            
+            auto p4_in1 = std::make_unique<adam::port_view>(); p4_in1->name = adam::string_hashed("Mic_1"); p4_in1->type = adam::string_hashed("adam::port_input_internal");
+            auto p4_in2 = std::make_unique<adam::port_view>(); p4_in2->name = adam::string_hashed("Mic_2"); p4_in2->type = adam::string_hashed("adam::port_input_internal");
+            auto p4_in3 = std::make_unique<adam::port_view>(); p4_in3->name = adam::string_hashed("Mic_3"); p4_in3->type = adam::string_hashed("adam::port_input_internal");
+            
+            auto p4_out1 = std::make_unique<adam::port_view>(); p4_out1->name = adam::string_hashed("Mixed_Audio_Out"); p4_out1->type = adam::string_hashed("adam::port_output_internal");
+
+            conn4->inputs.push_back(p4_in1->name.get_hash());
+            conn4->inputs.push_back(p4_in2->name.get_hash());
+            conn4->inputs.push_back(p4_in3->name.get_hash());
+            conn4->outputs.push_back(p4_out1->name.get_hash());
+
+            // Mock filters
+            conn4->filters.push_back(1111);
+            conn4->filters.push_back(2222);
+
+            reg_view.ports()[p4_in1->name.get_hash()] = std::move(p4_in1);
+            reg_view.ports()[p4_in2->name.get_hash()] = std::move(p4_in2);
+            reg_view.ports()[p4_in3->name.get_hash()] = std::move(p4_in3);
+            reg_view.ports()[p4_out1->name.get_hash()] = std::move(p4_out1);
+            
+            reg_view.connections()[conn4->name.get_hash()] = std::move(conn4);
+            
+            auto conn5 = std::make_unique<adam::connection_view>();
+            conn5->name = adam::string_hashed("Massive_Connection");
+            
+            auto p5_in1 = std::make_unique<adam::port_view>(); p5_in1->name = adam::string_hashed("In_1"); p5_in1->type = adam::string_hashed("adam::port_input_internal");
+            auto p5_in2 = std::make_unique<adam::port_view>(); p5_in2->name = adam::string_hashed("In_2"); p5_in2->type = adam::string_hashed("adam::port_input_internal");
+            auto p5_in3 = std::make_unique<adam::port_view>(); p5_in3->name = adam::string_hashed("In_3"); p5_in3->type = adam::string_hashed("adam::port_input_internal");
+            auto p5_in4 = std::make_unique<adam::port_view>(); p5_in4->name = adam::string_hashed("In_4"); p5_in4->type = adam::string_hashed("adam::port_input_internal");
+            auto p5_in5 = std::make_unique<adam::port_view>(); p5_in5->name = adam::string_hashed("In_5"); p5_in5->type = adam::string_hashed("adam::port_input_internal");
+            
+            auto p5_out1 = std::make_unique<adam::port_view>(); p5_out1->name = adam::string_hashed("Out_1"); p5_out1->type = adam::string_hashed("adam::port_output_internal");
+            auto p5_out2 = std::make_unique<adam::port_view>(); p5_out2->name = adam::string_hashed("Out_2"); p5_out2->type = adam::string_hashed("adam::port_output_internal");
+
+            conn5->inputs.push_back(p5_in1->name.get_hash());
+            conn5->inputs.push_back(p5_in2->name.get_hash());
+            conn5->inputs.push_back(p5_in3->name.get_hash());
+            conn5->inputs.push_back(p5_in4->name.get_hash());
+            conn5->inputs.push_back(p5_in5->name.get_hash());
+
+            conn5->outputs.push_back(p5_out1->name.get_hash());
+            conn5->outputs.push_back(p5_out2->name.get_hash());
+
+            for (int i = 0; i < 10; ++i)
+                conn5->filters.push_back(10000 + i);
+
+            reg_view.ports()[p5_in1->name.get_hash()] = std::move(p5_in1);
+            reg_view.ports()[p5_in2->name.get_hash()] = std::move(p5_in2);
+            reg_view.ports()[p5_in3->name.get_hash()] = std::move(p5_in3);
+            reg_view.ports()[p5_in4->name.get_hash()] = std::move(p5_in4);
+            reg_view.ports()[p5_in5->name.get_hash()] = std::move(p5_in5);
+            reg_view.ports()[p5_out1->name.get_hash()] = std::move(p5_out1);
+            reg_view.ports()[p5_out2->name.get_hash()] = std::move(p5_out2);
+            
+            reg_view.connections()[conn5->name.get_hash()] = std::move(conn5);
+            
             test_injected = true;
         }
         #endif
@@ -557,7 +616,7 @@ namespace adam::gui
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 16.0f));
                 ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
 
-                size_t max_rows = std::max({conn->inputs.size(), conn->outputs.size(), conn->filters.size() + conn->converters.size()});
+                size_t max_rows = std::max(conn->inputs.size(), conn->outputs.size());
                 if (max_rows == 0) max_rows = 1;
                 
                 float node_h = ImGui::GetTextLineHeight() * 2.0f;
@@ -578,24 +637,66 @@ namespace adam::gui
                     ImGui::Separator();
                     ImGui::Spacing();
 
-                    float col_width = ImGui::GetContentRegionAvail().x / 3.0f;
+                    float avail_x = ImGui::GetContentRegionAvail().x;
                     ImVec2 cur_pos = ImGui::GetCursorScreenPos();
                     
-                    auto draw_node = [&](const char* name, int col, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out)
+                    size_t num_processors = conn->filters.size() + conn->converters.size();
+                    int total_stages = 2 + static_cast<int>(num_processors);
+                    
+                    float char_width = ImGui::CalcTextSize("W").x;
+                    float desired_node_w = char_width * 67.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+                    
+                    float port_w = std::min(desired_node_w, avail_x * 0.40f);
+                    if (port_w < char_width * 15.0f) port_w = char_width * 15.0f;
+                    
+                    float proc_w = port_w;
+                    bool compact_processors = false;
+                    
+                    if (total_stages > 2)
                     {
-                        float node_w = col_width * 0.85f;
-                        float node_x = cur_pos.x + static_cast<float>(col) * col_width + (col_width - node_w) * 0.5f;
+                        float gap_if_large = (avail_x - static_cast<float>(total_stages) * port_w) / static_cast<float>(total_stages - 1);
+                        if (gap_if_large < 10.0f)
+                        {
+                            proc_w = char_width * 5.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+                            compact_processors = true;
+                            
+                            float gap_if_compact = (avail_x - 2.0f * port_w - static_cast<float>(num_processors) * proc_w) / static_cast<float>(total_stages - 1);
+                            if (gap_if_compact < 10.0f)
+                            {
+                                float available_for_procs = avail_x - 2.0f * port_w - static_cast<float>(total_stages - 1) * 10.0f;
+                                if (available_for_procs > 0.0f)
+                                    proc_w = available_for_procs / static_cast<float>(num_processors);
+                                else
+                                    proc_w = 4.0f; // Minimal clamping if window is exceptionally tiny
+                            }
+                        }
+                    }
+                    
+                    float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
+                    float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
+                    
+                    auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out)
+                    {
+                        float current_node_w = (stage == 0 || stage == total_stages - 1) ? port_w : proc_w;
+                        float node_x;
+                        if (total_stages == 1) node_x = cur_pos.x;
+                        else if (stage == 0) node_x = cur_pos.x;
+                        else if (stage == total_stages - 1) node_x = cur_pos.x + avail_x - current_node_w;
+                        else node_x = cur_pos.x + port_w + gap + static_cast<float>(stage - 1) * (proc_w + gap);
+                        
                         float node_y = cur_pos.y + row * row_height + (row_height - node_h) * 0.5f;
                         
                         ImVec2 p_min(node_x, node_y);
-                        ImVec2 p_max(node_x + node_w, node_y + node_h);
+                        ImVec2 p_max(node_x + current_node_w, node_y + node_h);
                         
                         draw_list->AddRectFilled(p_min, p_max, color, 6.0f);
                         draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f, 0, 1.5f);
                         
                         // Text with clipping
-                        float text_padding = 8.0f;
-                        ImVec2 text_pos(p_min.x + text_padding, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
+                        float text_width = ImGui::CalcTextSize(name).x;
+                        float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
+                        if (text_x < p_min.x + 8.0f) text_x = p_min.x + 8.0f;
+                        ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
                         draw_list->PushClipRect(p_min, p_max, true);
                         draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
                         draw_list->PopClipRect();
@@ -605,20 +706,20 @@ namespace adam::gui
                         out_pin_out = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
 
                         // Draw pins as circles
-                        draw_list->AddCircleFilled(out_pin_in, 4.0f, ImColor(200, 200, 200, 200));
-                        draw_list->AddCircleFilled(out_pin_out, 4.0f, ImColor(200, 200, 200, 200));
+                        if (stage > 0)
+                            draw_list->AddCircleFilled(out_pin_in, 4.0f, ImColor(200, 200, 200, 200));
+                        if (stage < total_stages - 1)
+                            draw_list->AddCircleFilled(out_pin_out, 4.0f, ImColor(200, 200, 200, 200));
                     };
 
-                    std::vector<ImVec2> input_pins;
-                    std::vector<ImVec2> output_pins;
-                    std::vector<std::pair<ImVec2, ImVec2>> processor_pins;
+                    std::vector<std::vector<ImVec2>> stage_pins_in(total_stages);
+                    std::vector<std::vector<ImVec2>> stage_pins_out(total_stages);
 
                     ImColor in_col(0x26, 0x76, 0xA6, 220);
                     ImColor proc_col(0xA6, 0x76, 0x26, 220);
                     ImColor out_col(0xA6, 0x26, 0x26, 220);
 
                     float in_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->inputs.size())) * 0.5f;
-                    float proc_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->filters.size() + conn->converters.size())) * 0.5f;
                     float out_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->outputs.size())) * 0.5f;
 
                     float row_val = in_offset;
@@ -627,24 +728,48 @@ namespace adam::gui
                         ImVec2 p_in, p_out;
                         auto it = ports.find(pid);
                         draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, in_col, p_in, p_out);
-                        input_pins.push_back(p_out);
+                        stage_pins_out[0].push_back(p_out);
                         row_val += 1.0f;
                     }
 
-                    row_val = proc_offset;
+                    int current_stage = 1;
+                    int processor_idx = 1;
+                    float proc_row_val = (static_cast<float>(max_rows) - 1.0f) * 0.5f;
                     for (auto fid : conn->filters)
                     {
                         ImVec2 p_in, p_out;
-                        draw_node("Filter", 1, row_val, proc_col, p_in, p_out);
-                        processor_pins.push_back({p_in, p_out});
-                        row_val += 1.0f;
+                        if (compact_processors)
+                        {
+                            char short_name[16];
+                            snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
+                            draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
+                        }
+                        else
+                        {
+                            draw_node("Filter", current_stage, proc_row_val, proc_col, p_in, p_out);
+                        }
+                        stage_pins_in[current_stage].push_back(p_in);
+                        stage_pins_out[current_stage].push_back(p_out);
+                        current_stage++;
+                        processor_idx++;
                     }
                     for (auto cid : conn->converters)
                     {
                         ImVec2 p_in, p_out;
-                        draw_node("Converter", 1, row_val, proc_col, p_in, p_out);
-                        processor_pins.push_back({p_in, p_out});
-                        row_val += 1.0f;
+                        if (compact_processors)
+                        {
+                            char short_name[16];
+                            snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
+                            draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
+                        }
+                        else
+                        {
+                            draw_node("Converter", current_stage, proc_row_val, proc_col, p_in, p_out);
+                        }
+                        stage_pins_in[current_stage].push_back(p_in);
+                        stage_pins_out[current_stage].push_back(p_out);
+                        current_stage++;
+                        processor_idx++;
                     }
 
                     row_val = out_offset;
@@ -652,45 +777,22 @@ namespace adam::gui
                     {
                         ImVec2 p_in, p_out;
                         auto it = ports.find(pid);
-                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", 2, row_val, out_col, p_in, p_out);
-                        output_pins.push_back(p_in);
+                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, out_col, p_in, p_out);
+                        stage_pins_in[total_stages - 1].push_back(p_in);
                         row_val += 1.0f;
                     }
 
                     ImColor line_col(200, 200, 200, 180);
                     
-                    if (processor_pins.empty())
+                    for (int s = 0; s < total_stages - 1; ++s)
                     {
-                        for (const auto& pin_in : input_pins)
+                        for (const auto& pin_out : stage_pins_out[s])
                         {
-                            for (const auto& pin_out : output_pins)
+                            for (const auto& pin_in : stage_pins_in[s + 1])
                             {
-                                float b_strength = (pin_out.x - pin_in.x) * 0.5f;
+                                float b_strength = (pin_in.x - pin_out.x) * 0.5f;
                                 draw_list->AddBezierCubic(
-                                    pin_in, ImVec2(pin_in.x + b_strength, pin_in.y), ImVec2(pin_out.x - b_strength, pin_out.y), pin_out,
-                                    line_col, 2.5f);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (const auto& pin_in : input_pins)
-                        {
-                            for (const auto& proc : processor_pins)
-                            {
-                                float b_strength = (proc.first.x - pin_in.x) * 0.5f;
-                                draw_list->AddBezierCubic(
-                                    pin_in, ImVec2(pin_in.x + b_strength, pin_in.y), ImVec2(proc.first.x - b_strength, proc.first.y), proc.first,
-                                    line_col, 2.5f);
-                            }
-                        }
-                        for (const auto& proc : processor_pins)
-                        {
-                            for (const auto& pin_out : output_pins)
-                            {
-                                float b_strength = (pin_out.x - proc.second.x) * 0.5f;
-                                draw_list->AddBezierCubic(
-                                    proc.second, ImVec2(proc.second.x + b_strength, proc.second.y), ImVec2(pin_out.x - b_strength, pin_out.y), pin_out,
+                                    pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
                                     line_col, 2.5f);
                             }
                         }
