@@ -22,6 +22,7 @@ namespace adam
         string_hashed name;
         string_hashed type;
         string_hashed module_name;
+        bool is_active = false;
     };
 
     /** @struct filter_view */
@@ -48,6 +49,7 @@ namespace adam
         std::vector<string_hashed::hash_datatype> outputs;
         std::vector<string_hashed::hash_datatype> filters;
         std::vector<string_hashed::hash_datatype> converters;
+        bool is_active = false;
     };
 
     /**

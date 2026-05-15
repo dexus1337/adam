@@ -319,6 +319,90 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(static_cast<int>(command_type::port_start), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_action_data>();
+            auto it = ctx.reg.ports().find(params->port);
+
+            if (it == ctx.reg.ports().end() || !it->second->start())
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::port_started);
+            evt.data_as<messages::port_action_data>()->port = params->port;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::port_stop), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_action_data>();
+            auto it = ctx.reg.ports().find(params->port);
+
+            if (it == ctx.reg.ports().end() || !it->second->stop())
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::port_stopped);
+            evt.data_as<messages::port_action_data>()->port = params->port;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::connection_start), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto it = ctx.reg.connections().find(params->connection);
+
+            if (it == ctx.reg.connections().end() || !it->second->start())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_start_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_started);
+            evt.data_as<messages::connection_action_data>()->connection = params->connection;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::connection_stop), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto it = ctx.reg.connections().find(params->connection);
+
+            if (it == ctx.reg.connections().end() || !it->second->stop())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stop_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_stopped);
+            evt.data_as<messages::connection_action_data>()->connection = params->connection;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::inspector_create_data>();
@@ -460,6 +544,38 @@ namespace adam
             {
                 static_cast<int>(log_event::connection_destroy_failed),
                 { "Thread {:d} failed to destroy connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht entfernen: {}" }
+            },
+            {
+                static_cast<int>(log_event::port_started),
+                { "Thread {:d} successfully started port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich gestartet." }
+            },
+            {
+                static_cast<int>(log_event::port_start_failed),
+                { "Thread {:d} failed to start port {:d}.", "Thread {:d} konnte Port {:d} nicht starten." }
+            },
+            {
+                static_cast<int>(log_event::port_stopped),
+                { "Thread {:d} successfully stopped port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich gestoppt." }
+            },
+            {
+                static_cast<int>(log_event::port_stop_failed),
+                { "Thread {:d} failed to stop port {:d}.", "Thread {:d} konnte Port {:d} nicht stoppen." }
+            },
+            {
+                static_cast<int>(log_event::connection_started),
+                { "Thread {:d} successfully started connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich gestartet." }
+            },
+            {
+                static_cast<int>(log_event::connection_start_failed),
+                { "Thread {:d} failed to start connection {:d}.", "Thread {:d} konnte Verbindung {:d} nicht starten." }
+            },
+            {
+                static_cast<int>(log_event::connection_stopped),
+                { "Thread {:d} successfully stopped connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich gestoppt." }
+            },
+            {
+                static_cast<int>(log_event::connection_stop_failed),
+                { "Thread {:d} failed to stop connection {:d}.", "Thread {:d} konnte Verbindung {:d} nicht stoppen." }
             }
         };
 

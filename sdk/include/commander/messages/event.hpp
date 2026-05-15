@@ -35,9 +35,13 @@ namespace adam
         port_created,
         port_parameter_updated,
         port_destroyed,
+        port_started,
+        port_stopped,
 
         connection_created,
         connection_destroyed,
+        connection_started,
+        connection_stopped,
 
         shutdown
     };

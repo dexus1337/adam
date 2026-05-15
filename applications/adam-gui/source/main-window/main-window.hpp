@@ -85,7 +85,9 @@ namespace adam::gui
         dlg_create_port,
         btn_cancel,
         btn_create,
-        lbl_port_type
+        lbl_port_type,
+        btn_start,
+        btn_stop
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

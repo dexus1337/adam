@@ -41,12 +41,17 @@ namespace adam
         port_create,
         port_set_parameter,
         port_destroy,
+        port_start,
+        port_stop,
+
+        connection_create,
+        connection_destroy,
+        connection_start,
+        connection_stop,
 
         inspector_create,
         inspector_destroy,
 
-        connection_create,
-        connection_destroy
     };
 
     /**

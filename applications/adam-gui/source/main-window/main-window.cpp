@@ -94,7 +94,9 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::dlg_create_port),             { "Create New Port", "Neuen Port erstellen" } },
             { static_cast<int>(gui_string_id::btn_cancel),                  { "Cancel", "Abbrechen" } },
             { static_cast<int>(gui_string_id::btn_create),                  { "Create", "Erstellen" } },
-            { static_cast<int>(gui_string_id::lbl_port_type),               { "Port Type", "Port-Typ" } }
+            { static_cast<int>(gui_string_id::lbl_port_type),               { "Port Type", "Port-Typ" } },
+            { static_cast<int>(gui_string_id::btn_start),                   { "Start", "Starten" } },
+            { static_cast<int>(gui_string_id::btn_stop),                    { "Stop", "Stoppen" } }
         };
 
         auto val = static_cast<int>(id);

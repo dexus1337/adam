@@ -76,6 +76,18 @@ namespace adam
         };
         static_assert(sizeof(port_destroy_data) <= command::get_max_data_length(), "port_destroy_data exceeds maximum command data size");
 
+        struct port_action_data
+        {
+            string_hashed::hash_datatype port;
+        };
+        static_assert(sizeof(port_action_data) <= command::get_max_data_length(), "port_action_data exceeds maximum command data size");
+
+        struct connection_action_data
+        {
+            string_hashed::hash_datatype connection;
+        };
+        static_assert(sizeof(connection_action_data) <= command::get_max_data_length(), "connection_action_data exceeds maximum command data size");
+
         struct port_parameter_updated_data
         {
             string_hashed::hash_datatype port;

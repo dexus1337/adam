@@ -11,6 +11,10 @@ namespace adam::gui
     {
         bool commander_active = ctrl.is_commander_active();
 
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
         if (!commander_active) ImGui::BeginDisabled();
 
         if (ImGui::Button(get_gui_string(gui_string_id::btn_create_connection, lang)))
@@ -242,12 +246,38 @@ namespace adam::gui
                 {
                     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
+                    ImGui::AlignTextToFramePadding();
                     ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "CONNECTION");
                     ImGui::SameLine();
                     ImGui::TextUnformatted(conn->name.c_str());
 
+                    const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
+                    const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
+                    
+                    float btn_start_w = ImGui::CalcTextSize(btn_start_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                    float btn_stop_w  = ImGui::CalcTextSize(btn_stop_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                    float total_btn_w = btn_start_w + btn_stop_w + ImGui::GetStyle().ItemSpacing.x;
+                    
+                    float avail_w = ImGui::GetWindowWidth();
+                    float center_x = (avail_w - total_btn_w) * 0.5f;
+                    float current_x = ImGui::GetCursorPosX();
+                    
+                    if (center_x > current_x)
+                        ImGui::SameLine(center_x);
+                    else
+                        ImGui::SameLine();
+                        
+                    bool is_active = conn->is_active;
+                    if (is_active) ImGui::BeginDisabled();
+                    if (ImGui::Button(btn_start_str)) { ctrl.get_commander().request_connection_start(conn->name); }
+                    if (is_active) ImGui::EndDisabled();
+                    
+                    ImGui::SameLine();
+                    if (!is_active) ImGui::BeginDisabled();
+                    if (ImGui::Button(btn_stop_str)) { ctrl.get_commander().request_connection_stop(conn->name); }
+                    if (!is_active) ImGui::EndDisabled();
+
                     ImGui::Separator();
-                    ImGui::Spacing();
 
                     float avail_x = ImGui::GetContentRegionAvail().x;
                     ImVec2 cur_pos = ImGui::GetCursorScreenPos();

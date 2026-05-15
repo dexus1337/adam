@@ -269,6 +269,20 @@ namespace adam
         return send_command(cmd);
     }
 
+    response_status commander::request_port_start(const string_hashed& port_name)
+    {
+        command cmd(command_type::port_start);
+        cmd.data_as<messages::port_action_data>()->port = port_name.get_hash();
+        return send_command(cmd);
+    }
+
+    response_status commander::request_port_stop(const string_hashed& port_name)
+    {
+        command cmd(command_type::port_stop);
+        cmd.data_as<messages::port_action_data>()->port = port_name.get_hash();
+        return send_command(cmd);
+    }
+
     response_status commander::request_connection_create(const string_hashed& name)
     {
         command cmd(command_type::connection_create);
@@ -282,6 +296,20 @@ namespace adam
         command cmd(command_type::connection_destroy);
         cmd.data_as<messages::connection_destroy_data>()->connection = name.get_hash();
 
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_start(const string_hashed& name)
+    {
+        command cmd(command_type::connection_start);
+        cmd.data_as<messages::connection_action_data>()->connection = name.get_hash();
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_stop(const string_hashed& name)
+    {
+        command cmd(command_type::connection_stop);
+        cmd.data_as<messages::connection_action_data>()->connection = name.get_hash();
         return send_command(cmd);
     }
 

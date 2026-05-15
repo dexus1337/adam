@@ -80,11 +80,23 @@ namespace adam
         /** @brief Requests the destruction of a port. */
         response_status request_port_destroy(const string_hashed& port_name);
 
+        /** @brief Requests to start a port. */
+        response_status request_port_start(const string_hashed& port_name);
+
+        /** @brief Requests to stop a port. */
+        response_status request_port_stop(const string_hashed& port_name);
+
         /** @brief Requests the creation of a connection. */
         response_status request_connection_create(const string_hashed& name);
 
         /** @brief Requests the destruction of a connection. */
         response_status request_connection_destroy(const string_hashed& name);
+
+        /** @brief Requests to start a connection. */
+        response_status request_connection_start(const string_hashed& name);
+
+        /** @brief Requests to stop a connection. */
+        response_status request_connection_stop(const string_hashed& name);
 
         /** @brief Requests the creation of a data inspector on a specific port. */
         response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);

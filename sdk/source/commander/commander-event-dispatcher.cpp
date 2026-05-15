@@ -133,6 +133,20 @@ namespace adam
             ctx.cmdr.registry().ports().erase(data->port);
         });
 
+        register_handler(static_cast<int>(event_type::port_started), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::port_action_data>();
+            auto it = ctx.cmdr.registry().ports().find(data->port);
+            if (it != ctx.cmdr.registry().ports().end()) it->second->is_active = true;
+        });
+
+        register_handler(static_cast<int>(event_type::port_stopped), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::port_action_data>();
+            auto it = ctx.cmdr.registry().ports().find(data->port);
+            if (it != ctx.cmdr.registry().ports().end()) it->second->is_active = false;
+        });
+
         register_handler(static_cast<int>(event_type::connection_created), [](const event& e, event_context& ctx) 
         {
             auto* info = e.get_data_as<connection::basic_info>();
@@ -145,6 +159,20 @@ namespace adam
         {
             auto* data = e.get_data_as<messages::connection_destroy_data>();
             ctx.cmdr.registry().connections().erase(data->connection);
+        });
+
+        register_handler(static_cast<int>(event_type::connection_started), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::connection_action_data>();
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end()) it->second->is_active = true;
+        });
+
+        register_handler(static_cast<int>(event_type::connection_stopped), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::connection_action_data>();
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end()) it->second->is_active = false;
         });
     }
 }
