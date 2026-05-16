@@ -72,10 +72,18 @@ namespace adam
             port_create_failed,
             port_destroyed,
             port_destroy_failed,
+            port_started,
+            port_start_failed,
+            port_stopped,
+            port_stop_failed,
             connection_created,
             connection_create_failed,
             connection_destroyed,
-            connection_destroy_failed
+            connection_destroy_failed,
+            connection_started,
+            connection_start_failed,
+            connection_stopped,
+            connection_stop_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

@@ -3,6 +3,7 @@
 
 #include "data/format.hpp"
 #include "data/inspector.hpp"
+#include "memory/buffer/buffer-manager.hpp"
 
 
 namespace adam 
@@ -40,9 +41,29 @@ namespace adam
         return true;
     }
 
+    bool port::start()
+    {
+        m_statistic_buffer = buffer_manager::get().request_buffer(statistic_info_buffer_size);
+        if (!m_statistic_buffer) return false;
+
+        m_statistic_buffer->data_as<statistic_info>()->is_active = true;
+        return true;
+    }
+
+    bool port::stop()
+    {
+        m_statistic_buffer->data_as<statistic_info>()->is_active = false;
+
+        m_statistic_buffer->release();
+        m_statistic_buffer = nullptr;
+
+        return true;
+    }
+
     port::port(const string_hashed& item_name) 
     :   configuration_item(item_name, port::get_default_parameters()),
         m_data_format(&data_format_transparent) 
     {
+
     }
 }

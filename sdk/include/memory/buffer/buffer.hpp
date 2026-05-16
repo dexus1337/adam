@@ -53,6 +53,10 @@ namespace adam
     public:
 
         const void* get_data()                  const { return m_data; }
+
+        template<typename T>
+        const T* get_data_as()                  const { return reinterpret_cast<const T*>(m_data); }
+
         uint32_t get_capacity()                 const { return m_capacity; }
         uint32_t get_size()                     const { return m_size; }
         const data_format* get_data_format()    const { return m_data_format; }
@@ -67,6 +71,10 @@ namespace adam
         bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
 
         void* data()                                    { return m_data; }
+
+        template<typename T>
+        T* data_as()                                    { return reinterpret_cast<T*>(m_data); }
+
         void set_size(uint32_t size)                    { m_size = size; }
         void set_data_format(const data_format* format) { m_data_format = format; }
 

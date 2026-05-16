@@ -9,6 +9,7 @@
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "version/version.hpp"
 #include "resources/language-strings.hpp"
+#include "memory/buffer/buffer-manager.hpp"
 
 
 namespace adam
@@ -97,6 +98,9 @@ namespace adam
 
     bool controller::run(bool async)
     {
+        if (!buffer_manager::get().initialize())
+            return false;
+        
         if (!m_master_queue.create(1000))
             return false;
 
@@ -123,6 +127,8 @@ namespace adam
 
         m_master_queue.destroy();
 
+        buffer_manager::get().destroy();
+        
         return true;
     }
     

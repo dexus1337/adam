@@ -59,6 +59,12 @@ namespace adam
         /** @brief Data input routine. Data arrives here, gets passed through processors and then to output ports */
         bool handle_data(buffer* buffer);
 
+        /** @brief Starts the connection. */
+        bool start();
+
+        /** @brief Stops the connection. */
+        bool stop();
+
     protected:
 
         vector_double_buffer<port_input*>     m_ports_input;
