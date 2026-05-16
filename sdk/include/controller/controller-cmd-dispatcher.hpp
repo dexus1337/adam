@@ -83,7 +83,9 @@ namespace adam
             connection_started,
             connection_start_failed,
             connection_stopped,
-            connection_stop_failed
+            connection_stop_failed,
+            connection_renamed,
+            connection_rename_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

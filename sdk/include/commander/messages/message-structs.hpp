@@ -112,5 +112,12 @@ namespace adam
             string_hashed::hash_datatype connection;
         };
         static_assert(sizeof(connection_destroy_data) <= command::get_max_data_length(), "connection_destroy_data exceeds maximum command data size");
+
+        struct connection_rename_data
+        {
+            string_hashed::hash_datatype connection;
+            char new_name[max_name_length];
+        };
+        static_assert(sizeof(connection_rename_data) <= command::get_max_data_length(), "connection_rename_data exceeds maximum command data size");
     }
 }

@@ -4,24 +4,14 @@
 #include <imgui.h>
 #include <algorithm>
 #include <vector>
+#include <mutex>
 
 namespace adam::gui 
 {
     void render_tab_management(gui_controller& ctrl, adam::language lang)
     {
-        bool commander_active = ctrl.is_commander_active();
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        if (!commander_active) ImGui::BeginDisabled();
-
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_create_connection, lang)))
-            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_create_connection, lang));
-        ImGui::SameLine();
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_create_port, lang)))
-            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_create_port, lang));
+        bool commander_active   = ctrl.is_commander_active();
+        float dpi_scale         = ImGui::GetStyle()._MainScale;
 
         if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
@@ -29,7 +19,7 @@ namespace adam::gui
             ImGui::InputText(get_gui_string(gui_string_id::tbl_name, lang), conn_name, sizeof(conn_name));
 
             ImGui::Spacing();
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang), ImVec2(120, 0)))
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
             {
                 if (conn_name[0] != '\0')
                 {
@@ -40,47 +30,15 @@ namespace adam::gui
             }
             ImGui::SetItemDefaultFocus();
             ImGui::SameLine();
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120, 0)))
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
                 ImGui::CloseCurrentPopup();
             
             ImGui::EndPopup();
         }
-
-        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_port, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            static char port_name[256] = "";
-            ImGui::InputText(get_gui_string(gui_string_id::tbl_name, lang), port_name, sizeof(port_name));
-            
-            static int port_type_idx = 0;
-            const char* types[] = { "Input", "Output" };
-            ImGui::Combo(get_gui_string(gui_string_id::lbl_port_type, lang), &port_type_idx, types, 2);
-
-            ImGui::Spacing();
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang), ImVec2(120, 0)))
-            {
-                if (port_name[0] != '\0')
-                {
-                    adam::string_hashed ptype = (port_type_idx == 0) ? adam::string_hashed("adam::port_input_internal") : adam::string_hashed("adam::port_output_internal");
-                    ctrl.get_commander().request_port_create(adam::string_hashed(&port_name[0]), ptype.get_hash(), 0);
-                    port_name[0] = '\0';
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            ImGui::SetItemDefaultFocus();
-            ImGui::SameLine();
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120, 0)))
-                ImGui::CloseCurrentPopup();
-                
-            ImGui::EndPopup();
-        }
-
-        if (!commander_active) ImGui::EndDisabled();
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
 
         auto& reg_view = ctrl.get_commander().registry();
+
+        std::lock_guard<const adam::registry_view> lock(reg_view);
 
         #ifdef ADAM_BUILD_DEBUG
         // Inject a test connection if it doesn't exist to test layout
@@ -222,34 +180,55 @@ namespace adam::gui
         static std::vector<std::vector<ImVec2>> stage_pins_in;
         static std::vector<std::vector<ImVec2>> stage_pins_out;
 
-        if (ImGui::BeginChild("ConnectionsList", ImVec2(0, 0), true))
+        if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), true))
         {
             for (const auto& [hash, conn] : connections)
             {
                 ImGui::PushID(static_cast<int>(hash));
                 
-                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 16.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
                 ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
 
                 size_t max_rows = std::max(conn->inputs.size(), conn->outputs.size());
                 if (max_rows == 0) max_rows = 1;
                 
                 float node_h = ImGui::GetTextLineHeight() * 2.0f;
-                if (node_h < 40.0f) node_h = 40.0f;
-                float row_height = node_h + 24.0f;
+                float row_height = node_h + 10.0f * dpi_scale;
                 
-                float base_height = ImGui::GetTextLineHeight() * 2.0f + 60.0f;
+                float base_height = ImGui::GetTextLineHeight() + ImGui::GetFrameHeight() + 42.0f * dpi_scale;
                 float child_height = base_height + static_cast<float>(max_rows) * row_height;
 
                 if (ImGui::BeginChild("ConnCard", ImVec2(0, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
                 {
                     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-                    ImGui::AlignTextToFramePadding();
                     ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "CONNECTION");
                     ImGui::SameLine();
-                    ImGui::TextUnformatted(conn->name.c_str());
+
+                    char name_buf[256];
+                    std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
+                    name_buf[sizeof(name_buf) - 1] = '\0';
+
+                    ImGui::SetNextItemWidth(250.0f * dpi_scale);
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+                    
+                    ImGui::PushID("conn_name_edit");
+                    bool enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+                    bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
+                    ImGui::PopID();
+                    
+                    ImGui::PopStyleColor(3);
+
+                    if (enter_pressed || deactivated)
+                    {
+                        if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
+                        {
+                            ctrl.get_commander().request_connection_rename(conn->name, adam::string_hashed(&name_buf[0]));
+                        }
+                    }
 
                     const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
                     const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
@@ -258,15 +237,8 @@ namespace adam::gui
                     float btn_stop_w  = ImGui::CalcTextSize(btn_stop_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
                     float total_btn_w = btn_start_w + btn_stop_w + ImGui::GetStyle().ItemSpacing.x;
                     
-                    float avail_w = ImGui::GetWindowWidth();
-                    float center_x = (avail_w - total_btn_w) * 0.5f;
-                    float current_x = ImGui::GetCursorPosX();
+                    ImGui::SameLine(ImGui::GetWindowWidth() - total_btn_w - ImGui::GetStyle().WindowPadding.x);
                     
-                    if (center_x > current_x)
-                        ImGui::SameLine(center_x);
-                    else
-                        ImGui::SameLine();
-                        
                     bool is_active = conn->is_active;
                     if (is_active) ImGui::BeginDisabled();
                     if (ImGui::Button(btn_start_str)) { ctrl.get_commander().request_connection_start(conn->name); }
@@ -297,19 +269,19 @@ namespace adam::gui
                     if (total_stages > 2)
                     {
                         float gap_if_large = (avail_x - static_cast<float>(total_stages) * port_w) / static_cast<float>(total_stages - 1);
-                        if (gap_if_large < 10.0f)
+                        if (gap_if_large < 10.0f * dpi_scale)
                         {
                             proc_w = char_width * 5.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
                             compact_processors = true;
                             
                             float gap_if_compact = (avail_x - 2.0f * port_w - static_cast<float>(num_processors) * proc_w) / static_cast<float>(total_stages - 1);
-                            if (gap_if_compact < 10.0f)
+                            if (gap_if_compact < 10.0f * dpi_scale)
                             {
-                                float available_for_procs = avail_x - 2.0f * port_w - static_cast<float>(total_stages - 1) * 10.0f;
+                                float available_for_procs = avail_x - 2.0f * port_w - static_cast<float>(total_stages - 1) * 10.0f * dpi_scale;
                                 if (available_for_procs > 0.0f)
                                     proc_w = available_for_procs / static_cast<float>(num_processors);
                                 else
-                                    proc_w = 4.0f; // Minimal clamping if window is exceptionally tiny
+                                    proc_w = 4.0f * dpi_scale; // Minimal clamping if window is exceptionally tiny
                             }
                         }
                     }
@@ -331,13 +303,13 @@ namespace adam::gui
                         ImVec2 p_min(node_x, node_y);
                         ImVec2 p_max(node_x + current_node_w, node_y + node_h);
                         
-                        draw_list->AddRectFilled(p_min, p_max, color, 6.0f);
-                        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f, 0, 1.5f);
+                        draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
+                        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
                         
                         // Text with clipping
                         float text_width = ImGui::CalcTextSize(name).x;
                         float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
-                        if (text_x < p_min.x + 8.0f) text_x = p_min.x + 8.0f;
+                        if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
                         ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
                         draw_list->PushClipRect(p_min, p_max, true);
                         draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
@@ -349,9 +321,9 @@ namespace adam::gui
 
                         // Draw pins as circles
                         if (stage > 0)
-                            draw_list->AddCircleFilled(out_pin_in, 4.0f, ImColor(200, 200, 200, 200));
+                            draw_list->AddCircleFilled(out_pin_in, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
                         if (stage < total_stages - 1)
-                            draw_list->AddCircleFilled(out_pin_out, 4.0f, ImColor(200, 200, 200, 200));
+                            draw_list->AddCircleFilled(out_pin_out, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
                     };
 
                     // Speed Optimization
@@ -436,7 +408,7 @@ namespace adam::gui
                     }
 
                     ImColor line_col(200, 200, 200, 180);
-                    float line_thickness = 10.f * ImGui::GetIO().FontGlobalScale;
+                    float line_thickness = 5.f * dpi_scale;
                     
                     if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
                     {
@@ -482,14 +454,58 @@ namespace adam::gui
                     }
 
                     ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + static_cast<float>(max_rows) * row_height));
-                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
+                    
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    ImGui::Spacing();
+                    
+                    bool is_empty = conn->inputs.empty() && conn->outputs.empty() && conn->filters.empty() && conn->converters.empty();
+
+                    float avail_w = ImGui::GetWindowWidth();
+                    
+                    if (is_empty)
+                    {
+                        float btn_w = ImGui::CalcTextSize("Add Input").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        ImGui::SetCursorPosX((avail_w - btn_w) * 0.5f);
+                        ImGui::Button("Add Input");
+                    }
+                    else
+                    {
+                        float current_y = ImGui::GetCursorPosY();
+                        float start_x = ImGui::GetStyle().WindowPadding.x;
+
+                        float add_in_w = ImGui::CalcTextSize("Add Input").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
+                        ImGui::SetCursorPos(ImVec2(in_x, current_y));
+                        ImGui::Button("Add Input");
+
+                        float add_proc_w = ImGui::CalcTextSize("Add Processor").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        float center_x = (avail_w - add_proc_w) * 0.5f;
+                        ImGui::SetCursorPos(ImVec2(center_x, current_y));
+                        ImGui::Button("Add Processor");
+
+                        if (!conn->inputs.empty())
+                        {
+                            float add_out_w = ImGui::CalcTextSize("Add Output").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                            float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
+                            ImGui::SetCursorPos(ImVec2(out_x, current_y));
+                            ImGui::Button("Add Output");
+                        }
+                    }
                 }
                 ImGui::EndChild();
                 ImGui::PopStyleColor();
                 ImGui::PopStyleVar(2);
                 ImGui::PopID();
+                
+                ImGui::Spacing();
             }
         }
         ImGui::EndChild();
+
+        if (!commander_active) ImGui::BeginDisabled();
+        if (ImGui::Button(get_gui_string(gui_string_id::btn_create_connection, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))
+            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_create_connection, lang));
+        if (!commander_active) ImGui::EndDisabled();
     }
 }

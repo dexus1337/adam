@@ -93,6 +93,9 @@ namespace adam
         /** @brief Destroys a connection from the registry by its hash. */
         status destroy_connection(string_hashed::hash_datatype hash);
 
+        /** @brief Renames a connection safely. */
+        status rename_connection(string_hashed::hash_datatype hash, const string_hashed& new_name);
+
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;
 

@@ -403,6 +403,36 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(static_cast<int>(command_type::connection_rename), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_rename_data>();
+            string_hashed new_name(params->new_name);
+
+            std::string old_conn_str;
+            auto it = ctx.reg.connections().find(params->connection);
+            if (it != ctx.reg.connections().end())
+                old_conn_str = it->second->get_name().c_str();
+
+            registry::status res = ctx.reg.rename_connection(params->connection, new_name);
+
+            if (res != registry::status_success)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_rename_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_renamed);
+            auto* evt_data = evt.data_as<messages::connection_rename_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_renamed, ctx.ctrl.get_language()), ctx.tid, old_conn_str.c_str(), new_name.c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::inspector_create_data>();
@@ -576,6 +606,14 @@ namespace adam
             {
                 static_cast<int>(log_event::connection_stop_failed),
                 { "Thread {:d} failed to stop connection {:d}.", "Thread {:d} konnte Verbindung {:d} nicht stoppen." }
+            },
+            {
+                static_cast<int>(log_event::connection_renamed),
+                { "Thread {:d} successfully renamed connection \"{}\" to \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich zu \"{}\" umbenannt." }
+            },
+            {
+                static_cast<int>(log_event::connection_rename_failed),
+                { "Thread {:d} failed to rename connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht umbenennen: {}" }
             }
         };
 

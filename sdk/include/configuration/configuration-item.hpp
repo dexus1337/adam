@@ -47,6 +47,8 @@ namespace adam
         /** @brief Loads the configuration item's parameters from a binary file. */
         virtual bool load(string_hashed::view filepath);
 
+        void set_name(const string_hashed& new_name);
+
         /** @brief Adds additional parameters to this configuration item. */
         void add_parameters(const configuration_parameter_list& params);
 

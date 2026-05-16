@@ -42,6 +42,7 @@ namespace adam
         connection_destroyed,
         connection_started,
         connection_stopped,
+        connection_renamed,
 
         shutdown
     };

@@ -10,6 +10,7 @@
 #include "data/port/port.hpp"
 #include "module/module.hpp"
 #include "data/connection.hpp"
+#include <mutex>
 
 
 namespace adam 
@@ -163,6 +164,7 @@ namespace adam
 
         m_lang = head->lang_info;
 
+        std::lock_guard<const module_view> lg(m_module_view);
         m_module_view.available().reserve(head->mod_info.available_modules);
         m_module_view.unavailable().reserve(head->mod_info.unavailable_modules);
         m_module_view.loaded().reserve(head->mod_info.loaded_modules);
@@ -310,6 +312,16 @@ namespace adam
     {
         command cmd(command_type::connection_stop);
         cmd.data_as<messages::connection_action_data>()->connection = name.get_hash();
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_rename(const string_hashed& old_name, const string_hashed& new_name)
+    {
+        command cmd(command_type::connection_rename);
+        auto* data = cmd.data_as<messages::connection_rename_data>();
+        data->connection = old_name.get_hash();
+        std::strncpy(data->new_name, new_name.c_str(), sizeof(data->new_name) - 1);
+        data->new_name[sizeof(data->new_name) - 1] = '\0';
         return send_command(cmd);
     }
 

@@ -221,6 +221,23 @@ namespace adam
         return status_success;
     }
     
+    registry::status registry::rename_connection(string_hashed::hash_datatype hash, const string_hashed& new_name)
+    {
+        auto it = m_connections.find(hash);
+        if (it == m_connections.end())
+            return status_error_connection_not_found;
+
+        if (m_connections.find(new_name.get_hash()) != m_connections.end())
+            return status_error_connection_already_exists;
+
+        auto conn = std::move(it->second);
+        m_connections.erase(it);
+
+        conn->set_name(new_name);
+        m_connections.emplace(new_name.get_hash(), std::move(conn));
+        return status_success;
+    }
+
     bool registry::save(string_hashed::view filepath) const 
     {
         std::ofstream ofs(std::string(filepath), std::ios::binary);

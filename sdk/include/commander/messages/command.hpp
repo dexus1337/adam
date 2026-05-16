@@ -48,6 +48,7 @@ namespace adam
         connection_destroy,
         connection_start,
         connection_stop,
+        connection_rename,
 
         inspector_create,
         inspector_destroy,

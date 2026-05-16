@@ -1,6 +1,7 @@
 #include "commander/module-view.hpp"
 #include "os/os.hpp"
 #include "module/module.hpp"
+#include <mutex>
 
 namespace adam 
 {
@@ -59,6 +60,7 @@ namespace adam
 
     void module_view::clear()
     {
+        std::lock_guard<const module_view> lg(*this);
         m_available_modules.clear();
         m_unavailable_modules.clear();
         m_loaded_modules.clear();

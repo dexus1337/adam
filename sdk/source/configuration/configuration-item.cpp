@@ -71,6 +71,11 @@ namespace adam
         return ifs.good();
     }
 
+    void configuration_item::set_name(const string_hashed& new_name)
+    {
+        m_parameters.set_name(new_name);
+    }
+
     void configuration_item::add_parameters(const configuration_parameter_list& params)
     {
         for (const auto& [name, param] : params.get_children())

@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <mutex>
 
 namespace adam::gui 
 {
@@ -50,6 +51,8 @@ namespace adam::gui
 
             if (commander_active)
             {
+                std::lock_guard<const adam::module_view> lg(ctrl.get_commander().modules());
+
                 const auto& paths = ctrl.get_commander().get_modules().get_paths();
                 for (size_t i = 0; i < paths.size(); ++i)
                 {
@@ -165,6 +168,8 @@ namespace adam::gui
                 };
                 
                 std::unordered_map<uint64_t, module_gui_info> merged;
+
+                std::lock_guard<const adam::module_view> lg(ctrl.get_commander().modules());
 
                 for (const auto& [name_hash, data] : ctrl.get_commander().get_modules().get_available())
                     merged[name_hash.get_hash()] = { 0, data.first, data.second.c_str(), 0, name_hash.c_str() };

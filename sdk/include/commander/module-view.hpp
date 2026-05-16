@@ -16,6 +16,8 @@
 #include <tuple>
 #include <utility>
 #include <unordered_map>
+#include <atomic>
+#include <mutex>
 
 namespace adam 
 {
@@ -45,6 +47,16 @@ namespace adam
         const handle_map&                   get_handles()       const { return m_handles; }
         const std::vector<string_hashed>&   get_paths()         const { return m_paths; }
 
+        void lock() const
+        {
+            while (m_lock.test_and_set(std::memory_order_acquire))
+            {
+                while (m_lock.test(std::memory_order_relaxed)); // Spin without yielding
+            }
+        }
+
+        void unlock() const { m_lock.clear(std::memory_order_release); }
+
         /** @brief Extracts the type and module names for a given port hash. */
         void extract_port_type_and_module(string_hashed::hash_datatype type_hash, string_hashed::hash_datatype module_hash, string_hashed& out_type, string_hashed& out_module) const;
 
@@ -55,6 +67,7 @@ namespace adam
         void clear();
 
     private:
+        mutable std::atomic_flag    m_lock = ATOMIC_FLAG_INIT;
         map_available_modules       m_available_modules;
         map_unavailable_modules     m_unavailable_modules;
         map_loaded_modules          m_loaded_modules;

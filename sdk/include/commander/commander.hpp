@@ -98,6 +98,9 @@ namespace adam
         /** @brief Requests to stop a connection. */
         response_status request_connection_stop(const string_hashed& name);
 
+        /** @brief Requests to rename a connection. */
+        response_status request_connection_rename(const string_hashed& old_name, const string_hashed& new_name);
+
         /** @brief Requests the creation of a data inspector on a specific port. */
         response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
 

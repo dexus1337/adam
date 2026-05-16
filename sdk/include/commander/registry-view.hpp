@@ -13,6 +13,8 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <atomic>
+#include <mutex>
 
 namespace adam 
 {
@@ -74,8 +76,19 @@ namespace adam
         const converter_map&  get_converters() const    { return m_converters; }
         const connection_map& get_connections() const   { return m_connections; }
 
+        void lock() const
+        {
+            while (m_lock.test_and_set(std::memory_order_acquire))
+            {
+                while (m_lock.test(std::memory_order_relaxed)); // Spin without yielding
+            }
+        }
+
+        void unlock() const { m_lock.clear(std::memory_order_release); }
+
         void clear()
         {
+            std::lock_guard<const registry_view> lg(*this);
             m_ports.clear();
             m_filters.clear();
             m_converters.clear();
@@ -83,6 +96,7 @@ namespace adam
         }
 
     private:
+        mutable std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
         port_map       m_ports;
         filter_map     m_filters;
         converter_map  m_converters;
