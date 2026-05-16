@@ -27,9 +27,12 @@ namespace adam
         {
             while (lock.test_and_set(std::memory_order_acquire))
             {
+                while (lock.test(std::memory_order_relaxed))
+                {
                     #ifdef ADAM_CPU_X64
-                    _mm_pause();
-                    #endif 
+                    _mm_pause(); // Hardware pause (no OS yield) to reduce power and memory bus saturation
+                    #endif
+                }
             }
         }
 
