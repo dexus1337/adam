@@ -16,6 +16,10 @@
 #include <atomic>
 #include <mutex>
 
+#ifdef ADAM_CPU_X64
+#include <immintrin.h>
+#endif
+
 namespace adam 
 {
     /** @struct port_view */
@@ -80,7 +84,12 @@ namespace adam
         {
             while (m_lock.test_and_set(std::memory_order_acquire))
             {
-                while (m_lock.test(std::memory_order_relaxed)); // Spin without yielding
+                while (m_lock.test(std::memory_order_relaxed))
+                {
+                    #ifdef ADAM_CPU_X64
+                    _mm_pause(); // Hardware pause (no OS yield) to reduce power and memory bus saturation
+                    #endif
+                }
             }
         }
 
