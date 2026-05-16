@@ -35,6 +35,13 @@ namespace adam
                 uint32_t    unavailable_modules     = 0;
                 uint32_t    loaded_modules          = 0;
             } mod_info;
+
+            struct connections_info
+            {
+                uint32_t ports          = 0;
+                uint32_t processors     = 0;
+                uint32_t connections    = 0;
+            } conn_info;
         };
         static_assert(sizeof(initial_data_header) <= command::get_max_data_length(), "initial_data_header exceeds maximum command data size");
 

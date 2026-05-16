@@ -8,6 +8,9 @@
 #include "commander/messages/event.hpp"
 #include "commander/messages/message-structs.hpp"
 #include "data/connection.hpp"
+#include "data/processor.hpp"
+#include "data/port/port-input.hpp"
+#include "data/port/port-output.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 
@@ -123,6 +126,46 @@ namespace adam
                     ctx.responses.emplace_back();
             }
             
+            data->conn_info.ports       = static_cast<uint32_t>(ctx.reg.ports().size());
+            data->conn_info.processors  = static_cast<uint32_t>(ctx.reg.filters().size() + ctx.reg.converters().size());
+            data->conn_info.connections = static_cast<uint32_t>(ctx.reg.connections().size());
+
+            for (const auto& [hash, conn] : ctx.reg.connections())
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* conn_info = ctx.responses[resp_idx].data_as<connection::basic_info>();
+                conn_info->setup(conn->get_name());
+                
+                conn_info->input_count = 0;
+                conn_info->processor_count = 0;
+                conn_info->output_count = 0;
+                
+                conn->ports_input().iterate([&](const auto& inputs) 
+                {
+                    conn_info->input_count = static_cast<uint16_t>(std::min(inputs.size(), static_cast<size_t>(connection::basic_info::default_type_count)));
+                    for (size_t i = 0; i < conn_info->input_count; ++i)
+                        conn_info->inputs[i] = inputs[i]->get_name().get_hash();
+                });
+
+                conn->processors().iterate([&](const auto& procs) 
+                {
+                    conn_info->processor_count = static_cast<uint16_t>(std::min(procs.size(), static_cast<size_t>(connection::basic_info::default_type_count)));
+                    for (size_t i = 0; i < conn_info->processor_count; ++i)
+                        conn_info->processors[i] = procs[i]->get_name().get_hash();
+                });
+
+                conn->ports_output().iterate([&](const auto& outputs) 
+                {
+                    conn_info->output_count = static_cast<uint16_t>(std::min(outputs.size(), static_cast<size_t>(connection::basic_info::default_type_count)));
+                    for (size_t i = 0; i < conn_info->output_count; ++i)
+                        conn_info->outputs[i] = outputs[i]->get_name().get_hash();
+                });
+
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
         });
 
         register_handler(static_cast<int>(command_type::set_language), [](const command* cmds, size_t, command_context& ctx) 

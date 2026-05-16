@@ -6,6 +6,7 @@
 #include <commander/messages/message-structs.hpp>
 #include <version/version.hpp>
 #include <module/module.hpp>
+#include <data/connection.hpp>
 #include <algorithm>
 
 class commander_test : public ::testing::Test
@@ -88,6 +89,9 @@ TEST_F(commander_test, initial_data_module_sync)
         data->mod_info.available_modules = 1;
         data->mod_info.unavailable_modules = 1;
         data->mod_info.loaded_modules = 1;
+        data->conn_info.ports = 0;
+        data->conn_info.processors = 0;
+        data->conn_info.connections = 1;
         
         // module paths
         ctx.responses.front().set_extended(true);
@@ -112,6 +116,15 @@ TEST_F(commander_test, initial_data_module_sync)
         ctx.responses.emplace_back();
         auto* mod_info3 = ctx.responses[4].data_as<adam::module::basic_info>();
         mod_info3->setup(adam::module::basic_info::loaded, "mock_loaded", "/mock/path/loaded.so", adam::make_version(3, 0, 0));
+
+        // connections
+        ctx.responses[4].set_extended(true);
+        ctx.responses.emplace_back();
+        auto* conn_info = ctx.responses[5].data_as<adam::connection::basic_info>();
+        conn_info->setup(adam::string_hashed("mock_connection"));
+        conn_info->input_count = 0;
+        conn_info->processor_count = 0;
+        conn_info->output_count = 0;
     });
 
     adam::commander cmdr;
@@ -130,6 +143,9 @@ TEST_F(commander_test, initial_data_module_sync)
 
     EXPECT_EQ(cmdr.get_modules().get_loaded().size(), 1u);
     EXPECT_TRUE(cmdr.get_modules().get_loaded().contains(adam::string_hashed("mock_loaded")));
+
+    EXPECT_EQ(cmdr.get_registry().get_connections().size(), 1u);
+    EXPECT_TRUE(cmdr.get_registry().get_connections().contains(adam::string_hashed("mock_connection").get_hash()));
 
     // Restore default handler to not break other tests on the shared controller singleton
     ctrl.dispatcher().register_default_handlers();

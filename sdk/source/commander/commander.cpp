@@ -210,6 +210,29 @@ namespace adam
             current_idx++;
         }
 
+        for (size_t i = 0; i < head->conn_info.connections; i++)
+        {
+            if (!resp[current_idx-1].is_extended())
+                break;
+            
+            auto* conn_info = resp[current_idx].data_as<connection::basic_info>();
+            
+            auto conn = std::make_unique<connection_view>();
+            conn->name = string_hashed(&conn_info->name[0]);
+            
+            for (size_t j = 0; j < conn_info->input_count; j++)
+                conn->inputs.push_back(conn_info->inputs[j]);
+                
+            for (size_t j = 0; j < conn_info->processor_count; j++)
+                conn->filters.push_back(conn_info->processors[j]);
+                
+            for (size_t j = 0; j < conn_info->output_count; j++)
+                conn->outputs.push_back(conn_info->outputs[j]);
+                
+            m_registry_view.connections().emplace(conn->name.get_hash(), std::move(conn));
+            current_idx++;
+        }
+
         return res;
     }
 

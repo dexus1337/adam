@@ -13,6 +13,7 @@
 #include "configuration/configuration-item.hpp"
 #include "types/vector-double-buffer.hpp"
 #include "commander/messages/command.hpp"
+#include "commander/messages/message-structs.hpp"
 
 #include <cstring>
 
@@ -32,8 +33,6 @@ namespace adam
     {
     public:
 
-        static constexpr size_t max_name_length = 64;
-
         struct basic_info
         {
             char name[max_name_length];
@@ -43,8 +42,21 @@ namespace adam
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
             }
+
+            uint16_t input_count;
+            uint16_t processor_count;
+            uint16_t output_count;
+
+            static constexpr size_t default_type_count = ((command::get_max_data_length() - sizeof(name)) / 3) / sizeof(string_hashed::hash_datatype);
+
+            string_hashed::hash_datatype inputs[default_type_count];
+            string_hashed::hash_datatype processors[default_type_count];
+            string_hashed::hash_datatype outputs[default_type_count];
         };
         static_assert(sizeof(connection::basic_info) <= command::get_max_data_length(), "connection::basic_info exceeds maximum command data size");
+
+        /** @brief Retrieves the default configuration parameters for ports. */
+        static const configuration_parameter_list& get_default_parameters();
 
         /** @brief Constructs a new connection object. */
         connection(const string_hashed& item_name);

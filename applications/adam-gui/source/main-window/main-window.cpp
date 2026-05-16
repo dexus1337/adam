@@ -611,14 +611,14 @@ namespace adam::gui
         
         if (location >= 0)
         {
-            const float PAD = 10.0f;
+            float pad = 10.0f * ImGui::GetStyle()._MainScale;
             ImVec2 work_pos = viewport->WorkPos;
             ImVec2 work_size = viewport->WorkSize;
             ImVec2 window_pos, window_pos_pivot;
             float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
             
-            window_pos.x = (location & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
-            window_pos.y = (location & 2) ? (work_pos.y + work_size.y - PAD - status_bar_height) : (work_pos.y + ImGui::GetFrameHeight() + PAD);
+            window_pos.x = (location & 1) ? (work_pos.x + work_size.x - pad) : (work_pos.x + pad);
+            window_pos.y = (location & 2) ? (work_pos.y + work_size.y - pad - status_bar_height) : (work_pos.y + ImGui::GetFrameHeight() + pad);
             window_pos_pivot.x = (location & 1) ? 1.0f : 0.0f;
             window_pos_pivot.y = (location & 2) ? 1.0f : 0.0f;
             
