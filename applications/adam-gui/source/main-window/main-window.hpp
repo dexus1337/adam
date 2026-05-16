@@ -16,6 +16,10 @@ namespace adam::gui
         log_info,
         log_warning,
         log_error,
+        node_input,
+        node_processor,
+        node_output,
+        node_connection_line,
         count
     };
 
@@ -87,7 +91,11 @@ namespace adam::gui
         btn_create,
         lbl_port_type,
         btn_start,
-        btn_stop
+        btn_stop,
+        btn_add_input,
+        btn_add_output,
+        btn_add_processor,
+        lbl_connection
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

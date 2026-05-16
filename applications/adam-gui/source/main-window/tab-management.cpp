@@ -203,7 +203,8 @@ namespace adam::gui
                 {
                     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "CONNECTION");
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
                     ImGui::SameLine();
 
                     char name_buf[256];
@@ -338,9 +339,9 @@ namespace adam::gui
                         stage_pins_out[i].clear();
                     }
 
-                    ImColor in_col(0x26, 0x76, 0xA6, 220);
-                    ImColor proc_col(0xA6, 0x76, 0x26, 220);
-                    ImColor out_col(0xA6, 0x26, 0x26, 220);
+                    ImColor in_col = get_gui_color(gui_color_id::node_input);
+                    ImColor proc_col = get_gui_color(gui_color_id::node_processor);
+                    ImColor out_col = get_gui_color(gui_color_id::node_output);
 
                     float in_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->inputs.size())) * 0.5f;
                     float out_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->outputs.size())) * 0.5f;
@@ -407,7 +408,7 @@ namespace adam::gui
                         row_val += 1.0f;
                     }
 
-                    ImColor line_col(200, 200, 200, 180);
+                    ImColor line_col = get_gui_color(gui_color_id::node_connection_line);
                     float line_thickness = 5.f * dpi_scale;
                     
                     if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
@@ -457,39 +458,34 @@ namespace adam::gui
                     
                     ImGui::Spacing();
                     ImGui::Separator();
-                    ImGui::Spacing();
                     
-                    bool is_empty = conn->inputs.empty() && conn->outputs.empty() && conn->filters.empty() && conn->converters.empty();
-
                     float avail_w = ImGui::GetWindowWidth();
                     
-                    if (is_empty)
+                    float current_y = ImGui::GetCursorPosY();
+                    float start_x = ImGui::GetStyle().WindowPadding.x;
+
+                    const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
+                    const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
+                    const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
+
+                    float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                    float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
+                    ImGui::SetCursorPos(ImVec2(in_x, current_y));
+                    ImGui::Button(btn_add_input_str);
+
+                    if (!conn->inputs.empty())
                     {
-                        float btn_w = ImGui::CalcTextSize("Add Input").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                        ImGui::SetCursorPosX((avail_w - btn_w) * 0.5f);
-                        ImGui::Button("Add Input");
-                    }
-                    else
-                    {
-                        float current_y = ImGui::GetCursorPosY();
-                        float start_x = ImGui::GetStyle().WindowPadding.x;
+                        float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
+                        ImGui::SetCursorPos(ImVec2(out_x, current_y));
+                        ImGui::Button(btn_add_output_str);
 
-                        float add_in_w = ImGui::CalcTextSize("Add Input").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                        float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
-                        ImGui::SetCursorPos(ImVec2(in_x, current_y));
-                        ImGui::Button("Add Input");
-
-                        float add_proc_w = ImGui::CalcTextSize("Add Processor").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                        float center_x = (avail_w - add_proc_w) * 0.5f;
-                        ImGui::SetCursorPos(ImVec2(center_x, current_y));
-                        ImGui::Button("Add Processor");
-
-                        if (!conn->inputs.empty())
+                        if (!conn->outputs.empty())
                         {
-                            float add_out_w = ImGui::CalcTextSize("Add Output").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                            float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
-                            ImGui::SetCursorPos(ImVec2(out_x, current_y));
-                            ImGui::Button("Add Output");
+                            float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                            float center_x = (avail_w - add_proc_w) * 0.5f;
+                            ImGui::SetCursorPos(ImVec2(center_x, current_y));
+                            ImGui::Button(btn_add_processor_str);
                         }
                     }
                 }

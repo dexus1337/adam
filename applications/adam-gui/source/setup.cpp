@@ -56,7 +56,24 @@ namespace adam::gui
         // Disable the creation of imgui.ini, as we handle configuration saving ourselves
         io.IniFilename = NULL;
 
-        ImGui::StyleColorsDark();
+        ImGuiStyle& style = ImGui::GetStyle();
+        
+        style.WindowRounding = 8.0f;
+        style.FrameRounding = 6.0f;
+        style.PopupRounding = 8.0f;
+        style.ScrollbarRounding = 6.0f;
+        style.GrabRounding = 6.0f;
+        style.TabRounding = 6.0f;
+        style.ChildRounding = 6.0f;
+
+        style.WindowPadding = ImVec2(10.0f, 10.0f);
+        style.FramePadding = ImVec2(8.0f, 4.0f);
+        style.ItemSpacing = ImVec2(8.0f, 6.0f);
+        style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
+
+        style.WindowBorderSize = 1.0f;
+        style.FrameBorderSize = 1.0f;
+        style.PopupBorderSize = 1.0f;
         
         // Calculate DPI scale (using standard 96 DPI as base)
         float ddpi = 96.0f, hdpi = 96.0f, vdpi = 96.0f;
