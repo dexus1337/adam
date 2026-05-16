@@ -311,7 +311,7 @@ namespace adam
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
 
-        auto copy_parameters = [](configuration_parameter_list* target, configuration_parameter_list* source) 
+        auto copy_parameters = [](auto& self, configuration_parameter_list* target, configuration_parameter_list* source) -> void 
         {
             if (!target || !source) return;
             for (auto& [name, param] : source->get_children()) 
@@ -338,29 +338,41 @@ namespace adam
                     {
                         if (auto* p_lst = dynamic_cast<configuration_parameter_list*>(param.get()))
                         {
-                            if (e_lst->get_name() == "module_paths"_ct)
-                            {
-                                for (auto& [child_name, child_param] : p_lst->get_children())
-                                {
-                                    if (child_param->get_type() == configuration_parameter::string)
-                                    {
-                                        if (auto* child_existing = e_lst->get(child_name))
-                                        {
-                                            if (auto* e_child_str = dynamic_cast<configuration_parameter_string*>(child_existing))
-                                            {
-                                                e_child_str->set_value(static_cast<configuration_parameter_string*>(child_param.get())->get_value());
-                                            }
-                                        }
-                                        else
-                                        {
-                                            auto new_param = std::make_unique<configuration_parameter_string>(child_param->get_name());
-                                            new_param->set_value(static_cast<configuration_parameter_string*>(child_param.get())->get_value());
-                                            e_lst->add(std::move(new_param));
-                                        }
-                                    }
-                                }
-                            }
+                            self(self, e_lst, p_lst);
                         }
+                    }
+                }
+                else
+                {
+                    if (auto* p_bool = dynamic_cast<configuration_parameter_boolean*>(param.get()))
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_boolean>(param->get_name());
+                        new_param->set_value(p_bool->get_value());
+                        target->add(std::move(new_param));
+                    }
+                    else if (auto* p_int = dynamic_cast<configuration_parameter_integer*>(param.get()))
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_integer>(param->get_name());
+                        new_param->set_value(p_int->get_value());
+                        target->add(std::move(new_param));
+                    }
+                    else if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get()))
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_double>(param->get_name());
+                        new_param->set_value(p_dbl->get_value());
+                        target->add(std::move(new_param));
+                    }
+                    else if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get()))
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_string>(param->get_name());
+                        new_param->set_value(p_str->get_value());
+                        target->add(std::move(new_param));
+                    }
+                    else if (auto* p_lst = dynamic_cast<configuration_parameter_list*>(param.get()))
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_list>(param->get_name());
+                        self(self, new_param.get(), p_lst);
+                        target->add(std::move(new_param));
                     }
                 }
             }
@@ -371,7 +383,7 @@ namespace adam
         {
             if (general_mock_param->get_type() == configuration_parameter::list)
             {
-                copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(general_mock_param));
+                copy_parameters(copy_parameters, &m_parameters, static_cast<configuration_parameter_list*>(general_mock_param));
             }
         }
 
@@ -405,13 +417,36 @@ namespace adam
                             status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), &new_port);
                             if (status == status_success && new_port)
                             {
-                                copy_parameters(&new_port->get_parameters(), port_params);
+                                copy_parameters(copy_parameters, &new_port->get_parameters(), port_params);
                             }
                         }
                     }
                 }
             }
         }
+
+        // 3. Restore connections
+        if (auto* connections_mock_param = root_list->get("connections"_ct))
+        {
+            if (connections_mock_param->get_type() == configuration_parameter::list)
+            {
+                auto* connections_list = static_cast<configuration_parameter_list*>(connections_mock_param);
+                for (auto& [conn_name, conn_param] : connections_list->get_children())
+                {
+                    if (conn_param && conn_param->get_type() == configuration_parameter::list)
+                    {
+                        auto* conn_params = static_cast<configuration_parameter_list*>(conn_param.get());
+                        connection* new_conn = nullptr;
+                        status status = create_connection(conn_name, &new_conn);
+                        if (status == status_success && new_conn)
+                        {
+                            copy_parameters(copy_parameters, &new_conn->get_parameters(), conn_params);
+                        }
+                    }
+                }
+            }
+        }
+        
 
         return ifs.good();
     }

@@ -85,10 +85,10 @@ namespace adam::gui
 
         // Load nicer system fonts instead of the default pixel font
         #if defined(ADAM_PLATFORM_WINDOWS)
-        if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
+        if (std::filesystem::exists("C:\\Windows\\Fonts\\tahoma.ttf"))
+            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f * dpi_scale);
+        else if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
             io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f * dpi_scale);
-        else if (std::filesystem::exists("C:\\Windows\\Fonts\\arial.ttf"))
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 16.0f * dpi_scale);
         #elif defined(ADAM_PLATFORM_LINUX)
         if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
             io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f * dpi_scale);

@@ -70,60 +70,63 @@ namespace adam
 
             size_t resp_idx = 1;
 
-            auto* module_paths_list = ctx.reg.get_module_paths();
-            uint32_t path_count = 0;
-            if (module_paths_list)
+            // Modules
             {
-                for (const auto& [name, param] : module_paths_list->get_children())
+                auto* module_paths_list = ctx.reg.get_module_paths();
+                uint32_t path_count = 0;
+                if (module_paths_list)
                 {
-                    auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get());
-                    if (!str_param) continue;
+                    for (const auto& [name, param] : module_paths_list->get_children())
+                    {
+                        auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get());
+                        if (!str_param) continue;
 
-                    uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
+                        uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
 
+                        ctx.responses[resp_idx-1].set_extended(true);
+                        auto* path_info = ctx.responses[resp_idx].data_as<messages::module_path_data>();
+                        path_info->setup(str_param->get_value().c_str(), idx);
+                        resp_idx++;
+                        path_count++;
+
+                        if (resp_idx >= ctx.responses.size())
+                            ctx.responses.emplace_back();
+                    }
+                }
+                data->mod_info.module_paths = path_count;
+
+                for (const auto& mod : ctx.reg.modules().get_available_modules())
+                {
                     ctx.responses[resp_idx-1].set_extended(true);
-                    auto* path_info = ctx.responses[resp_idx].data_as<messages::module_path_data>();
-                    path_info->setup(str_param->get_value().c_str(), idx);
+                    auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
+                    mod_info->setup(module::basic_info::available, mod.first.c_str(), mod.second.second.c_str(), mod.second.first);
                     resp_idx++;
-                    path_count++;
 
                     if (resp_idx >= ctx.responses.size())
                         ctx.responses.emplace_back();
                 }
-            }
-            data->mod_info.module_paths = path_count;
 
-            for (const auto& mod : ctx.reg.modules().get_available_modules())
-            {
-                ctx.responses[resp_idx-1].set_extended(true);
-                auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
-                mod_info->setup(module::basic_info::available, mod.first.c_str(), mod.second.second.c_str(), mod.second.first);
-                resp_idx++;
+                for (const auto& mod : ctx.reg.modules().get_unavailable_modules())
+                {
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
+                    mod_info->setup(module::basic_info::unavailable, mod.first.c_str(), std::get<1>(mod.second).c_str(), std::get<0>(mod.second), std::get<2>(mod.second));
+                    resp_idx++;
 
-                if (resp_idx >= ctx.responses.size())
-                    ctx.responses.emplace_back();
-            }
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
 
-            for (const auto& mod : ctx.reg.modules().get_unavailable_modules())
-            {
-                ctx.responses[resp_idx-1].set_extended(true);
-                auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
-                mod_info->setup(module::basic_info::unavailable, mod.first.c_str(), std::get<1>(mod.second).c_str(), std::get<0>(mod.second), std::get<2>(mod.second));
-                resp_idx++;
+                for (const auto& mod : ctx.reg.modules().get_loaded_modules())
+                {
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
+                    mod_info->setup(module::basic_info::loaded, mod.first.c_str(), mod.second->get_filepath().c_str(), mod.second->get_version());
+                    resp_idx++;
 
-                if (resp_idx >= ctx.responses.size())
-                    ctx.responses.emplace_back();
-            }
-
-            for (const auto& mod : ctx.reg.modules().get_loaded_modules())
-            {
-                ctx.responses[resp_idx-1].set_extended(true);
-                auto* mod_info = ctx.responses[resp_idx].data_as<module::basic_info>();
-                mod_info->setup(module::basic_info::loaded, mod.first.c_str(), mod.second->get_filepath().c_str(), mod.second->get_version());
-                resp_idx++;
-
-                if (resp_idx >= ctx.responses.size())
-                    ctx.responses.emplace_back();
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
             }
             
             data->conn_info.ports       = static_cast<uint32_t>(ctx.reg.ports().size());

@@ -40,6 +40,7 @@ namespace adam::gui
 
         std::lock_guard<const adam::registry_view> lock(reg_view);
 
+        /*
         #ifdef ADAM_BUILD_DEBUG
         // Inject a test connection if it doesn't exist to test layout
         static bool test_injected = false;
@@ -172,7 +173,7 @@ namespace adam::gui
             test_injected = true;
         }
         #endif
-
+        */
         const auto& connections = reg_view.get_connections();
         const auto& ports = reg_view.get_ports();
 
@@ -196,7 +197,7 @@ namespace adam::gui
                 float node_h = ImGui::GetTextLineHeight() * 2.0f;
                 float row_height = node_h + 10.0f * dpi_scale;
                 
-                float base_height = ImGui::GetTextLineHeight() + ImGui::GetFrameHeight() + 42.0f * dpi_scale;
+                float base_height = ImGui::GetFrameHeight() * 2.0f + ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
                 float child_height = base_height + static_cast<float>(max_rows) * row_height;
 
                 if (ImGui::BeginChild("ConnCard", ImVec2(0, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
@@ -470,14 +471,14 @@ namespace adam::gui
 
                     float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
                     float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
-                    ImGui::SetCursorPos(ImVec2(in_x, current_y));
+                    ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
                     ImGui::Button(btn_add_input_str);
 
                     if (!conn->inputs.empty())
                     {
                         float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
                         float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
-                        ImGui::SetCursorPos(ImVec2(out_x, current_y));
+                        ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
                         ImGui::Button(btn_add_output_str);
 
                         if (!conn->outputs.empty())
