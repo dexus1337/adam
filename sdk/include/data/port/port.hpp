@@ -42,12 +42,16 @@ namespace adam
         {
             char name[max_name_length];
             string_hashed::hash_datatype type;
-            string_hashed::hash_datatype module;
+            string_hashed::hash_datatype type_module;
+            string_hashed::hash_datatype format;
+            string_hashed::hash_datatype format_module;
 
-            void setup(const string_hashed& n, string_hashed::hash_datatype t, string_hashed::hash_datatype m)
+            void setup(const string_hashed& n, string_hashed::hash_datatype t, string_hashed::hash_datatype tm, string_hashed::hash_datatype f = 0, string_hashed::hash_datatype fm = 0)
             {
                 type = t;
-                module = m;
+                type_module = tm;
+                format = f;
+                format_module = fm;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
             }
@@ -73,6 +77,7 @@ namespace adam
         virtual const string_hashed_ct& get_type_name() const = 0;
 
         const data_format* get_data_format() const { return m_data_format; }
+        void set_data_format(const data_format* format) { m_data_format = format; }
 
         vector_double_buffer<connection*>&                      connections()   { return m_connections; }
         vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors()    { return m_inspectors; }

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <vector>
 #include <mutex>
+#include <string>
 
 namespace adam::gui 
 {
@@ -12,6 +13,42 @@ namespace adam::gui
     {
         bool commander_active   = ctrl.is_commander_active();
         float dpi_scale         = ImGui::GetStyle()._MainScale;
+
+        static adam::string_hashed connection_to_delete("");
+        static bool request_delete_popup = false;
+
+        if (request_delete_popup)
+        {
+            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_delete_connection, lang));
+            request_delete_popup = false;
+        }
+
+        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_delete_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted(get_gui_string(gui_string_id::msg_delete_connection_confirm, lang));
+            
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_ok, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
+            {
+                if (connection_to_delete.get_hash() != 0)
+                {
+                    ctrl.get_commander().request_connection_destroy(connection_to_delete);
+                    connection_to_delete = adam::string_hashed("");
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
+            {
+                connection_to_delete = adam::string_hashed("");
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
 
         if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
@@ -40,7 +77,7 @@ namespace adam::gui
 
         std::lock_guard<const adam::registry_view> lock(reg_view);
 
-        #ifdef ADAM_BUILD_DEBUG
+        /*#ifdef ADAM_BUILD_DEBUG
         // Inject a test connection if it doesn't exist to test layout
         static bool test_injected = false;
         if (!test_injected)
@@ -171,7 +208,7 @@ namespace adam::gui
             
             test_injected = true;
         }
-        #endif
+        #endif*/
         
         const auto& connections = reg_view.get_connections();
         const auto& ports = reg_view.get_ports();
@@ -180,7 +217,7 @@ namespace adam::gui
         static std::vector<std::vector<ImVec2>> stage_pins_in;
         static std::vector<std::vector<ImVec2>> stage_pins_out;
 
-        if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), true))
+        if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), false))
         {
             for (const auto& [hash, conn] : connections)
             {
@@ -206,57 +243,7 @@ namespace adam::gui
                 {
                     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-                    ImGui::AlignTextToFramePadding();
-                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
-                    ImGui::SameLine();
-
-                    char name_buf[max_name_length];
-                    std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
-                    name_buf[sizeof(name_buf) - 1] = '\0';
-
-                    ImGui::SetNextItemWidth(250.0f * dpi_scale);
-                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
-                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
-                    
-                    ImGui::PushID("conn_name_edit");
-                    bool enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
-                    bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
-                    ImGui::PopID();
-                    
-                    ImGui::PopStyleColor(3);
-
-                    if (enter_pressed || deactivated)
-                    {
-                        if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
-                        {
-                            ctrl.get_commander().request_connection_rename(conn->name, adam::string_hashed(&name_buf[0]));
-                        }
-                    }
-
-                    const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
-                    const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
-                    
-                    float btn_start_w = ImGui::CalcTextSize(btn_start_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                    float btn_stop_w  = ImGui::CalcTextSize(btn_stop_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                    float total_btn_w = btn_start_w + btn_stop_w + ImGui::GetStyle().ItemSpacing.x;
-                    
-                    ImGui::SameLine(ImGui::GetWindowWidth() - total_btn_w - ImGui::GetStyle().WindowPadding.x);
-                    
-                    bool is_active = conn->is_active;
-                    if (is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_start_str)) { ctrl.get_commander().request_connection_start(conn->name); }
-                    if (is_active) ImGui::EndDisabled();
-                    
-                    ImGui::SameLine();
-                    if (!is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_stop_str)) { ctrl.get_commander().request_connection_stop(conn->name); }
-                    if (!is_active) ImGui::EndDisabled();
-
-                    ImGui::Separator();
-
                     float avail_x = ImGui::GetContentRegionAvail().x;
-                    ImVec2 cur_pos = ImGui::GetCursorScreenPos();
                     
                     int total_stages = 2 + static_cast<int>(num_processors);
                     
@@ -288,6 +275,63 @@ namespace adam::gui
                             }
                         }
                     }
+
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
+                    ImGui::SameLine();
+
+                    char name_buf[max_name_length];
+                    std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
+                    name_buf[sizeof(name_buf) - 1] = '\0';
+
+                    ImGui::SetNextItemWidth(port_w);
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+                    
+                    ImGui::PushID("conn_name_edit");
+                    bool enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+                    bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
+                    ImGui::PopID();
+                    
+                    ImGui::PopStyleColor(3);
+
+                    if (enter_pressed || deactivated)
+                    {
+                        if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
+                        {
+                            ctrl.get_commander().request_connection_rename(conn->name, adam::string_hashed(&name_buf[0]));
+                        }
+                    }
+
+                    const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
+                    const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
+                    
+                    ImGui::SameLine();
+
+                    bool is_active = conn->is_active;
+                    if (is_active) ImGui::BeginDisabled();
+                    if (ImGui::Button(btn_start_str)) { ctrl.get_commander().request_connection_start(conn->name); }
+                    if (is_active) ImGui::EndDisabled();
+                    
+                    ImGui::SameLine();
+                    if (!is_active) ImGui::BeginDisabled();
+                    if (ImGui::Button(btn_stop_str)) { ctrl.get_commander().request_connection_stop(conn->name); }
+                    if (!is_active) ImGui::EndDisabled();
+
+                    const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
+                    float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                    
+                    ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
+                    
+                    if (ImGui::Button(btn_delete_str)) { 
+                        connection_to_delete = conn->name;
+                        request_delete_popup = true;
+                    }
+
+                    ImGui::Separator();
+
+                    ImVec2 cur_pos = ImGui::GetCursorScreenPos();
                     
                     float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
                     float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
@@ -506,7 +550,17 @@ namespace adam::gui
 
         if (!commander_active) ImGui::BeginDisabled();
         if (ImGui::Button(get_gui_string(gui_string_id::btn_create_connection, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))
-            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_create_connection, lang));
+        {
+            if (ImGui::GetIO().KeyShift)
+            {
+                ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_create_connection, lang));
+            }
+            else
+            {
+                std::string default_name = "connection_" + std::to_string(connections.size());
+                ctrl.get_commander().request_connection_create(adam::string_hashed(default_name.c_str()));
+            }
+        }
         if (!commander_active) ImGui::EndDisabled();
     }
 }

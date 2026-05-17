@@ -133,7 +133,8 @@ namespace adam
             view->name = string_hashed(info->name);
             {
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
-                ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->module, view->type, view->module_name);
+                ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
+                ctx.cmdr.get_modules().extract_datatype_and_module(info->format, info->format_module, view->datatype, view->datatype_module);
             }
             {
                 std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());

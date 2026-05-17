@@ -260,7 +260,8 @@ namespace adam
             auto params = cmds->get_data_as<port::basic_info>();
             string_hashed name(params->name);
             
-            registry::status res = ctx.reg.create_port(name, params->type, params->module);
+            registry::status res = ctx.reg.create_port(name, params->type, params->type_module, params->format, params->format_module);
+            
 
             if (res != registry::status_success)
             {

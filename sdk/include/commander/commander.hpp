@@ -75,7 +75,7 @@ namespace adam
         response_status request_module_unload(const string_hashed& name);
 
         /** @brief Requests the creation of a port. */
-        response_status request_port_create(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype module = 0);
+        response_status request_port_create(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype type_module = 0, string_hashed::hash_datatype format = 0, string_hashed::hash_datatype format_module = 0);
 
         /** @brief Requests the destruction of a port. */
         response_status request_port_destroy(const string_hashed& port_name);

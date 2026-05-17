@@ -107,7 +107,7 @@ namespace adam
         m_connections.clear();
     }
 
-    registry::status registry::create_port(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype module_name, port** out_port)
+    registry::status registry::create_port(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype type_module, string_hashed::hash_datatype format, string_hashed::hash_datatype format_module, port** out_port)
     {
         if (out_port) 
             *out_port = nullptr;
@@ -120,10 +120,10 @@ namespace adam
         string_hashed resolved_module_name;
 
         // 2. Lookup the appropriate factory
-        if (module_name != 0)
+        if (type_module != 0)
         {
             const module* mod = nullptr;
-            auto it = m_modules.get_loaded_modules().find(module_name);
+            auto it = m_modules.get_loaded_modules().find(type_module);
             if (it != m_modules.get_loaded_modules().end())
             {
                 mod = it->second;
@@ -148,16 +148,50 @@ namespace adam
         if (!port_factory)
             return status_error_factory_not_found; // Unknown port type
 
-        // 3. Create the port and immediately take ownership in the registry
+        // 3. Resolve the data format
+        if (format == 0)
+            format = string_hashed("dataformat_transparent").get_hash();
+
+        const data_format* port_format = nullptr;
+
+        if (format_module != 0)
+        {
+            auto it = m_modules.get_loaded_modules().find(format_module);
+            if (it != m_modules.get_loaded_modules().end())
+            {
+                const module* mod = it->second;
+                auto format_it = mod->get_data_formats().find(format);
+                if (format_it != mod->get_data_formats().end())
+                    port_format = format_it->second;
+            }
+        }
+        else
+        {
+            for (const auto& [mod_name, mod] : m_modules.get_loaded_modules())
+            {
+                auto format_it = mod->get_data_formats().find(format);
+                if (format_it != mod->get_data_formats().end())
+                {
+                    port_format = format_it->second;
+                    break;
+                }
+            }
+        }
+
+        // 4. Create the port and immediately take ownership in the registry
         port* new_port = port_factory->create(name);
         if (!new_port)
             return status_error_creation_failed;
 
-        if (module_name != 0)
+        if (type_module != 0)
         {
             if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("module_name"_ct)))
                 mod_param->set_value(resolved_module_name);
         }
+
+        if (port_format)
+            new_port->set_data_format(port_format);
+
         m_ports.emplace(name, std::unique_ptr<port>(new_port));
         
         if (out_port) 
@@ -414,7 +448,7 @@ namespace adam
                             }
 
                             port* new_port = nullptr;
-                            status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), &new_port);
+                            status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), 0, 0, &new_port);
                             if (status == status_success && new_port)
                             {
                                 copy_parameters(copy_parameters, &new_port->get_parameters(), port_params);

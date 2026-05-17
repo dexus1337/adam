@@ -147,10 +147,10 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::menu_settings),               { "Settings", "Einstellungen" } },
             { static_cast<int>(gui_string_id::combo_language),              { "Language###Lang", "Sprache###Lang" } },
             { static_cast<int>(gui_string_id::slider_font_scale),           { "Font Scale###FontScale", "Schriftskalierung###FontScale" } },
-            { static_cast<int>(gui_string_id::btn_reset_default),           { "Reset to Default###Reset", "Auf Standard zurücksetzen###Reset" } },
-            { static_cast<int>(gui_string_id::checkbox_dark_theme),         { "Dark Theme###DarkTheme", "Dunkles Design###DarkTheme" } },
+            { static_cast<int>(gui_string_id::combo_theme),                 { "Theme###Theme", "Design###Theme" } },
+            { static_cast<int>(gui_string_id::theme_default_dark),          { "Default Dark", "Standard Dunkel" } },
+            { static_cast<int>(gui_string_id::theme_default_light),         { "Default Light", "Standard Hell" } },
             { static_cast<int>(gui_string_id::btn_clear_log),               { "Clear Log###ClearLog", "Protokoll leeren###ClearLog" } },
-            { static_cast<int>(gui_string_id::lbl_control_panel),           { "ADAM Control Panel", "ADAM-Bedienfeld" } },
             { static_cast<int>(gui_string_id::lbl_commander_connected),     { "Commander connected.", "Commander verbunden." } },
             { static_cast<int>(gui_string_id::lbl_commander_disconnected),  { "Commander disconnected.", "Commander getrennt." } },
             { static_cast<int>(gui_string_id::lbl_log_console),             { "Log Console", "Protokollkonsole" } },
@@ -208,7 +208,11 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::btn_add_input),               { "Add Input", "Eingang hinzufügen" } },
             { static_cast<int>(gui_string_id::btn_add_output),              { "Add Output", "Ausgang hinzufügen" } },
             { static_cast<int>(gui_string_id::btn_add_processor),           { "Add Processor", "Prozessor hinzufügen" } },
-            { static_cast<int>(gui_string_id::lbl_connection),              { "CONNECTION", "VERBINDUNG" } }
+            { static_cast<int>(gui_string_id::lbl_connection),              { "CONNECTION", "VERBINDUNG" } },
+            { static_cast<int>(gui_string_id::btn_delete),                  { "Delete", "Löschen" } },
+            { static_cast<int>(gui_string_id::dlg_delete_connection),       { "Delete Connection", "Verbindung löschen" } },
+            { static_cast<int>(gui_string_id::msg_delete_connection_confirm), { "Are you sure you want to delete this connection?\nThis action cannot be undone.", "Möchten Sie diese Verbindung wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden." } },
+            { static_cast<int>(gui_string_id::btn_ok),                      { "OK", "OK" } }
         };
 
         auto val = static_cast<int>(id);
@@ -231,7 +235,7 @@ namespace adam::gui
         m_p_perf_ovly_x         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"_ct));
         m_p_perf_ovly_y         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
         m_p_perf_ovly_content   = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_content"_ct));
-        m_p_dark_theme          = static_cast<adam::configuration_parameter_boolean*>(params.get("dark_theme"_ct));
+        m_p_theme               = static_cast<adam::configuration_parameter_string*>(params.get("theme"_ct));
         m_p_font_scale          = static_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
         m_p_log_height          = static_cast<adam::configuration_parameter_double*>(params.get("log_height"_ct));
         m_p_log_level           = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"_ct));
@@ -262,8 +266,8 @@ namespace adam::gui
 
         ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value());
         
-        bool dark_theme_val = m_p_dark_theme->get_value();
-        apply_theme(dark_theme_val);
+        bool is_dark = m_p_theme->get_value() == "default-dark"_ct;
+        apply_theme(is_dark);
     }
 
     main_window::~main_window()
@@ -358,9 +362,6 @@ namespace adam::gui
             render_menu_bar(lang);
             ImGui::EndMenuBar();
         }
-
-        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_control_panel, lang));
-        ImGui::Separator();
         
         float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
         float content_avail_y = ImGui::GetWindowHeight() - ImGui::GetCursorPosY() - status_bar_height;
@@ -486,17 +487,31 @@ namespace adam::gui
             {
                 ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value());
             }
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_reset_default, lang)))
-            {
-                m_p_font_scale->set_value(1.0);
-                ImGui::GetIO().FontGlobalScale = 1.0f;
-            }
 
             ImGui::Separator();
             
-            if (ImGui::Checkbox(get_gui_string(gui_string_id::checkbox_dark_theme, lang), &m_p_dark_theme->value()))
+            adam::string_hashed current_theme = m_p_theme->get_value();
+            const char* preview_value = (current_theme == "default-dark"_ct) ? get_gui_string(gui_string_id::theme_default_dark, lang) : get_gui_string(gui_string_id::theme_default_light, lang);
+            
+            if (ImGui::BeginCombo(get_gui_string(gui_string_id::combo_theme, lang), preview_value))
             {
-                apply_theme(m_p_dark_theme->get_value());
+                bool is_dark = (current_theme == "default-dark"_ct);
+                if (ImGui::Selectable(get_gui_string(gui_string_id::theme_default_dark, lang), is_dark))
+                {
+                    m_p_theme->set_value("default-dark"_ct);
+                    apply_theme(true);
+                }
+                if (is_dark) ImGui::SetItemDefaultFocus();
+                
+                bool is_light = (current_theme == "default-light"_ct);
+                if (ImGui::Selectable(get_gui_string(gui_string_id::theme_default_light, lang), is_light))
+                {
+                    m_p_theme->set_value("default-light"_ct);
+                    apply_theme(false);
+                }
+                if (is_light) ImGui::SetItemDefaultFocus();
+                
+                ImGui::EndCombo();
             }
             ImGui::EndMenu();
         }

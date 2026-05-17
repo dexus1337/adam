@@ -27,7 +27,9 @@ namespace adam
     {
         string_hashed name;
         string_hashed type;
-        string_hashed module_name;
+        string_hashed type_module;
+        string_hashed datatype;
+        string_hashed datatype_module;
         bool is_active = false;
     };
 

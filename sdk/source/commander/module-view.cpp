@@ -22,6 +22,24 @@ namespace adam
             }
         }
     }
+
+    void module_view::extract_datatype_and_module(string_hashed::hash_datatype datatype_hash, string_hashed::hash_datatype module_hash, string_hashed& out_datatype, string_hashed& out_module) const
+    {
+        auto it = m_loaded_modules.find(module_hash);
+        if (it != m_loaded_modules.end())
+        {
+            out_module = it->first;
+            if (it->second)
+            {
+                auto format_it = it->second->get_data_formats().find(datatype_hash);
+                if (format_it != it->second->get_data_formats().end() && format_it->second)
+                {
+                    out_datatype = it->first;
+                    return;
+                }
+            }
+        }
+    }
     
     void module_view::load_module(const string_hashed& name, const string_hashed& path)
     {

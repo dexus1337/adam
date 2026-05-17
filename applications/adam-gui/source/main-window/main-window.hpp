@@ -34,10 +34,10 @@ namespace adam::gui
         menu_settings,
         combo_language,
         slider_font_scale,
-        btn_reset_default,
-        checkbox_dark_theme,
+        combo_theme,
+        theme_default_dark,
+        theme_default_light,
         btn_clear_log,
-        lbl_control_panel,
         lbl_commander_connected,
         lbl_commander_disconnected,
         lbl_log_console,
@@ -95,11 +95,14 @@ namespace adam::gui
         btn_add_input,
         btn_add_output,
         btn_add_processor,
-        lbl_connection
+        lbl_connection,
+        btn_delete,
+        dlg_delete_connection,
+        msg_delete_connection_confirm,
+        btn_ok
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);
-
     class main_window 
     {
     public:
@@ -120,7 +123,7 @@ namespace adam::gui
 
         adam::configuration_parameter_boolean* m_p_show_log;
         adam::configuration_parameter_boolean* m_p_show_performance;
-        adam::configuration_parameter_boolean* m_p_dark_theme;
+        adam::configuration_parameter_string*  m_p_theme;
         adam::configuration_parameter_double*  m_p_font_scale;
         adam::configuration_parameter_double*  m_p_log_height;
         adam::configuration_parameter_integer* m_p_log_level;
