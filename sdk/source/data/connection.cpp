@@ -1,7 +1,6 @@
 #include "data/connection.hpp"
 
-#include "data/port/port-input.hpp"
-#include "data/port/port-output.hpp"
+#include "data/port/port.hpp"
 #include "data/processor.hpp"
 
 

@@ -75,7 +75,7 @@ namespace adam
             string_hashed mod_path(mod_info->path);
 
             std::lock_guard<const module_view> lg(ctx.cmdr.modules());
-            ctx.cmdr.modules().load_module(mod_name, mod_path);
+            ctx.cmdr.modules().load_module(mod_name, mod_path, mod_info->version);
             ctx.cmdr.modules().available().erase(mod_name);
         });
 
@@ -97,6 +97,7 @@ namespace adam
             string_hashed mod_path(mod_info->path);
 
             std::lock_guard<const module_view> lg(ctx.cmdr.modules());
+            ctx.cmdr.modules().update_module_database(mod_name, mod_path, mod_info->version);
             ctx.cmdr.modules().available().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
         });
 

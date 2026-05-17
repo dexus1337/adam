@@ -198,13 +198,14 @@ namespace adam
             switch (mod_info->stat)
             {
                 case module::basic_info::available:
+                    m_module_view.update_module_database(mod_name, mod_path, mod_info->version);
                     m_module_view.available().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
                     break;
                 case module::basic_info::unavailable:
                     m_module_view.unavailable().emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
                     break;
                 case module::basic_info::loaded:
-                    m_module_view.load_module(mod_name, mod_path);
+                    m_module_view.load_module(mod_name, mod_path, mod_info->version);
                     break;
             }
             current_idx++;

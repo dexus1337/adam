@@ -22,14 +22,16 @@ TEST_F(module_view_test, extract_port_type_not_found)
     EXPECT_EQ(out_module, adam::string_hashed());
 }
 
-/** @brief Tests extraction when the module is found but the pointer is null (simulating a failed load or mock). */
-TEST_F(module_view_test, extract_port_type_null_module)
+/** @brief Tests extraction when the module is found but data is empty (simulating a failed load or mock). */
+TEST_F(module_view_test, extract_port_type_missing_data)
 {
     adam::module_view view;
     adam::string_hashed mod_name("my_test_module");
     
-    // Manually insert a nullptr for the module
-    view.loaded()[mod_name] = nullptr;
+    // Manually insert an empty module_info for the module
+    adam::module_info info;
+    info.name = mod_name;
+    view.database()[mod_name] = info;
 
     adam::string_hashed out_type;
     adam::string_hashed out_module;
@@ -39,6 +41,6 @@ TEST_F(module_view_test, extract_port_type_null_module)
 
     // The module name should be extracted successfully
     EXPECT_EQ(out_module, mod_name);
-    // The type should remain untouched (empty) because the module pointer was null
+    // The type should remain untouched (empty) because the database had no port matches
     EXPECT_EQ(out_type, adam::string_hashed());
 }

@@ -2,7 +2,7 @@
 
 #include "commander/commander.hpp"
 #include "controller/controller.hpp"
-#include "data/port/port-output-internal.hpp"
+#include "data/port/port-internal.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "data/inspector.hpp"
@@ -39,7 +39,7 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
 
     // 1. Create a data port and register it in the controller context
     adam::port* test_port = nullptr;
-    adam::registry::status stat = adam::controller::get().get_registry().create_port(port_name, adam::port_output_internal::type_name, 0, 0, 0, &test_port);
+    adam::registry::status stat = adam::controller::get().get_registry().create_port(port_name, adam::port_internal::type_name, 0, 0, 0, &test_port);
     
     ASSERT_EQ(stat, adam::registry::status_success);
     ASSERT_NE(test_port, nullptr);

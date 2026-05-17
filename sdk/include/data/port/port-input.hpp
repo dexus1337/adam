@@ -22,9 +22,13 @@ namespace adam
     class ADAM_SDK_API port_input : public port
     {
     public:
+        static constexpr port_direction direction = port_direction::input;
 
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input();
+
+        /** @brief Gets the supported data flow direction capabilities of this port. */
+        port_direction get_direction() const override { return direction; }
 
         /** @brief Data management routine. Will forward data to connections */
         bool handle_data(buffer* buffer);

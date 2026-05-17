@@ -95,9 +95,10 @@ namespace adam::gui
         ImGui::Separator();
 
         ImGui::PushID(modules_table_id);
-        if (ImGui::BeginTable("ModulesTable", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
+        if (ImGui::BeginTable("ModulesTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
         {
             ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_status, lang), ImGuiTableColumnFlags_WidthFixed);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthFixed);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_path, lang), ImGuiTableColumnFlags_WidthStretch);
@@ -105,16 +106,32 @@ namespace adam::gui
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_load, lang), ImGuiTableColumnFlags_WidthFixed);
             ImGui::TableHeadersRow();
 
-            auto draw_module_row = [&](const char* name, int status, const char* path, uint32_t version, uint8_t reason) {
+            auto draw_module_row = [&](const char* name, int status, const char* path, uint32_t version, uint8_t reason, const adam::module_info* mod_info_ptr)
+            {
                 ImGui::TableNextRow();
 
                 ImGui::TableSetColumnIndex(0);
                 ImGui::AlignTextToFramePadding();
-                if (status == 0) {
+
+                bool open = false;
+                if (mod_info_ptr)
+                {
+                    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow;
+                    open = ImGui::TreeNodeEx(name, flags, "%s", "");
+                }
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::AlignTextToFramePadding();
+                if (status == 0)
+                {
                     ImGui::TextColored(get_gui_color(gui_color_id::log_trace), "%s", get_gui_string(gui_string_id::stat_available, lang));
-                } else if (status == 1) {
+                }
+                else if (status == 1)
+                {
                     ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s", get_gui_string(gui_string_id::stat_loaded, lang));
-                } else if (status == 2) {
+                }
+                else if (status == 2)
+                {
                     ImGui::TextColored(get_gui_color(gui_color_id::log_warning), "%s", get_gui_string(gui_string_id::stat_unavailable, lang));
                     if (ImGui::IsItemHovered())
                     {
@@ -125,28 +142,32 @@ namespace adam::gui
                     }
                 }
 
-                ImGui::TableSetColumnIndex(1);
+                ImGui::TableSetColumnIndex(2);
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted(name);
 
-                ImGui::TableSetColumnIndex(2);
+                ImGui::TableSetColumnIndex(3);
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted((!path || path[0] == '\0') ? "N/A" : path);
 
-                ImGui::TableSetColumnIndex(3);
+                ImGui::TableSetColumnIndex(4);
                 ImGui::AlignTextToFramePadding();
-                if (version != 0) {
+                if (version != 0)
+                {
                     ImGui::Text("%d.%d.%d", adam::get_major(version), adam::get_minor(version), adam::get_patch(version));
-                } else {
+                }
+                else
+                {
                     ImGui::TextUnformatted("N/A");
                 }
 
-                ImGui::TableSetColumnIndex(4);
+                ImGui::TableSetColumnIndex(5);
                 bool is_loaded = (status == 1);
                 bool checkbox_val = is_loaded;
                 ImGui::PushID(name);
                 if (status == 2) ImGui::BeginDisabled();
-                if (ImGui::Checkbox("##load", &checkbox_val)) {
+                if (ImGui::Checkbox("##load", &checkbox_val))
+                {
                     if (checkbox_val)
                         ctrl.get_commander().request_module_load(adam::string_hashed(name));
                     else
@@ -154,53 +175,149 @@ namespace adam::gui
                 }
                 if (status == 2) ImGui::EndDisabled();
                 ImGui::PopID();
+
+                if (open)
+                {
+                    if (mod_info_ptr)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(3);
+                        
+                        ImGui::Indent();
+                        
+                        const std::string& desc = mod_info_ptr->descriptions[static_cast<size_t>(lang)];
+                        if (!desc.empty())
+                        {
+                            ImGui::TextWrapped("%s", desc.c_str());
+                        }
+                        else
+                        {
+                            ImGui::TextDisabled("No description available.");
+                        }
+                        
+                        if (!mod_info_ptr->ports.empty())
+                        {
+                            ImGui::Spacing();
+                            ImGui::TextUnformatted("Available Ports:");
+                            ImGui::Spacing();
+                            ImGui::Indent();
+                            
+                            ImGui::PushID("PortsTable");
+                            if (ImGui::BeginTable("##Ports", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+                            {
+                                ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.7f);
+                                ImGui::TableSetupColumn("Direction", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+                                ImGui::TableHeadersRow();
+                                
+                                auto draw_dir_badge = [](const char* label, ImVec4 color, bool first)
+                                {
+                                    if (!first) ImGui::SameLine();
+                                    ImVec4 bg_col = color;
+                                    bg_col.w = 0.6f;
+                                    ImGui::PushStyleColor(ImGuiCol_Button, bg_col);
+                                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg_col);
+                                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg_col);
+                                    ImGui::SmallButton(label);
+                                    ImGui::PopStyleColor(3);
+                                };
+                                
+                                for (const auto& p : mod_info_ptr->ports)
+                                {
+                                    ImGui::TableNextRow();
+                                    
+                                    ImGui::TableSetColumnIndex(0);
+                                    ImGui::AlignTextToFramePadding();
+                                    if (!p.type_name_str.empty())
+                                        ImGui::TextUnformatted(p.type_name_str.c_str());
+                                    else
+                                        ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(p.name_hash));
+                                        
+                                    ImGui::TableSetColumnIndex(1);
+                                    bool first = true;
+                                    if ((p.direction & adam::port_direction::input) != adam::port_direction::none)
+                                    {
+                                        draw_dir_badge("Input", get_gui_color(gui_color_id::node_input), first);
+                                        first = false;
+                                    }
+                                        
+                                    if ((p.direction & adam::port_direction::output) != adam::port_direction::none)
+                                    {
+                                        draw_dir_badge("Output", get_gui_color(gui_color_id::node_output), first);
+                                    }
+                                }
+                                ImGui::EndTable();
+                            }
+                            ImGui::PopID();
+                            ImGui::Unindent();
+                        }
+                        
+                        ImGui::Spacing();
+                        ImGui::Unindent();
+                    }
+                    ImGui::TreePop();
+                }
             };
 
             if (commander_active)
             {
                 // Speed Optimization: avoid map string allocations
-                struct module_gui_info {
+                struct module_gui_info
+                {
                     int status; // 0=Avail, 1=Loaded, 2=Unavail
                     uint32_t version;
                     const char* path;
                     uint8_t reason;
                     const char* name;
+                    const adam::module_info* mod_info_ptr;
                 };
                 
                 std::unordered_map<uint64_t, module_gui_info> merged;
 
                 std::lock_guard<const adam::module_view> lg(ctrl.get_commander().modules());
+                const auto& db = ctrl.get_commander().get_modules().database();
 
                 for (const auto& [name_hash, data] : ctrl.get_commander().get_modules().get_available())
-                    merged[name_hash.get_hash()] = { 0, data.first, data.second.c_str(), 0, name_hash.c_str() };
+                {
+                    auto it = db.find(name_hash);
+                    const adam::module_info* info_ptr = (it != db.end()) ? &it->second : nullptr;
+                    merged[name_hash.get_hash()] = { 0, data.first, data.second.c_str(), 0, name_hash.c_str(), info_ptr };
+                }
                     
-                for (const auto& [name_hash, data] : ctrl.get_commander().get_modules().get_loaded()) {
+                for (const auto& [name_hash, data] : ctrl.get_commander().get_modules().get_loaded())
+                {
                     uint64_t hash = name_hash.get_hash();
+                    auto it = db.find(name_hash);
+                    const adam::module_info* info_ptr = (it != db.end()) ? &it->second : nullptr;
                     if (merged.find(hash) != merged.end())
+                    {
                         merged[hash].status = 1;
+                        merged[hash].mod_info_ptr = info_ptr;
+                    }
                     else
                     {
-                        if (data)
-                            merged[hash] = { 1, data->get_version(), data->get_filepath().c_str(), 0, name_hash.c_str() };
-                        else
-                            merged[hash] = { 1, 0, "", 0, name_hash.c_str() };
+                        merged[hash] = { 1, data.first, data.second.c_str(), 0, name_hash.c_str(), info_ptr };
                     }
                 }
                     
                 for (const auto& [name_hash, data] : ctrl.get_commander().get_modules().get_unavailable())
-                    merged[name_hash.get_hash()] = { 2, std::get<0>(data), std::get<1>(data).c_str(), std::get<2>(data), name_hash.c_str() };
+                {
+                    auto it = db.find(name_hash);
+                    const adam::module_info* info_ptr = (it != db.end()) ? &it->second : nullptr;
+                    merged[name_hash.get_hash()] = { 2, std::get<0>(data), std::get<1>(data).c_str(), std::get<2>(data), name_hash.c_str(), info_ptr };
+                }
                 
                 std::vector<const module_gui_info*> sorted_modules;
                 sorted_modules.reserve(merged.size());
                 for (const auto& kv : merged) 
                     sorted_modules.push_back(&kv.second);
                     
-                std::sort(sorted_modules.begin(), sorted_modules.end(), [](const module_gui_info* a, const module_gui_info* b) {
+                std::sort(sorted_modules.begin(), sorted_modules.end(), [](const module_gui_info* a, const module_gui_info* b)
+                {
                     return std::strcmp(a->name, b->name) < 0;
                 });
                     
                 for (const auto* info : sorted_modules)
-                    draw_module_row(info->name, info->status, info->path, info->version, info->reason);
+                    draw_module_row(info->name, info->status, info->path, info->version, info->reason, info->mod_info_ptr);
             }
 
             ImGui::EndTable();

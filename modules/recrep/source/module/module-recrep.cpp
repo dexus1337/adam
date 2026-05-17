@@ -15,15 +15,14 @@ namespace adam::modules::recrep
     {
         m_descriptions[static_cast<size_t>(adam::language_english)] = 
             std::string("Provides capabilities for recording and replaying data streams.\n"
-            "Supported Input Ports: \"") + port_input_replay::type_name.c_str() + "\"\n"
-            "Supported Output Ports: \"" + port_output_recording::type_name.c_str() + "\"\n"
-            "Recordings are data-format independent.";
+            "Recordings are data-format independent." );
+            //"Supported Input Ports: \"") + port_input_replay::type_name.c_str() + "\"\n"
+            //"Supported Output Ports: \"" + port_output_recording::type_name.c_str() + "\"\n"
         m_descriptions[static_cast<size_t>(adam::language_german)]  = 
             std::string("Bietet Funktionen zum Aufzeichnen und Abspielen von Datenströmen.\n"
-            "Unterstützte Eingangsports: \"") + port_input_replay::type_name.c_str() + "\"\n"
-            "Unterstützte Ausgangsports: \"" + port_output_recording::type_name.c_str() + "\"\n"
-            "Aufzeichnungen sind datenformatunabhängig.";
-
+            "Aufzeichnungen sind datenformatunabhängig." );
+            //"Unterstützte Eingangsports: \"") + port_input_replay::type_name.c_str() + "\"\n"
+            //"Unterstützte Ausgangsports: \"" + port_output_recording::type_name.c_str() + "\"\n"
         // Export the factory for the controller to dynamically create this port type!
         m_port_factories.emplace
         (

@@ -3,8 +3,7 @@
 #include "controller/controller.hpp"
 #include "configuration/configuration-item.hpp"
 #include "module/module.hpp"
-#include "data/port/port-input-internal.hpp"
-#include "data/port/port-output-internal.hpp"
+#include "data/port/port-internal.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 #include "data/connection.hpp"
@@ -23,8 +22,7 @@
 
 namespace adam
 {
-    static default_factory<port, port_input_internal>   global_port_input_internal_factory  = default_factory<port, port_input_internal>();
-    static default_factory<port, port_output_internal>  global_port_output_internal_factory = default_factory<port, port_output_internal>();
+    static default_factory<port, port_internal> global_port_internal_factory = default_factory<port, port_internal>();
 
     std::string_view registry::get_status_text(status status, language lang)
     {
@@ -81,14 +79,8 @@ namespace adam
 
         m_default_port_factory.emplace
         (
-            port_input_internal::type_name, 
-            &global_port_input_internal_factory
-        );
-
-        m_default_port_factory.emplace
-        (
-            port_output_internal::type_name, 
-            &global_port_output_internal_factory
+            port_internal::type_name, 
+            &global_port_internal_factory
         );
 
         load("adam-config.bin");
@@ -213,16 +205,8 @@ namespace adam
         {
             if (conn_ptr)
             {
-                // The port could be an input or an output port.
-                // We need to try removing it from both lists in the connection.
-                if (auto input_port = dynamic_cast<port_input*>(port_to_remove))
-                {
-                    conn_ptr->ports_input().remove(input_port);
-                }
-                if (auto output_port = dynamic_cast<port_output*>(port_to_remove))
-                {
-                    conn_ptr->ports_output().remove(output_port);
-                }
+                conn_ptr->ports_input().remove(port_to_remove);
+                conn_ptr->ports_output().remove(port_to_remove);
             }
         }
 

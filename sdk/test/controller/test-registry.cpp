@@ -6,7 +6,7 @@
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
-#include "data/port/port-input-internal.hpp"
+#include "data/port/port-internal.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 
@@ -72,7 +72,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     // 2. Create a port
     adam::string_hashed port_name("my_input_port");
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, 0, 0, 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name, 0, 0, 0, &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Change a parameter in the port to verify it restores correctly
@@ -104,7 +104,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     
     adam::port* loaded_port = loaded_reg.ports().at(port_name).get();
     ASSERT_NE(loaded_port, nullptr);
-    EXPECT_EQ(loaded_port->get_type_name(), adam::port_input_internal::type_name);
+    EXPECT_EQ(loaded_port->get_type_name(), adam::port_internal::type_name);
     
     auto* loaded_df_param = static_cast<adam::configuration_parameter_string*>(loaded_port->get_parameters().get(adam::string_hashed("data_format")));
     ASSERT_NE(loaded_df_param, nullptr);
@@ -147,14 +147,14 @@ TEST_F(registry_test, create_and_remove_port)
 
     // Create the port using the internal factory
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, 0, 0, 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name, 0, 0, 0, &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
     EXPECT_TRUE(reg.ports().contains(port_name));
 
     // Attempt to create a duplicate port should gracefully fail
     adam::port* duplicate_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, 0, 0, 0, &duplicate_port), adam::registry::status_error_port_already_exists);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name, 0, 0, 0, &duplicate_port), adam::registry::status_error_port_already_exists);
     EXPECT_EQ(duplicate_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
 
@@ -173,7 +173,7 @@ TEST_F(registry_test, clear_registry)
     adam::test::testable_registry reg;
     adam::string_hashed port_name("test_port_clear");
     
-    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, 0, 0, 0), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name, 0, 0, 0), adam::registry::status_success);
     EXPECT_EQ(reg.ports().size(), 1u);
     
     reg.clear();
@@ -191,13 +191,13 @@ TEST_F(registry_test, port_type_and_module_persistence)
     adam::string_hashed port_name("type_test_port");
 
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_input_internal::type_name, 0, 0, 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name, 0, 0, 0, &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Verify type was populated correctly in the constructor
     auto* type_param = static_cast<adam::configuration_parameter_string*>(created_port->get_parameters().get(adam::string_hashed("type")));
     ASSERT_NE(type_param, nullptr);
-    EXPECT_EQ(type_param->get_value(), adam::port_input_internal::type_name);
+    EXPECT_EQ(type_param->get_value(), adam::port_internal::type_name);
 
     EXPECT_TRUE(reg.save(test_filepath));
 
@@ -211,7 +211,7 @@ TEST_F(registry_test, port_type_and_module_persistence)
     
     auto* loaded_type_param = static_cast<adam::configuration_parameter_string*>(loaded_port->get_parameters().get(adam::string_hashed("type")));
     ASSERT_NE(loaded_type_param, nullptr);
-    EXPECT_EQ(loaded_type_param->get_value(), adam::port_input_internal::type_name);
+    EXPECT_EQ(loaded_type_param->get_value(), adam::port_internal::type_name);
 }
 
 /** @brief Tests adding and removing module paths in the registry. */

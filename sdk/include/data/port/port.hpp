@@ -27,6 +27,23 @@ namespace adam
     class data_inspector;
 
     /**
+     * @enum    port_direction
+     * @brief   Bitmask enumeration defining the supported data flow directions of a port.
+     */
+    enum class port_direction : uint8_t
+    {
+        none          = 0,
+        input         = 1 << 0,
+        output        = 1 << 1,
+        bidirectional = input | output
+    };
+
+    inline port_direction operator|(port_direction a, port_direction b) { return static_cast<port_direction>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b)); }
+    inline port_direction operator&(port_direction a, port_direction b) { return static_cast<port_direction>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b)); }
+    inline port_direction operator^(port_direction a, port_direction b) { return static_cast<port_direction>(static_cast<uint8_t>(a) ^ static_cast<uint8_t>(b)); }
+    inline port_direction operator~(port_direction a)                   { return static_cast<port_direction>(~static_cast<uint8_t>(a)); }
+
+    /**
      * @class port
      * @brief A base class for ports, providing a common interface for handling data flow in the ADAM system.
      * 
@@ -43,6 +60,7 @@ namespace adam
             char name[max_name_length];
             string_hashed::hash_datatype type;
             string_hashed::hash_datatype type_module;
+            port_direction direction;
             string_hashed::hash_datatype format;
             string_hashed::hash_datatype format_module;
 
@@ -50,6 +68,7 @@ namespace adam
             {
                 type = t;
                 type_module = tm;
+                direction = port_direction::none;
                 format = f;
                 format_module = fm;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
@@ -75,6 +94,9 @@ namespace adam
         virtual ~port();
 
         virtual const string_hashed_ct& get_type_name() const = 0;
+
+        /** @brief Gets the supported data flow direction capabilities of this port. */
+        virtual port_direction get_direction() const = 0;
 
         const data_format* get_data_format() const { return m_data_format; }
         void set_data_format(const data_format* format) { m_data_format = format; }

@@ -260,8 +260,8 @@ namespace adam
             auto params = cmds->get_data_as<port::basic_info>();
             string_hashed name(params->name);
             
-            registry::status res = ctx.reg.create_port(name, params->type, params->type_module, params->format, params->format_module);
-            
+            port* new_port = nullptr;
+            registry::status res = ctx.reg.create_port(name, params->type, params->type_module, params->format, params->format_module, &new_port);
 
             if (res != registry::status_success)
             {
@@ -275,6 +275,8 @@ namespace adam
             event evt(event_type::port_created);
             auto* evt_data = evt.data_as<port::basic_info>();
             *evt_data = *params;
+            if (new_port)
+                evt_data->direction = new_port->get_direction();
             ctx.ctrl.broadcast_event(evt);
 
             auto name_view = name.c_str();

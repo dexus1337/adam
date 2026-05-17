@@ -85,11 +85,11 @@ namespace adam::gui
             auto conn = std::make_unique<adam::connection_view>();
             conn->name = adam::string_hashed("Debug_Connection");
             
-            auto p_in1 = std::make_unique<adam::port_view>(); p_in1->name = adam::string_hashed("Video_In"); p_in1->type = adam::string_hashed("adam::port_input_internal");
-            auto p_in2 = std::make_unique<adam::port_view>(); p_in2->name = adam::string_hashed("Audio_In"); p_in2->type = adam::string_hashed("adam::port_input_internal");
+            auto p_in1 = std::make_unique<adam::port_view>(); p_in1->name = adam::string_hashed("Video_In"); p_in1->type = adam::string_hashed("internal");
+            auto p_in2 = std::make_unique<adam::port_view>(); p_in2->name = adam::string_hashed("Audio_In"); p_in2->type = adam::string_hashed("internal");
             
-            auto p_out1 = std::make_unique<adam::port_view>(); p_out1->name = adam::string_hashed("Stream_Out"); p_out1->type = adam::string_hashed("adam::port_output_internal");
-            auto p_out2 = std::make_unique<adam::port_view>(); p_out2->name = adam::string_hashed("Preview_Out"); p_out2->type = adam::string_hashed("adam::port_output_internal");
+            auto p_out1 = std::make_unique<adam::port_view>(); p_out1->name = adam::string_hashed("Stream_Out"); p_out1->type = adam::string_hashed("internal");
+            auto p_out2 = std::make_unique<adam::port_view>(); p_out2->name = adam::string_hashed("Preview_Out"); p_out2->type = adam::string_hashed("internal");
 
             conn->inputs.push_back(p_in1->name.get_hash());
             conn->inputs.push_back(p_in2->name.get_hash());
@@ -109,8 +109,8 @@ namespace adam::gui
             auto conn2 = std::make_unique<adam::connection_view>();
             conn2->name = adam::string_hashed("Converter_Connection");
             
-            auto p2_in1 = std::make_unique<adam::port_view>(); p2_in1->name = adam::string_hashed("Raw_Data_In"); p2_in1->type = adam::string_hashed("adam::port_input_internal");
-            auto p2_out1 = std::make_unique<adam::port_view>(); p2_out1->name = adam::string_hashed("Processed_Out"); p2_out1->type = adam::string_hashed("adam::port_output_internal");
+            auto p2_in1 = std::make_unique<adam::port_view>(); p2_in1->name = adam::string_hashed("Raw_Data_In"); p2_in1->type = adam::string_hashed("internal");
+            auto p2_out1 = std::make_unique<adam::port_view>(); p2_out1->name = adam::string_hashed("Processed_Out"); p2_out1->type = adam::string_hashed("internal");
 
             conn2->inputs.push_back(p2_in1->name.get_hash());
             conn2->outputs.push_back(p2_out1->name.get_hash());
@@ -126,12 +126,12 @@ namespace adam::gui
             auto conn3 = std::make_unique<adam::connection_view>();
             conn3->name = adam::string_hashed("Splitter_Connection");
             
-            auto p3_in1 = std::make_unique<adam::port_view>(); p3_in1->name = adam::string_hashed("Sensor_1"); p3_in1->type = adam::string_hashed("adam::port_input_internal");
-            auto p3_in2 = std::make_unique<adam::port_view>(); p3_in2->name = adam::string_hashed("Sensor_2"); p3_in2->type = adam::string_hashed("adam::port_input_internal");
+            auto p3_in1 = std::make_unique<adam::port_view>(); p3_in1->name = adam::string_hashed("Sensor_1"); p3_in1->type = adam::string_hashed("internal");
+            auto p3_in2 = std::make_unique<adam::port_view>(); p3_in2->name = adam::string_hashed("Sensor_2"); p3_in2->type = adam::string_hashed("internal");
             
-            auto p3_out1 = std::make_unique<adam::port_view>(); p3_out1->name = adam::string_hashed("Log_Out"); p3_out1->type = adam::string_hashed("adam::port_output_internal");
-            auto p3_out2 = std::make_unique<adam::port_view>(); p3_out2->name = adam::string_hashed("Display_Out"); p3_out2->type = adam::string_hashed("adam::port_output_internal");
-            auto p3_out3 = std::make_unique<adam::port_view>(); p3_out3->name = adam::string_hashed("Network_Out"); p3_out3->type = adam::string_hashed("adam::port_output_internal");
+            auto p3_out1 = std::make_unique<adam::port_view>(); p3_out1->name = adam::string_hashed("Log_Out"); p3_out1->type = adam::string_hashed("internal");
+            auto p3_out2 = std::make_unique<adam::port_view>(); p3_out2->name = adam::string_hashed("Display_Out"); p3_out2->type = adam::string_hashed("internal");
+            auto p3_out3 = std::make_unique<adam::port_view>(); p3_out3->name = adam::string_hashed("Network_Out"); p3_out3->type = adam::string_hashed("internal");
 
             conn3->inputs.push_back(p3_in1->name.get_hash());
             conn3->inputs.push_back(p3_in2->name.get_hash());
@@ -150,11 +150,11 @@ namespace adam::gui
             auto conn4 = std::make_unique<adam::connection_view>();
             conn4->name = adam::string_hashed("Complex_Filter_Connection");
             
-            auto p4_in1 = std::make_unique<adam::port_view>(); p4_in1->name = adam::string_hashed("Mic_1"); p4_in1->type = adam::string_hashed("adam::port_input_internal");
-            auto p4_in2 = std::make_unique<adam::port_view>(); p4_in2->name = adam::string_hashed("Mic_2"); p4_in2->type = adam::string_hashed("adam::port_input_internal");
-            auto p4_in3 = std::make_unique<adam::port_view>(); p4_in3->name = adam::string_hashed("Mic_3"); p4_in3->type = adam::string_hashed("adam::port_input_internal");
+            auto p4_in1 = std::make_unique<adam::port_view>(); p4_in1->name = adam::string_hashed("Mic_1"); p4_in1->type = adam::string_hashed("internal");
+            auto p4_in2 = std::make_unique<adam::port_view>(); p4_in2->name = adam::string_hashed("Mic_2"); p4_in2->type = adam::string_hashed("internal");
+            auto p4_in3 = std::make_unique<adam::port_view>(); p4_in3->name = adam::string_hashed("Mic_3"); p4_in3->type = adam::string_hashed("internal");
             
-            auto p4_out1 = std::make_unique<adam::port_view>(); p4_out1->name = adam::string_hashed("Mixed_Audio_Out"); p4_out1->type = adam::string_hashed("adam::port_output_internal");
+            auto p4_out1 = std::make_unique<adam::port_view>(); p4_out1->name = adam::string_hashed("Mixed_Audio_Out"); p4_out1->type = adam::string_hashed("internal");
 
             conn4->inputs.push_back(p4_in1->name.get_hash());
             conn4->inputs.push_back(p4_in2->name.get_hash());
@@ -175,14 +175,14 @@ namespace adam::gui
             auto conn5 = std::make_unique<adam::connection_view>();
             conn5->name = adam::string_hashed("Massive_Connection");
             
-            auto p5_in1 = std::make_unique<adam::port_view>(); p5_in1->name = adam::string_hashed("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); p5_in1->type = adam::string_hashed("adam::port_input_internal");
-            auto p5_in2 = std::make_unique<adam::port_view>(); p5_in2->name = adam::string_hashed("In_2"); p5_in2->type = adam::string_hashed("adam::port_input_internal");
-            auto p5_in3 = std::make_unique<adam::port_view>(); p5_in3->name = adam::string_hashed("In_3"); p5_in3->type = adam::string_hashed("adam::port_input_internal");
-            auto p5_in4 = std::make_unique<adam::port_view>(); p5_in4->name = adam::string_hashed("In_4"); p5_in4->type = adam::string_hashed("adam::port_input_internal");
-            auto p5_in5 = std::make_unique<adam::port_view>(); p5_in5->name = adam::string_hashed("In_5"); p5_in5->type = adam::string_hashed("adam::port_input_internal");
+            auto p5_in1 = std::make_unique<adam::port_view>(); p5_in1->name = adam::string_hashed("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); p5_in1->type = adam::string_hashed("internal");
+            auto p5_in2 = std::make_unique<adam::port_view>(); p5_in2->name = adam::string_hashed("In_2"); p5_in2->type = adam::string_hashed("internal");
+            auto p5_in3 = std::make_unique<adam::port_view>(); p5_in3->name = adam::string_hashed("In_3"); p5_in3->type = adam::string_hashed("internal");
+            auto p5_in4 = std::make_unique<adam::port_view>(); p5_in4->name = adam::string_hashed("In_4"); p5_in4->type = adam::string_hashed("internal");
+            auto p5_in5 = std::make_unique<adam::port_view>(); p5_in5->name = adam::string_hashed("In_5"); p5_in5->type = adam::string_hashed("internal");
             
-            auto p5_out1 = std::make_unique<adam::port_view>(); p5_out1->name = adam::string_hashed("Out_1"); p5_out1->type = adam::string_hashed("adam::port_output_internal");
-            auto p5_out2 = std::make_unique<adam::port_view>(); p5_out2->name = adam::string_hashed("Out_2"); p5_out2->type = adam::string_hashed("adam::port_output_internal");
+            auto p5_out1 = std::make_unique<adam::port_view>(); p5_out1->name = adam::string_hashed("Out_1"); p5_out1->type = adam::string_hashed("internal");
+            auto p5_out2 = std::make_unique<adam::port_view>(); p5_out2->name = adam::string_hashed("Out_2"); p5_out2->type = adam::string_hashed("internal");
 
             conn5->inputs.push_back(p5_in1->name.get_hash());
             conn5->inputs.push_back(p5_in2->name.get_hash());

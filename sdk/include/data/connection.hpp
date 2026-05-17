@@ -21,9 +21,8 @@
 namespace adam 
 {
     class buffer;
-    class port_input;
     class data_processor;
-    class port_output;
+    class port;
 
     /**
      * @class   connection
@@ -66,9 +65,9 @@ namespace adam
         /** @brief Destroys the connection object and cleans up resources. */
         ~connection();
 
-        vector_double_buffer<port_input*>&      ports_input()   { return m_ports_input; }
+        vector_double_buffer<port*>&            ports_input()   { return m_ports_input; }
         vector_double_buffer<data_processor*>&  processors()    { return m_processors; }
-        vector_double_buffer<port_output*>&     ports_output()  { return m_ports_output; }
+        vector_double_buffer<port*>&            ports_output()  { return m_ports_output; }
 
         /** @brief Data input routine. Data arrives here, gets passed through processors and then to output ports */
         bool handle_data(buffer* buffer);
@@ -81,9 +80,9 @@ namespace adam
 
     protected:
 
-        vector_double_buffer<port_input*>     m_ports_input;
+        vector_double_buffer<port*>           m_ports_input;
         vector_double_buffer<data_processor*> m_processors;
-        vector_double_buffer<port_output*>    m_ports_output;
+        vector_double_buffer<port*>           m_ports_output;
 
     };
 }
