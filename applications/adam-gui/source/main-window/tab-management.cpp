@@ -40,7 +40,6 @@ namespace adam::gui
 
         std::lock_guard<const adam::registry_view> lock(reg_view);
 
-        /*
         #ifdef ADAM_BUILD_DEBUG
         // Inject a test connection if it doesn't exist to test layout
         static bool test_injected = false;
@@ -173,7 +172,7 @@ namespace adam::gui
             test_injected = true;
         }
         #endif
-        */
+        
         const auto& connections = reg_view.get_connections();
         const auto& ports = reg_view.get_ports();
 
@@ -192,12 +191,15 @@ namespace adam::gui
                 ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
 
                 size_t max_rows = std::max(conn->inputs.size(), conn->outputs.size());
-                if (max_rows == 0) max_rows = 1;
+                size_t num_processors = conn->filters.size() + conn->converters.size();
+                if (max_rows == 0 && num_processors > 0) max_rows = 1;
                 
                 float node_h = ImGui::GetTextLineHeight() * 2.0f;
                 float row_height = node_h + 10.0f * dpi_scale;
                 
                 float base_height = ImGui::GetFrameHeight() * 2.0f + ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
+                if (max_rows == 0)
+                    base_height -= ImGui::GetTextLineHeight();
                 float child_height = base_height + static_cast<float>(max_rows) * row_height;
 
                 if (ImGui::BeginChild("ConnCard", ImVec2(0, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
@@ -208,7 +210,7 @@ namespace adam::gui
                     ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
                     ImGui::SameLine();
 
-                    char name_buf[256];
+                    char name_buf[max_name_length];
                     std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
                     name_buf[sizeof(name_buf) - 1] = '\0';
 
@@ -256,7 +258,6 @@ namespace adam::gui
                     float avail_x = ImGui::GetContentRegionAvail().x;
                     ImVec2 cur_pos = ImGui::GetCursorScreenPos();
                     
-                    size_t num_processors = conn->filters.size() + conn->converters.size();
                     int total_stages = 2 + static_cast<int>(num_processors);
                     
                     float char_width = ImGui::CalcTextSize("x").x;
@@ -457,8 +458,11 @@ namespace adam::gui
 
                     ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + static_cast<float>(max_rows) * row_height));
                     
-                    ImGui::Spacing();
-                    ImGui::Separator();
+                    if (max_rows > 0 || num_processors > 0)
+                    {
+                        ImGui::Spacing();
+                        ImGui::Separator();
+                    }
                     
                     float avail_w = ImGui::GetWindowWidth();
                     
