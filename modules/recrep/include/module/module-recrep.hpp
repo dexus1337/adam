@@ -9,7 +9,7 @@
  */
 
 
-#include "api/recrep-api.hpp"
+#include "api/api-recrep.hpp"
 
 #include <adam-sdk.hpp>
 

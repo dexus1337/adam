@@ -8,7 +8,7 @@
  * @date    13.05.2026
  */
 
-#include "api/sdk-api.hpp"
+#include "api/api-sdk.hpp"
 #include "types/string-hashed.hpp"
 #include "data/port/port.hpp"
 #include "resources/language.hpp"
@@ -35,16 +35,22 @@ namespace adam
         port_direction direction;
     };
 
+    struct processor_info
+    {
+        string_hashed::hash_datatype hash;
+        std::string name_str;
+    };
+
     struct module_info
     {
         string_hashed name;
         string_hashed path;
         uint32_t version;
         std::array<std::string, static_cast<size_t>(languages_count)> descriptions;
-        std::vector<string_hashed::hash_datatype> data_formats;
+        std::vector<string_hashed> data_formats;
         std::vector<port_info> ports;
-        std::vector<string_hashed::hash_datatype> filters;
-        std::vector<string_hashed::hash_datatype> converters;
+        std::vector<processor_info> filters;
+        std::vector<processor_info> converters;
     };
 
     /**

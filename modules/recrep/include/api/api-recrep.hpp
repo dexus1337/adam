@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    api.hpp
+ * @file    api-recrep.hpp
  * @author  dexus1337
  * @brief   Defines macros for controlling symbol visibility in the Replay/Recording module.
  * @version 1.0
@@ -13,7 +13,7 @@
     #define NOMINMAX // so we can use std::min etc
     #ifdef ADAM_RECREP_EXPORTS // This should be defined when building the DLL, not when using it
         #define ADAM_RECREP_API __declspec(dllexport)
-    #elif defined(ADAM_USE_SHARED_SDK)
+    #elif defined(ADAM_USE_SHARED_RECREP)
         #define ADAM_RECREP_API __declspec(dllimport)
     #else 
         #define ADAM_RECREP_API

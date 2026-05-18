@@ -9,7 +9,7 @@
  */
 
  
-#include "api/sdk-api.hpp"
+#include "api/api-sdk.hpp"
 #include "configuration/configuration-item.hpp"
 #include "types/vector-double-buffer.hpp"
 #include "commander/messages/command.hpp"

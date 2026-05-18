@@ -178,13 +178,43 @@ namespace adam::gui
 
                 if (open)
                 {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f)); // Dummy to create the cell
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
+
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
+
+                    ImGui::TableSetColumnIndex(4);
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
+
+                    ImGui::TableSetColumnIndex(5);
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::SetColumnWidth(0, ImGui::GetColumnWidth(0) + ImGui::GetColumnWidth(1) + ImGui::GetColumnWidth(2) + ImGui::GetColumnWidth(3) + ImGui::GetColumnWidth(4) + ImGui::GetColumnWidth(5));
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::SetColumnWidth(1, 0);
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::SetColumnWidth(2, 0);
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::SetColumnWidth(3, 0);
+                    ImGui::TableSetColumnIndex(4);
+                    ImGui::SetColumnWidth(4, 0);
+                    ImGui::TableSetColumnIndex(5);
+                    ImGui::SetColumnWidth(5, 0);
+
+                    ImGui::TableSetColumnIndex(0);
+
                     if (mod_info_ptr)
                     {
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(3);
-                        
-                        ImGui::Indent();
-                        
                         const std::string& desc = mod_info_ptr->descriptions[static_cast<size_t>(lang)];
                         if (!desc.empty())
                         {
@@ -192,67 +222,126 @@ namespace adam::gui
                         }
                         else
                         {
-                            ImGui::TextDisabled("No description available.");
+                            ImGui::TextDisabled("%s", get_gui_string(gui_string_id::lbl_no_description, lang));
                         }
-                        
-                        if (!mod_info_ptr->ports.empty())
+
+                        bool has_formats = !mod_info_ptr->data_formats.empty();
+                        bool has_ports = !mod_info_ptr->ports.empty();
+                        bool has_processors = !mod_info_ptr->filters.empty() || !mod_info_ptr->converters.empty();
+
+                        if (has_formats || has_ports || has_processors)
                         {
                             ImGui::Spacing();
-                            ImGui::TextUnformatted("Available Ports:");
-                            ImGui::Spacing();
-                            ImGui::Indent();
-                            
-                            ImGui::PushID("PortsTable");
-                            if (ImGui::BeginTable("##Ports", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+
+                            float available_width = ImGui::GetContentRegionAvail().x;
+                            int num_items = (has_formats ? 1 : 0) + (has_ports ? 1 : 0) + (has_processors ? 1 : 0);
+                            float item_width = (num_items > 0) ? (available_width - ImGui::GetStyle().ItemSpacing.x * (num_items - 1)) / num_items : available_width;
+
+                            if (has_formats)
                             {
-                                ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.7f);
-                                ImGui::TableSetupColumn("Direction", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-                                ImGui::TableHeadersRow();
-                                
-                                auto draw_dir_badge = [](const char* label, ImVec4 color, bool first)
+                                ImGui::BeginGroup();
+                                ImGui::Text("%s:", get_gui_string(gui_string_id::lbl_available_data_formats, lang));
+                                if (ImGui::BeginTable("##FormatsTable", 1, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp, ImVec2(item_width, 0)))
                                 {
-                                    if (!first) ImGui::SameLine();
-                                    ImVec4 bg_col = color;
-                                    bg_col.w = 0.6f;
-                                    ImGui::PushStyleColor(ImGuiCol_Button, bg_col);
-                                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg_col);
-                                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg_col);
-                                    ImGui::SmallButton(label);
-                                    ImGui::PopStyleColor(3);
-                                };
-                                
-                                for (const auto& p : mod_info_ptr->ports)
-                                {
-                                    ImGui::TableNextRow();
-                                    
-                                    ImGui::TableSetColumnIndex(0);
-                                    ImGui::AlignTextToFramePadding();
-                                    if (!p.type_name_str.empty())
-                                        ImGui::TextUnformatted(p.type_name_str.c_str());
-                                    else
-                                        ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(p.name_hash));
-                                        
-                                    ImGui::TableSetColumnIndex(1);
-                                    bool first = true;
-                                    if ((p.direction & adam::port_direction::input) != adam::port_direction::none)
+                                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang));
+                                    ImGui::TableHeadersRow();
+                                    for (const auto& format_name : mod_info_ptr->data_formats)
                                     {
-                                        draw_dir_badge("Input", get_gui_color(gui_color_id::node_input), first);
-                                        first = false;
+                                        ImGui::TableNextRow();
+                                        ImGui::TableSetColumnIndex(0);
+                                        ImGui::TextUnformatted(format_name.c_str());
                                     }
-                                        
-                                    if ((p.direction & adam::port_direction::output) != adam::port_direction::none)
-                                    {
-                                        draw_dir_badge("Output", get_gui_color(gui_color_id::node_output), first);
-                                    }
+                                    ImGui::EndTable();
                                 }
-                                ImGui::EndTable();
+                                ImGui::EndGroup();
+                                if (has_ports || has_processors) ImGui::SameLine();
                             }
-                            ImGui::PopID();
-                            ImGui::Unindent();
+
+                            if (has_ports)
+                            {
+                                ImGui::BeginGroup();
+                                ImGui::Text("%s:", get_gui_string(gui_string_id::lbl_available_ports, lang));
+                                if (ImGui::BeginTable("##PortsTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp, ImVec2(item_width, 0)))
+                                {
+                                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.7f);
+                                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_direction, lang), ImGuiTableColumnFlags_WidthStretch, 0.3f);
+                                    ImGui::TableHeadersRow();
+
+                                    auto draw_dir_badge = [](const char* label, ImVec4 color, bool first)
+                                    {
+                                        if (!first) ImGui::SameLine();
+                                        ImVec4 bg_col = color;
+                                        bg_col.w = 0.6f;
+                                        ImGui::PushStyleColor(ImGuiCol_Button, bg_col);
+                                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg_col);
+                                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg_col);
+                                        ImGui::SmallButton(label);
+                                        ImGui::PopStyleColor(3);
+                                    };
+
+                                    for (const auto& p : mod_info_ptr->ports)
+                                    {
+                                        ImGui::TableNextRow();
+
+                                        ImGui::TableSetColumnIndex(0);
+                                        ImGui::AlignTextToFramePadding();
+                                        if (!p.type_name_str.empty())
+                                            ImGui::TextUnformatted(p.type_name_str.c_str());
+                                        else
+                                            ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(p.name_hash));
+
+                                        ImGui::TableSetColumnIndex(1);
+                                        bool first = true;
+                                        if ((p.direction & adam::port_direction::input) != adam::port_direction::none)
+                                        {
+                                            draw_dir_badge(get_gui_string(gui_string_id::lbl_badge_input, lang), get_gui_color(gui_color_id::node_input), first);
+                                            first = false;
+                                        }
+
+                                        if ((p.direction & adam::port_direction::output) != adam::port_direction::none)
+                                        {
+                                            draw_dir_badge(get_gui_string(gui_string_id::lbl_badge_output, lang), get_gui_color(gui_color_id::node_output), first);
+                                        }
+                                    }
+                                    ImGui::EndTable();
+                                }
+                                ImGui::EndGroup();
+                                if (has_processors) ImGui::SameLine();
+                            }
+
+                            if (has_processors)
+                            {
+                                ImGui::BeginGroup();
+                                ImGui::Text("%s:", get_gui_string(gui_string_id::lbl_available_processors, lang));
+                                if (ImGui::BeginTable("##ProcessorsTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp, ImVec2(item_width, 0)))
+                                {
+                                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang));
+                                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_processor_type, lang));
+                                    ImGui::TableHeadersRow();
+
+                                    for (const auto& proc : mod_info_ptr->filters)
+                                    {
+                                        ImGui::TableNextRow();
+                                        ImGui::TableSetColumnIndex(0);
+                                        ImGui::TextUnformatted(proc.name_str.c_str());
+                                        ImGui::TableSetColumnIndex(1);
+                                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_filter, lang));
+                                    }
+                                    for (const auto& proc : mod_info_ptr->converters)
+                                    {
+                                        ImGui::TableNextRow();
+                                        ImGui::TableSetColumnIndex(0);
+                                        ImGui::TextUnformatted(proc.name_str.c_str());
+                                        ImGui::TableSetColumnIndex(1);
+                                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_converter, lang));
+                                    }
+                                    ImGui::EndTable();
+                                }
+                                ImGui::EndGroup();
+                            }
                         }
-                        
+
                         ImGui::Spacing();
-                        ImGui::Unindent();
                     }
                     ImGui::TreePop();
                 }

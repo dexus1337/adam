@@ -99,7 +99,17 @@ namespace adam::gui
         btn_delete,
         dlg_delete_connection,
         msg_delete_connection_confirm,
-        btn_ok
+        btn_ok,
+        lbl_no_description,
+        lbl_available_ports,
+        lbl_available_data_formats,
+        lbl_available_processors,
+        lbl_port_direction,
+        lbl_badge_input,
+        lbl_badge_output,
+        lbl_processor_type,
+        lbl_filter,
+        lbl_converter
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

@@ -8,7 +8,7 @@
  * @date    25.04.2026
  */
 
-#include "api/recrep-api.hpp"
+#include "api/api-recrep.hpp"
 #include "module/module-recrep.hpp"
 #include "data/port/port-input-replay.hpp"
 #include "data/port/port-output-recording.hpp"

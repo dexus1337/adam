@@ -9,7 +9,7 @@
  */
 
  
-#include "api/sdk-api.hpp"
+#include "api/api-sdk.hpp"
 
 #include "configuration/parameters/configuration-parameter.hpp"
 #include "types/string-hashed.hpp"

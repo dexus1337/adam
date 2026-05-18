@@ -1,6 +1,9 @@
 #include "commander/module-view.hpp"
 #include "os/os.hpp"
 #include "module/module.hpp"
+#include "data/processors/filter.hpp"
+#include "data/processors/converter.hpp"
+#include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/port/port.hpp"
 #include <mutex>
 
@@ -31,9 +34,9 @@ namespace adam
             out_module = it->first;
             for (const auto& fmt : it->second.data_formats)
             {
-                if (fmt == datatype_hash)
+                if (fmt.get_hash() == datatype_hash)
                 {
-                    out_datatype = it->first;
+                    out_datatype = fmt;
                     return;
                 }
             }
@@ -63,7 +66,7 @@ namespace adam
                         info.descriptions[i] = mod_ptr->get_description(static_cast<language>(i));
                         
                     for (const auto& [fmt_name, fmt_ptr] : mod_ptr->get_data_formats())
-                        info.data_formats.push_back(fmt_name);
+                        info.data_formats.push_back(fmt_ptr->get_name());
                         
                     for (const auto& [port_name, port_factory] : mod_ptr->get_port_factories())
                     {
@@ -82,10 +85,32 @@ namespace adam
                     }
                     
                     for (const auto& [flt_name, flt_factory] : mod_ptr->get_filter_factories())
-                        info.filters.push_back(flt_name);
+                    {
+                        std::string name_str = "Unknown Filter";
+                        if (auto* tmp = flt_factory->create(string_hashed("temp_filter")))
+                        {
+                            if (auto* param = dynamic_cast<configuration_parameter_string*>(tmp->get_parameters().get("type"_ct)))
+                            {
+                                name_str = param->get_value().c_str();
+                            }
+                            delete tmp;
+                        }
+                        info.filters.push_back({flt_name, name_str});
+                    }
                         
                     for (const auto& [cnv_name, cnv_factory] : mod_ptr->get_converter_factories())
-                        info.converters.push_back(cnv_name);
+                    {
+                        std::string name_str = "Unknown Converter";
+                        if (auto* tmp = cnv_factory->create(string_hashed("temp_converter")))
+                        {
+                            if (auto* param = dynamic_cast<configuration_parameter_string*>(tmp->get_parameters().get("type"_ct)))
+                            {
+                                name_str = param->get_value().c_str();
+                            }
+                            delete tmp;
+                        }
+                        info.converters.push_back({cnv_name, name_str});
+                    }
                         
                     m_database[name] = std::move(info);
                 }

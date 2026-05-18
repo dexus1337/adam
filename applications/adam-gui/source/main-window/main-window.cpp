@@ -212,7 +212,17 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::btn_delete),                  { "Delete", "Löschen" } },
             { static_cast<int>(gui_string_id::dlg_delete_connection),       { "Delete Connection", "Verbindung löschen" } },
             { static_cast<int>(gui_string_id::msg_delete_connection_confirm), { "Are you sure you want to delete this connection?\nThis action cannot be undone.", "Möchten Sie diese Verbindung wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden." } },
-            { static_cast<int>(gui_string_id::btn_ok),                      { "OK", "OK" } }
+            { static_cast<int>(gui_string_id::btn_ok),                      { "OK", "OK" } },
+            { static_cast<int>(gui_string_id::lbl_no_description),          { "No description available.", "Keine Beschreibung verfügbar." } },
+            { static_cast<int>(gui_string_id::lbl_available_ports),         { "Available Ports", "Verfügbare Ports" } },
+            { static_cast<int>(gui_string_id::lbl_available_data_formats),  { "Available Data Formats", "Verfügbare Datenformate" } },
+            { static_cast<int>(gui_string_id::lbl_available_processors),    { "Available Processors", "Verfügbare Prozessoren" } },
+            { static_cast<int>(gui_string_id::lbl_port_direction),          { "Direction", "Richtung" } },
+            { static_cast<int>(gui_string_id::lbl_badge_input),             { "Input", "Eingang" } },
+            { static_cast<int>(gui_string_id::lbl_badge_output),            { "Output", "Ausgang" } },
+            { static_cast<int>(gui_string_id::lbl_processor_type),          { "Type", "Typ" } },
+            { static_cast<int>(gui_string_id::lbl_filter),                  { "Filter", "Filter" } },
+            { static_cast<int>(gui_string_id::lbl_converter),               { "Converter", "Konverter" } }
         };
 
         auto val = static_cast<int>(id);

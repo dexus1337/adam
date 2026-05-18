@@ -9,7 +9,7 @@
  */
 
  
-#include "api/sdk-api.hpp"
+#include "api/api-sdk.hpp"
 #include "configuration/configuration-item.hpp"
 
 namespace adam 

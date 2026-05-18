@@ -8,7 +8,7 @@
  * @date    25.04.2026
  */
 
-#include "api/sdk-api.hpp"
+#include "api/api-sdk.hpp"
 #include "configuration/configuration-item.hpp"
 #include "configuration/parameters/configuration-parameter.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"

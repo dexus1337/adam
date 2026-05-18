@@ -9,7 +9,7 @@
  */
 
 
-#include "api/api.hpp"
+#include "api/api-asterix.hpp"
 
 #include <adam-sdk.hpp>
 
