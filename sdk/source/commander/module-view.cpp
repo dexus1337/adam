@@ -19,7 +19,8 @@ namespace adam
             {
                 if (port.name_hash == type_hash)
                 {
-                    out_type = it->first;
+                    if (!port.type_name_str.empty())
+                        out_type = string_hashed(port.type_name_str.c_str());
                     return;
                 }
             }

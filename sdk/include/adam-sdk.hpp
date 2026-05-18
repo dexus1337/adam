@@ -33,7 +33,7 @@
 #include "data/port/port.hpp"
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
-#include "data/port/port-bidirectional.hpp"
+#include "data/port/port-in-out.hpp"
 #include "data/port/port-internal.hpp"
 #include "data/connection.hpp"
 #include "data/inspector.hpp"

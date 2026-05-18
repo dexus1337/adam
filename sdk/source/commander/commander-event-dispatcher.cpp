@@ -132,6 +132,7 @@ namespace adam
             auto* info = e.get_data_as<port::basic_info>();
             auto view = std::make_unique<port_view>();
             view->name = string_hashed(info->name);
+            view->direction = info->direction;
             {
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
@@ -211,6 +212,20 @@ namespace adam
                 string_hashed new_name(data->new_name);
                 view->name = new_name;
                 ctx.cmdr.registry().connections()[new_name.get_hash()] = std::move(view);
+            }
+        });
+
+        register_handler(static_cast<int>(event_type::connection_port_added), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::connection_port_add_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                if (data->is_input)
+                    it->second->inputs.push_back(data->port);
+                else
+                    it->second->outputs.push_back(data->port);
             }
         });
     }

@@ -43,6 +43,9 @@ namespace adam
         connection_started,
         connection_stopped,
         connection_renamed,
+        connection_port_added,
+        connection_port_removed,
+
 
         shutdown
     };

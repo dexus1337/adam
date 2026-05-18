@@ -107,9 +107,13 @@ namespace adam::gui
         lbl_port_direction,
         lbl_badge_input,
         lbl_badge_output,
+        lbl_badge_in_short,
+        lbl_badge_out_short,
         lbl_processor_type,
         lbl_filter,
-        lbl_converter
+        lbl_converter,
+        lbl_existing_ports,
+        lbl_new_ports
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

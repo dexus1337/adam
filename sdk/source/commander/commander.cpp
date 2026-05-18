@@ -211,6 +211,24 @@ namespace adam
             current_idx++;
         }
 
+        for (size_t i = 0; i < head->conn_info.ports; i++)
+        {
+            if (!resp[current_idx-1].is_extended())
+                break;
+            
+            auto* port_info = resp[current_idx].data_as<port::basic_info>();
+            
+            auto pview = std::make_unique<port_view>();
+            pview->name = string_hashed(&port_info->name[0]);
+            pview->direction = port_info->direction;
+            
+            m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
+            m_module_view.extract_datatype_and_module(port_info->format, port_info->format_module, pview->datatype, pview->datatype_module);
+            
+            m_registry_view.ports().emplace(pview->name.get_hash(), std::move(pview));
+            current_idx++;
+        }
+
         for (size_t i = 0; i < head->conn_info.connections; i++)
         {
             if (!resp[current_idx-1].is_extended())
@@ -317,35 +335,45 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_destroy(const string_hashed& name)
+    response_status commander::request_connection_destroy(string_hashed::hash_datatype hash)
     {
         command cmd(command_type::connection_destroy);
-        cmd.data_as<messages::connection_destroy_data>()->connection = name.get_hash();
+        cmd.data_as<messages::connection_destroy_data>()->connection = hash;
 
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_start(const string_hashed& name)
+    response_status commander::request_connection_start(string_hashed::hash_datatype hash)
     {
         command cmd(command_type::connection_start);
-        cmd.data_as<messages::connection_action_data>()->connection = name.get_hash();
+        cmd.data_as<messages::connection_action_data>()->connection = hash;
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_stop(const string_hashed& name)
+    response_status commander::request_connection_stop(string_hashed::hash_datatype hash)
     {
         command cmd(command_type::connection_stop);
-        cmd.data_as<messages::connection_action_data>()->connection = name.get_hash();
+        cmd.data_as<messages::connection_action_data>()->connection = hash;
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_rename(const string_hashed& old_name, const string_hashed& new_name)
+    response_status commander::request_connection_rename(string_hashed::hash_datatype old_hash, const string_hashed& new_name)
     {
         command cmd(command_type::connection_rename);
         auto* data = cmd.data_as<messages::connection_rename_data>();
-        data->connection = old_name.get_hash();
+        data->connection = old_hash;
         std::strncpy(data->new_name, new_name.c_str(), sizeof(data->new_name) - 1);
         data->new_name[sizeof(data->new_name) - 1] = '\0';
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_port_add(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input)
+    {
+        command cmd(command_type::connection_port_add);
+        auto* data = cmd.data_as<messages::connection_port_add_data>();
+        data->connection = conn_hash;
+        data->port = port_hash;
+        data->is_input = is_input;
         return send_command(cmd);
     }
 

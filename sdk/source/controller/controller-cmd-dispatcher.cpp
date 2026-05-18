@@ -133,6 +133,32 @@ namespace adam
             data->conn_info.processors  = static_cast<uint32_t>(ctx.reg.filters().size() + ctx.reg.converters().size());
             data->conn_info.connections = static_cast<uint32_t>(ctx.reg.connections().size());
 
+            for (const auto& [hash, prt] : ctx.reg.ports())
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* port_info = ctx.responses[resp_idx].data_as<port::basic_info>();
+                
+                std::strncpy(port_info->name, prt->get_name().c_str(), sizeof(port_info->name) - 1);
+                port_info->name[sizeof(port_info->name) - 1] = '\0';
+                
+                port_info->type = prt->get_type_name().get_hash();
+                
+                if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct)))
+                    port_info->type_module = mod_param->get_value().get_hash();
+                else
+                    port_info->type_module = 0;
+                    
+                port_info->format = 0;
+                port_info->format_module = 0;
+                
+                port_info->direction = prt->get_direction();
+
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
+
             for (const auto& [hash, conn] : ctx.reg.connections())
             {
                 ctx.responses[resp_idx-1].set_extended(true);
@@ -482,6 +508,41 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(static_cast<int>(command_type::connection_port_add), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_port_add_data>();
+
+            std::string conn_str;
+            auto it_conn = ctx.reg.connections().find(params->connection);
+            if (it_conn != ctx.reg.connections().end())
+                conn_str = it_conn->second->get_name().c_str();
+
+            std::string port_str;
+            auto it_port = ctx.reg.ports().find(params->port);
+            if (it_port != ctx.reg.ports().end())
+                port_str = it_port->second->get_name().c_str();
+
+            registry::status res = ctx.reg.connection_add_port(params->connection, params->port, params->is_input);
+
+            if (res != registry::status_success)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_add_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_port_added);
+            auto* evt_data = evt.data_as<messages::connection_port_add_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::inspector_create_data>();
@@ -663,6 +724,14 @@ namespace adam
             {
                 static_cast<int>(log_event::connection_rename_failed),
                 { "Thread {:d} failed to rename connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht umbenennen: {}" }
+            },
+            {
+                static_cast<int>(log_event::connection_port_added),
+                { "Thread {:d} successfully added port \"{}\" to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich zur Verbindung \"{}\" hinzugefügt." }
+            },
+            {
+                static_cast<int>(log_event::connection_port_add_failed),
+                { "Thread {:d} failed to add port {:d} to connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
             }
         };
 

@@ -331,6 +331,8 @@ namespace adam
             m_controller.broadcast_event(evt);
         }
 
+        m_available_modules.erase(it);
+
         return true;
 
     UNLOAD_AND_RETURN:

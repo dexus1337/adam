@@ -220,9 +220,13 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::lbl_port_direction),          { "Direction", "Richtung" } },
             { static_cast<int>(gui_string_id::lbl_badge_input),             { "Input", "Eingang" } },
             { static_cast<int>(gui_string_id::lbl_badge_output),            { "Output", "Ausgang" } },
+            { static_cast<int>(gui_string_id::lbl_badge_in_short),          { "In", "Ein" } },
+            { static_cast<int>(gui_string_id::lbl_badge_out_short),         { "Out", "Aus" } },
             { static_cast<int>(gui_string_id::lbl_processor_type),          { "Type", "Typ" } },
             { static_cast<int>(gui_string_id::lbl_filter),                  { "Filter", "Filter" } },
-            { static_cast<int>(gui_string_id::lbl_converter),               { "Converter", "Konverter" } }
+            { static_cast<int>(gui_string_id::lbl_converter),               { "Converter", "Konverter" } },
+            { static_cast<int>(gui_string_id::lbl_existing_ports),          { "Already Existing Ports", "Bereits existierende Ports" } },
+            { static_cast<int>(gui_string_id::lbl_new_ports),               { "Create new Port", "Neuen Port erstellen" } }
         };
 
         auto val = static_cast<int>(id);

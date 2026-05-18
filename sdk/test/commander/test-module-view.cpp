@@ -99,9 +99,7 @@ TEST_F(module_view_test, extract_port_type_and_module)
     // Test extraction
     view.extract_port_type_and_module(port_name.get_hash(), mod_name.get_hash(), out_type, out_module);
 
-    // Based on the current implementation in module-view.cpp, both out_module and out_type 
-    // are assigned the module's hash (it->first). This test verifies that documented behavior.
-    EXPECT_EQ(out_type, mod_name); 
+    EXPECT_EQ(out_type, string_hashed("video")); 
     EXPECT_EQ(out_module, mod_name);
 }
 

@@ -6,6 +6,7 @@
 #include <vector>
 #include <mutex>
 #include <string>
+#include <map>
 
 namespace adam::gui 
 {
@@ -35,7 +36,7 @@ namespace adam::gui
             {
                 if (connection_to_delete.get_hash() != 0)
                 {
-                    ctrl.get_commander().request_connection_destroy(connection_to_delete);
+                    ctrl.get_commander().request_connection_destroy(connection_to_delete.get_hash());
                     connection_to_delete = adam::string_hashed("");
                 }
                 ImGui::CloseCurrentPopup();
@@ -70,6 +71,397 @@ namespace adam::gui
             if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
                 ImGui::CloseCurrentPopup();
             
+            ImGui::EndPopup();
+        }
+
+        static adam::string_hashed target_connection("");
+        static adam::port_direction target_direction = adam::port_direction::none;
+        static bool request_port_popup = false;
+        static char port_popup_title[128] = "Add Port###PortPopup";
+
+        struct port_display_info
+        {
+            std::string module_name;
+            adam::string_hashed::hash_datatype module_hash;
+            std::string port_name;
+            adam::string_hashed::hash_datatype port_hash;
+            adam::port_direction direction;
+            std::string type_name;
+        };
+
+        static std::map<std::string, std::vector<port_display_info>> existing_grouped;
+        static std::map<std::string, std::vector<port_display_info>> new_grouped;
+        static std::map<adam::string_hashed::hash_datatype, port_display_info> known_port_types;
+        static std::map<adam::string_hashed::hash_datatype, std::array<char, 128>> new_port_names;
+        static std::vector<adam::string_hashed::hash_datatype> used_ports;
+
+        if (request_port_popup)
+        {
+            if (target_direction == adam::port_direction::input)
+            {
+                snprintf(port_popup_title, sizeof(port_popup_title), "Add Input Port to %s###PortPopup", target_connection.c_str());
+            }
+            else if (target_direction == adam::port_direction::output)
+            {
+                snprintf(port_popup_title, sizeof(port_popup_title), "Add Output Port to %s###PortPopup", target_connection.c_str());
+            }
+            else
+            {
+                snprintf(port_popup_title, sizeof(port_popup_title), "Add Port###PortPopup");
+            }
+
+            existing_grouped.clear();
+            new_grouped.clear();
+            known_port_types.clear();
+            new_port_names.clear();
+            used_ports.clear();
+
+            {
+                std::lock_guard<const adam::module_view> mod_lock(ctrl.get_commander().modules());
+                std::lock_guard<const adam::registry_view> reg_lock(ctrl.get_commander().registry());
+
+                const auto& db = ctrl.get_commander().get_modules().database();
+                const auto& loaded_modules = ctrl.get_commander().get_modules().get_loaded();
+                const auto& reg_ports = ctrl.get_commander().registry().get_ports();
+                const auto& reg_conns = ctrl.get_commander().registry().get_connections();
+
+                auto conn_it = reg_conns.find(target_connection.get_hash());
+                if (conn_it != reg_conns.end())
+                {
+                    if (target_direction == adam::port_direction::input)
+                    {
+                        used_ports = conn_it->second->inputs;
+                    }
+                    else if (target_direction == adam::port_direction::output)
+                    {
+                        used_ports = conn_it->second->outputs;
+                    }
+                }
+
+                for (const auto& [mod_hash, mod_info] : db)
+                {
+                    bool is_loaded = loaded_modules.find(mod_hash) != loaded_modules.end();
+
+                    for (const auto& p : mod_info.ports)
+                    {
+                        port_display_info pdi;
+                        pdi.module_hash = mod_hash.get_hash();
+                        pdi.module_name = mod_info.name.c_str();
+                        if (!p.type_name_str.empty())
+                        {
+                            pdi.port_name = p.type_name_str;
+                            pdi.type_name = p.type_name_str;
+                        }
+                        else
+                        {
+                            char hash_buf[32];
+                            snprintf(hash_buf, sizeof(hash_buf), "0x%llx", static_cast<unsigned long long>(p.name_hash));
+                            pdi.port_name = std::string("Unknown (Hash: ") + hash_buf + ")";
+                            pdi.type_name = pdi.port_name;
+                        }
+                        pdi.port_hash = p.name_hash;
+                        pdi.direction = p.direction;
+
+                        known_port_types[p.name_hash] = pdi;
+
+                        if (is_loaded)
+                        {
+                            if (target_direction == adam::port_direction::none || (pdi.direction & target_direction) != adam::port_direction::none)
+                            {
+                                new_grouped[pdi.module_name].push_back(pdi);
+                            }
+                        }
+                    }
+                }
+
+                {
+                    port_display_info pdi;
+                    pdi.module_hash = 0;
+                    pdi.module_name = "Internal";
+                    pdi.port_name = "internal";
+                    pdi.type_name = "internal";
+                    pdi.port_hash = adam::string_hashed("internal").get_hash();
+                    pdi.direction = adam::port_direction::in_out;
+
+                    if (target_direction == adam::port_direction::none || (pdi.direction & target_direction) != adam::port_direction::none)
+                    {
+                        new_grouped[pdi.module_name].push_back(pdi);
+                        known_port_types[pdi.port_hash] = pdi;
+                    }
+                }
+
+                for (const auto& [p_hash, p_view] : reg_ports)
+                {
+                    port_display_info pdi;
+                    pdi.port_name = p_view->name.c_str();
+                    pdi.port_hash = p_hash;
+                    pdi.direction = p_view->direction;
+
+                    auto type_it = known_port_types.find(p_view->type.get_hash());
+                    if (type_it != known_port_types.end())
+                    {
+                        pdi.module_name = type_it->second.module_name;
+                        pdi.module_hash = type_it->second.module_hash;
+                        pdi.type_name = type_it->second.type_name;
+                    }
+                    else
+                    {
+                        if (p_view->type.get_hash() == adam::string_hashed("internal").get_hash())
+                        {
+                            pdi.module_name = "Internal";
+                            pdi.module_hash = 0;
+                            pdi.type_name = "internal";
+                        }
+                        else
+                        {
+                            if (p_view->type_module.get_hash() != 0)
+                            {
+                                pdi.module_name = p_view->type_module.c_str();
+                                pdi.module_hash = p_view->type_module.get_hash();
+                            }
+                            else
+                            {
+                                pdi.module_name = "Unknown Module";
+                                pdi.module_hash = 0;
+                            }
+                            
+                            if (!p_view->type.empty())
+                            {
+                                pdi.type_name = p_view->type.c_str();
+                            }
+                            else
+                            {
+                                char hash_buf[32];
+                                snprintf(hash_buf, sizeof(hash_buf), "0x%llx", static_cast<unsigned long long>(p_view->type.get_hash()));
+                                pdi.type_name = std::string("Unknown (Hash: ") + hash_buf + ")";
+                            }
+                        }
+                    }
+
+                    if (target_direction == adam::port_direction::none || pdi.direction == adam::port_direction::none || (pdi.direction & target_direction) != adam::port_direction::none)
+                    {
+                        existing_grouped[pdi.module_name].push_back(pdi);
+                    }
+                }
+            }
+
+            ImGui::OpenPopup(port_popup_title);
+            request_port_popup = false;
+        }
+
+        ImGui::SetNextWindowSize(ImVec2(1200.0f * dpi_scale, 600.0f * dpi_scale), ImGuiCond_Appearing);
+        if (ImGui::BeginPopupModal(port_popup_title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize))
+        {
+            float half_w = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+            float bottom_h = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 4.0f + 4.0f * dpi_scale;
+            float child_h = ImGui::GetContentRegionAvail().y - bottom_h;
+
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+            
+            // -- LEFT PANEL: EXISTING PORTS --
+            if (ImGui::BeginChild("ExistingPortsTableChild", ImVec2(half_w, child_h), true))
+            {
+                ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_existing_ports, lang));
+                ImGui::Separator();
+
+                if (ImGui::BeginTable("ExistingPortsTable", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
+                {
+                    ImGui::TableSetupScrollFreeze(0, 1);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_direction, lang), ImGuiTableColumnFlags_WidthFixed);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, 0.6f);
+                    ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
+                    ImGui::TableHeadersRow();
+
+                    for (const auto& [mod_name, ports] : existing_grouped)
+                    {
+                        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[ %s ]", mod_name.c_str());
+
+                        for (const auto& pdi : ports)
+                        {
+                            bool is_used = std::find(used_ports.begin(), used_ports.end(), pdi.port_hash) != used_ports.end();
+
+                            ImGui::TableNextRow();
+                            
+                            if (is_used)
+                            {
+                                ImGui::BeginDisabled();
+                            }
+
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::Indent();
+                            ImGui::TextUnformatted(pdi.type_name.c_str());
+                            ImGui::Unindent();
+
+                            ImGui::TableSetColumnIndex(1);
+                            if ((pdi.direction & adam::port_direction::input) != adam::port_direction::none && (pdi.direction & adam::port_direction::output) != adam::port_direction::none)
+                            {
+                                ImVec4 in_col = get_gui_color(gui_color_id::node_input);
+                                ImVec4 out_col = get_gui_color(gui_color_id::node_output);
+                                if (is_used) 
+                                {
+                                    in_col.w *= 0.5f;
+                                    out_col.w *= 0.5f;
+                                }
+                                ImGui::TextColored(in_col, "%s", get_gui_string(gui_string_id::lbl_badge_in_short, lang));
+                                ImGui::SameLine(0, 0);
+                                ImGui::TextUnformatted("/");
+                                ImGui::SameLine(0, 0);
+                                ImGui::TextColored(out_col, "%s", get_gui_string(gui_string_id::lbl_badge_out_short, lang));
+                            }
+                            else if ((pdi.direction & adam::port_direction::input) != adam::port_direction::none)
+                            {
+                                ImVec4 col = get_gui_color(gui_color_id::node_input);
+                                if (is_used) 
+                                {
+                                    col.w *= 0.5f;
+                                }
+                                ImGui::TextColored(col, "%s", get_gui_string(gui_string_id::lbl_badge_input, lang));
+                            }
+                            else if ((pdi.direction & adam::port_direction::output) != adam::port_direction::none)
+                            {
+                                ImVec4 col = get_gui_color(gui_color_id::node_output);
+                                if (is_used) 
+                                {
+                                    col.w *= 0.5f;
+                                }
+                                ImGui::TextColored(col, "%s", get_gui_string(gui_string_id::lbl_badge_output, lang));
+                            }
+                            else
+                            {
+                                ImGui::TextDisabled("Unknown");
+                            }
+
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::TextUnformatted(pdi.port_name.c_str());
+
+                            ImGui::TableSetColumnIndex(3);
+                            ImGui::PushID(static_cast<int>(pdi.port_hash));
+                            if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang)))
+                            {
+                                ctrl.get_commander().request_connection_port_add(target_connection.get_hash(), pdi.port_hash, target_direction == adam::port_direction::input);
+                                ImGui::CloseCurrentPopup();
+                            }
+                            ImGui::PopID();
+                            
+                            if (is_used)
+                            {
+                                ImGui::EndDisabled();
+                            }
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+            
+            // -- RIGHT PANEL: NEW PORTS --
+            if (ImGui::BeginChild("NewPortsTableChild", ImVec2(half_w, child_h), true))
+            {
+                ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_new_ports, lang));
+                ImGui::Separator();
+
+                if (ImGui::BeginTable("NewPortsTable", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
+                {
+                    ImGui::TableSetupScrollFreeze(0, 1);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_direction, lang), ImGuiTableColumnFlags_WidthFixed);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, 0.6f);
+                    ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
+                    ImGui::TableHeadersRow();
+
+                    for (const auto& [mod_name, ports] : new_grouped)
+                    {
+                        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[ %s ]", mod_name.c_str());
+
+                        for (const auto& pdi : ports)
+                        {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::Indent();
+                            ImGui::TextUnformatted(pdi.port_name.c_str());
+                            ImGui::Unindent();
+
+                            ImGui::TableSetColumnIndex(1);
+                            if ((pdi.direction & adam::port_direction::input) != adam::port_direction::none && (pdi.direction & adam::port_direction::output) != adam::port_direction::none)
+                            {
+                                ImGui::TextColored(get_gui_color(gui_color_id::node_input), "%s", get_gui_string(gui_string_id::lbl_badge_in_short, lang));
+                                ImGui::SameLine(0, 0);
+                                ImGui::TextUnformatted("/");
+                                ImGui::SameLine(0, 0);
+                                ImGui::TextColored(get_gui_color(gui_color_id::node_output), "%s", get_gui_string(gui_string_id::lbl_badge_out_short, lang));
+                            }
+                            else if ((pdi.direction & adam::port_direction::input) != adam::port_direction::none)
+                            {
+                                ImGui::TextColored(get_gui_color(gui_color_id::node_input), "%s", get_gui_string(gui_string_id::lbl_badge_input, lang));
+                            }
+                            else if ((pdi.direction & adam::port_direction::output) != adam::port_direction::none)
+                            {
+                                ImGui::TextColored(get_gui_color(gui_color_id::node_output), "%s", get_gui_string(gui_string_id::lbl_badge_output, lang));
+                            }
+                            else
+                            {
+                                ImGui::TextDisabled("Unknown");
+                            }
+
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::PushID(static_cast<int>(pdi.port_hash));
+                            auto& name_buffer = new_port_names[pdi.port_hash];
+                            ImGui::SetNextItemWidth(-1.0f);
+                            ImGui::InputText("##NewName", name_buffer.data(), name_buffer.size());
+
+                            ImGui::TableSetColumnIndex(3);
+                            bool has_name = name_buffer[0] != '\0';
+                            
+                            if (!has_name)
+                            {
+                                ImGui::BeginDisabled();
+                            }
+                            
+                            if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang)))
+                            {
+                                ctrl.get_commander().request_port_create(
+                                    adam::string_hashed(name_buffer.data()),
+                                    pdi.port_hash,
+                                    pdi.module_hash
+                                );
+                                
+                                adam::string_hashed::hash_datatype new_port_hash = adam::string_hashed(name_buffer.data()).get_hash();
+                                ctrl.get_commander().request_connection_port_add(target_connection.get_hash(), new_port_hash, target_direction == adam::port_direction::input);
+
+                                name_buffer[0] = '\0';
+                                ImGui::CloseCurrentPopup();
+                            }
+                            
+                            if (!has_name)
+                            {
+                                ImGui::EndDisabled();
+                            }
+                            ImGui::PopID();
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            ImGui::EndChild();
+            
+            ImGui::PopStyleColor();
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(-1.0f, 0.0f)))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+
             ImGui::EndPopup();
         }
 
@@ -300,7 +692,7 @@ namespace adam::gui
                     {
                         if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
                         {
-                            ctrl.get_commander().request_connection_rename(conn->name, adam::string_hashed(&name_buf[0]));
+                            ctrl.get_commander().request_connection_rename(conn->name.get_hash(), adam::string_hashed(&name_buf[0]));
                         }
                     }
 
@@ -311,12 +703,12 @@ namespace adam::gui
 
                     bool is_active = conn->is_active;
                     if (is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_start_str)) { ctrl.get_commander().request_connection_start(conn->name); }
+                    if (ImGui::Button(btn_start_str)) { ctrl.get_commander().request_connection_start(conn->name.get_hash()); }
                     if (is_active) ImGui::EndDisabled();
                     
                     ImGui::SameLine();
                     if (!is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_stop_str)) { ctrl.get_commander().request_connection_stop(conn->name); }
+                    if (ImGui::Button(btn_stop_str)) { ctrl.get_commander().request_connection_stop(conn->name.get_hash()); }
                     if (!is_active) ImGui::EndDisabled();
 
                     const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
@@ -520,14 +912,24 @@ namespace adam::gui
                     float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
                     float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
                     ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
-                    ImGui::Button(btn_add_input_str);
+                    if (ImGui::Button(btn_add_input_str))
+                    {
+                        target_connection = conn->name;
+                        target_direction = adam::port_direction::input;
+                        request_port_popup = true;
+                    }
 
                     if (!conn->inputs.empty())
                     {
                         float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
                         float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
                         ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
-                        ImGui::Button(btn_add_output_str);
+                        if (ImGui::Button(btn_add_output_str))
+                        {
+                            target_connection = conn->name;
+                            target_direction = adam::port_direction::output;
+                            request_port_popup = true;
+                        }
 
                         if (!conn->outputs.empty())
                         {

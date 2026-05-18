@@ -3,7 +3,7 @@
 /**
  * @file    queue-shared-duplex.hpp
  * @author  dexus1337
- * @brief   Defines a bidirectional interprocess queue for any request/response datatype, based on shared memory
+ * @brief   Defines a in-out interprocess queue for any request/response datatype, based on shared memory
  * @version 1.0
  * @date    28.04.2026
  */
@@ -21,7 +21,7 @@ namespace adam
 {
     /**
      * @class queue_shared_duplex
-     * @brief Defines a bidirectional interprocess queue for any request/response datatype, based on shared memory
+     * @brief Defines a in-out interprocess queue for any request/response datatype, based on shared memory
      */
     template<typename request_type, typename response_type>
     class queue_shared_duplex

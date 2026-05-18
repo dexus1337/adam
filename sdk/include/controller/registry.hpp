@@ -96,6 +96,9 @@ namespace adam
         /** @brief Renames a connection safely. */
         status rename_connection(string_hashed::hash_datatype hash, const string_hashed& new_name);
 
+        /** @brief Adds a port to an existing connection. */
+        status connection_add_port(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input);
+
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;
 

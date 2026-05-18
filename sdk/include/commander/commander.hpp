@@ -90,16 +90,19 @@ namespace adam
         response_status request_connection_create(const string_hashed& name);
 
         /** @brief Requests the destruction of a connection. */
-        response_status request_connection_destroy(const string_hashed& name);
+        response_status request_connection_destroy(string_hashed::hash_datatype hash);
 
         /** @brief Requests to start a connection. */
-        response_status request_connection_start(const string_hashed& name);
+        response_status request_connection_start(string_hashed::hash_datatype hash);
 
         /** @brief Requests to stop a connection. */
-        response_status request_connection_stop(const string_hashed& name);
+        response_status request_connection_stop(string_hashed::hash_datatype hash);
 
         /** @brief Requests to rename a connection. */
-        response_status request_connection_rename(const string_hashed& old_name, const string_hashed& new_name);
+        response_status request_connection_rename(string_hashed::hash_datatype old_hash, const string_hashed& new_name);
+
+        /** @brief Requests to attach a port to a connection. */
+        response_status request_connection_port_add(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input);
 
         /** @brief Requests the creation of a data inspector on a specific port. */
         response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);

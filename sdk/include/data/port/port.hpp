@@ -35,7 +35,7 @@ namespace adam
         none          = 0,
         input         = 1 << 0,
         output        = 1 << 1,
-        bidirectional = input | output
+        in_out        = input | output
     };
 
     inline port_direction operator|(port_direction a, port_direction b) { return static_cast<port_direction>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b)); }

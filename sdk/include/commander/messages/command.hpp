@@ -21,7 +21,7 @@
 namespace adam 
 {
     
-    enum class command_type : uint16_t
+    enum command_type : uint16_t
     {
         invalid = 0,
 
@@ -49,6 +49,8 @@ namespace adam
         connection_start,
         connection_stop,
         connection_rename,
+        connection_port_add,
+        connection_port_remove,
 
         inspector_create,
         inspector_destroy,

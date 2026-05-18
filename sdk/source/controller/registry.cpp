@@ -13,6 +13,7 @@
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-reference.hpp"
 
 #include <fstream>
 #include <string>
@@ -177,7 +178,7 @@ namespace adam
 
         if (type_module != 0)
         {
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("module_name"_ct)))
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("type_origin_module"_ct)))
                 mod_param->set_value(resolved_module_name);
         }
 
@@ -256,6 +257,40 @@ namespace adam
         return status_success;
     }
 
+    registry::status registry::connection_add_port(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input)
+    {
+        auto conn_it = m_connections.find(conn_hash);
+        if (conn_it == m_connections.end())
+            return status_error_connection_not_found;
+
+        auto port_it = m_ports.find(port_hash);
+        if (port_it == m_ports.end())
+            return status_error_port_not_found;
+
+        if (is_input)
+        {
+            conn_it->second->ports_input().push_back(port_it->second.get());
+            if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("inputs"_ct)))
+            {
+                auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(inputs_list->get_children().size())));
+                param->set_target(port_it->second->get_name());
+                inputs_list->add(std::move(param));
+            }
+        }
+        else
+        {
+            conn_it->second->ports_output().push_back(port_it->second.get());
+            if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("outputs"_ct)))
+            {
+                auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(outputs_list->get_children().size())));
+                param->set_target(port_it->second->get_name());
+                outputs_list->add(std::move(param));
+            }
+        }
+            
+        return status_success;
+    }
+
     bool registry::save(string_hashed::view filepath) const 
     {
         std::ofstream ofs(std::string(filepath), std::ios::binary);
@@ -271,7 +306,7 @@ namespace adam
         configuration_parameter::write_binary(ofs, configuration_parameter::list);
         configuration_parameter::write_string(ofs, "root");
         
-        uint32_t root_count = 5; // general, input_ports, output_ports, filters, converters
+        uint32_t root_count = 6; // general, ports, filters, converters, connections, modules
         configuration_parameter::write_binary(ofs, root_count);
 
         // 1. Save general settings
@@ -295,6 +330,17 @@ namespace adam
         serialize_group("filters", m_filters);
         serialize_group("converters", m_converters);
         serialize_group("connections", m_connections);
+
+        // 6. Save loaded modules
+        configuration_parameter::write_binary(ofs, configuration_parameter::list);
+        configuration_parameter::write_string(ofs, "modules");
+        uint32_t mod_count = static_cast<uint32_t>(m_modules.get_loaded_modules().size());
+        configuration_parameter::write_binary(ofs, mod_count);
+        for (const auto& [name, mod] : m_modules.get_loaded_modules())
+        {
+            configuration_parameter_list mod_list(name);
+            configuration_parameter::serialize(ofs, &mod_list);
+        }
 
         return ofs.good();
     }
@@ -336,61 +382,81 @@ namespace adam
             {
                 if (auto* existing = target->get(name)) 
                 {
-                    if (auto* e_bool = dynamic_cast<configuration_parameter_boolean*>(existing))
+                    if (existing->get_type() == param->get_type())
                     {
-                        if (auto* p_bool = dynamic_cast<configuration_parameter_boolean*>(param.get())) e_bool->set_value(p_bool->get_value());
-                    }
-                    else if (auto* e_int = dynamic_cast<configuration_parameter_integer*>(existing))
-                    {
-                        if (auto* p_int = dynamic_cast<configuration_parameter_integer*>(param.get())) e_int->set_value(p_int->get_value());
-                    }
-                    else if (auto* e_dbl = dynamic_cast<configuration_parameter_double*>(existing))
-                    {
-                        if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get())) e_dbl->set_value(p_dbl->get_value());
-                    }
-                    else if (auto* e_str = dynamic_cast<configuration_parameter_string*>(existing))
-                    {
-                        if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get())) e_str->set_value(p_str->get_value());
-                    }
-                    else if (auto* e_lst = dynamic_cast<configuration_parameter_list*>(existing))
-                    {
-                        if (auto* p_lst = dynamic_cast<configuration_parameter_list*>(param.get()))
+                        switch (existing->get_type())
                         {
-                            self(self, e_lst, p_lst);
+                            case configuration_parameter::boolean:
+                                static_cast<configuration_parameter_boolean*>(existing)->set_value(static_cast<configuration_parameter_boolean*>(param.get())->get_value());
+                                break;
+                            case configuration_parameter::integer:
+                                static_cast<configuration_parameter_integer*>(existing)->set_value(static_cast<configuration_parameter_integer*>(param.get())->get_value());
+                                break;
+                            case configuration_parameter::double_:
+                                static_cast<configuration_parameter_double*>(existing)->set_value(static_cast<configuration_parameter_double*>(param.get())->get_value());
+                                break;
+                            case configuration_parameter::string:
+                                static_cast<configuration_parameter_string*>(existing)->set_value(static_cast<configuration_parameter_string*>(param.get())->get_value());
+                                break;
+                            case configuration_parameter::list:
+                                self(self, static_cast<configuration_parameter_list*>(existing), static_cast<configuration_parameter_list*>(param.get()));
+                                break;
+                            case configuration_parameter::reference:
+                                static_cast<configuration_parameter_reference*>(existing)->set_target(static_cast<configuration_parameter_reference*>(param.get())->get_target());
+                                break;
+                            default:
+                                break;
                         }
                     }
                 }
                 else
                 {
-                    if (auto* p_bool = dynamic_cast<configuration_parameter_boolean*>(param.get()))
+                    switch (param->get_type())
                     {
-                        auto new_param = std::make_unique<configuration_parameter_boolean>(param->get_name());
-                        new_param->set_value(p_bool->get_value());
-                        target->add(std::move(new_param));
-                    }
-                    else if (auto* p_int = dynamic_cast<configuration_parameter_integer*>(param.get()))
-                    {
-                        auto new_param = std::make_unique<configuration_parameter_integer>(param->get_name());
-                        new_param->set_value(p_int->get_value());
-                        target->add(std::move(new_param));
-                    }
-                    else if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get()))
-                    {
-                        auto new_param = std::make_unique<configuration_parameter_double>(param->get_name());
-                        new_param->set_value(p_dbl->get_value());
-                        target->add(std::move(new_param));
-                    }
-                    else if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get()))
-                    {
-                        auto new_param = std::make_unique<configuration_parameter_string>(param->get_name());
-                        new_param->set_value(p_str->get_value());
-                        target->add(std::move(new_param));
-                    }
-                    else if (auto* p_lst = dynamic_cast<configuration_parameter_list*>(param.get()))
-                    {
-                        auto new_param = std::make_unique<configuration_parameter_list>(param->get_name());
-                        self(self, new_param.get(), p_lst);
-                        target->add(std::move(new_param));
+                        case configuration_parameter::boolean:
+                        {
+                            auto new_param = std::make_unique<configuration_parameter_boolean>(param->get_name());
+                            new_param->set_value(static_cast<configuration_parameter_boolean*>(param.get())->get_value());
+                            target->add(std::move(new_param));
+                            break;
+                        }
+                        case configuration_parameter::integer:
+                        {
+                            auto new_param = std::make_unique<configuration_parameter_integer>(param->get_name());
+                            new_param->set_value(static_cast<configuration_parameter_integer*>(param.get())->get_value());
+                            target->add(std::move(new_param));
+                            break;
+                        }
+                        case configuration_parameter::double_:
+                        {
+                            auto new_param = std::make_unique<configuration_parameter_double>(param->get_name());
+                            new_param->set_value(static_cast<configuration_parameter_double*>(param.get())->get_value());
+                            target->add(std::move(new_param));
+                            break;
+                        }
+                        case configuration_parameter::string:
+                        {
+                            auto new_param = std::make_unique<configuration_parameter_string>(param->get_name());
+                            new_param->set_value(static_cast<configuration_parameter_string*>(param.get())->get_value());
+                            target->add(std::move(new_param));
+                            break;
+                        }
+                        case configuration_parameter::list:
+                        {
+                            auto new_param = std::make_unique<configuration_parameter_list>(param->get_name());
+                            self(self, new_param.get(), static_cast<configuration_parameter_list*>(param.get()));
+                            target->add(std::move(new_param));
+                            break;
+                        }
+                        case configuration_parameter::reference:
+                        {
+                            auto new_param = std::make_unique<configuration_parameter_reference>(param->get_name());
+                            new_param->set_target(static_cast<configuration_parameter_reference*>(param.get())->get_target());
+                            target->add(std::move(new_param));
+                            break;
+                        }
+                        default:
+                            break;
                     }
                 }
             }
@@ -408,7 +474,20 @@ namespace adam
         m_modules.clear_and_unload_all();
         m_modules.scan_for_modules();
 
-        // 2. Restore ports
+        // 2. Restore loaded modules
+        if (auto* modules_mock_param = root_list->get("modules"_ct))
+        {
+            if (modules_mock_param->get_type() == configuration_parameter::list)
+            {
+                auto* modules_list = static_cast<configuration_parameter_list*>(modules_mock_param);
+                for (auto& [mod_name, mod_param] : modules_list->get_children())
+                {
+                    m_modules.load_module(mod_name);
+                }
+            }
+        }
+
+        // 3. Restore ports
         if (auto* ports_mock_param = root_list->get("ports"_ct))
         {
             if (ports_mock_param->get_type() == configuration_parameter::list)
@@ -425,7 +504,7 @@ namespace adam
                             string_hashed port_type = static_cast<configuration_parameter_string*>(type_param)->get_value();
                             string_hashed module_name;
                             
-                            if (auto* mod_param = port_params->get("module_name"_ct))
+                            if (auto* mod_param = port_params->get("type_origin_module"_ct))
                             {
                                 if (mod_param->get_type() == configuration_parameter::string)
                                     module_name = static_cast<configuration_parameter_string*>(mod_param)->get_value();
@@ -443,7 +522,7 @@ namespace adam
             }
         }
 
-        // 3. Restore connections
+        // 4. Restore connections
         if (auto* connections_mock_param = root_list->get("connections"_ct))
         {
             if (connections_mock_param->get_type() == configuration_parameter::list)
@@ -459,6 +538,32 @@ namespace adam
                         if (status == status_success && new_conn)
                         {
                             copy_parameters(copy_parameters, &new_conn->get_parameters(), conn_params);
+
+                            if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("inputs"_ct)))
+                            {
+                                for (size_t i = 0; i < inputs_list->get_children().size(); ++i)
+                                {
+                                    if (auto* param = dynamic_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i)))))
+                                    {
+                                        auto port_it = m_ports.find(param->get_target().get_hash());
+                                        if (port_it != m_ports.end())
+                                            new_conn->ports_input().push_back(port_it->second.get());
+                                    }
+                                }
+                            }
+
+                            if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("outputs"_ct)))
+                            {
+                                for (size_t i = 0; i < outputs_list->get_children().size(); ++i)
+                                {
+                                    if (auto* param = dynamic_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i)))))
+                                    {
+                                        auto port_it = m_ports.find(param->get_target().get_hash());
+                                        if (port_it != m_ports.end())
+                                            new_conn->ports_output().push_back(port_it->second.get());
+                                    }
+                                }
+                            }
                         }
                     }
                 }

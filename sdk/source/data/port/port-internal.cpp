@@ -5,7 +5,7 @@
 namespace adam 
 {
     port_internal::port_internal(const string_hashed& item_name) 
-     :  port_bidirectional(item_name)
+     :  port_in_out(item_name)
     {
         get_parameter<configuration_parameter_string>("type")->set_value(type_name);
     }

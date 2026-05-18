@@ -3,23 +3,23 @@
 /**
  * @file    port-internal.hpp
  * @author  dexus1337
- * @brief   Defines a bidirectional internal port for passing data between connections directly
+ * @brief   Defines a in-out internal port for passing data between connections directly
  * @version 1.0
  * @date    17.05.2026
  */
 
  
 #include "api/api-sdk.hpp"
-#include "data/port/port-bidirectional.hpp"
+#include "data/port/port-in-out.hpp"
 
 
 namespace adam 
 {
     /**
      * @class port_internal
-     * @brief Defines a bidirectional internal port for passing data between connections directly
+     * @brief Defines an InOut internal port for passing data between connections directly
      */
-    class ADAM_SDK_API port_internal : public port_bidirectional
+    class ADAM_SDK_API port_internal : public port_in_out
     {
     public:
 
