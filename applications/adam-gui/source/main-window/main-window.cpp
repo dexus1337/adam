@@ -225,8 +225,9 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::lbl_processor_type),          { "Type", "Typ" } },
             { static_cast<int>(gui_string_id::lbl_filter),                  { "Filter", "Filter" } },
             { static_cast<int>(gui_string_id::lbl_converter),               { "Converter", "Konverter" } },
-            { static_cast<int>(gui_string_id::lbl_existing_ports),          { "Already Existing Ports", "Bereits existierende Ports" } },
-            { static_cast<int>(gui_string_id::lbl_new_ports),               { "Create new Port", "Neuen Port erstellen" } }
+            { static_cast<int>(gui_string_id::lbl_existing_ports),          { "Existing Ports", "Existierende Ports" } },
+            { static_cast<int>(gui_string_id::lbl_new_ports),               { "Create new Port", "Neuen Port erstellen" } },
+            { static_cast<int>(gui_string_id::tt_module_missing),           { "Module '%s' is missing or not loaded.", "Modul '%s' fehlt oder ist nicht geladen." } }
         };
 
         auto val = static_cast<int>(id);

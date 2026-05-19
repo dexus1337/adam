@@ -87,6 +87,7 @@ namespace adam::gui
             adam::string_hashed::hash_datatype port_hash;
             adam::port_direction direction;
             std::string type_name;
+            bool is_unavailable = false;
         };
 
         static std::map<std::string, std::vector<port_display_info>> existing_grouped;
@@ -161,6 +162,7 @@ namespace adam::gui
                         }
                         pdi.port_hash = p.name_hash;
                         pdi.direction = p.direction;
+                        pdi.is_unavailable = false;
 
                         known_port_types[p.name_hash] = pdi;
 
@@ -182,6 +184,7 @@ namespace adam::gui
                     pdi.type_name = "internal";
                     pdi.port_hash = adam::string_hashed("internal").get_hash();
                     pdi.direction = adam::port_direction::in_out;
+                    pdi.is_unavailable = false;
 
                     if (target_direction == adam::port_direction::none || (pdi.direction & target_direction) != adam::port_direction::none)
                     {
@@ -196,6 +199,7 @@ namespace adam::gui
                     pdi.port_name = p_view->name.c_str();
                     pdi.port_hash = p_hash;
                     pdi.direction = p_view->direction;
+                    pdi.is_unavailable = p_view->is_unavailable;
 
                     auto type_it = known_port_types.find(p_view->type.get_hash());
                     if (type_it != known_port_types.end())
@@ -285,7 +289,7 @@ namespace adam::gui
 
                             ImGui::TableNextRow();
                             
-                            if (is_used)
+                            if (is_used || pdi.is_unavailable)
                             {
                                 ImGui::BeginDisabled();
                             }
@@ -344,9 +348,13 @@ namespace adam::gui
                                 ctrl.get_commander().request_connection_port_add(target_connection.get_hash(), pdi.port_hash, target_direction == adam::port_direction::input);
                                 ImGui::CloseCurrentPopup();
                             }
+                            if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                            {
+                                ImGui::SetTooltip(get_gui_string(gui_string_id::tt_module_missing, lang), pdi.module_name.c_str());
+                            }
                             ImGui::PopID();
                             
-                            if (is_used)
+                            if (is_used || pdi.is_unavailable)
                             {
                                 ImGui::EndDisabled();
                             }
@@ -728,7 +736,7 @@ namespace adam::gui
                     float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
                     float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
                     
-                    auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out)
+                    auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr)
                     {
                         float current_node_w = (stage == 0 || stage == total_stages - 1) ? port_w : proc_w;
                         float node_x;
@@ -763,6 +771,13 @@ namespace adam::gui
                             draw_list->AddCircleFilled(out_pin_in, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
                         if (stage < total_stages - 1)
                             draw_list->AddCircleFilled(out_pin_out, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
+                            
+                        if (is_unavail && ImGui::IsMouseHoveringRect(p_min, p_max))
+                        {
+                            ImGui::BeginTooltip();
+                            ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), unavail_module ? unavail_module : "Unknown");
+                            ImGui::EndTooltip();
+                        }
                     };
 
                     // Speed Optimization
@@ -789,7 +804,15 @@ namespace adam::gui
                     {
                         ImVec2 p_in, p_out;
                         auto it = ports.find(pid);
-                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, in_col, p_in, p_out);
+                        bool is_unavail = (it != ports.end() && it->second->is_unavailable);
+                        ImColor col = in_col;
+                        if (is_unavail) col.Value.w *= 0.4f;
+
+                        const char* mod_name = "Unknown";
+                        if (is_unavail && it->second->type_module.get_hash() != 0)
+                            mod_name = it->second->type_module.c_str();
+
+                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, col, p_in, p_out, is_unavail, mod_name);
                         stage_pins_out[0].push_back(p_out);
                         row_val += 1.0f;
                     }
@@ -841,7 +864,15 @@ namespace adam::gui
                     {
                         ImVec2 p_in, p_out;
                         auto it = ports.find(pid);
-                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, out_col, p_in, p_out);
+                        bool is_unavail = (it != ports.end() && it->second->is_unavailable);
+                        ImColor col = out_col;
+                        if (is_unavail) col.Value.w *= 0.4f;
+
+                        const char* mod_name = "Unknown";
+                        if (is_unavail && it->second->type_module.get_hash() != 0)
+                            mod_name = it->second->type_module.c_str();
+
+                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, col, p_in, p_out, is_unavail, mod_name);
                         stage_pins_in[total_stages - 1].push_back(p_in);
                         row_val += 1.0f;
                     }

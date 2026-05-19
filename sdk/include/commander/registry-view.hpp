@@ -31,8 +31,9 @@ namespace adam
         string_hashed type_module;
         string_hashed datatype;
         string_hashed datatype_module;
-        bool is_active = false;
-        port_direction direction = port_direction::none;
+        bool is_active              = false;
+        bool is_unavailable         = false;
+        port_direction direction    = port_direction::none;
     };
 
     /** @struct filter_view */

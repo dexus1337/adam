@@ -4,11 +4,13 @@
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-reference.hpp"
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
 #include "data/port/port-internal.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
+#include "data/connection.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -259,4 +261,81 @@ TEST_F(registry_test, add_and_remove_module_paths)
             EXPECT_NE(str_param->get_value(), new_path);
         }
     }
+}
+
+/** @brief Tests restoring and syncing of unavailable ports. */
+TEST_F(registry_test, unavailable_port_retry)
+{
+    adam::test::testable_registry reg;
+    
+    // 1. Manually add an unavailable port to the configuration
+    auto upi = std::make_unique<adam::registry::unavailable_port_info>(adam::string_hashed("my_unavail_port"));
+    upi->type = adam::string_hashed("some_missing_type").get_hash();
+    upi->type_module = adam::string_hashed("missing_module").get_hash();
+    
+    auto type_param = std::make_unique<adam::configuration_parameter_string>(adam::string_hashed("type"));
+    type_param->set_value(adam::string_hashed("some_missing_type"));
+    upi->get_parameters().add(std::move(type_param));
+    
+    auto mod_param = std::make_unique<adam::configuration_parameter_string>(adam::string_hashed("type_origin_module"));
+    mod_param->set_value(adam::string_hashed("missing_module"));
+    upi->get_parameters().add(std::move(mod_param));
+    
+    reg.unavailable_ports()[adam::string_hashed("my_unavail_port").get_hash()] = std::move(upi);
+    
+    // 2. Add it to a connection
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(reg.create_connection(adam::string_hashed("my_conn"), &conn), adam::registry::status_success);
+    conn->unavailable_inputs().push_back(adam::string_hashed("my_unavail_port"));
+    
+    if (auto* inputs_list = dynamic_cast<adam::configuration_parameter_list*>(conn->get_parameters().get(adam::string_hashed("inputs"))))
+    {
+        auto param = std::make_unique<adam::configuration_parameter_reference>(adam::string_hashed("0"));
+        param->set_target(adam::string_hashed("my_unavail_port"));
+        inputs_list->add(std::move(param));
+    }
+    
+    // 3. Save and reload to ensure it persists
+    EXPECT_TRUE(reg.save(test_filepath));
+    
+    adam::test::testable_registry loaded_reg;
+    EXPECT_TRUE(loaded_reg.load(test_filepath));
+    
+    EXPECT_TRUE(loaded_reg.get_unavailable_ports().contains(adam::string_hashed("my_unavail_port").get_hash()));
+    EXPECT_EQ(loaded_reg.connections().at(adam::string_hashed("my_conn").get_hash())->unavailable_inputs().size(), 1u);
+    EXPECT_EQ(loaded_reg.ports().size(), 0u);
+    
+    // 4. Now let's pretend the module "missing_module" is loaded.
+    // We clear the unavailable ports and insert a valid internal port mock to test the retry mechanism natively
+    loaded_reg.unavailable_ports().clear();
+    auto upi3 = std::make_unique<adam::registry::unavailable_port_info>(adam::string_hashed("test_retry_port"));
+    upi3->type = adam::port_internal::type_name.get_hash();
+    upi3->type_module = 0; 
+    
+    auto type_param3 = std::make_unique<adam::configuration_parameter_string>(adam::string_hashed("type"));
+    type_param3->set_value(adam::port_internal::type_name);
+    upi3->get_parameters().add(std::move(type_param3));
+    
+    loaded_reg.unavailable_ports()[adam::string_hashed("test_retry_port").get_hash()] = std::move(upi3);
+    
+    loaded_reg.connections().at(adam::string_hashed("my_conn").get_hash())->unavailable_inputs()[0] = adam::string_hashed("test_retry_port");
+    
+    loaded_reg.retry_unavailable_ports(0);
+    
+    // Check if it's now available
+    EXPECT_TRUE(loaded_reg.get_unavailable_ports().empty());
+    EXPECT_EQ(loaded_reg.ports().size(), 1u);
+    EXPECT_TRUE(loaded_reg.ports().contains(adam::string_hashed("test_retry_port").get_hash()));
+    
+    auto* loaded_conn = loaded_reg.connections().at(adam::string_hashed("my_conn").get_hash()).get();
+    EXPECT_EQ(loaded_conn->unavailable_inputs().size(), 0u);
+    
+    loaded_conn->ports_input().iterate([&](const auto& inputs) 
+    {
+        EXPECT_EQ(inputs.size(), 1u);
+        if (!inputs.empty())
+        {
+            EXPECT_EQ(inputs[0]->get_name(), adam::string_hashed("test_retry_port"));
+        }
+    });
 }

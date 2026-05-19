@@ -14,12 +14,14 @@
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "configuration/parameters/configuration-parameter-reference.hpp"
+#include "commander/messages/event.hpp"
 
 #include <fstream>
 #include <string>
 #include <stdexcept>
 #include <array>
 #include <cstdlib>
+#include <algorithm>
 
 namespace adam
 {
@@ -98,6 +100,7 @@ namespace adam
         m_filters.clear();
         m_converters.clear();
         m_connections.clear();
+        m_unavailable_ports.clear();
     }
 
     registry::status registry::create_port(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype type_module, string_hashed::hash_datatype format, string_hashed::hash_datatype format_module, port** out_port)
@@ -291,6 +294,93 @@ namespace adam
         return status_success;
     }
 
+    void registry::copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source)
+    {
+        if (!target || !source) return;
+        for (auto& [name, param] : source->get_children()) 
+        {
+            if (auto* existing = target->get(name)) 
+            {
+                if (existing->get_type() == param->get_type())
+                {
+                    switch (existing->get_type())
+                    {
+                        case configuration_parameter::boolean:
+                            static_cast<configuration_parameter_boolean*>(existing)->set_value(static_cast<configuration_parameter_boolean*>(param.get())->get_value());
+                            break;
+                        case configuration_parameter::integer:
+                            static_cast<configuration_parameter_integer*>(existing)->set_value(static_cast<configuration_parameter_integer*>(param.get())->get_value());
+                            break;
+                        case configuration_parameter::double_:
+                            static_cast<configuration_parameter_double*>(existing)->set_value(static_cast<configuration_parameter_double*>(param.get())->get_value());
+                            break;
+                        case configuration_parameter::string:
+                            static_cast<configuration_parameter_string*>(existing)->set_value(static_cast<configuration_parameter_string*>(param.get())->get_value());
+                            break;
+                        case configuration_parameter::list:
+                            copy_parameters(static_cast<configuration_parameter_list*>(existing), static_cast<configuration_parameter_list*>(param.get()));
+                            break;
+                        case configuration_parameter::reference:
+                            static_cast<configuration_parameter_reference*>(existing)->set_target(static_cast<configuration_parameter_reference*>(param.get())->get_target());
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                switch (param->get_type())
+                {
+                    case configuration_parameter::boolean:
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_boolean>(param->get_name());
+                        new_param->set_value(static_cast<configuration_parameter_boolean*>(param.get())->get_value());
+                        target->add(std::move(new_param));
+                        break;
+                    }
+                    case configuration_parameter::integer:
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_integer>(param->get_name());
+                        new_param->set_value(static_cast<configuration_parameter_integer*>(param.get())->get_value());
+                        target->add(std::move(new_param));
+                        break;
+                    }
+                    case configuration_parameter::double_:
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_double>(param->get_name());
+                        new_param->set_value(static_cast<configuration_parameter_double*>(param.get())->get_value());
+                        target->add(std::move(new_param));
+                        break;
+                    }
+                    case configuration_parameter::string:
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_string>(param->get_name());
+                        new_param->set_value(static_cast<configuration_parameter_string*>(param.get())->get_value());
+                        target->add(std::move(new_param));
+                        break;
+                    }
+                    case configuration_parameter::list:
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_list>(param->get_name());
+                        copy_parameters(new_param.get(), static_cast<configuration_parameter_list*>(param.get()));
+                        target->add(std::move(new_param));
+                        break;
+                    }
+                    case configuration_parameter::reference:
+                    {
+                        auto new_param = std::make_unique<configuration_parameter_reference>(param->get_name());
+                        new_param->set_target(static_cast<configuration_parameter_reference*>(param.get())->get_target());
+                        target->add(std::move(new_param));
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
     bool registry::save(string_hashed::view filepath) const 
     {
         std::ofstream ofs(std::string(filepath), std::ios::binary);
@@ -325,8 +415,26 @@ namespace adam
                 if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
         };
 
-        // 2-5. Save grouped configuration items
-        serialize_group("ports", m_ports);
+        // 2. Save ports (combining available and unavailable)
+        {
+            configuration_parameter::write_binary(ofs, configuration_parameter::list);
+            configuration_parameter::write_string(ofs, "ports");
+            
+            uint32_t count = static_cast<uint32_t>(m_ports.size() + m_unavailable_ports.size());
+            configuration_parameter::write_binary(ofs, count);
+
+            for (const auto& [name, item] : m_ports)
+            {
+                if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
+            }
+                
+            for (const auto& [name, item] : m_unavailable_ports)
+            {
+                if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
+            }
+        }
+
+        // 3-5. Save grouped configuration items
         serialize_group("filters", m_filters);
         serialize_group("converters", m_converters);
         serialize_group("connections", m_connections);
@@ -375,99 +483,12 @@ namespace adam
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
 
-        auto copy_parameters = [](auto& self, configuration_parameter_list* target, configuration_parameter_list* source) -> void 
-        {
-            if (!target || !source) return;
-            for (auto& [name, param] : source->get_children()) 
-            {
-                if (auto* existing = target->get(name)) 
-                {
-                    if (existing->get_type() == param->get_type())
-                    {
-                        switch (existing->get_type())
-                        {
-                            case configuration_parameter::boolean:
-                                static_cast<configuration_parameter_boolean*>(existing)->set_value(static_cast<configuration_parameter_boolean*>(param.get())->get_value());
-                                break;
-                            case configuration_parameter::integer:
-                                static_cast<configuration_parameter_integer*>(existing)->set_value(static_cast<configuration_parameter_integer*>(param.get())->get_value());
-                                break;
-                            case configuration_parameter::double_:
-                                static_cast<configuration_parameter_double*>(existing)->set_value(static_cast<configuration_parameter_double*>(param.get())->get_value());
-                                break;
-                            case configuration_parameter::string:
-                                static_cast<configuration_parameter_string*>(existing)->set_value(static_cast<configuration_parameter_string*>(param.get())->get_value());
-                                break;
-                            case configuration_parameter::list:
-                                self(self, static_cast<configuration_parameter_list*>(existing), static_cast<configuration_parameter_list*>(param.get()));
-                                break;
-                            case configuration_parameter::reference:
-                                static_cast<configuration_parameter_reference*>(existing)->set_target(static_cast<configuration_parameter_reference*>(param.get())->get_target());
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-                else
-                {
-                    switch (param->get_type())
-                    {
-                        case configuration_parameter::boolean:
-                        {
-                            auto new_param = std::make_unique<configuration_parameter_boolean>(param->get_name());
-                            new_param->set_value(static_cast<configuration_parameter_boolean*>(param.get())->get_value());
-                            target->add(std::move(new_param));
-                            break;
-                        }
-                        case configuration_parameter::integer:
-                        {
-                            auto new_param = std::make_unique<configuration_parameter_integer>(param->get_name());
-                            new_param->set_value(static_cast<configuration_parameter_integer*>(param.get())->get_value());
-                            target->add(std::move(new_param));
-                            break;
-                        }
-                        case configuration_parameter::double_:
-                        {
-                            auto new_param = std::make_unique<configuration_parameter_double>(param->get_name());
-                            new_param->set_value(static_cast<configuration_parameter_double*>(param.get())->get_value());
-                            target->add(std::move(new_param));
-                            break;
-                        }
-                        case configuration_parameter::string:
-                        {
-                            auto new_param = std::make_unique<configuration_parameter_string>(param->get_name());
-                            new_param->set_value(static_cast<configuration_parameter_string*>(param.get())->get_value());
-                            target->add(std::move(new_param));
-                            break;
-                        }
-                        case configuration_parameter::list:
-                        {
-                            auto new_param = std::make_unique<configuration_parameter_list>(param->get_name());
-                            self(self, new_param.get(), static_cast<configuration_parameter_list*>(param.get()));
-                            target->add(std::move(new_param));
-                            break;
-                        }
-                        case configuration_parameter::reference:
-                        {
-                            auto new_param = std::make_unique<configuration_parameter_reference>(param->get_name());
-                            new_param->set_target(static_cast<configuration_parameter_reference*>(param.get())->get_target());
-                            target->add(std::move(new_param));
-                            break;
-                        }
-                        default:
-                            break;
-                    }
-                }
-            }
-        };
-
         // 1. Restore general settings
         if (auto* general_mock_param = root_list->get("general"_ct))
         {
             if (general_mock_param->get_type() == configuration_parameter::list)
             {
-                copy_parameters(copy_parameters, &m_parameters, static_cast<configuration_parameter_list*>(general_mock_param));
+                copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(general_mock_param));
             }
         }
 
@@ -514,7 +535,15 @@ namespace adam
                             status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), 0, 0, &new_port);
                             if (status == status_success && new_port)
                             {
-                                copy_parameters(copy_parameters, &new_port->get_parameters(), port_params);
+                                copy_parameters(&new_port->get_parameters(), port_params);
+                            }
+                            else if (status == status_error_module_not_found || status == status_error_factory_not_found)
+                            {
+                                auto upi = std::make_unique<unavailable_port_info>(port_name);
+                                upi->type = port_type.get_hash();
+                                upi->type_module = module_name.empty() ? 0 : module_name.get_hash();
+                                copy_parameters(&upi->get_parameters(), port_params);
+                                m_unavailable_ports[port_name.get_hash()] = std::move(upi);
                             }
                         }
                     }
@@ -537,7 +566,7 @@ namespace adam
                         status status = create_connection(conn_name, &new_conn);
                         if (status == status_success && new_conn)
                         {
-                            copy_parameters(copy_parameters, &new_conn->get_parameters(), conn_params);
+                            copy_parameters(&new_conn->get_parameters(), conn_params);
 
                             if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("inputs"_ct)))
                             {
@@ -545,9 +574,16 @@ namespace adam
                                 {
                                     if (auto* param = dynamic_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i)))))
                                     {
-                                        auto port_it = m_ports.find(param->get_target().get_hash());
+                                        auto port_hash = param->get_target().get_hash();
+                                        auto port_it = m_ports.find(port_hash);
                                         if (port_it != m_ports.end())
+                                        {
                                             new_conn->ports_input().push_back(port_it->second.get());
+                                        }
+                                        else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
+                                        {
+                                            new_conn->unavailable_inputs().push_back(param->get_target());
+                                        }
                                     }
                                 }
                             }
@@ -558,9 +594,16 @@ namespace adam
                                 {
                                     if (auto* param = dynamic_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i)))))
                                     {
-                                        auto port_it = m_ports.find(param->get_target().get_hash());
+                                        auto port_hash = param->get_target().get_hash();
+                                        auto port_it = m_ports.find(port_hash);
                                         if (port_it != m_ports.end())
+                                        {
                                             new_conn->ports_output().push_back(port_it->second.get());
+                                        }
+                                        else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
+                                        {
+                                            new_conn->unavailable_outputs().push_back(param->get_target());
+                                        }
                                     }
                                 }
                             }
@@ -572,6 +615,60 @@ namespace adam
         
 
         return ifs.good();
+    }
+
+    void registry::retry_unavailable_ports(string_hashed::hash_datatype module_hash)
+    {
+        for (auto it = m_unavailable_ports.begin(); it != m_unavailable_ports.end();)
+        {
+            if (it->second->type_module == module_hash || it->second->type_module == 0)
+            {
+                port* new_port = nullptr;
+                status stat = create_port(it->second->get_name(), it->second->type, it->second->type_module, it->second->format, it->second->format_module, &new_port);
+                
+                if (stat == status_success && new_port)
+                {
+                    copy_parameters(&new_port->get_parameters(), &it->second->get_parameters());
+                    
+                    for (auto& [conn_hash, conn] : m_connections)
+                    {
+                        auto& unavail_in = conn->unavailable_inputs();
+                        auto in_it = std::find_if(unavail_in.begin(), unavail_in.end(), [&](const string_hashed& sh) 
+                        {
+                            return sh.get_hash() == it->first; 
+                        });
+                        
+                        if (in_it != unavail_in.end())
+                        {
+                            conn->ports_input().push_back(new_port);
+                            unavail_in.erase(in_it);
+                        }
+
+                        auto& unavail_out = conn->unavailable_outputs();
+                        auto out_it = std::find_if(unavail_out.begin(), unavail_out.end(), [&](const string_hashed& sh) 
+                        {
+                            return sh.get_hash() == it->first; 
+                        });
+                        
+                        if (out_it != unavail_out.end())
+                        {
+                            conn->ports_output().push_back(new_port);
+                            unavail_out.erase(out_it);
+                        }
+                    }
+                    
+                    event evt(event_type::port_created);
+                    auto* evt_data = evt.data_as<port::basic_info>();
+                    evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, it->second->format, it->second->format_module, false);
+                    evt_data->direction = new_port->get_direction();
+                    m_controller.broadcast_event(evt);
+                    
+                    it = m_unavailable_ports.erase(it);
+                    continue;
+                }
+            }
+            ++it;
+        }
     }
 
     configuration_parameter_list* registry::get_module_paths() const

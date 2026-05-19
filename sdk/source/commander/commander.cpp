@@ -221,6 +221,7 @@ namespace adam
             auto pview = std::make_unique<port_view>();
             pview->name = string_hashed(&port_info->name[0]);
             pview->direction = port_info->direction;
+            pview->is_unavailable = port_info->is_unavailable;
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
             m_module_view.extract_datatype_and_module(port_info->format, port_info->format_module, pview->datatype, pview->datatype_module);

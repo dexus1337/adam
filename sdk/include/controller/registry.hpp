@@ -67,6 +67,20 @@ namespace adam
         using filter_factory_map    = std::unordered_map<string_hashed::hash_datatype, const factory<filter>*>;        /**< A map of factories for creating filters provided by a module. */
         using converter_factory_map = std::unordered_map<string_hashed::hash_datatype, const factory<converter>*>;     /**< A map of factories for creating converters provided by a module. */
 
+        struct unavailable_port_info : public configuration_item
+        {
+            string_hashed::hash_datatype type;
+            string_hashed::hash_datatype type_module;
+            string_hashed::hash_datatype format;
+            string_hashed::hash_datatype format_module;
+
+            unavailable_port_info(const string_hashed& item_name)
+                : configuration_item(item_name), type(0), type_module(0), format(0), format_module(0)
+            {
+            }
+        };
+        using unavailable_port_map = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<unavailable_port_info>>;
+
         /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
         registry(const registry&) = delete;
         registry& operator=(const registry&) = delete;
@@ -76,6 +90,10 @@ namespace adam
         filter_map&     filters()       { return m_filters; }
         converter_map&  converters()    { return m_converters; }
         connection_map& connections()   { return m_connections; }
+
+        /** @brief Retrieves the unavailable port map. */
+        unavailable_port_map&       unavailable_ports()       { return m_unavailable_ports; }
+        const unavailable_port_map& get_unavailable_ports() const { return m_unavailable_ports; }
 
         /** @brief Retrieves the module manager. */
         registry_module_manager&       modules()       { return m_modules; }
@@ -117,6 +135,12 @@ namespace adam
         /** @brief Removes a module path from the configuration. */
         bool remove_module_path(uint32_t index);
 
+        /** @brief Tries to create and restore any unavailable ports that belong to the newly loaded module. */
+        void retry_unavailable_ports(string_hashed::hash_datatype module_hash);
+
+        /** @brief Deep copies a list of configuration parameters. */
+        static void copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source);
+
     protected:
 
         /** @brief Constructs a new registry object. */
@@ -129,6 +153,8 @@ namespace adam
         filter_map          m_filters;              /**< The list of configuration parameters for filters. */
         converter_map       m_converters;           /**< The list of configuration parameters for converters. */
         connection_map      m_connections;          /**< The list of configuration parameters for connections. */
+
+        unavailable_port_map m_unavailable_ports;   /**< The list of ports that failed to load because their module was missing. */
 
         port_factory_map    m_default_port_factory; /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
 

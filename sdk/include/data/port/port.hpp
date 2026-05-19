@@ -63,14 +63,16 @@ namespace adam
             port_direction direction;
             string_hashed::hash_datatype format;
             string_hashed::hash_datatype format_module;
+            bool is_unavailable;
 
-            void setup(const string_hashed& n, string_hashed::hash_datatype t, string_hashed::hash_datatype tm, string_hashed::hash_datatype f = 0, string_hashed::hash_datatype fm = 0)
+            void setup(const string_hashed& n, string_hashed::hash_datatype t, string_hashed::hash_datatype tm, string_hashed::hash_datatype f = 0, string_hashed::hash_datatype fm = 0, bool unavail = false)
             {
                 type = t;
                 type_module = tm;
                 direction = port_direction::none;
                 format = f;
                 format_module = fm;
+                is_unavailable = unavail;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
             }

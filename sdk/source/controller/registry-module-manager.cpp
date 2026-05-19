@@ -331,6 +331,8 @@ namespace adam
             m_controller.broadcast_event(evt);
         }
 
+        m_controller.get_registry().retry_unavailable_ports(mod->get_name().get_hash());
+
         m_available_modules.erase(it);
 
         return true;

@@ -16,8 +16,11 @@ namespace adam
     
     bool port_input::handle_data(buffer* buffer)
     {
-        bool result = true;
+        bool result = port::handle_data(buffer);
 
+        if (!result)
+            return false;
+            
         // Send data to connections
         m_connections.iterate([&](const auto& connections) 
         {

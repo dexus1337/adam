@@ -129,7 +129,7 @@ namespace adam
                 }
             }
             
-            data->conn_info.ports       = static_cast<uint32_t>(ctx.reg.ports().size());
+            data->conn_info.ports       = static_cast<uint32_t>(ctx.reg.ports().size() + ctx.reg.get_unavailable_ports().size());
             data->conn_info.processors  = static_cast<uint32_t>(ctx.reg.filters().size() + ctx.reg.converters().size());
             data->conn_info.connections = static_cast<uint32_t>(ctx.reg.connections().size());
 
@@ -152,6 +152,20 @@ namespace adam
                 port_info->format_module = 0;
                 
                 port_info->direction = prt->get_direction();
+                port_info->is_unavailable = false;
+
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
+
+            for (const auto& [hash, upi] : ctx.reg.get_unavailable_ports())
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* port_info = ctx.responses[resp_idx].data_as<port::basic_info>();
+                
+                port_info->setup(upi->get_name(), upi->type, upi->type_module, upi->format, upi->format_module, true);
 
                 resp_idx++;
 
@@ -171,10 +185,12 @@ namespace adam
                 
                 conn->ports_input().iterate([&](const auto& inputs) 
                 {
-                    conn_info->input_count = static_cast<uint16_t>(std::min(inputs.size(), static_cast<size_t>(connection::basic_info::default_type_count)));
-                    for (size_t i = 0; i < conn_info->input_count; ++i)
-                        conn_info->inputs[i] = inputs[i]->get_name().get_hash();
+                    for (size_t i = 0; i < inputs.size() && conn_info->input_count < connection::basic_info::default_type_count; ++i)
+                        conn_info->inputs[conn_info->input_count++] = inputs[i]->get_name().get_hash();
                 });
+                
+                for (size_t i = 0; i < conn->unavailable_inputs().size() && conn_info->input_count < connection::basic_info::default_type_count; ++i)
+                    conn_info->inputs[conn_info->input_count++] = conn->unavailable_inputs()[i].get_hash();
 
                 conn->processors().iterate([&](const auto& procs) 
                 {
@@ -185,10 +201,12 @@ namespace adam
 
                 conn->ports_output().iterate([&](const auto& outputs) 
                 {
-                    conn_info->output_count = static_cast<uint16_t>(std::min(outputs.size(), static_cast<size_t>(connection::basic_info::default_type_count)));
-                    for (size_t i = 0; i < conn_info->output_count; ++i)
-                        conn_info->outputs[i] = outputs[i]->get_name().get_hash();
+                    for (size_t i = 0; i < outputs.size() && conn_info->output_count < connection::basic_info::default_type_count; ++i)
+                        conn_info->outputs[conn_info->output_count++] = outputs[i]->get_name().get_hash();
                 });
+
+                for (size_t i = 0; i < conn->unavailable_outputs().size() && conn_info->output_count < connection::basic_info::default_type_count; ++i)
+                    conn_info->outputs[conn_info->output_count++] = conn->unavailable_outputs()[i].get_hash();
 
                 resp_idx++;
 

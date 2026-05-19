@@ -68,6 +68,9 @@ namespace adam
         vector_double_buffer<port*>&            ports_input()   { return m_ports_input; }
         vector_double_buffer<data_processor*>&  processors()    { return m_processors; }
         vector_double_buffer<port*>&            ports_output()  { return m_ports_output; }
+        
+        std::vector<string_hashed>& unavailable_inputs()        { return m_unavailable_inputs; }
+        std::vector<string_hashed>& unavailable_outputs()       { return m_unavailable_outputs; }
 
         /** @brief Data input routine. Data arrives here, gets passed through processors and then to output ports */
         bool handle_data(buffer* buffer);
@@ -83,6 +86,8 @@ namespace adam
         vector_double_buffer<port*>           m_ports_input;
         vector_double_buffer<data_processor*> m_processors;
         vector_double_buffer<port*>           m_ports_output;
+        std::vector<string_hashed>            m_unavailable_inputs;
+        std::vector<string_hashed>            m_unavailable_outputs;
 
     };
 }

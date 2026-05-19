@@ -7,6 +7,7 @@
 #include <version/version.hpp>
 #include <module/module.hpp>
 #include <data/connection.hpp>
+#include <data/port/port.hpp>
 #include <algorithm>
 
 class commander_test : public ::testing::Test
@@ -14,6 +15,8 @@ class commander_test : public ::testing::Test
 protected:
     void SetUp() override
     {
+        // Ensure a completely clean state for the controller's registry across tests
+        adam::controller::get().get_registry().clear();
         // Boot the controller asynchronously before each test
         adam::controller::get().run(true);
     }
@@ -370,3 +373,52 @@ TEST_F(commander_test, shutdown_event_flow)
     EXPECT_FALSE(cmdr.is_active());
     EXPECT_TRUE(cmdr.destroy());
 }*/
+
+/** @brief Tests synchronization of an unavailable port changing its state after module load. */
+TEST_F(commander_test, sync_unavailable_port)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    // Setup an unavailable port in the controller's registry
+    auto upi = std::make_unique<adam::registry::unavailable_port_info>(adam::string_hashed("cmd_unavail_port"));
+    upi->type = adam::string_hashed("some_type").get_hash();
+    upi->type_module = adam::string_hashed("missing_mod").get_hash();
+    ctrl.get_registry().unavailable_ports()[adam::string_hashed("cmd_unavail_port").get_hash()] = std::move(upi);
+    
+    adam::connection* conn = nullptr;
+    ctrl.get_registry().create_connection(adam::string_hashed("cmd_conn"), &conn);
+    conn->unavailable_inputs().push_back(adam::string_hashed("cmd_unavail_port"));
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    // Verify it's in the registry view as unavailable
+    const auto& ports = cmdr.get_registry().get_ports();
+    EXPECT_EQ(ports.size(), 1u);
+    
+    auto port_hash = adam::string_hashed("cmd_unavail_port").get_hash();
+    EXPECT_TRUE(ports.contains(port_hash));
+    EXPECT_TRUE(ports.at(port_hash)->is_unavailable);
+    
+    const auto& conns = cmdr.get_registry().get_connections();
+    EXPECT_EQ(conns.size(), 1u);
+    EXPECT_EQ(conns.at(adam::string_hashed("cmd_conn").get_hash())->inputs.size(), 1u);
+    EXPECT_EQ(conns.at(adam::string_hashed("cmd_conn").get_hash())->inputs[0], port_hash);
+
+    // Trigger retry by broadcasting a port_created event
+    adam::event evt(adam::event_type::port_created);
+    auto* evt_data = evt.data_as<adam::port::basic_info>();
+    evt_data->setup(adam::string_hashed("cmd_unavail_port"), adam::string_hashed("some_type").get_hash(), adam::string_hashed("missing_mod").get_hash(), 0, 0, false);
+    evt_data->direction = adam::port_direction::in_out;
+    ctrl.broadcast_event(evt);
+
+    // Wait for event to clear the is_unavailable flag
+    auto start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_ports().at(port_hash)->is_unavailable && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_FALSE(ports.at(port_hash)->is_unavailable);
+    EXPECT_EQ(ports.at(port_hash)->direction, adam::port_direction::in_out);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
