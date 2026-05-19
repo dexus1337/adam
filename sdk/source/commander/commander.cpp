@@ -239,6 +239,11 @@ namespace adam
             
             auto conn = std::make_unique<connection_view>();
             conn->name = string_hashed(&conn_info->name[0]);
+
+            conn->created = conn_info->created;
+            conn->edited = conn_info->edited;
+            conn->sorting_index = conn_info->sorting_index;
+            conn->color = conn_info->color;
             
             for (size_t j = 0; j < conn_info->input_count; j++)
                 conn->inputs.push_back(conn_info->inputs[j]);
@@ -375,6 +380,24 @@ namespace adam
         data->connection = conn_hash;
         data->port = port_hash;
         data->is_input = is_input;
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_sorting_index_change(string_hashed::hash_datatype hash, uint32_t sorting_index)
+    {
+        command cmd(command_type::connection_sorting_index_change);
+        auto* data = cmd.data_as<messages::connection_property_change_data>();
+        data->connection = hash;
+        data->value = sorting_index;
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_color_change(string_hashed::hash_datatype hash, uint32_t color)
+    {
+        command cmd(command_type::connection_color_change);
+        auto* data = cmd.data_as<messages::connection_property_change_data>();
+        data->connection = hash;
+        data->value = color;
         return send_command(cmd);
     }
 

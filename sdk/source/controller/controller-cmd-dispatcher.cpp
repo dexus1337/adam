@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
 namespace adam
 {
@@ -179,6 +180,15 @@ namespace adam
                 auto* conn_info = ctx.responses[resp_idx].data_as<connection::basic_info>();
                 conn_info->setup(conn->get_name());
                 
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("created"_ct)))
+                    conn_info->created = static_cast<uint64_t>(param->get_value());
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("edited"_ct)))
+                    conn_info->edited = static_cast<uint64_t>(param->get_value());
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("sorting_index"_ct)))
+                    conn_info->sorting_index = static_cast<uint32_t>(param->get_value());
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("color"_ct)))
+                    conn_info->color = static_cast<uint32_t>(param->get_value());
+
                 conn_info->input_count = 0;
                 conn_info->processor_count = 0;
                 conn_info->output_count = 0;
@@ -561,6 +571,80 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(static_cast<int>(command_type::connection_sorting_index_change), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_property_change_data>();
+
+            std::string conn_str;
+            auto it = ctx.reg.connections().find(params->connection);
+            if (it == ctx.reg.connections().end())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            conn_str = it->second->get_name().c_str();
+
+            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("sorting_index"_ct)))
+                param->set_value(params->value);
+            else
+            {
+                auto new_param = std::make_unique<configuration_parameter_integer>("sorting_index"_ct);
+                new_param->set_value(params->value);
+                it->second->get_parameters().add(std::move(new_param));
+            }
+
+            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("edited"_ct)))
+                param->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+            event evt(event_type::connection_sorting_index_changed);
+            auto* evt_data = evt.data_as<messages::connection_property_change_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(static_cast<int>(command_type::connection_color_change), [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_property_change_data>();
+
+            std::string conn_str;
+            auto it = ctx.reg.connections().find(params->connection);
+            if (it == ctx.reg.connections().end())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            conn_str = it->second->get_name().c_str();
+
+            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("color"_ct)))
+                param->set_value(params->value);
+            else
+            {
+                auto new_param = std::make_unique<configuration_parameter_integer>("color"_ct);
+                new_param->set_value(params->value);
+                it->second->get_parameters().add(std::move(new_param));
+            }
+
+            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("edited"_ct)))
+                param->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+            event evt(event_type::connection_color_changed);
+            auto* evt_data = evt.data_as<messages::connection_property_change_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value));
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::inspector_create_data>();
@@ -750,6 +834,22 @@ namespace adam
             {
                 static_cast<int>(log_event::connection_port_add_failed),
                 { "Thread {:d} failed to add port {:d} to connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
+            },
+            {
+                static_cast<int>(log_event::connection_sorting_index_changed),
+                { "Thread {:d} successfully changed sorting index of connection \"{}\" to {:d}.", "Thread {:d} hat den Sortierindex von Verbindung \"{}\" erfolgreich auf {:d} geändert." }
+            },
+            {
+                static_cast<int>(log_event::connection_sorting_index_change_failed),
+                { "Thread {:d} failed to change sorting index of connection {:d}.", "Thread {:d} konnte den Sortierindex von Verbindung {:d} nicht ändern." }
+            },
+            {
+                static_cast<int>(log_event::connection_color_changed),
+                { "Thread {:d} successfully changed color of connection \"{}\" to {:d}.", "Thread {:d} hat die Farbe von Verbindung \"{}\" erfolgreich auf {:d} geändert." }
+            },
+            {
+                static_cast<int>(log_event::connection_color_change_failed),
+                { "Thread {:d} failed to change color of connection {:d}.", "Thread {:d} konnte die Farbe von Verbindung {:d} nicht ändern." }
             }
         };
 

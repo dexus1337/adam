@@ -51,6 +51,8 @@ namespace adam
         connection_rename,
         connection_port_add,
         connection_port_remove,
+        connection_sorting_index_change,
+        connection_color_change,
 
         inspector_create,
         inspector_destroy,

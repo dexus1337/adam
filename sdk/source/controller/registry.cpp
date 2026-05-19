@@ -22,6 +22,7 @@
 #include <array>
 #include <cstdlib>
 #include <algorithm>
+#include <ctime>
 
 namespace adam
 {
@@ -227,6 +228,23 @@ namespace adam
             return status_error_connection_already_exists;
 
         auto new_connection = std::make_unique<connection>(name);
+
+        auto created_param = std::make_unique<configuration_parameter_integer>("created"_ct);
+        created_param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        new_connection->get_parameters().add(std::move(created_param));
+
+        auto edited_param = std::make_unique<configuration_parameter_integer>("edited"_ct);
+        edited_param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        new_connection->get_parameters().add(std::move(edited_param));
+
+        auto sorting_param = std::make_unique<configuration_parameter_integer>("sorting_index"_ct);
+        sorting_param->set_value(static_cast<int64_t>(m_connections.size()));
+        new_connection->get_parameters().add(std::move(sorting_param));
+
+        auto color_param = std::make_unique<configuration_parameter_integer>("color"_ct);
+        color_param->set_value(0xFFFFFF);
+        new_connection->get_parameters().add(std::move(color_param));
+
         if (out_connection) 
             *out_connection = new_connection.get();
         m_connections.emplace(name, std::move(new_connection));
@@ -256,6 +274,10 @@ namespace adam
         m_connections.erase(it);
 
         conn->set_name(new_name);
+        
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("edited"_ct)))
+            param->set_value(static_cast<int64_t>(std::time(nullptr)));
+            
         m_connections.emplace(new_name.get_hash(), std::move(conn));
         return status_success;
     }
@@ -269,6 +291,9 @@ namespace adam
         auto port_it = m_ports.find(port_hash);
         if (port_it == m_ports.end())
             return status_error_port_not_found;
+            
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("edited"_ct)))
+            param->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         if (is_input)
         {

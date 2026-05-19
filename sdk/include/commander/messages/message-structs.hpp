@@ -134,5 +134,12 @@ namespace adam
             bool is_input;
         };
         static_assert(sizeof(connection_port_add_data) <= command::get_max_data_length(), "connection_port_add_data exceeds maximum command data size");
+        
+        struct connection_property_change_data 
+        {
+            string_hashed::hash_datatype connection;
+            uint32_t value;
+        };
+        static_assert(sizeof(connection_property_change_data ) <= command::get_max_data_length(), "connection_property_change_data  exceeds maximum command data size");
     }
 }

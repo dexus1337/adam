@@ -104,6 +104,12 @@ namespace adam
         /** @brief Requests to attach a port to a connection. */
         response_status request_connection_port_add(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input);
 
+        /** @brief Requests to change the sorting index of a connection. */
+        response_status request_connection_sorting_index_change(string_hashed::hash_datatype hash, uint32_t sorting_index);
+
+        /** @brief Requests to change the color of a connection. */
+        response_status request_connection_color_change(string_hashed::hash_datatype hash, uint32_t color);
+
         /** @brief Requests the creation of a data inspector on a specific port. */
         response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
 

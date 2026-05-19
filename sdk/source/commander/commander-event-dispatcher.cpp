@@ -217,6 +217,10 @@ namespace adam
             auto* info = e.get_data_as<connection::basic_info>();
             auto view = std::make_unique<connection_view>();
             view->name = string_hashed(info->name);
+            view->created = info->created;
+            view->edited = info->edited;
+            view->sorting_index = info->sorting_index;
+            view->color = info->color;
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             ctx.cmdr.registry().connections()[view->name.get_hash()] = std::move(view);
         });
@@ -271,6 +275,28 @@ namespace adam
                     it->second->inputs.push_back(data->port);
                 else
                     it->second->outputs.push_back(data->port);
+            }
+        });
+
+        register_handler(static_cast<int>(event_type::connection_sorting_index_changed), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::connection_property_change_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                it->second->sorting_index = data->value;
+            }
+        });
+
+        register_handler(static_cast<int>(event_type::connection_color_changed), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::connection_property_change_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                it->second->color = data->value;
             }
         });
     }

@@ -49,7 +49,8 @@ namespace adam
         connection_renamed,
         connection_port_added,
         connection_port_removed,
-
+        connection_sorting_index_changed,
+        connection_color_changed,
 
         shutdown
     };

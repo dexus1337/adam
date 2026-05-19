@@ -114,7 +114,16 @@ namespace adam::gui
         lbl_converter,
         lbl_existing_ports,
         lbl_new_ports,
-        tt_module_missing
+        tt_module_missing,
+        lbl_sort_by,
+        sort_name_asc,
+        sort_name_desc,
+        sort_date_asc,
+        sort_date_desc,
+        sort_edited_asc,
+        sort_edited_desc,
+        sort_custom,
+        lbl_move_connection
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

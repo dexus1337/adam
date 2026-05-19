@@ -36,19 +36,27 @@ namespace adam
         {
             char name[max_name_length];
 
+            uint64_t created;
+            uint64_t edited;
+            uint32_t sorting_index;
+            uint32_t color;
+
             void setup(const string_hashed& n)
             {
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
+
+                created = 0;
+                edited = 0;
+                sorting_index = 0;
+                color = 0;
             }
 
             uint16_t input_count;
             uint16_t processor_count;
             uint16_t output_count;
 
-            // TODO: add timestamp created, edited, sortingidx, color. ALSO FOR PORTS
-
-            static ADAM_CT size_t default_type_count = ((command::get_max_data_length() - sizeof(name)) / 3) / sizeof(string_hashed::hash_datatype);
+            static ADAM_CT size_t default_type_count = ((command::get_max_data_length() - sizeof(name) - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2 - sizeof(uint16_t) * 3) / 3) / sizeof(string_hashed::hash_datatype);
 
             string_hashed::hash_datatype inputs[default_type_count];
             string_hashed::hash_datatype processors[default_type_count];

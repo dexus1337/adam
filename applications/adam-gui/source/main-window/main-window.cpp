@@ -227,7 +227,16 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::lbl_converter),               { "Converter", "Konverter" } },
             { static_cast<int>(gui_string_id::lbl_existing_ports),          { "Existing Ports", "Existierende Ports" } },
             { static_cast<int>(gui_string_id::lbl_new_ports),               { "Create new Port", "Neuen Port erstellen" } },
-            { static_cast<int>(gui_string_id::tt_module_missing),           { "Module '%s' is missing or not loaded.", "Modul '%s' fehlt oder ist nicht geladen." } }
+            { static_cast<int>(gui_string_id::tt_module_missing),           { "Module '%s' is missing or not loaded.", "Modul '%s' fehlt oder ist nicht geladen." } },
+            { static_cast<int>(gui_string_id::lbl_sort_by),                 { "Sort by:", "Sortieren nach:" } },
+            { static_cast<int>(gui_string_id::sort_name_asc),               { "Name (Ascending)", "Name (aufsteigend)" } },
+            { static_cast<int>(gui_string_id::sort_name_desc),              { "Name (Descending)", "Name (absteigend)" } },
+            { static_cast<int>(gui_string_id::sort_date_asc),               { "Date (Ascending)", "Datum (aufsteigend)" } },
+            { static_cast<int>(gui_string_id::sort_date_desc),              { "Date (Descending)", "Datum (absteigend)" } },
+            { static_cast<int>(gui_string_id::sort_edited_asc),             { "Edited (Ascending)", "Bearbeitet (aufsteigend)" } },
+            { static_cast<int>(gui_string_id::sort_edited_desc),            { "Edited (Descending)", "Bearbeitet (absteigend)" } },
+            { static_cast<int>(gui_string_id::sort_custom),                 { "Custom", "Benutzerdef." } },
+            { static_cast<int>(gui_string_id::lbl_move_connection),         { "Move %s", "%s verschieben" } }
         };
 
         auto val = static_cast<int>(id);
@@ -309,6 +318,8 @@ namespace adam::gui
 
     void main_window::render()
     {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+
         adam::language lang;
         if (m_ctrl.is_commander_active())
         {
@@ -381,13 +392,14 @@ namespace adam::gui
         float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
         float content_avail_y = ImGui::GetWindowHeight() - ImGui::GetCursorPosY() - status_bar_height;
         float log_height_val = static_cast<float>(m_p_log_height->get_value());
-        float max_height = content_avail_y - 100.0f;
-        if (max_height < 100.0f) max_height = 100.0f;
+        float default_space = dpi_scale * 100.f;
+        float max_height = content_avail_y - default_space;
+        if (max_height < default_space) max_height = default_space;
 
         if (m_p_show_log->get_value())
         {
             if (log_height_val > max_height) log_height_val = max_height;
-            if (log_height_val < 100.0f) log_height_val = 100.0f;
+            if (log_height_val < default_space) log_height_val = default_space;
 
             content_avail_y -= log_height_val + ImGui::GetStyle().ItemSpacing.y * 2.0f + 4.0f;
         }
@@ -398,22 +410,46 @@ namespace adam::gui
             {
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_management, lang)))
                 {
-                    render_tab_management(m_ctrl, lang);
+                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
+                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
+                    if (ImGui::BeginChild("##management_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
+                    {
+                        render_tab_management(m_ctrl, lang);
+                    }
+                    ImGui::EndChild();
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_modules, lang)))
                 {
-                    render_tab_modules(m_ctrl, lang, m_module_paths_table_id, m_modules_table_id);
+                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
+                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
+                    if (ImGui::BeginChild("##modules_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
+                    {
+                        render_tab_modules(m_ctrl, lang, m_module_paths_table_id, m_modules_table_id);
+                    }
+                    ImGui::EndChild();
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_information, lang)))
                 {
-                    render_tab_information(m_ctrl, lang);
+                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
+                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
+                    if (ImGui::BeginChild("##information_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
+                    {
+                        render_tab_information(m_ctrl, lang);
+                    }
+                    ImGui::EndChild();
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_configuration, lang)))
                 {
-                    render_tab_configuration(m_ctrl, lang);
+                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
+                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
+                    if (ImGui::BeginChild("##configuration_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
+                    {
+                        render_tab_configuration(m_ctrl, lang);
+                    }
+                    ImGui::EndChild();
                     ImGui::EndTabItem();
                 }
                 ImGui::EndTabBar();
@@ -534,6 +570,8 @@ namespace adam::gui
 
     void main_window::render_log_window(adam::language lang, float& log_height_val, float max_height, float status_bar_height)
     {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+        
         // Visible splitter for vertical resizing
         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
@@ -547,7 +585,7 @@ namespace adam::gui
 
             // Re-apply clamping during drag to prevent getting stuck
             if (log_height_val > max_height) log_height_val = max_height;
-            if (log_height_val < 100.0f) log_height_val = 100.0f;
+            if (log_height_val < 100.0f * dpi_scale) log_height_val = 100.0f * dpi_scale;
 
             m_p_log_height->set_value(static_cast<double>(log_height_val));
         }

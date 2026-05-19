@@ -61,6 +61,11 @@ namespace adam
         std::vector<string_hashed::hash_datatype> filters;
         std::vector<string_hashed::hash_datatype> converters;
         bool is_active = false;
+
+        uint64_t created = 0;
+        uint64_t edited = 0;
+        uint32_t sorting_index = 0;
+        uint32_t color = 0;
     };
 
     /**

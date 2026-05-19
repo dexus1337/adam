@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string>
 #include <map>
+#include "configuration/parameters/configuration-parameter-integer.hpp"
 
 namespace adam::gui 
 {
@@ -613,14 +614,73 @@ namespace adam::gui
         const auto& connections = reg_view.get_connections();
         const auto& ports = reg_view.get_ports();
 
+        adam::configuration_parameter_integer* sort_mode_param = nullptr;
+        if (auto* p = ctrl.get_parameters().get("connection_sort_mode"_ct))
+            sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(p);
+        else
+        {
+            auto new_param = std::make_unique<adam::configuration_parameter_integer>("connection_sort_mode"_ct);
+            new_param->set_value(0);
+            sort_mode_param = new_param.get();
+            ctrl.get_parameters().add(std::move(new_param));
+        }
+
+        int sort_mode = static_cast<int>(sort_mode_param->get_value());
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_sort_by, lang));
+        ImGui::SameLine();
+        const char* sort_options[] = {
+            get_gui_string(gui_string_id::sort_name_asc, lang),
+            get_gui_string(gui_string_id::sort_name_desc, lang),
+            get_gui_string(gui_string_id::sort_date_asc, lang),
+            get_gui_string(gui_string_id::sort_date_desc, lang),
+            get_gui_string(gui_string_id::sort_edited_asc, lang),
+            get_gui_string(gui_string_id::sort_edited_desc, lang),
+            get_gui_string(gui_string_id::sort_custom, lang)
+        };
+        ImGui::SetNextItemWidth(200.0f * dpi_scale);
+        if (ImGui::Combo("##SortMode", &sort_mode, sort_options, IM_ARRAYSIZE(sort_options)))
+        {
+            sort_mode_param->set_value(static_cast<int64_t>(sort_mode));
+        }
+
+        ImGui::Spacing();
+
+        std::vector<std::pair<adam::string_hashed::hash_datatype, adam::connection_view*>> sorted_connections;
+        for (const auto& [hash, conn] : connections)
+            sorted_connections.push_back({hash, conn.get()});
+
+        std::sort(sorted_connections.begin(), sorted_connections.end(), [sort_mode](const auto& a, const auto& b)
+        {
+            if (sort_mode == 0) // Name (Asc)
+                return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
+            else if (sort_mode == 1) // Name (Desc)
+                return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) > 0;
+            else if (sort_mode == 2) // Date (Asc)
+                return a.second->created < b.second->created;
+            else if (sort_mode == 3) // Date (Desc)
+                return a.second->created > b.second->created;
+            else if (sort_mode == 4) // Edited (Asc)
+                return a.second->edited < b.second->edited;
+            else if (sort_mode == 5) // Edited (Desc)
+                return a.second->edited > b.second->edited;
+            else if (sort_mode == 6) // Custom
+                return a.second->sorting_index < b.second->sorting_index;
+            return false;
+        });
+
         // Speed optimization: Reusing vectors instead of allocating per card
         static std::vector<std::vector<ImVec2>> stage_pins_in;
         static std::vector<std::vector<ImVec2>> stage_pins_out;
 
         if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), false))
         {
-            for (const auto& [hash, conn] : connections)
+            for (size_t i = 0; i < sorted_connections.size(); ++i)
             {
+                auto hash = sorted_connections[i].first;
+                auto* conn = sorted_connections[i].second;
+
                 ImGui::PushID(static_cast<int>(hash));
                 
                 ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
@@ -677,7 +737,20 @@ namespace adam::gui
                     }
 
                     ImGui::AlignTextToFramePadding();
-                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
+                    if (sort_mode == 6) // Custom
+                    {
+                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[::] %s", get_gui_string(gui_string_id::lbl_connection, lang));
+                        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+                        {
+                            ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hashed::hash_datatype));
+                            ImGui::Text(get_gui_string(gui_string_id::lbl_move_connection, lang), conn->name.c_str());
+                            ImGui::EndDragDropSource();
+                        }
+                    }
+                    else
+                    {
+                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
+                    }
                     ImGui::SameLine();
 
                     char name_buf[max_name_length];
@@ -711,12 +784,18 @@ namespace adam::gui
 
                     bool is_active = conn->is_active;
                     if (is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_start_str)) { ctrl.get_commander().request_connection_start(conn->name.get_hash()); }
+                    if (ImGui::Button(btn_start_str))
+                    {
+                        ctrl.get_commander().request_connection_start(conn->name.get_hash());
+                    }
                     if (is_active) ImGui::EndDisabled();
                     
                     ImGui::SameLine();
                     if (!is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_stop_str)) { ctrl.get_commander().request_connection_stop(conn->name.get_hash()); }
+                    if (ImGui::Button(btn_stop_str))
+                    {
+                        ctrl.get_commander().request_connection_stop(conn->name.get_hash());
+                    }
                     if (!is_active) ImGui::EndDisabled();
 
                     const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
@@ -724,7 +803,8 @@ namespace adam::gui
                     
                     ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
                     
-                    if (ImGui::Button(btn_delete_str)) { 
+                    if (ImGui::Button(btn_delete_str))
+                    {
                         connection_to_delete = conn->name;
                         request_delete_popup = true;
                     }
@@ -972,6 +1052,71 @@ namespace adam::gui
                     }
                 }
                 ImGui::EndChild();
+
+                if (sort_mode == 6) // Custom
+                {
+                    if (ImGui::BeginDragDropTarget())
+                    {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CONNECTION", ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+                        {
+                            IM_ASSERT(payload->DataSize == sizeof(adam::string_hashed::hash_datatype));
+                            adam::string_hashed::hash_datatype dropped_hash = *(const adam::string_hashed::hash_datatype*)payload->Data;
+                            if (dropped_hash != hash)
+                            {
+                                // To prevent modifying the vector while iterating, we create a new list with the desired order
+                                // and then send all update commands at once.
+                                auto new_order = sorted_connections;
+                                auto it_dragged = std::find_if(new_order.begin(), new_order.end(),
+                                    [dropped_hash](const auto& pair)
+                                    {
+                                        return pair.first == dropped_hash;
+                                    });
+
+                                if (it_dragged != new_order.end())
+                                {
+                                    auto item_to_move = *it_dragged;
+                                    new_order.erase(it_dragged);
+
+                                    auto it_target = std::find_if(new_order.begin(), new_order.end(),
+                                        [hash](const auto& pair)
+                                        {
+                                            return pair.first == hash;
+                                        });
+
+                                    if (it_target != new_order.end())
+                                        new_order.insert(it_target, item_to_move);
+                                    else
+                                        new_order.push_back(item_to_move); // Fallback
+
+                                    for (uint32_t new_idx = 0; new_idx < new_order.size(); ++new_idx)
+                                    {
+                                        if (new_order[new_idx].second->sorting_index != new_idx)
+                                        {
+                                            if (commander_active)
+                                                ctrl.get_commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
+                                            new_order[new_idx].second->sorting_index = new_idx; // Update local view for instant feedback
+                                        }
+                                    }
+                                    // Apply the new order to the current frame's vector for immediate visual update
+                                    sorted_connections = new_order;
+                                }
+                            }
+                        }
+
+                        if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
+                        {
+                            if (payload->IsDataType("DND_CONNECTION"))
+                            {
+                                ImVec2 min = ImGui::GetItemRectMin();
+                                ImVec2 max = ImGui::GetItemRectMax();
+                                ImGui::GetWindowDrawList()->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_DragDropTarget), 8.0f * dpi_scale, 0, 2.0f * dpi_scale);
+                            }
+                        }
+
+                        ImGui::EndDragDropTarget();
+                    }
+                }
+
                 ImGui::PopStyleColor();
                 ImGui::PopStyleVar(2);
                 ImGui::PopID();
