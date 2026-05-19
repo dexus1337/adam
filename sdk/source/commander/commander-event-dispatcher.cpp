@@ -144,6 +144,51 @@ namespace adam
             }
         });
 
+        register_handler(static_cast<int>(event_type::port_available), [](const event& e, event_context& ctx) 
+        {
+            auto* info = e.get_data_as<port::basic_info>();
+            
+            bool found = false;
+            {
+                std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+                auto it = ctx.cmdr.registry().ports().find(string_hashed(info->name).get_hash());
+                if (it != ctx.cmdr.registry().ports().end())
+                {
+                    it->second->is_unavailable = false;
+                    it->second->direction = info->direction;
+                    found = true;
+                }
+            }
+            
+            if (!found)
+            {
+                auto view = std::make_unique<port_view>();
+                view->name = string_hashed(info->name);
+                view->direction = info->direction;
+                view->is_unavailable = false;
+                
+                {
+                    std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                    ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
+                    ctx.cmdr.get_modules().extract_datatype_and_module(info->format, info->format_module, view->datatype, view->datatype_module);
+                }
+                
+                std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+                ctx.cmdr.registry().ports()[view->name.get_hash()] = std::move(view);
+            }
+        });
+
+        register_handler(static_cast<int>(event_type::port_unavailable), [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::port_action_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().ports().find(data->port);
+            if (it != ctx.cmdr.registry().ports().end())
+            {
+                it->second->is_unavailable = true;
+            }
+        });
+
         register_handler(static_cast<int>(event_type::port_destroyed), [](const event& e, event_context& ctx) 
         {
             auto* data = e.get_data_as<messages::port_destroy_data>();

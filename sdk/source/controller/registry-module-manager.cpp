@@ -139,6 +139,8 @@ namespace adam
                 uint32_t version = it->second->get_version();
                 uintptr_t handle = it->second->get_module_handle();
 
+                m_controller.get_registry().mark_ports_unavailable(name.get_hash());
+
                 os::unload_library(reinterpret_cast<void*>(handle));
 
                 it = m_loaded_modules.erase(it);
@@ -352,6 +354,8 @@ namespace adam
             return false;
         }
 
+        m_controller.get_registry().mark_ports_unavailable(name.get_hash());
+
         const module* mod = it->second;
         uint32_t version = mod->get_version();
         string_hashed path_str = mod->get_filepath();
@@ -380,6 +384,7 @@ namespace adam
     {
         for (const auto& [name, mod] : m_loaded_modules)
         {
+            m_controller.get_registry().mark_ports_unavailable(name.get_hash());
             uintptr_t handle = mod->get_module_handle();
             os::unload_library(reinterpret_cast<void*>(handle));
         }

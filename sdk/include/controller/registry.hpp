@@ -138,6 +138,9 @@ namespace adam
         /** @brief Tries to create and restore any unavailable ports that belong to the newly loaded module. */
         void retry_unavailable_ports(string_hashed::hash_datatype module_hash);
 
+        /** @brief Marks ports originating from the given module as unavailable. */
+        void mark_ports_unavailable(string_hashed::hash_datatype module_hash);
+
         /** @brief Deep copies a list of configuration parameters. */
         static void copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source);
 

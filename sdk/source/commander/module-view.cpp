@@ -11,6 +11,13 @@ namespace adam
 {
     void module_view::extract_port_type_and_module(string_hashed::hash_datatype type_hash, string_hashed::hash_datatype module_hash, string_hashed& out_type, string_hashed& out_module) const
     {
+        if (type_hash == string_hashed("internal").get_hash())
+        {
+            out_type = string_hashed("internal");
+            out_module = string_hashed("");
+            return;
+        }
+
         auto it = m_database.find(module_hash);
         if (it != m_database.end())
         {
@@ -29,6 +36,13 @@ namespace adam
 
     void module_view::extract_datatype_and_module(string_hashed::hash_datatype datatype_hash, string_hashed::hash_datatype module_hash, string_hashed& out_datatype, string_hashed& out_module) const
     {
+        if (datatype_hash == string_hashed("transparent").get_hash() || datatype_hash == 0)
+        {
+            out_datatype = string_hashed("transparent");
+            out_module = string_hashed("");
+            return;
+        }
+
         auto it = m_database.find(module_hash);
         if (it != m_database.end())
         {

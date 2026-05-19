@@ -657,7 +657,7 @@ namespace adam
                         }
                     }
                     
-                    event evt(event_type::port_created);
+                    event evt(event_type::port_available);
                     auto* evt_data = evt.data_as<port::basic_info>();
                     evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, it->second->format, it->second->format_module, false);
                     evt_data->direction = new_port->get_direction();
@@ -668,6 +668,82 @@ namespace adam
                 }
             }
             ++it;
+        }
+    }
+
+    void registry::mark_ports_unavailable(string_hashed::hash_datatype module_hash)
+    {
+        for (auto it = m_ports.begin(); it != m_ports.end();)
+        {
+            string_hashed type_module;
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type_origin_module"_ct)))
+            {
+                type_module = mod_param->get_value();
+            }
+
+            if (type_module.get_hash() == module_hash && module_hash != 0)
+            {
+                auto port_hash = it->first;
+                auto port_name = it->second->get_name();
+
+                string_hashed orig_type, orig_format;
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type"_ct)))
+                    orig_type = param->get_value();
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("data_format"_ct)))
+                    orig_format = param->get_value();
+
+                auto upi = std::make_unique<unavailable_port_info>(port_name);
+                upi->type = orig_type.get_hash();
+                upi->type_module = module_hash;
+                upi->format = orig_format.get_hash();
+                upi->format_module = 0;
+                
+                copy_parameters(&upi->get_parameters(), &it->second->get_parameters());
+
+                for (auto& [conn_hash, conn] : m_connections)
+                {
+                    if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn->get_parameters().get("inputs"_ct)))
+                    {
+                        for (const auto& [idx_str, param] : inputs_list->get_children())
+                        {
+                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                            {
+                                if (ref->get_target().get_hash() == port_hash)
+                                {
+                                    conn->ports_input().remove(it->second.get());
+                                    conn->unavailable_inputs().push_back(ref->get_target());
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn->get_parameters().get("outputs"_ct)))
+                    {
+                        for (const auto& [idx_str, param] : outputs_list->get_children())
+                        {
+                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                            {
+                                if (ref->get_target().get_hash() == port_hash)
+                                {
+                                    conn->ports_output().remove(it->second.get());
+                                    conn->unavailable_outputs().push_back(ref->get_target());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                event evt(event_type::port_unavailable);
+                evt.data_as<messages::port_action_data>()->port = port_hash;
+                m_controller.broadcast_event(evt);
+
+                m_unavailable_ports[port_hash] = std::move(upi);
+                it = m_ports.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
         }
     }
 

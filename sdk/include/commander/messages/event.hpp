@@ -38,6 +38,10 @@ namespace adam
         port_started,
         port_stopped,
 
+        port_available,
+        port_unavailable,
+        port_removed,
+
         connection_created,
         connection_destroyed,
         connection_started,

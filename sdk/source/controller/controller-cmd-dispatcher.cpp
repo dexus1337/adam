@@ -144,7 +144,7 @@ namespace adam
                 port_info->type = prt->get_type_name().get_hash();
                 
                 if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct)))
-                    port_info->type_module = mod_param->get_value().get_hash();
+                    port_info->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
                 else
                     port_info->type_module = 0;
                     
