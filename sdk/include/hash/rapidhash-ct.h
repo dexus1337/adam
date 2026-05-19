@@ -55,22 +55,30 @@
  
  #ifdef __cplusplus
  # define RAPIDHASH_CT_NOEXCEPT noexcept
- # define RAPIDHASH_CT_CONSTEVAL consteval
- # ifndef RAPIDHASH_CT_INLINE
- #   define RAPIDHASH_CT_INLINE RAPIDHASH_CT_ALWAYS_INLINE
- # endif
- # if __cplusplus >= 201402L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
- #   define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE consteval
+ # if defined(_MSC_VER) && !defined(__clang__)
+ #   define RAPIDHASH_CT_CONSTEVAL ADAM_CT
  # else
- #   define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE
+ #   define RAPIDHASH_CT_CONSTEVAL consteval
  # endif
+  # ifndef RAPIDHASH_CT_INLINE
+  #   define RAPIDHASH_CT_INLINE RAPIDHASH_CT_ALWAYS_INLINE
+  # endif
+  # if __cplusplus >= 201402L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
+ #   if defined(_MSC_VER) && !defined(__clang__)
+ #     define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE ADAM_CT
+ #   else
+ #     define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE consteval
+ #   endif
+  # else
+  #   define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE
+  # endif
  #else
- # define RAPIDHASH_CT_NOEXCEPT
- # define RAPIDHASH_CT_CONSTEVAL static const
- # ifndef RAPIDHASH_CT_INLINE
- #   define RAPIDHASH_CT_INLINE static RAPIDHASH_CT_ALWAYS_INLINE
- # endif
- # define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_INLINE
+  # define RAPIDHASH_CT_NOEXCEPT
+  # define RAPIDHASH_CT_CONSTEVAL static const
+  # ifndef RAPIDHASH_CT_INLINE
+  #   define RAPIDHASH_CT_INLINE static RAPIDHASH_CT_ALWAYS_INLINE
+  # endif
+  # define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_INLINE
  #endif
 
  /*
@@ -127,7 +135,7 @@
  /*
   *  Default secret parameters.
   */
-   constexpr uint64_t rapid_ct_secret[8] = {
+   RAPIDHASH_CT_CONSTEVAL uint64_t rapid_ct_secret[8] = {
      0x2d358dccaa6c78a5ull,
      0x8bb84b93962eacc9ull,
      0x4b33a62ed433d4a3ull,
@@ -153,24 +161,24 @@
   *  Xors and overwrites A contents with C's low 64 bits.
   *  Xors and overwrites B contents with C's high 64 bits.
   */
- RAPIDHASH_CT_INLINE_CONSTEVAL void rapid_ct_mum(uint64_t *A, uint64_t *B) RAPIDHASH_CT_NOEXCEPT {
+RAPIDHASH_CT_INLINE_CONSTEVAL void rapid_ct_mum(uint64_t& A, uint64_t& B) RAPIDHASH_CT_NOEXCEPT {
  #if defined(__SIZEOF_INT128__)
-   __uint128_t r=*A; r*=*B;
+  __uint128_t r=A; r*=B;
    #ifdef RAPIDHASH_CT_PROTECTED
-   *A^=(uint64_t)r; *B^=(uint64_t)(r>>64);
+  A^=(uint64_t)r; B^=(uint64_t)(r>>64);
    #else
-   *A=(uint64_t)r; *B=(uint64_t)(r>>64);
+  A=(uint64_t)r; B=(uint64_t)(r>>64);
    #endif
  #else
-   uint64_t ha=*A>>32, hb=*B>>32, la=(uint32_t)*A, lb=(uint32_t)*B;
+  uint64_t ha=A>>32, hb=B>>32, la=(uint32_t)A, lb=(uint32_t)B;
    uint64_t rh=ha*hb, rm0=ha*lb, rm1=hb*la, rl=la*lb, t=rl+(rm0<<32), c=t<rl;
    uint64_t lo=t+(rm1<<32); 
    c+=lo<t; 
    uint64_t hi=rh+(rm0>>32)+(rm1>>32)+c;
    #ifdef RAPIDHASH_CT_PROTECTED
-   *A^=lo;  *B^=hi;
+  A^=lo;  B^=hi;
    #else
-   *A=lo;  *B=hi;
+  A=lo;  B=hi;
    #endif
  #endif
  }
@@ -184,18 +192,24 @@
   *  Calculates 128-bit C = A * B.
   *  Returns 64-bit xor between high and low 64 bits of C.
   */
-  RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_mix(uint64_t A, uint64_t B) RAPIDHASH_CT_NOEXCEPT { rapid_ct_mum(&A,&B); return A^B; }
+  RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_mix(uint64_t A, uint64_t B) RAPIDHASH_CT_NOEXCEPT { rapid_ct_mum(A,B); return A^B; }
  
  /*
   *  Read functions.
   */
+ template<size_t S> struct rapid_ct_mask;
+ template<> struct rapid_ct_mask<1> { static ADAM_CT uint64_t value = 0xFFULL; };
+ template<> struct rapid_ct_mask<2> { static ADAM_CT uint64_t value = 0xFFFFULL; };
+ template<> struct rapid_ct_mask<4> { static ADAM_CT uint64_t value = 0xFFFFFFFFULL; };
+ template<> struct rapid_ct_mask<8> { static ADAM_CT uint64_t value = 0xFFFFFFFFFFFFFFFFULL; };
+
  #ifdef RAPIDHASH_CT_LITTLE_ENDIAN
  template<typename type>
  RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_read64(const type *p) RAPIDHASH_CT_NOEXCEPT  {
     static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
     uint64_t v = 0;
     for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
-        v |= static_cast<uint64_t>(p[i]) << (i * sizeof(type) * 8);
+        v |= (static_cast<uint64_t>(p[i]) & rapid_ct_mask<sizeof(type)>::value) << (i * sizeof(type) * 8);
     }
     return v;
 }
@@ -204,7 +218,7 @@
     static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
     uint32_t v = 0;
     for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
-        v |= static_cast<uint32_t>(p[i]) << (i * sizeof(type) * 8);
+        v |= static_cast<uint32_t>((static_cast<uint64_t>(p[i]) & rapid_ct_mask<sizeof(type)>::value)) << (i * sizeof(type) * 8);
     }
     return v;
 }
@@ -214,7 +228,7 @@
     static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
     uint64_t v = 0;
     for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
-        v |= static_cast<uint64_t>(p[i]) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+        v |= (static_cast<uint64_t>(p[i]) & rapid_ct_mask<sizeof(type)>::value) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
     }
     return __builtin_bswap64(v);
 }
@@ -223,7 +237,7 @@
     static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
     uint32_t v = 0;
     for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
-        v |= static_cast<uint32_t>(p[i]) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+        v |= static_cast<uint32_t>((static_cast<uint64_t>(p[i]) & rapid_ct_mask<sizeof(type)>::value)) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
     }
     return __builtin_bswap32(v);
 }
@@ -233,7 +247,7 @@
     static_assert(sizeof(uint64_t) % sizeof(type) == 0, "type incompatible");
     uint64_t v = 0;
     for (size_t i = 0; i < sizeof(uint64_t) / sizeof(type); ++i) {
-        v |= static_cast<uint64_t>(p[i]) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+        v |= (static_cast<uint64_t>(p[i]) & rapid_ct_mask<sizeof(type)>::value) << ((sizeof(uint64_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
     }
    return (((v >> 56) & 0xff)| ((v >> 40) & 0xff00)| ((v >> 24) & 0xff0000)| ((v >>  8) & 0xff000000)| ((v <<  8) & 0xff00000000)| ((v << 24) & 0xff0000000000)| ((v << 40) & 0xff000000000000)| ((v << 56) & 0xff00000000000000));
  }
@@ -242,7 +256,7 @@
     static_assert(sizeof(uint32_t) % sizeof(type) == 0, "type incompatible");
     uint32_t v = 0;
     for (size_t i = 0; i < sizeof(uint32_t) / sizeof(type); ++i) {
-        v |= static_cast<uint32_t>(p[i]) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
+        v |= static_cast<uint32_t>((static_cast<uint64_t>(p[i]) & rapid_ct_mask<sizeof(type)>::value)) << ((sizeof(uint32_t) / sizeof(type) - 1 - i) * sizeof(type) * 8);
     }
    return (((v >> 24) & 0xff)| ((v >>  8) & 0xff00)| ((v <<  8) & 0xff0000)| ((v << 24) & 0xff000000));
  }
@@ -256,7 +270,7 @@ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapid_ct_get_byte(const type *p, size_t b
 #else
     size_t shift = (sizeof(type) - 1 - (byte_idx % sizeof(type))) * 8;
 #endif
-    return (static_cast<uint64_t>(p[elem_idx]) >> shift) & 0xFF;
+    return ((static_cast<uint64_t>(p[elem_idx]) & rapid_ct_mask<sizeof(type)>::value) >> shift) & 0xFF;
 }
 
  /*
@@ -369,7 +383,7 @@ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_internal(const type *key, si
   }
   a ^= secret[1];
   b ^= seed;
-  rapid_ct_mum(&a, &b);
+  rapid_ct_mum(a, b);
   return rapid_ct_mix(a ^ secret[7], b ^ secret[1] ^ i);
 }
 
@@ -440,7 +454,7 @@ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_internal(const type *key, si
     }
     a ^= secret[1];
     b ^= seed;
-    rapid_ct_mum(&a, &b);
+    rapid_ct_mum(a, b);
     return rapid_ct_mix(a ^ secret[7], b ^ secret[1] ^ i);
   }
 
@@ -500,7 +514,7 @@ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_internal(const type *key, si
     }
     a ^= secret[1];
     b ^= seed;
-    rapid_ct_mum(&a, &b);
+    rapid_ct_mum(a, b);
     return rapid_ct_mix(a ^ secret[7], b ^ secret[1] ^ i);
   }
  

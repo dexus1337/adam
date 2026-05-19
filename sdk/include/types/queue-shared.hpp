@@ -73,7 +73,7 @@ namespace adam
 
         /** @brief Pushes an object in the list and notifies the signal. Compatible with std::chrono::duration */
         template <typename rep, typename period>
-        bool pop(queue_type& out_obj, std::chrono::duration<rep, period> timeout = std::chrono::duration<rep, period>::max()) { return pop(out_obj, timeout == std::chrono::duration<rep, period>::max() ? -1 : std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()); }
+        bool pop(queue_type& out_obj, std::chrono::duration<rep, period> timeout = std::chrono::duration<rep, period>::max());
 
         /** @brief Accessor for metadata inside the header from inside the shared memory */
         queue_metadata_type* metadata() { return header() ? &header()->metadata : nullptr; }
@@ -234,5 +234,12 @@ namespace adam
         header->tail.store((current_tail + 1) % header->max_items, std::memory_order_release);
         
         return true;
+    }
+
+    template<typename queue_type, typename queue_metadata_type>
+    template <typename rep, typename period>
+    bool queue_shared<queue_type, queue_metadata_type>::pop(queue_type& out_obj, std::chrono::duration<rep, period> timeout)
+    { 
+        return pop(out_obj, timeout == std::chrono::duration<rep, period>::max() ? -1 : static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count())); 
     }
 }

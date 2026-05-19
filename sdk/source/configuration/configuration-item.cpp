@@ -10,7 +10,7 @@
 
 namespace adam 
 {
-    static constexpr uint32_t configuration_file_magic = 0xadacf116;
+    static ADAM_CT uint32_t configuration_file_magic = 0xadacf116;
 
     configuration_item::configuration_item(const string_hashed& item_name, const configuration_parameter_list& default_params)
         : m_parameters(item_name)

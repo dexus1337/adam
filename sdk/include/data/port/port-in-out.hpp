@@ -24,7 +24,7 @@ namespace adam
     class ADAM_SDK_API port_in_out : public port_input
     {
     public:
-        static constexpr port_direction direction = port_direction::in_out;
+        static ADAM_CT port_direction direction = port_direction::in_out;
 
         /** @brief Destroys the in_out port object and cleans up resources. */
         ~port_in_out();

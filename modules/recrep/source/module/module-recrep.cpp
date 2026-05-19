@@ -23,13 +23,13 @@ namespace adam::modules::recrep
         // Export the factory for the controller to dynamically create this port type!
         m_port_factories.emplace
         (
-            port_input_replay::type_name, 
+            port_input_replay::type_name(), 
             &global_port_input_replay_factory
         );
 
         m_port_factories.emplace
         (
-            port_output_recording::type_name, 
+            port_output_recording::type_name(), 
             &global_port_output_recording_factory
         );
     }

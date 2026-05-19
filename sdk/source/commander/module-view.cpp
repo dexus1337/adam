@@ -66,7 +66,7 @@ namespace adam
         void* handle = os::load_library(path.c_str());
         if (handle)
         {
-            auto get_mod = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::entry_point_name.c_str()));
+            auto get_mod = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::get_entry_point_name().c_str()));
             if (get_mod)
             {
                 module* mod_ptr = get_mod();

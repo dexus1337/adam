@@ -2,6 +2,8 @@
 
 
 #include <unordered_map>
+#include <array>
+#include <string_view>
 
 
 namespace adam

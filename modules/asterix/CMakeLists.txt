@@ -25,6 +25,11 @@ target_link_libraries(adam-module-asterix
     PRIVATE adam-sdk
 )
 
+target_compile_definitions(adam-module-asterix
+    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_ASTERIX_EXPORTS
+)
+
 # Set the output directory for the module shared library
 set_target_properties(adam-module-asterix PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"

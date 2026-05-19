@@ -45,7 +45,7 @@ TEST_F(memory_test, create_and_destroy)
     EXPECT_GE(mem_owner->get_size(), 1024u);
 
     // Write a value to prove we have access
-    static constexpr uint64_t test_val = 0xDEADBEEFCAFEBABE;
+    static ADAM_CT uint64_t test_val = 0xDEADBEEFCAFEBABE;
     *reinterpret_cast<uint64_t*>(mem_owner->get()) = test_val;
     EXPECT_EQ(*reinterpret_cast<uint64_t*>(mem_owner->get()), test_val);
 
@@ -59,7 +59,7 @@ TEST_F(memory_test, open_existing)
     ASSERT_TRUE(mem_owner->create(1024));
 
     // Write a value from the owner's side
-    static constexpr uint64_t test_val = 0x1337BEEF1337BABE;
+    static ADAM_CT uint64_t test_val = 0x1337BEEF1337BABE;
     *reinterpret_cast<uint64_t*>(mem_owner->get()) = test_val;
 
     // A separate process/object opens the same memory

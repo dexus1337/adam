@@ -51,7 +51,7 @@ namespace adam
 
     protected:
 
-        static constexpr const char* queue_name_prefix = "adam::data_inspector_"; /**< The prefix for the name of the buffer queue, followed by the thread id and port id/hash */
+        static ADAM_CT const char* queue_name_prefix = "adam::data_inspector_"; /**< The prefix for the name of the buffer queue, followed by the thread id and port id/hash */
 
         queue_shared<buffer_handle> m_buffer_queue; /**< The queue for incoming buffers */
 

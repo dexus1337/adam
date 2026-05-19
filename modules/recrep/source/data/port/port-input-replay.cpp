@@ -17,7 +17,7 @@ namespace adam::modules::recrep
     port_input_replay::port_input_replay(const string_hashed& item_name) 
      :  port_input(item_name)
     {
-        get_parameter<adam::configuration_parameter_string>("type")->set_value(type_name);
+        get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
         add_parameters(port_input_replay::get_default_parameters());
     }

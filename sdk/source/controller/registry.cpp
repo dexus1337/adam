@@ -82,7 +82,7 @@ namespace adam
 
         m_default_port_factory.emplace
         (
-            port_internal::type_name, 
+            port_internal::type_name(), 
             &global_port_internal_factory
         );
 

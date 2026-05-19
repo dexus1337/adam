@@ -24,7 +24,7 @@ namespace adam::modules::recrep
     {
     public:
 
-        static constexpr string_hashed_ct type_name = "replay";
+        static ADAM_CT string_hashed_ct type_name() { return "replay"_ct; }
 
         static const configuration_parameter_list& get_default_parameters();
 
@@ -34,6 +34,6 @@ namespace adam::modules::recrep
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input_replay();
 
-        virtual const string_hashed_ct& get_type_name() const override { return type_name; }
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
     };
 }

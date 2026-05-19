@@ -60,3 +60,10 @@
 #else
 #define debug_statement(x)
 #endif
+
+// CONSTEVAL macro, THANK YOU AGAIN MSVC FOR BEING SOOOO GOOOOD
+#if defined(_MSC_VER) && !defined(__clang__)
+#define ADAM_CT constexpr
+#else
+#define ADAM_CT consteval
+#endif

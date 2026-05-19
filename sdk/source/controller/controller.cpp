@@ -5,6 +5,8 @@
 #include <vector>
 #include <iostream>
 #include <system_error>
+#include <array>
+#include <string_view>
 
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "version/version.hpp"
@@ -14,8 +16,8 @@
 
 namespace adam
 {
-    static constexpr uint16_t xtea_delta    = 0x9e37;
-    static constexpr uint16_t xtea_key[2]   = { 0xbeef, 0xbabe };
+    static ADAM_CT uint16_t xtea_delta    = 0x9e37;
+    static ADAM_CT uint16_t xtea_key[2]   = { 0xbeef, 0xbabe };
 
     /** @brief Calculates a small secret based on the XTEA-lite algorith, using ther thread id . Only this source file knows how to reverse for authorization to commands */
     uint32_t calculate_secret(os::thread_id tid)
@@ -454,7 +456,7 @@ namespace adam
         std::vector<command>    cmds;
         std::vector<response>   resps;
 
-        static constexpr int command_buffer_size = 256; // should be enough for most commands and their extensions, if not it will just resize automatically, no big deal
+        static ADAM_CT int command_buffer_size = 256; // should be enough for most commands and their extensions, if not it will just resize automatically, no big deal
 
         cmds.reserve(command_buffer_size);
         resps.reserve(command_buffer_size);

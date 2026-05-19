@@ -48,7 +48,7 @@ namespace adam
 
             // TODO: add timestamp created, edited, sortingidx, color. ALSO FOR PORTS
 
-            static constexpr size_t default_type_count = ((command::get_max_data_length() - sizeof(name)) / 3) / sizeof(string_hashed::hash_datatype);
+            static ADAM_CT size_t default_type_count = ((command::get_max_data_length() - sizeof(name)) / 3) / sizeof(string_hashed::hash_datatype);
 
             string_hashed::hash_datatype inputs[default_type_count];
             string_hashed::hash_datatype processors[default_type_count];

@@ -22,7 +22,7 @@ namespace adam
     class ADAM_SDK_API port_input : public port
     {
     public:
-        static constexpr port_direction direction = port_direction::input;
+        static ADAM_CT port_direction direction = port_direction::input;
 
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input();

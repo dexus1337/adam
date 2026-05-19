@@ -86,7 +86,7 @@ namespace adam
             uint64_t total_bytes_handled;
         };
 
-        static constexpr size_t statistic_info_buffer_size = sizeof(statistic_info);
+        static ADAM_CT size_t statistic_info_buffer_size = sizeof(statistic_info);
 
 
         /** @brief Retrieves the default configuration parameters for ports. */

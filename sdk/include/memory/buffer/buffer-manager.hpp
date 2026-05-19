@@ -43,11 +43,11 @@ namespace adam
 
         friend struct buffer_thread_cache;
 
-        static constexpr uint8_t num_capacity_classes   = 30;               /**< Covers up to 4GB buffers safely. */
-        static constexpr uint64_t default_chunk_size    = 16 * 1024 * 1024; /**< 16 MB memory chunk allocations. */
-        static constexpr size_t batch_transfer_size     = 32;               /**< Buffers to transfer at once. */
-        static constexpr size_t max_thread_cache_size   = 64;               /**< Max local buffers before returning a batch. */
-        static constexpr uint32_t buffer_free_state     = 0xFFFFFFFF;       /**< Special state indicating a buffer is in the free list. */
+        static ADAM_CT uint8_t num_capacity_classes   = 30;               /**< Covers up to 4GB buffers safely. */
+        static ADAM_CT uint64_t default_chunk_size    = 16 * 1024 * 1024; /**< 16 MB memory chunk allocations. */
+        static ADAM_CT size_t batch_transfer_size     = 32;               /**< Buffers to transfer at once. */
+        static ADAM_CT size_t max_thread_cache_size   = 64;               /**< Max local buffers before returning a batch. */
+        static ADAM_CT uint32_t buffer_free_state     = 0xFFFFFFFF;       /**< Special state indicating a buffer is in the free list. */
 
         /** @brief Retrieves the singleton instance of the buffer_manager. */
         static buffer_manager& get();
@@ -75,7 +75,7 @@ namespace adam
 
     protected:
 
-        static constexpr const char* memory_name_prefix = "adam::buffer_chunk_"; /**< Prefix for shared memory names used for buffer backing. */
+        static ADAM_CT const char* memory_name_prefix = "adam::buffer_chunk_"; /**< Prefix for shared memory names used for buffer backing. */
 
         /** @brief Constructs a new buffer_manager object. */
         buffer_manager();

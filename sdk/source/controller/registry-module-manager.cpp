@@ -221,7 +221,7 @@ namespace adam
             if (!handle) 
                 continue;
 
-            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::entry_point_name.c_str()));
+            auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::get_entry_point_name().c_str()));
 
             mod = fn_get_adam_module();
             if (!mod) 
@@ -298,7 +298,7 @@ namespace adam
             m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
             return false;
         }
-        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::entry_point_name.c_str()));
+        auto fn_get_adam_module = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::get_entry_point_name().c_str()));
 
         if (!fn_get_adam_module) goto UNLOAD_AND_RETURN;
         mod = fn_get_adam_module();

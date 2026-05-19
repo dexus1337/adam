@@ -34,13 +34,12 @@ namespace adam
      */
     class ADAM_SDK_API module 
     {
-        friend class registry_module_manager; /**< The registry_module_manager class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
-        friend class module_view;              /**< The module_view class is declared as a friend to allow it to access the protected members of the module class for managing the local view of modules in the commander. */
+        friend class registry_module_manager;           /**< The registry_module_manager class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
+        friend class module_view;                       /**< The module_view class is declared as a friend to allow it to access the protected members of the module class for managing the local view of modules in the commander. */
 
     public:
 
-        typedef adam::module* (*get_adam_module_fn)();                              /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
-        static constexpr string_hashed_ct entry_point_name = "get_adam_module";     /**< The name of the entry point function that modules must export to provide access to their module instance. */
+        typedef adam::module* (*get_adam_module_fn)();  /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
 
         #pragma pack(push, 1) // align to 1 byte
         struct basic_info
@@ -73,6 +72,8 @@ namespace adam
         };
         #pragma pack(pop)
         static_assert(sizeof(module::basic_info) <= command::get_max_data_length(), "module::basic_info exceeds maximum command data size");
+
+        static ADAM_CT string_hashed_ct get_entry_point_name() { return "get_adam_module"_ct; }
 
         /** @brief Constructs a new module object. */
         module(const string_hashed& name, uint32_t version = adam::make_version(1, 0, 0), uint32_t req_sdk_ver = adam::sdk_version);

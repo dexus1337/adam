@@ -26,23 +26,23 @@ namespace adam
     };
 
     // Extractors using 8-bit shifts
-    static constexpr uint8_t get_major(uint32_t ver) { return static_cast<uint8_t>((ver >> 16) & 0xFF); }
-    static constexpr uint8_t get_minor(uint32_t ver) { return static_cast<uint8_t>((ver >> 8) & 0xFF); }
-    static constexpr uint8_t get_patch(uint32_t ver) { return static_cast<uint8_t>(ver & 0xFF); }
+    static ADAM_CT uint8_t get_major(uint32_t ver) { return static_cast<uint8_t>((ver >> 16) & 0xFF); }
+    static ADAM_CT uint8_t get_minor(uint32_t ver) { return static_cast<uint8_t>((ver >> 8) & 0xFF); }
+    static ADAM_CT uint8_t get_patch(uint32_t ver) { return static_cast<uint8_t>(ver & 0xFF); }
 
     // Helper to decode into a struct
-    static constexpr version_info decode_version(uint32_t ver) 
+    static ADAM_CT version_info decode_version(uint32_t ver) 
     {
         return { get_major(ver), get_minor(ver), get_patch(ver) };
     }
 
     // Helper to encode (useful for internal logic or comparison)
-    static constexpr uint32_t make_version(uint8_t maj, uint8_t min, uint8_t pat) 
+    static ADAM_CT uint32_t make_version(uint8_t maj, uint8_t min, uint8_t pat) 
     {
         return (static_cast<uint32_t>(maj) << 16) | 
                (static_cast<uint32_t>(min) << 8)  | 
                 static_cast<uint32_t>(pat);
     }
 
-    static constexpr uint32_t sdk_version = make_version(1, 0, 0);
+    static ADAM_CT uint32_t sdk_version = make_version(1, 0, 0);
 }

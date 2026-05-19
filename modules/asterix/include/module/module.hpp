@@ -24,7 +24,7 @@ namespace adam::modules::asterix
     {
     public:
 
-        static constexpr uint32_t version = adam::make_version(1, 0, 0);
+        static ADAM_CT uint32_t version = adam::make_version(1, 0, 0);
 
         /**
          * @brief Constructs a new module object.

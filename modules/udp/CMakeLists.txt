@@ -26,6 +26,11 @@ target_link_libraries(adam-module-udp
     PRIVATE adam-sdk
 )
 
+target_compile_definitions(adam-module-udp
+    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_UDP_EXPORTS
+)
+
 # Set the output directory for the module shared library
 set_target_properties(adam-module-udp PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"

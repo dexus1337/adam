@@ -194,7 +194,7 @@ namespace adam
         
         if (m_resolved_free_list.empty())
         {
-            constexpr size_t chunk_size = 1024;
+            ADAM_CT size_t chunk_size = 1024;
             
             // Allocate raw memory to avoid the constructor call overhead
             auto raw_block = std::unique_ptr<uint8_t[]>(new uint8_t[chunk_size * sizeof(buffer)]);

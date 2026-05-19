@@ -23,7 +23,7 @@ namespace adam
     {
     public:
 
-        static constexpr string_hashed_ct type_name = "internal";
+        static ADAM_CT string_hashed_ct type_name() { return "internal"_ct; }
 
         /** @brief Constructs a new internal port object. */
         port_internal(const string_hashed& item_name);
@@ -31,6 +31,6 @@ namespace adam
         /** @brief Destroys the internal port object and cleans up resources. */
         ~port_internal();
 
-        virtual const string_hashed_ct& get_type_name() const override { return type_name; }
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
     };
 }
