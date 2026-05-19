@@ -670,9 +670,519 @@ namespace adam::gui
             return false;
         });
 
-        // Speed optimization: Reusing vectors instead of allocating per card
-        static std::vector<std::vector<ImVec2>> stage_pins_in;
-        static std::vector<std::vector<ImVec2>> stage_pins_out;
+        float card_width = ImGui::GetContentRegionAvail().x;
+        
+        static std::vector<std::vector<ImVec2>> stage_pins_in_normal, stage_pins_out_normal;
+        static std::vector<std::vector<ImVec2>> stage_pins_in_preview, stage_pins_out_preview;
+
+        auto render_connection_card = [&](auto& self, adam::string_hashed::hash_datatype hash, adam::connection_view* conn, bool is_drag_preview, float card_w) -> bool
+        {
+            bool order_changed = false;
+            auto& stage_pins_in = is_drag_preview ? stage_pins_in_preview : stage_pins_in_normal;
+            auto& stage_pins_out = is_drag_preview ? stage_pins_out_preview : stage_pins_out_normal;
+
+            ImGui::PushID(is_drag_preview ? static_cast<int>(hash) + 0x1000000 : static_cast<int>(hash));
+            
+            bool is_being_dragged = false;
+            if (!is_drag_preview && sort_mode == 6) 
+            {
+                if (const ImGuiPayload* payload = ImGui::GetDragDropPayload()) 
+                {
+                    if (payload->IsDataType("DND_CONNECTION") && *(adam::string_hashed::hash_datatype*)payload->Data == hash) 
+                    {
+                        is_being_dragged = true;
+                    }
+                }
+            }
+
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
+            
+            if (is_drag_preview)
+            {
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2f, 0.2f, 0.2f, 0.9f));
+            }
+            else if (is_being_dragged)
+            {
+                ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+                bg.w *= 0.4f; // Ghost transparency
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, bg);
+            }
+            else
+            {
+                ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+                
+                if (conn->color != 0xFFFFFF && conn->color != 0)
+                {
+                    bg.x = ((conn->color >> 16) & 0xFF) / 255.0f * 0.15f + bg.x * 0.85f;
+                    bg.y = ((conn->color >> 8) & 0xFF) / 255.0f * 0.15f + bg.y * 0.85f;
+                    bg.z = (conn->color & 0xFF) / 255.0f * 0.15f + bg.z * 0.85f;
+                }
+                
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, bg);
+            }
+
+            size_t max_rows = std::max(conn->inputs.size(), conn->outputs.size());
+            size_t num_processors = conn->filters.size() + conn->converters.size();
+            if (max_rows == 0 && num_processors > 0) max_rows = 1;
+            
+            float node_h = ImGui::GetTextLineHeight() * 2.0f;
+            float row_height = node_h + 10.0f * dpi_scale;
+            
+            float base_height = ImGui::GetFrameHeight() * 2.0f + ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
+            if (max_rows == 0)
+                base_height -= ImGui::GetTextLineHeight();
+            float child_height = base_height + static_cast<float>(max_rows) * row_height;
+
+            if (!is_drag_preview) ImGui::BeginGroup();
+
+            if (is_being_dragged) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.4f);
+
+            if (ImGui::BeginChild(is_drag_preview ? "ConnCardPreview" : "ConnCard", ImVec2(card_w, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+            {
+                ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                float avail_x = ImGui::GetContentRegionAvail().x;
+                
+                int total_stages = 2 + static_cast<int>(num_processors);
+                
+                float char_width = ImGui::CalcTextSize("x").x;
+                float desired_node_w = char_width * 40.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+                
+                float port_w = std::min(desired_node_w, avail_x * 0.25f);
+                if (port_w < char_width * 15.0f) port_w = char_width * 15.0f;
+                
+                float proc_w = port_w;
+                bool compact_processors = false;
+                
+                if (total_stages > 2)
+                {
+                    float gap_if_large = (avail_x - static_cast<float>(total_stages) * port_w) / static_cast<float>(total_stages - 1);
+                    if (gap_if_large < 10.0f * dpi_scale)
+                    {
+                        proc_w = char_width * 5.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+                        compact_processors = true;
+                        
+                        float gap_if_compact = (avail_x - 2.0f * port_w - static_cast<float>(num_processors) * proc_w) / static_cast<float>(total_stages - 1);
+                        if (gap_if_compact < 10.0f * dpi_scale)
+                        {
+                            float available_for_procs = avail_x - 2.0f * port_w - static_cast<float>(total_stages - 1) * 10.0f * dpi_scale;
+                            if (available_for_procs > 0.0f)
+                                proc_w = available_for_procs / static_cast<float>(num_processors);
+                            else
+                                proc_w = 4.0f * dpi_scale; 
+                        }
+                    }
+                }
+
+                ImGui::AlignTextToFramePadding();
+                if (sort_mode == 6 && !is_drag_preview)
+                {
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[::] %s", get_gui_string(gui_string_id::lbl_connection, lang));
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+                    {
+                        ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hashed::hash_datatype));
+                        self(self, hash, conn, true, card_w);
+                        ImGui::EndDragDropSource();
+                    }
+                }
+                else
+                {
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
+                }
+                ImGui::SameLine();
+
+                char name_buf[max_name_length];
+                std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
+                name_buf[sizeof(name_buf) - 1] = '\0';
+
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+                ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+                
+                ImGui::PushID("conn_name_edit");
+                bool enter_pressed = false;
+                bool deactivated = false;
+                if (!is_drag_preview)
+                {
+                    ImGui::SetNextItemWidth(port_w);
+                    enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+                    deactivated = ImGui::IsItemDeactivatedAfterEdit();
+                }
+                else
+                {
+                    ImGui::TextUnformatted(name_buf);
+                }
+                ImGui::PopID();
+                
+                ImGui::PopStyleColor(3);
+
+                if (enter_pressed || deactivated)
+                {
+                    if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
+                    {
+                        ctrl.get_commander().request_connection_rename(conn->name.get_hash(), adam::string_hashed(&name_buf[0]));
+                    }
+                }
+
+                const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
+                const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
+                
+                ImGui::SameLine();
+
+                bool is_active = conn->is_active;
+                if (is_active) ImGui::BeginDisabled();
+                if (ImGui::Button(btn_start_str) && !is_drag_preview)
+                {
+                    ctrl.get_commander().request_connection_start(conn->name.get_hash());
+                }
+                if (is_active) ImGui::EndDisabled();
+                
+                ImGui::SameLine();
+                if (!is_active) ImGui::BeginDisabled();
+                if (ImGui::Button(btn_stop_str) && !is_drag_preview)
+                {
+                    ctrl.get_commander().request_connection_stop(conn->name.get_hash());
+                }
+                if (!is_active) ImGui::EndDisabled();
+
+                const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
+                float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                
+                ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
+                
+                if (ImGui::Button(btn_delete_str) && !is_drag_preview)
+                {
+                    connection_to_delete = conn->name;
+                    request_delete_popup = true;
+                }
+
+                ImGui::Separator();
+
+                ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+                
+                float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
+                float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
+                
+                auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr)
+                {
+                    float current_node_w = (stage == 0 || stage == total_stages - 1) ? port_w : proc_w;
+                    float node_x;
+                    if (total_stages == 1) node_x = cur_pos.x;
+                    else if (stage == 0) node_x = cur_pos.x;
+                    else if (stage == total_stages - 1) node_x = cur_pos.x + avail_x - current_node_w;
+                    else node_x = cur_pos.x + port_w + gap + static_cast<float>(stage - 1) * (proc_w + gap);
+                    
+                    float node_y = cur_pos.y + row * row_height + (row_height - node_h) * 0.5f;
+                    
+                    ImVec2 p_min(node_x, node_y);
+                    ImVec2 p_max(node_x + current_node_w, node_y + node_h);
+                    
+                    draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
+                    draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+                    
+                    float text_width = ImGui::CalcTextSize(name).x;
+                    float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
+                    if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
+                    ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
+                    draw_list->PushClipRect(p_min, p_max, true);
+                    draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
+                    draw_list->PopClipRect();
+
+                    out_pin_in = ImVec2(p_min.x, p_min.y + node_h * 0.5f);
+                    out_pin_out = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
+
+                    if (stage > 0)
+                        draw_list->AddCircleFilled(out_pin_in, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
+                    if (stage < total_stages - 1)
+                        draw_list->AddCircleFilled(out_pin_out, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
+                        
+                    if (is_unavail && !is_drag_preview && ImGui::IsMouseHoveringRect(p_min, p_max))
+                    {
+                        ImGui::BeginTooltip();
+                        ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), unavail_module ? unavail_module : "Unknown");
+                        ImGui::EndTooltip();
+                    }
+                };
+
+                if (stage_pins_in.size() < static_cast<size_t>(total_stages))
+                {
+                    stage_pins_in.resize(total_stages);
+                    stage_pins_out.resize(total_stages);
+                }
+                for (int i = 0; i < total_stages; ++i)
+                {
+                    stage_pins_in[i].clear();
+                    stage_pins_out[i].clear();
+                }
+
+                ImColor in_col = get_gui_color(gui_color_id::node_input);
+                ImColor proc_col = get_gui_color(gui_color_id::node_processor);
+                ImColor out_col = get_gui_color(gui_color_id::node_output);
+
+                float in_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->inputs.size())) * 0.5f;
+                float out_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->outputs.size())) * 0.5f;
+
+                float row_val = in_offset;
+                for (auto pid : conn->inputs)
+                {
+                    ImVec2 p_in, p_out;
+                    auto it = ports.find(pid);
+                    bool is_unavail = (it != ports.end() && it->second->is_unavailable);
+                    ImColor col = in_col;
+                    if (is_unavail) col.Value.w *= 0.4f;
+
+                    const char* mod_name = "Unknown";
+                    if (is_unavail && it->second->type_module.get_hash() != 0)
+                        mod_name = it->second->type_module.c_str();
+
+                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, col, p_in, p_out, is_unavail, mod_name);
+                    stage_pins_out[0].push_back(p_out);
+                    row_val += 1.0f;
+                }
+
+                int current_stage = 1;
+                int processor_idx = 1;
+                float proc_row_val = (static_cast<float>(max_rows) - 1.0f) * 0.5f;
+                for (auto fid : conn->filters)
+                {
+                    (void)fid; // Unused
+                    ImVec2 p_in, p_out;
+                    if (compact_processors)
+                    {
+                        char short_name[16];
+                        snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
+                        draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
+                    }
+                    else
+                    {
+                        draw_node("Filter", current_stage, proc_row_val, proc_col, p_in, p_out);
+                    }
+                    stage_pins_in[current_stage].push_back(p_in);
+                    stage_pins_out[current_stage].push_back(p_out);
+                    current_stage++;
+                    processor_idx++;
+                }
+                for (auto cid : conn->converters)
+                {
+                    (void)cid; // Unused
+                    ImVec2 p_in, p_out;
+                    if (compact_processors)
+                    {
+                        char short_name[16];
+                        snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
+                        draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
+                    }
+                    else
+                    {
+                        draw_node("Converter", current_stage, proc_row_val, proc_col, p_in, p_out);
+                    }
+                    stage_pins_in[current_stage].push_back(p_in);
+                    stage_pins_out[current_stage].push_back(p_out);
+                    current_stage++;
+                    processor_idx++;
+                }
+
+                row_val = out_offset;
+                for (auto pid : conn->outputs)
+                {
+                    ImVec2 p_in, p_out;
+                    auto it = ports.find(pid);
+                    bool is_unavail = (it != ports.end() && it->second->is_unavailable);
+                    ImColor col = out_col;
+                    if (is_unavail) col.Value.w *= 0.4f;
+
+                    const char* mod_name = "Unknown";
+                    if (is_unavail && it->second->type_module.get_hash() != 0)
+                        mod_name = it->second->type_module.c_str();
+
+                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, col, p_in, p_out, is_unavail, mod_name);
+                    stage_pins_in[total_stages - 1].push_back(p_in);
+                    row_val += 1.0f;
+                }
+
+                ImColor line_col = get_gui_color(gui_color_id::node_connection_line);
+                float line_thickness = 5.f * dpi_scale;
+                
+                if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
+                {
+                    float center_y = cur_pos.y + static_cast<float>(max_rows) * row_height * 0.5f;
+                    float mid_x = cur_pos.x + avail_x * 0.5f;
+                    
+                    ImVec2 p_mid(mid_x, center_y);
+                    
+                    for (const auto& pin_out : stage_pins_out[0])
+                    {
+                        float b_strength = (mid_x - pin_out.x) * 0.5f;
+                        draw_list->AddBezierCubic(
+                            pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(mid_x - b_strength, center_y), p_mid,
+                            line_col, line_thickness);
+                    }
+                    
+                    for (const auto& pin_in : stage_pins_in[1])
+                    {
+                        float b_strength = (pin_in.x - mid_x) * 0.5f;
+                        draw_list->AddBezierCubic(
+                            p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
+                            line_col, line_thickness);
+                    }
+                    
+                    draw_list->AddCircleFilled(p_mid, line_thickness * 0.6f, line_col);
+                }
+                else
+                {
+                    for (int s = 0; s < total_stages - 1; ++s)
+                    {
+                        for (const auto& pin_out : stage_pins_out[s])
+                        {
+                            for (const auto& pin_in : stage_pins_in[s + 1])
+                            {
+                                float b_strength = (pin_in.x - pin_out.x) * 0.5f;
+                                draw_list->AddBezierCubic(
+                                    pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
+                                    line_col, line_thickness);
+                            }
+                        }
+                    }
+                }
+
+                ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + static_cast<float>(max_rows) * row_height));
+                
+                if (max_rows > 0 || num_processors > 0)
+                {
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                }
+                
+                float avail_w = ImGui::GetWindowWidth();
+                
+                float current_y = ImGui::GetCursorPosY();
+                float start_x = ImGui::GetStyle().WindowPadding.x;
+
+                const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
+                const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
+                const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
+
+                float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
+                ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
+                if (ImGui::Button(btn_add_input_str) && !is_drag_preview)
+                {
+                    target_connection = conn->name;
+                    target_direction = adam::port_direction::input;
+                    request_port_popup = true;
+                }
+
+                if (!conn->inputs.empty())
+                {
+                    float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                    float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
+                    ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
+                    if (ImGui::Button(btn_add_output_str) && !is_drag_preview)
+                    {
+                        target_connection = conn->name;
+                        target_direction = adam::port_direction::output;
+                        request_port_popup = true;
+                    }
+
+                    if (!conn->outputs.empty())
+                    {
+                        float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        float center_x = (avail_w - add_proc_w) * 0.5f;
+                        ImGui::SetCursorPos(ImVec2(center_x, current_y));
+                        if (!is_drag_preview) ImGui::Button(btn_add_processor_str);
+                    }
+                }
+            }
+            ImGui::EndChild();
+
+            if (is_being_dragged) ImGui::PopStyleVar();
+
+            if (!is_drag_preview)
+            {
+                ImGui::Spacing();
+                ImGui::EndGroup();
+            }
+
+            if (sort_mode == 6 && !is_drag_preview)
+            {
+                if (ImGui::BeginDragDropTarget())
+                {
+                    bool insert_after = false;
+                    if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
+                    {
+                        if (payload->IsDataType("DND_CONNECTION"))
+                        {
+                            ImVec2 min = ImGui::GetItemRectMin();
+                            ImVec2 max = ImGui::GetItemRectMax();
+                            float mid_y = (min.y + max.y) * 0.5f;
+                            insert_after = ImGui::GetMousePos().y > mid_y;
+
+                            float line_y = insert_after ? max.y + ImGui::GetStyle().ItemSpacing.y * 0.5f : min.y + 2.0f * dpi_scale;
+                            ImGui::GetForegroundDrawList()->AddLine(
+                                ImVec2(min.x, line_y), 
+                                ImVec2(max.x, line_y), 
+                                ImGui::GetColorU32(ImGuiCol_DragDropTarget), 
+                                4.0f * dpi_scale
+                            );
+                        }
+                    }
+
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CONNECTION", ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+                    {
+                        IM_ASSERT(payload->DataSize == sizeof(adam::string_hashed::hash_datatype));
+                        adam::string_hashed::hash_datatype dropped_hash = *(const adam::string_hashed::hash_datatype*)payload->Data;
+                        if (dropped_hash != hash)
+                        {
+                            auto new_order = sorted_connections;
+                            auto it_dragged = std::find_if(new_order.begin(), new_order.end(),
+                                [dropped_hash](const auto& pair)
+                                {
+                                    return pair.first == dropped_hash;
+                                });
+
+                            if (it_dragged != new_order.end())
+                            {
+                                auto item_to_move = *it_dragged;
+                                new_order.erase(it_dragged);
+
+                                auto it_target = std::find_if(new_order.begin(), new_order.end(),
+                                    [hash](const auto& pair)
+                                    {
+                                        return pair.first == hash;
+                                    });
+
+                                if (it_target != new_order.end())
+                                {
+                                    if (insert_after) ++it_target;
+                                    new_order.insert(it_target, item_to_move);
+                                }
+                                else
+                                    new_order.push_back(item_to_move);
+
+                                for (uint32_t new_idx = 0; new_idx < new_order.size(); ++new_idx)
+                                {
+                                    if (new_order[new_idx].second->sorting_index != new_idx)
+                                    {
+                                        if (commander_active)
+                                            ctrl.get_commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
+                                        new_order[new_idx].second->sorting_index = new_idx; 
+                                    }
+                                }
+                                sorted_connections = new_order;
+                                order_changed = true;
+                            }
+                        }
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+            }
+
+            ImGui::PopStyleColor();
+            ImGui::PopStyleVar(2);
+            ImGui::PopID();
+
+            return order_changed;
+        };
 
         if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), false))
         {
@@ -681,450 +1191,63 @@ namespace adam::gui
                 auto hash = sorted_connections[i].first;
                 auto* conn = sorted_connections[i].second;
 
-                ImGui::PushID(static_cast<int>(hash));
-                
-                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
-                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
-
-                size_t max_rows = std::max(conn->inputs.size(), conn->outputs.size());
-                size_t num_processors = conn->filters.size() + conn->converters.size();
-                if (max_rows == 0 && num_processors > 0) max_rows = 1;
-                
-                float node_h = ImGui::GetTextLineHeight() * 2.0f;
-                float row_height = node_h + 10.0f * dpi_scale;
-                
-                float base_height = ImGui::GetFrameHeight() * 2.0f + ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
-                if (max_rows == 0)
-                    base_height -= ImGui::GetTextLineHeight();
-                float child_height = base_height + static_cast<float>(max_rows) * row_height;
-
-                if (ImGui::BeginChild("ConnCard", ImVec2(0, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
-                {
-                    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
-                    float avail_x = ImGui::GetContentRegionAvail().x;
-                    
-                    int total_stages = 2 + static_cast<int>(num_processors);
-                    
-                    float char_width = ImGui::CalcTextSize("x").x;
-                    float desired_node_w = char_width * 40.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
-                    
-                    float port_w = std::min(desired_node_w, avail_x * 0.25f);
-                    if (port_w < char_width * 15.0f) port_w = char_width * 15.0f;
-                    
-                    float proc_w = port_w;
-                    bool compact_processors = false;
-                    
-                    if (total_stages > 2)
-                    {
-                        float gap_if_large = (avail_x - static_cast<float>(total_stages) * port_w) / static_cast<float>(total_stages - 1);
-                        if (gap_if_large < 10.0f * dpi_scale)
-                        {
-                            proc_w = char_width * 5.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
-                            compact_processors = true;
-                            
-                            float gap_if_compact = (avail_x - 2.0f * port_w - static_cast<float>(num_processors) * proc_w) / static_cast<float>(total_stages - 1);
-                            if (gap_if_compact < 10.0f * dpi_scale)
-                            {
-                                float available_for_procs = avail_x - 2.0f * port_w - static_cast<float>(total_stages - 1) * 10.0f * dpi_scale;
-                                if (available_for_procs > 0.0f)
-                                    proc_w = available_for_procs / static_cast<float>(num_processors);
-                                else
-                                    proc_w = 4.0f * dpi_scale; // Minimal clamping if window is exceptionally tiny
-                            }
-                        }
-                    }
-
-                    ImGui::AlignTextToFramePadding();
-                    if (sort_mode == 6) // Custom
-                    {
-                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[::] %s", get_gui_string(gui_string_id::lbl_connection, lang));
-                        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
-                        {
-                            ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hashed::hash_datatype));
-                            ImGui::Text(get_gui_string(gui_string_id::lbl_move_connection, lang), conn->name.c_str());
-                            ImGui::EndDragDropSource();
-                        }
-                    }
-                    else
-                    {
-                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", get_gui_string(gui_string_id::lbl_connection, lang));
-                    }
-                    ImGui::SameLine();
-
-                    char name_buf[max_name_length];
-                    std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
-                    name_buf[sizeof(name_buf) - 1] = '\0';
-
-                    ImGui::SetNextItemWidth(port_w);
-                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
-                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
-                    
-                    ImGui::PushID("conn_name_edit");
-                    bool enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
-                    bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
-                    ImGui::PopID();
-                    
-                    ImGui::PopStyleColor(3);
-
-                    if (enter_pressed || deactivated)
-                    {
-                        if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
-                        {
-                            ctrl.get_commander().request_connection_rename(conn->name.get_hash(), adam::string_hashed(&name_buf[0]));
-                        }
-                    }
-
-                    const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
-                    const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
-                    
-                    ImGui::SameLine();
-
-                    bool is_active = conn->is_active;
-                    if (is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_start_str))
-                    {
-                        ctrl.get_commander().request_connection_start(conn->name.get_hash());
-                    }
-                    if (is_active) ImGui::EndDisabled();
-                    
-                    ImGui::SameLine();
-                    if (!is_active) ImGui::BeginDisabled();
-                    if (ImGui::Button(btn_stop_str))
-                    {
-                        ctrl.get_commander().request_connection_stop(conn->name.get_hash());
-                    }
-                    if (!is_active) ImGui::EndDisabled();
-
-                    const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
-                    float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                    
-                    ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
-                    
-                    if (ImGui::Button(btn_delete_str))
-                    {
-                        connection_to_delete = conn->name;
-                        request_delete_popup = true;
-                    }
-
-                    ImGui::Separator();
-
-                    ImVec2 cur_pos = ImGui::GetCursorScreenPos();
-                    
-                    float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
-                    float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
-                    
-                    auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr)
-                    {
-                        float current_node_w = (stage == 0 || stage == total_stages - 1) ? port_w : proc_w;
-                        float node_x;
-                        if (total_stages == 1) node_x = cur_pos.x;
-                        else if (stage == 0) node_x = cur_pos.x;
-                        else if (stage == total_stages - 1) node_x = cur_pos.x + avail_x - current_node_w;
-                        else node_x = cur_pos.x + port_w + gap + static_cast<float>(stage - 1) * (proc_w + gap);
-                        
-                        float node_y = cur_pos.y + row * row_height + (row_height - node_h) * 0.5f;
-                        
-                        ImVec2 p_min(node_x, node_y);
-                        ImVec2 p_max(node_x + current_node_w, node_y + node_h);
-                        
-                        draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
-                        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
-                        
-                        // Text with clipping
-                        float text_width = ImGui::CalcTextSize(name).x;
-                        float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
-                        if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
-                        ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
-                        draw_list->PushClipRect(p_min, p_max, true);
-                        draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
-                        draw_list->PopClipRect();
-
-                        // Pin positions
-                        out_pin_in = ImVec2(p_min.x, p_min.y + node_h * 0.5f);
-                        out_pin_out = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
-
-                        // Draw pins as circles
-                        if (stage > 0)
-                            draw_list->AddCircleFilled(out_pin_in, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
-                        if (stage < total_stages - 1)
-                            draw_list->AddCircleFilled(out_pin_out, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
-                            
-                        if (is_unavail && ImGui::IsMouseHoveringRect(p_min, p_max))
-                        {
-                            ImGui::BeginTooltip();
-                            ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), unavail_module ? unavail_module : "Unknown");
-                            ImGui::EndTooltip();
-                        }
-                    };
-
-                    // Speed Optimization
-                    if (stage_pins_in.size() < static_cast<size_t>(total_stages))
-                    {
-                        stage_pins_in.resize(total_stages);
-                        stage_pins_out.resize(total_stages);
-                    }
-                    for (int i = 0; i < total_stages; ++i)
-                    {
-                        stage_pins_in[i].clear();
-                        stage_pins_out[i].clear();
-                    }
-
-                    ImColor in_col = get_gui_color(gui_color_id::node_input);
-                    ImColor proc_col = get_gui_color(gui_color_id::node_processor);
-                    ImColor out_col = get_gui_color(gui_color_id::node_output);
-
-                    float in_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->inputs.size())) * 0.5f;
-                    float out_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->outputs.size())) * 0.5f;
-
-                    float row_val = in_offset;
-                    for (auto pid : conn->inputs)
-                    {
-                        ImVec2 p_in, p_out;
-                        auto it = ports.find(pid);
-                        bool is_unavail = (it != ports.end() && it->second->is_unavailable);
-                        ImColor col = in_col;
-                        if (is_unavail) col.Value.w *= 0.4f;
-
-                        const char* mod_name = "Unknown";
-                        if (is_unavail && it->second->type_module.get_hash() != 0)
-                            mod_name = it->second->type_module.c_str();
-
-                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, col, p_in, p_out, is_unavail, mod_name);
-                        stage_pins_out[0].push_back(p_out);
-                        row_val += 1.0f;
-                    }
-
-                    int current_stage = 1;
-                    int processor_idx = 1;
-                    float proc_row_val = (static_cast<float>(max_rows) - 1.0f) * 0.5f;
-                    for (auto fid : conn->filters)
-                    {
-                        (void)fid; // Unused
-                        ImVec2 p_in, p_out;
-                        if (compact_processors)
-                        {
-                            char short_name[16];
-                            snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
-                            draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
-                        }
-                        else
-                        {
-                            draw_node("Filter", current_stage, proc_row_val, proc_col, p_in, p_out);
-                        }
-                        stage_pins_in[current_stage].push_back(p_in);
-                        stage_pins_out[current_stage].push_back(p_out);
-                        current_stage++;
-                        processor_idx++;
-                    }
-                    for (auto cid : conn->converters)
-                    {
-                        (void)cid; // Unused
-                        ImVec2 p_in, p_out;
-                        if (compact_processors)
-                        {
-                            char short_name[16];
-                            snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
-                            draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
-                        }
-                        else
-                        {
-                            draw_node("Converter", current_stage, proc_row_val, proc_col, p_in, p_out);
-                        }
-                        stage_pins_in[current_stage].push_back(p_in);
-                        stage_pins_out[current_stage].push_back(p_out);
-                        current_stage++;
-                        processor_idx++;
-                    }
-
-                    row_val = out_offset;
-                    for (auto pid : conn->outputs)
-                    {
-                        ImVec2 p_in, p_out;
-                        auto it = ports.find(pid);
-                        bool is_unavail = (it != ports.end() && it->second->is_unavailable);
-                        ImColor col = out_col;
-                        if (is_unavail) col.Value.w *= 0.4f;
-
-                        const char* mod_name = "Unknown";
-                        if (is_unavail && it->second->type_module.get_hash() != 0)
-                            mod_name = it->second->type_module.c_str();
-
-                        draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, col, p_in, p_out, is_unavail, mod_name);
-                        stage_pins_in[total_stages - 1].push_back(p_in);
-                        row_val += 1.0f;
-                    }
-
-                    ImColor line_col = get_gui_color(gui_color_id::node_connection_line);
-                    float line_thickness = 5.f * dpi_scale;
-                    
-                    if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
-                    {
-                        float center_y = cur_pos.y + static_cast<float>(max_rows) * row_height * 0.5f;
-                        float mid_x = cur_pos.x + avail_x * 0.5f;
-                        
-                        ImVec2 p_mid(mid_x, center_y);
-                        
-                        for (const auto& pin_out : stage_pins_out[0])
-                        {
-                            float b_strength = (mid_x - pin_out.x) * 0.5f;
-                            draw_list->AddBezierCubic(
-                                pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(mid_x - b_strength, center_y), p_mid,
-                                line_col, line_thickness);
-                        }
-                        
-                        for (const auto& pin_in : stage_pins_in[1])
-                        {
-                            float b_strength = (pin_in.x - mid_x) * 0.5f;
-                            draw_list->AddBezierCubic(
-                                p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
-                                line_col, line_thickness);
-                        }
-                        
-                        // Draw a smooth circular cap to cleanly join the intersecting lines
-                        draw_list->AddCircleFilled(p_mid, line_thickness * 0.6f, line_col);
-                    }
-                    else
-                    {
-                        for (int s = 0; s < total_stages - 1; ++s)
-                        {
-                            for (const auto& pin_out : stage_pins_out[s])
-                            {
-                                for (const auto& pin_in : stage_pins_in[s + 1])
-                                {
-                                    float b_strength = (pin_in.x - pin_out.x) * 0.5f;
-                                    draw_list->AddBezierCubic(
-                                        pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
-                                        line_col, line_thickness);
-                                }
-                            }
-                        }
-                    }
-
-                    ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + static_cast<float>(max_rows) * row_height));
-                    
-                    if (max_rows > 0 || num_processors > 0)
-                    {
-                        ImGui::Spacing();
-                        ImGui::Separator();
-                    }
-                    
-                    float avail_w = ImGui::GetWindowWidth();
-                    
-                    float current_y = ImGui::GetCursorPosY();
-                    float start_x = ImGui::GetStyle().WindowPadding.x;
-
-                    const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
-                    const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
-                    const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
-
-                    float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                    float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
-                    ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
-                    if (ImGui::Button(btn_add_input_str))
-                    {
-                        target_connection = conn->name;
-                        target_direction = adam::port_direction::input;
-                        request_port_popup = true;
-                    }
-
-                    if (!conn->inputs.empty())
-                    {
-                        float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                        float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
-                        ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
-                        if (ImGui::Button(btn_add_output_str))
-                        {
-                            target_connection = conn->name;
-                            target_direction = adam::port_direction::output;
-                            request_port_popup = true;
-                        }
-
-                        if (!conn->outputs.empty())
-                        {
-                            float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                            float center_x = (avail_w - add_proc_w) * 0.5f;
-                            ImGui::SetCursorPos(ImVec2(center_x, current_y));
-                            ImGui::Button(btn_add_processor_str);
-                        }
-                    }
-                }
-                ImGui::EndChild();
-
-                if (sort_mode == 6) // Custom
-                {
-                    if (ImGui::BeginDragDropTarget())
-                    {
-                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CONNECTION", ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
-                        {
-                            IM_ASSERT(payload->DataSize == sizeof(adam::string_hashed::hash_datatype));
-                            adam::string_hashed::hash_datatype dropped_hash = *(const adam::string_hashed::hash_datatype*)payload->Data;
-                            if (dropped_hash != hash)
-                            {
-                                // To prevent modifying the vector while iterating, we create a new list with the desired order
-                                // and then send all update commands at once.
-                                auto new_order = sorted_connections;
-                                auto it_dragged = std::find_if(new_order.begin(), new_order.end(),
-                                    [dropped_hash](const auto& pair)
-                                    {
-                                        return pair.first == dropped_hash;
-                                    });
-
-                                if (it_dragged != new_order.end())
-                                {
-                                    auto item_to_move = *it_dragged;
-                                    new_order.erase(it_dragged);
-
-                                    auto it_target = std::find_if(new_order.begin(), new_order.end(),
-                                        [hash](const auto& pair)
-                                        {
-                                            return pair.first == hash;
-                                        });
-
-                                    if (it_target != new_order.end())
-                                        new_order.insert(it_target, item_to_move);
-                                    else
-                                        new_order.push_back(item_to_move); // Fallback
-
-                                    for (uint32_t new_idx = 0; new_idx < new_order.size(); ++new_idx)
-                                    {
-                                        if (new_order[new_idx].second->sorting_index != new_idx)
-                                        {
-                                            if (commander_active)
-                                                ctrl.get_commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
-                                            new_order[new_idx].second->sorting_index = new_idx; // Update local view for instant feedback
-                                        }
-                                    }
-                                    // Apply the new order to the current frame's vector for immediate visual update
-                                    sorted_connections = new_order;
-                                }
-                            }
-                        }
-
-                        if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
-                        {
-                            if (payload->IsDataType("DND_CONNECTION"))
-                            {
-                                ImVec2 min = ImGui::GetItemRectMin();
-                                ImVec2 max = ImGui::GetItemRectMax();
-                                ImGui::GetWindowDrawList()->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_DragDropTarget), 8.0f * dpi_scale, 0, 2.0f * dpi_scale);
-                            }
-                        }
-
-                        ImGui::EndDragDropTarget();
-                    }
-                }
-
-                ImGui::PopStyleColor();
-                ImGui::PopStyleVar(2);
-                ImGui::PopID();
-                
-                ImGui::Spacing();
+                if (render_connection_card(render_connection_card, hash, conn, false, card_width))
+                    break;
             }
         }
         ImGui::EndChild();
+
+        if (sort_mode == 6)
+        {
+            if (ImGui::BeginDragDropTarget())
+            {
+                bool insert_after = false;
+                if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
+                {
+                    if (payload->IsDataType("DND_CONNECTION"))
+                    {
+                        ImVec2 min = ImGui::GetItemRectMin();
+                        ImVec2 max = ImGui::GetItemRectMax();
+                        insert_after = ImGui::GetMousePos().y > (min.y + max.y) * 0.5f;
+                    }
+                }
+
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CONNECTION", ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+                {
+                    IM_ASSERT(payload->DataSize == sizeof(adam::string_hashed::hash_datatype));
+                    adam::string_hashed::hash_datatype dropped_hash = *(const adam::string_hashed::hash_datatype*)payload->Data;
+                    
+                    auto new_order = sorted_connections;
+                    auto it_dragged = std::find_if(new_order.begin(), new_order.end(),
+                        [dropped_hash](const auto& pair)
+                        {
+                            return pair.first == dropped_hash;
+                        });
+
+                    if (it_dragged != new_order.end())
+                    {
+                        auto item_to_move = *it_dragged;
+                        new_order.erase(it_dragged);
+
+                        if (insert_after)
+                            new_order.push_back(item_to_move);
+                        else
+                            new_order.insert(new_order.begin(), item_to_move);
+
+                        for (uint32_t new_idx = 0; new_idx < new_order.size(); ++new_idx)
+                        {
+                            if (new_order[new_idx].second->sorting_index != new_idx)
+                            {
+                                if (commander_active)
+                                    ctrl.get_commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
+                                new_order[new_idx].second->sorting_index = new_idx; 
+                            }
+                        }
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+        }
 
         if (!commander_active) ImGui::BeginDisabled();
         if (ImGui::Button(get_gui_string(gui_string_id::btn_create_connection, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))
