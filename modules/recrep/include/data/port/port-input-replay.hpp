@@ -24,7 +24,7 @@ namespace adam::modules::recrep
     {
     public:
 
-        static ADAM_CT string_hashed_ct type_name() { return "replay"_ct; }
+        static ADAM_CONSTEXPR string_hashed_ct type_name() { return "replay"_ct; }
 
         static const configuration_parameter_list& get_default_parameters();
 

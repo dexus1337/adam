@@ -73,7 +73,7 @@ namespace adam
         #pragma pack(pop)
         static_assert(sizeof(module::basic_info) <= command::get_max_data_length(), "module::basic_info exceeds maximum command data size");
 
-        static ADAM_CT string_hashed_ct get_entry_point_name() { return "get_adam_module"_ct; }
+        static ADAM_CONSTEXPR string_hashed_ct get_entry_point_name() { return "get_adam_module"_ct; }
 
         /** @brief Constructs a new module object. */
         module(const string_hashed& name, uint32_t version = adam::make_version(1, 0, 0), uint32_t req_sdk_ver = adam::sdk_version);

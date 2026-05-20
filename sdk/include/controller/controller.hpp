@@ -167,7 +167,7 @@ namespace adam
         };
 
         using master_queue = queue_shared_duplex<queue_master_request_data, status>;        /**< A queue to request a queue, sound kinda retarded but its quite literlly this */
-        static ADAM_CT const char* master_queue_name = "adam::controller_master_queue";   /**< The name of the queue which will create new "per thread" command queues */
+        static ADAM_CONSTEXPR const char* master_queue_name = "adam::controller_master_queue";   /**< The name of the queue which will create new "per thread" command queues */
         
         void run_master_queue();
 
@@ -224,7 +224,7 @@ namespace adam
 
         using queue_command         = queue_shared_duplex<command, response>;                       /**< Cmd/resp queue type */
         using queue_command_data    = queue_slave_instance_data<queue_command>;                     /**< Cmd/resp queue worker data */
-        static ADAM_CT const char* queue_command_prefix = "adam::controller_queue_command_";      /**< Prefix for the "per thread" command queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+        static ADAM_CONSTEXPR const char* queue_command_prefix = "adam::controller_queue_command_";      /**< Prefix for the "per thread" command queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
 
         void run_queue_command(queue_command_data* data);
 
@@ -234,21 +234,21 @@ namespace adam
 
         using queue_log             = queue_shared<adam::log>;                                      /**< Log queue type */
         using queue_log_data        = queue_slave_instance_data<queue_log>;                         /**< Log queue worker data */
-        static ADAM_CT const char* queue_logger_prefix = "adam::controller_queue_log_";           /**< Prefix for the "per thread" log queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+        static ADAM_CONSTEXPR const char* queue_logger_prefix = "adam::controller_queue_log_";           /**< Prefix for the "per thread" log queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
 
         void run_queue_log(queue_log_data* data);
 
         std::unordered_map<os::thread_id, queue_log_data*> m_queues_log;
 
         using queue_log_sink        = queue_shared<adam::log, std::atomic<log::level>>;             /**< Log sink queue type */
-        static ADAM_CT const char* queue_logger_sink_prefix = "adam::controller_queue_log_sink";  /**< Prefix for the "per thread" log sink queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
+        static ADAM_CONSTEXPR const char* queue_logger_sink_prefix = "adam::controller_queue_log_sink";  /**< Prefix for the "per thread" log sink queue, the target threadid will be added, is unique on all supported OS (for running threads atleast) */
 
         std::unordered_map<os::thread_id, queue_log_sink*> m_queues_log_sink;
 
         // EVENT QUEUES
 
         using queue_event           = queue_shared<adam::event>;                                    /**< Event queue type */
-        static ADAM_CT const char* queue_event_prefix = "adam::controller_queue_event_";          /**< Prefix for the "per thread" event queue */
+        static ADAM_CONSTEXPR const char* queue_event_prefix = "adam::controller_queue_event_";          /**< Prefix for the "per thread" event queue */
 
         std::unordered_map<os::thread_id, queue_event*> m_queues_event;
 

@@ -56,16 +56,18 @@
  #ifdef __cplusplus
  # define RAPIDHASH_CT_NOEXCEPT noexcept
  # if defined(_MSC_VER) && !defined(__clang__)
- #   define RAPIDHASH_CT_CONSTEVAL ADAM_CT
+ #   define RAPIDHASH_CT_CONSTEVAL constexpr
+ #   define RAPIDHASH_CT_CONSTEXPR constexpr
  # else
  #   define RAPIDHASH_CT_CONSTEVAL consteval
+ #   define RAPIDHASH_CT_CONSTEXPR constexpr
  # endif
   # ifndef RAPIDHASH_CT_INLINE
   #   define RAPIDHASH_CT_INLINE RAPIDHASH_CT_ALWAYS_INLINE
   # endif
   # if __cplusplus >= 201402L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
  #   if defined(_MSC_VER) && !defined(__clang__)
- #     define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE ADAM_CT
+ #     define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE constexpr
  #   else
  #     define RAPIDHASH_CT_INLINE_CONSTEVAL RAPIDHASH_CT_ALWAYS_INLINE consteval
  #   endif
@@ -75,6 +77,7 @@
  #else
   # define RAPIDHASH_CT_NOEXCEPT
   # define RAPIDHASH_CT_CONSTEVAL static const
+  # define RAPIDHASH_CT_CONSTEXPR static const
   # ifndef RAPIDHASH_CT_INLINE
   #   define RAPIDHASH_CT_INLINE static RAPIDHASH_CT_ALWAYS_INLINE
   # endif
@@ -135,7 +138,7 @@
  /*
   *  Default secret parameters.
   */
-   RAPIDHASH_CT_CONSTEVAL uint64_t rapid_ct_secret[8] = {
+   RAPIDHASH_CT_CONSTEXPR uint64_t rapid_ct_secret[8] = {
      0x2d358dccaa6c78a5ull,
      0x8bb84b93962eacc9ull,
      0x4b33a62ed433d4a3ull,
@@ -198,10 +201,10 @@ RAPIDHASH_CT_INLINE_CONSTEVAL void rapid_ct_mum(uint64_t& A, uint64_t& B) RAPIDH
   *  Read functions.
   */
  template<size_t S> struct rapid_ct_mask;
- template<> struct rapid_ct_mask<1> { static ADAM_CT uint64_t value = 0xFFULL; };
- template<> struct rapid_ct_mask<2> { static ADAM_CT uint64_t value = 0xFFFFULL; };
- template<> struct rapid_ct_mask<4> { static ADAM_CT uint64_t value = 0xFFFFFFFFULL; };
- template<> struct rapid_ct_mask<8> { static ADAM_CT uint64_t value = 0xFFFFFFFFFFFFFFFFULL; };
+ template<> struct rapid_ct_mask<1> { static RAPIDHASH_CT_CONSTEXPR uint64_t value = 0xFFULL; };
+ template<> struct rapid_ct_mask<2> { static RAPIDHASH_CT_CONSTEXPR uint64_t value = 0xFFFFULL; };
+ template<> struct rapid_ct_mask<4> { static RAPIDHASH_CT_CONSTEXPR uint64_t value = 0xFFFFFFFFULL; };
+ template<> struct rapid_ct_mask<8> { static RAPIDHASH_CT_CONSTEXPR uint64_t value = 0xFFFFFFFFFFFFFFFFULL; };
 
  #ifdef RAPIDHASH_CT_LITTLE_ENDIAN
  template<typename type>

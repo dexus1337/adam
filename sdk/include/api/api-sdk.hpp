@@ -63,7 +63,9 @@
 
 // CONSTEVAL macro, THANK YOU AGAIN MSVC FOR BEING SOOOO GOOOOD
 #if defined(_MSC_VER) && !defined(__clang__)
-#define ADAM_CT constexpr
+#define ADAM_CONSTEVAL  constexpr
+#define ADAM_CONSTEXPR constexpr
 #else
-#define ADAM_CT consteval
+#define ADAM_CONSTEVAL  consteval
+#define ADAM_CONSTEXPR constexpr
 #endif

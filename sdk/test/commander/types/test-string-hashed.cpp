@@ -94,7 +94,7 @@
         EXPECT_EQ(it->second, 42); \
         EXPECT_TRUE(test_map.contains(raw_hash)); \
         \
-        ADAM_CT adam::string_hashed_ct_template<CHAR_TYPE> ct_key(PREFIX##"transparent_test"); \
+        ADAM_CONSTEXPR adam::string_hashed_ct_template<CHAR_TYPE> ct_key(PREFIX##"transparent_test"); \
         auto it_ct = test_map.find(ct_key.get_hash()); \
         ASSERT_NE(it_ct, test_map.end()); \
         EXPECT_EQ(it_ct->second, 42); \

@@ -23,7 +23,7 @@ namespace adam
     {
     public:
 
-        static ADAM_CT string_hashed_ct type_name() { return "internal"_ct; }
+        static ADAM_CONSTEXPR string_hashed_ct type_name() { return "internal"_ct; }
 
         /** @brief Constructs a new internal port object. */
         port_internal(const string_hashed& item_name);

@@ -1,9 +1,12 @@
 #pragma once
 
 #include <SDL.h>
+#include <imgui.h>
 
 namespace adam::gui 
 {
+    static ImVec2 window_min_size = ImVec2(1280, 720);
+
     /** @brief Initializes SDL2, OpenGL context, and Dear ImGui */
     bool initialize(SDL_Window*& window, SDL_GLContext& gl_context, const char*& glsl_version);
 

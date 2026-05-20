@@ -28,7 +28,7 @@ namespace adam
     {
     public:
 
-        static ADAM_CT size_t log_size_in_bytes = 512;
+        static ADAM_CONSTEXPR size_t log_size_in_bytes = 512;
 
         enum level : uint32_t
         {
@@ -75,7 +75,7 @@ namespace adam
         os::thread_id   m_tid;
         level           m_level;
 
-        static ADAM_CT size_t max_text_length = log_size_in_bytes - sizeof(m_ui64_timestamp) - sizeof(m_tid) - sizeof(m_level); /**< Ensure an log is exactly the wanted size in bytes*/
+        static ADAM_CONSTEXPR size_t max_text_length = log_size_in_bytes - sizeof(m_ui64_timestamp) - sizeof(m_tid) - sizeof(m_level); /**< Ensure an log is exactly the wanted size in bytes*/
 
         char            m_text[max_text_length]; 
     };

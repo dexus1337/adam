@@ -32,28 +32,28 @@ namespace adam
         
         /** @brief Constructs a new string_hashed_ct_template object. */
         template<size_t string_len>
-        ADAM_CT string_hashed_ct_template(const char_type (&arr)[string_len]) 
+        ADAM_CONSTEVAL string_hashed_ct_template(const char_type (&arr)[string_len]) 
             : m_text(&arr[0]), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
 
         /** @brief Internal constructor for User-Defined Literals. */
-        ADAM_CT string_hashed_ct_template(const char_type* str, size_t len) 
+        ADAM_CONSTEVAL string_hashed_ct_template(const char_type* str, size_t len) 
             : m_text(str), m_length(len), m_hash(rapidhash_ct(str, len * sizeof(char_type))) { }
 
-        ADAM_CT hash_datatype get_hash()  const { return m_hash; }
+        ADAM_CONSTEXPR hash_datatype get_hash()  const { return m_hash; }
         
         /** @brief Implicit conversion operator to the underlying hash type, allowing direct usage in switch statements. */
-        ADAM_CT operator hash_datatype()  const { return m_hash; }
-        ADAM_CT size_t get_length()       const { return m_length; }
-        ADAM_CT const char_type* c_str()  const { return m_text; }
+        ADAM_CONSTEXPR operator hash_datatype()  const { return m_hash; }
+        ADAM_CONSTEXPR size_t get_length()       const { return m_length; }
+        ADAM_CONSTEXPR const char_type* c_str()  const { return m_text; }
 
         /** @brief Compares two string_hashed_ct_template objects for equality based on their hash values. */
-        ADAM_CT bool operator==(const string_hashed_ct_template& other) const { return m_hash == other.m_hash; }
+        ADAM_CONSTEXPR bool operator==(const string_hashed_ct_template& other) const { return m_hash == other.m_hash; }
 
         /** @brief Compares two string_hashed_ct_template objects for inequality based on their hash values. */
-        ADAM_CT bool operator!=(const string_hashed_ct_template& other) const { return m_hash != other.m_hash; }
+        ADAM_CONSTEXPR bool operator!=(const string_hashed_ct_template& other) const { return m_hash != other.m_hash; }
 
         /** @brief Compares two string_hashed_ct_template objects for ordering based on their hash values. Used for std::set and std::map. */
-        ADAM_CT bool operator<(const string_hashed_ct_template& other) const { return m_hash < other.m_hash; }
+        ADAM_CONSTEXPR bool operator<(const string_hashed_ct_template& other) const { return m_hash < other.m_hash; }
 
         /** @brief Assigns the value of another string_hashed_ct_template object to this one. */
         string_hashed_ct_template& operator=(const string_hashed_ct_template&) = delete;
@@ -73,29 +73,29 @@ namespace adam
     using string_hashed_ct_utf16    = string_hashed_ct_template<char16_t>;
     using string_hashed_ct_utf32    = string_hashed_ct_template<char32_t>;
 
-    ADAM_CT string_hashed_ct operator""_ct(const char* str, size_t len) 
+    ADAM_CONSTEVAL string_hashed_ct operator""_ct(const char* str, size_t len) 
     {
         return string_hashed_ct(str, len);
     }
 
-    ADAM_CT wstring_hashed_ct operator""_ct(const wchar_t* str, size_t len) 
+    ADAM_CONSTEVAL wstring_hashed_ct operator""_ct(const wchar_t* str, size_t len) 
     {
         return wstring_hashed_ct(str, len);
     }
 
     #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
-    ADAM_CT string_hashed_ct_utf8 operator""_ct(const char8_t* str, size_t len) 
+    ADAM_CONSTEVAL string_hashed_ct_utf8 operator""_ct(const char8_t* str, size_t len) 
     {
         return string_hashed_ct_utf8(str, len);
     }
     #endif
 
-    ADAM_CT string_hashed_ct_utf16 operator""_ct(const char16_t* str, size_t len) 
+    ADAM_CONSTEVAL string_hashed_ct_utf16 operator""_ct(const char16_t* str, size_t len) 
     {
         return string_hashed_ct_utf16(str, len);
     }
     
-    ADAM_CT string_hashed_ct_utf32 operator""_ct(const char32_t* str, size_t len) 
+    ADAM_CONSTEVAL string_hashed_ct_utf32 operator""_ct(const char32_t* str, size_t len) 
     {
         return string_hashed_ct_utf32(str, len);
     }

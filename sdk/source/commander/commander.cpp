@@ -476,7 +476,7 @@ namespace adam
 
     response_status commander::send_command(const command& cmd, response** resp)
     {
-        static ADAM_CT int response_buffer_size = 256; // should be enough for most responses and their extensions, if not it will just resize automatically, no big deal
+        static ADAM_CONSTEXPR int response_buffer_size = 256; // should be enough for most responses and their extensions, if not it will just resize automatically, no big deal
         thread_local std::vector<response> response_buffer = []() 
         {
             std::vector<response> buf;

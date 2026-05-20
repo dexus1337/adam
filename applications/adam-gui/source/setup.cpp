@@ -39,7 +39,7 @@ namespace adam::gui
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         
         SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-        window = SDL_CreateWindow("ADAM GUI", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+        window = SDL_CreateWindow("ADAM GUI", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_min_size[0], window_min_size[1], window_flags);
         if (!window) return false;
 
         gl_context = SDL_GL_CreateContext(window);
@@ -50,7 +50,7 @@ namespace adam::gui
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
         // Disable the creation of imgui.ini, as we handle configuration saving ourselves
@@ -71,6 +71,8 @@ namespace adam::gui
         style.ItemSpacing = ImVec2(8.0f, 6.0f);
         style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
 
+        style.WindowMinSize = window_min_size;
+
         style.WindowBorderSize = 1.0f;
         style.FrameBorderSize = 1.0f;
         style.PopupBorderSize = 1.0f;
@@ -79,7 +81,10 @@ namespace adam::gui
         float ddpi = 96.0f, hdpi = 96.0f, vdpi = 96.0f;
         int display_index = SDL_GetWindowDisplayIndex(window);
         if (display_index >= 0)
-            SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi);
+        {
+            if(SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi) != 0 )
+                ddpi = 96.f;
+        }
         float dpi_scale = ddpi / 96.0f;
         ImGui::GetStyle().ScaleAllSizes(dpi_scale);
 

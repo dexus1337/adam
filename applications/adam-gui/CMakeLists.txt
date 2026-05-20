@@ -35,6 +35,7 @@ add_executable(adam-gui
 target_include_directories(adam-gui PRIVATE
     "${imgui_dir}"
     "${imgui_dir}/backends"
+    ${SDL2_INCLUDE_DIRS}
 )
 
 target_link_libraries(adam-gui PRIVATE

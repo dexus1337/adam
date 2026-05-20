@@ -30,9 +30,9 @@ namespace adam
 
         static_assert(sizeof(message_type) == 2, "commander_message_template template message_type must be exactly 2 bytes in size");
 
-        static ADAM_CT size_t size_in_bytes = 512;
+        static ADAM_CONSTEXPR size_t size_in_bytes = 512;
 
-        static ADAM_CT size_t get_max_data_length() { return max_data_length; }
+        static ADAM_CONSTEXPR size_t get_max_data_length() { return max_data_length; }
 
         /** @brief Constructs a new commander_message_template object.*/
         commander_message_template(message_type t = static_cast<message_type>(0)) : m_type(t), m_b_extended(false) {}
@@ -60,7 +60,7 @@ namespace adam
         message_type m_type;
         bool m_b_extended; /**< If extended, the following commander_message_template is pure data*/
 
-        static ADAM_CT size_t max_data_length = size_in_bytes - sizeof(m_type) - sizeof(m_b_extended); /**< Ensure an commander_message_template is exactly the wanted size in bytes*/
+        static ADAM_CONSTEXPR size_t max_data_length = size_in_bytes - sizeof(m_type) - sizeof(m_b_extended); /**< Ensure an commander_message_template is exactly the wanted size in bytes*/
 
         uint8_t m_data[max_data_length];
     };

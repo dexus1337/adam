@@ -165,6 +165,8 @@ TEST_F(buffer_manager_test, benchmark_vs_malloc)
     auto end_malloc = std::chrono::high_resolution_clock::now();
     auto duration_malloc = std::chrono::duration_cast<std::chrono::microseconds>(end_malloc - start_malloc).count();
 
+    (void)sink_ptr;
+
     std::cout << "[          ] buffer_manager duration: " << duration_mgr << " us\n";
     std::cout << "[          ] std::malloc duration:    " << duration_malloc << " us\n";
 

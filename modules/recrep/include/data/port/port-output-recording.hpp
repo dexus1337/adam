@@ -24,7 +24,7 @@ namespace adam::modules::recrep
     {
     public:
 
-        static ADAM_CT string_hashed_ct type_name() { return "recording"_ct; }
+        static ADAM_CONSTEXPR string_hashed_ct type_name() { return "recording"_ct; }
 
         /** @brief Constructs a new output port object. */
         port_output_recording(const string_hashed& item_name);
