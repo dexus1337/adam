@@ -25,6 +25,7 @@ namespace adam::gui
             p.add(std::make_unique<configuration_parameter_boolean>("window_maximized"_ct, false));
             p.add(std::make_unique<configuration_parameter_integer>("log_level"_ct, 0));
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, 0));
+            p.add(std::make_unique<configuration_parameter_integer>("connection_sort_mode"_ct, 0));
             return p;
         }();
         return params;

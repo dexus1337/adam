@@ -7,6 +7,8 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
+#include <thread>
+#include <chrono>
 
 int main(int, char**) 
 {
@@ -49,6 +51,8 @@ int main(int, char**)
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
     ui_window.save_window_state();

@@ -46,7 +46,7 @@ namespace adam::gui
         if (!gl_context) return false;
 
         SDL_GL_MakeCurrent(window, gl_context);
-        SDL_GL_SetSwapInterval(1); // Enable vsync
+        //SDL_GL_SetSwapInterval(1); // Enable vsync
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -95,8 +95,12 @@ namespace adam::gui
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
             io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f * dpi_scale);
         #elif defined(ADAM_PLATFORM_LINUX)
-        if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+        if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSans.ttf"))
+            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f * dpi_scale);
+        else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
             io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f * dpi_scale);
+        else if (std::filesystem::exists("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf"))
+            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf", 16.0f * dpi_scale);
         else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
             io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f * dpi_scale);
         #elif defined(__APPLE__)

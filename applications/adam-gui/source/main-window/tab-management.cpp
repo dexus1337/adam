@@ -614,17 +614,8 @@ namespace adam::gui
         const auto& connections = reg_view.get_connections();
         const auto& ports = reg_view.get_ports();
 
-        adam::configuration_parameter_integer* sort_mode_param = nullptr;
-        if (auto* p = ctrl.get_parameters().get("connection_sort_mode"_ct))
-            sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(p);
-        else
-        {
-            auto new_param = std::make_unique<adam::configuration_parameter_integer>("connection_sort_mode"_ct);
-            new_param->set_value(0);
-            sort_mode_param = new_param.get();
-            ctrl.get_parameters().add(std::move(new_param));
-        }
-
+        static adam::configuration_parameter_integer* sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(ctrl.get_parameters().get("connection_sort_mode"_ct));
+        
         int sort_mode = static_cast<int>(sort_mode_param->get_value());
 
         ImGui::AlignTextToFramePadding();
