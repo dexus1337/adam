@@ -33,7 +33,7 @@ namespace adam::gui
         {
             if (commander_active)
             {
-                ctrl.get_commander().request_module_path_add(adam::string_hashed(&new_path[0]));
+                ctrl.commander().request_module_path_add(adam::string_hashed(&new_path[0]));
                 new_path[0] = '\0';
             }
         }
@@ -55,7 +55,7 @@ namespace adam::gui
 
             if (commander_active)
             {
-                std::lock_guard<const adam::module_view> lg(ctrl.get_commander().modules());
+                std::lock_guard<const adam::module_view> lg(ctrl.commander().modules());
 
                 const auto& paths = ctrl.get_commander().get_modules().get_paths();
                 for (size_t i = 0; i < paths.size(); ++i)
@@ -74,7 +74,7 @@ namespace adam::gui
                     ImGui::PushID(static_cast<int>(i));
                     if (i == 0) ImGui::BeginDisabled();
                     if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang), ImVec2(-1.0f, 0.0f)))
-                        ctrl.get_commander().request_module_path_remove(i);
+                        ctrl.commander().request_module_path_remove(i);
                     if (i == 0) ImGui::EndDisabled();
                     ImGui::PopID();
                 }
@@ -89,7 +89,7 @@ namespace adam::gui
         if (ImGui::Button(get_gui_string(gui_string_id::btn_scan_modules, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))
         {
             if (commander_active)
-                ctrl.get_commander().request_module_scan();
+                ctrl.commander().request_module_scan();
         }
         if (!commander_active) ImGui::EndDisabled();
             
@@ -173,9 +173,9 @@ namespace adam::gui
                 if (ImGui::Checkbox("##load", &checkbox_val))
                 {
                     if (checkbox_val)
-                        ctrl.get_commander().request_module_load(adam::string_hashed(name));
+                        ctrl.commander().request_module_load(adam::string_hashed(name));
                     else
-                        ctrl.get_commander().request_module_unload(adam::string_hashed(name));
+                        ctrl.commander().request_module_unload(adam::string_hashed(name));
                 }
                 if (status == 2) ImGui::EndDisabled();
                 ImGui::PopID();
@@ -328,10 +328,10 @@ namespace adam::gui
                 static std::vector<module_gui_info> sorted_modules;
                 sorted_modules.clear();
 
-                std::lock_guard<const adam::module_view> lg(ctrl.get_commander().modules());
+                std::lock_guard<const adam::module_view> lg(ctrl.commander().modules());
+
                 const auto& modules_manager = ctrl.get_commander().get_modules();
                 const auto& db = modules_manager.database();
-
                 const auto& avail = modules_manager.get_available();
                 const auto& loaded = modules_manager.get_loaded();
                 const auto& unavail = modules_manager.get_unavailable();

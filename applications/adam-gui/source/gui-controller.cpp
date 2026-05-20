@@ -10,6 +10,7 @@ namespace adam::gui
         {
             configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_boolean>("show_log"_ct, true));
+            p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0));
             p.add(std::make_unique<configuration_parameter_boolean>("show_performance"_ct, false));
             p.add(std::make_unique<configuration_parameter_integer>("perf_ovly_location"_ct, 1));
             p.add(std::make_unique<configuration_parameter_double>("perf_ovly_x"_ct, -1.0));
@@ -78,6 +79,19 @@ namespace adam::gui
         m_log_history.clear();
     }
 
+    void gui_controller::request_redraw()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_redraw_callback)
+            m_redraw_callback();
+    }
+
+    void gui_controller::set_redraw_callback(std::function<void()> cb)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_redraw_callback = std::move(cb);
+    }
+
     void gui_controller::update_loop()
     {
         auto last_reconnect_attempt = std::chrono::steady_clock::now() - std::chrono::seconds(5);
@@ -127,9 +141,15 @@ namespace adam::gui
                 }
             }
 
+            if (commander_active != m_commander_active.load(std::memory_order_relaxed))
+            {
+                request_redraw();
+            }
+
             m_commander_active.store(commander_active, std::memory_order_relaxed);
 
             adam::log incoming_log;
+            bool any_logs = false;
             if (log_sink_active)
             {
                 // Pop logs with a 50ms timeout to avoid tight CPU looping and allow thread exit
@@ -139,6 +159,7 @@ namespace adam::gui
                     m_log_history.push_back({ incoming_log.get_timestamp(), incoming_log.get_level(), std::string(incoming_log.get_text()) });
                     if (m_log_history.size() > m_max_log_history)
                         m_log_history.erase(m_log_history.begin());
+                    any_logs = true;
                 }
             }
             else
@@ -146,6 +167,9 @@ namespace adam::gui
                 // Sleep slightly to prevent tight loop if completely disconnected
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
+
+            if (any_logs)
+                request_redraw();
         }
 
         m_log_sink.destroy();

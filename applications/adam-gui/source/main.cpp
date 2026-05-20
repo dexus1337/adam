@@ -10,6 +10,10 @@
 #include <thread>
 #include <chrono>
 
+using namespace adam::string_hashed_ct_literals;
+
+static ADAM_CONSTEXPR int event_redraw_count = 3;
+
 int main(int, char**) 
 {
     SDL_Window* window = nullptr;
@@ -20,21 +24,79 @@ int main(int, char**)
         return -1;
 
     adam::gui::gui_controller controller;
+    
+    controller.set_redraw_callback([]() 
+    {
+        SDL_Event event;
+        SDL_zero(event);
+        event.type = SDL_USEREVENT;
+        SDL_PushEvent(&event);
+    });
+
     controller.start();
     adam::gui::main_window ui_window(controller, window);
 
     bool done = false;
+    int frames_to_render = event_redraw_count;
     while (!done)
     {
+        bool continuous_redraw = false;
+        if (auto* param = dynamic_cast<adam::configuration_parameter_integer*>(controller.get_parameters().get("gui_mode"_ct)))
+            continuous_redraw = (param->get_value() == 1);
+
+        bool show_performance = false;
+        if (auto* param = dynamic_cast<adam::configuration_parameter_boolean*>(controller.get_parameters().get("show_performance"_ct)))
+            show_performance = param->get_value();
+
         SDL_Event event;
-        while (SDL_PollEvent(&event))
+        bool needs_redraw = continuous_redraw || (frames_to_render > 0);
+
+        if (needs_redraw)
         {
-            ImGui_ImplSDL2_ProcessEvent(&event);
-            if (event.type == SDL_QUIT)
-                done = true;
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
-                done = true;
+            while (SDL_PollEvent(&event))
+            {
+                ImGui_ImplSDL2_ProcessEvent(&event);
+                if (event.type == SDL_QUIT)
+                    done = true;
+                if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+                    done = true;
+
+                frames_to_render = event_redraw_count;
+            }
         }
+        else
+        {
+            bool has_event = false;
+            if (show_performance)
+                has_event = SDL_WaitEventTimeout(&event, 2000);
+            else
+                has_event = SDL_WaitEvent(&event);
+
+            if (has_event)
+            {
+                frames_to_render = event_redraw_count;
+                needs_redraw = true;
+                do
+                {
+                    ImGui_ImplSDL2_ProcessEvent(&event);
+                    if (event.type == SDL_QUIT)
+                        done = true;
+                    if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+                        done = true;
+                } while (SDL_PollEvent(&event));
+            }
+            else if (show_performance)
+            {
+                frames_to_render = 1;
+                needs_redraw = true;
+            }
+        }
+
+        if (!needs_redraw && !done)
+            continue;
+
+        if (frames_to_render > event_redraw_count)
+            frames_to_render--;
 
         // Render ImGui Frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -51,8 +113,6 @@ int main(int, char**)
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
     ui_window.save_window_state();

@@ -145,6 +145,9 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::menu_show_log),               { "Show Log", "Protokoll anzeigen" } },
             { static_cast<int>(gui_string_id::menu_show_performance),       { "Show Performance Overlay", "Leistungsübersicht anzeigen" } },
             { static_cast<int>(gui_string_id::menu_settings),               { "Settings", "Einstellungen" } },
+            { static_cast<int>(gui_string_id::menu_gui_mode),               { "GUI Mode", "GUI-Modus" } },
+            { static_cast<int>(gui_string_id::gui_mode_default),            { "Default", "Standard" } },
+            { static_cast<int>(gui_string_id::gui_mode_immediate),          { "Immediate", "Unmittelbar" } },
             { static_cast<int>(gui_string_id::combo_language),              { "Language###Lang", "Sprache###Lang" } },
             { static_cast<int>(gui_string_id::slider_font_scale),           { "Font Scale###FontScale", "Schriftskalierung###FontScale" } },
             { static_cast<int>(gui_string_id::combo_theme),                 { "Theme###Theme", "Design###Theme" } },
@@ -236,7 +239,10 @@ namespace adam::gui
             { static_cast<int>(gui_string_id::sort_edited_asc),             { "Edited (Ascending)", "Bearbeitet (aufsteigend)" } },
             { static_cast<int>(gui_string_id::sort_edited_desc),            { "Edited (Descending)", "Bearbeitet (absteigend)" } },
             { static_cast<int>(gui_string_id::sort_custom),                 { "Custom", "Benutzerdef." } },
-            { static_cast<int>(gui_string_id::lbl_move_connection),         { "Move %s", "%s verschieben" } }
+            { static_cast<int>(gui_string_id::lbl_move_connection),         { "Move %s", "%s verschieben" } },
+            { static_cast<int>(gui_string_id::dlg_add_input_port_to),       { "Add Input Port to %s###PortPopup", "Eingangsport zu %s hinzufügen###PortPopup" } },
+            { static_cast<int>(gui_string_id::dlg_add_output_port_to),      { "Add Output Port to %s###PortPopup", "Ausgangsport zu %s hinzufügen###PortPopup" } },
+            { static_cast<int>(gui_string_id::dlg_add_port),                { "Add Port###PortPopup", "Port hinzufügen###PortPopup" } }
         };
 
         auto val = static_cast<int>(id);
@@ -255,6 +261,7 @@ namespace adam::gui
 
         m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"_ct));
         m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
+        m_p_gui_mode            = static_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
         m_p_perf_ovly_location  = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"_ct));
         m_p_perf_ovly_x         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"_ct));
         m_p_perf_ovly_y         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
@@ -481,7 +488,7 @@ namespace adam::gui
         {
             adam::language new_lang = (lang == adam::language_english) ? adam::language_german : adam::language_english;
             if (m_ctrl.is_commander_active())
-                m_ctrl.get_commander().request_language_change(new_lang);
+                m_ctrl.commander().request_language_change(new_lang);
             m_p_language->set_value(static_cast<int64_t>(new_lang));
         }
         
@@ -503,6 +510,22 @@ namespace adam::gui
         }
         if (ImGui::BeginMenu(get_gui_string(gui_string_id::menu_settings, lang)))
         {
+            const char* preview_mode = (m_p_gui_mode->get_value() == 1) ? get_gui_string(gui_string_id::gui_mode_immediate, lang) : get_gui_string(gui_string_id::gui_mode_default, lang);
+            if (ImGui::BeginCombo(get_gui_string(gui_string_id::menu_gui_mode, lang), preview_mode))
+            {
+                if (ImGui::Selectable(get_gui_string(gui_string_id::gui_mode_default, lang), m_p_gui_mode->get_value() == 0))
+                {
+                    m_p_gui_mode->set_value(0);
+                }
+                if (ImGui::Selectable(get_gui_string(gui_string_id::gui_mode_immediate, lang), m_p_gui_mode->get_value() == 1))
+                {
+                    m_p_gui_mode->set_value(1);
+                    m_ctrl.request_redraw();
+                }
+                ImGui::EndCombo();
+            }
+            
+            ImGui::Separator();
             if (ImGui::BeginCombo(get_gui_string(gui_string_id::combo_language, lang), adam::language_strings::language_name(lang, lang).data()))
             {
                 uint64_t available_langs = m_ctrl.is_commander_active() ? m_ctrl.get_commander().get_available_languages() : ((1ULL << static_cast<int>(adam::language_english)) | (1ULL << static_cast<int>(adam::language_german)));
@@ -517,7 +540,7 @@ namespace adam::gui
                     if (ImGui::Selectable(adam::language_strings::language_name(avail_lang, lang).data(), is_selected))
                     {
                         if (m_ctrl.is_commander_active())
-                            m_ctrl.get_commander().request_language_change(avail_lang);
+                            m_ctrl.commander().request_language_change(avail_lang);
                             
                         m_p_language->set_value(static_cast<int64_t>(avail_lang));
                     }
@@ -609,9 +632,9 @@ namespace adam::gui
         if (ImGui::Combo("##LogLevel", &current_log_level, get_gui_string(gui_string_id::combo_log_level_options, lang)))
         {
             m_p_log_level->set_value(static_cast<int64_t>(current_log_level));
-            if (m_ctrl.get_log_sink().is_active() && m_ctrl.get_log_sink().queue().metadata())
+            if (m_ctrl.get_log_sink().is_active() && m_ctrl.log_sink().queue().metadata())
             {
-                m_ctrl.get_log_sink().queue().metadata()->store(static_cast<adam::log::level>(current_log_level + 1), std::memory_order_relaxed);
+                m_ctrl.log_sink().queue().metadata()->store(static_cast<adam::log::level>(current_log_level + 1), std::memory_order_relaxed);
             }
         }
         
@@ -734,7 +757,7 @@ namespace adam::gui
             }
 
             int content = static_cast<int>(m_p_perf_ovly_content->get_value());
-            if (content & 1) ImGui::Text(get_gui_string(gui_string_id::lbl_fps, lang), ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+            if ((content & 1) && m_p_gui_mode->get_value() == 1) ImGui::Text(get_gui_string(gui_string_id::lbl_fps, lang), ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
             if (content & 2) ImGui::Text(get_gui_string(gui_string_id::lbl_cpu, lang), adam::os::get_cpu_usage());
             if (content & 4)
             {

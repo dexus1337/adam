@@ -37,7 +37,7 @@ namespace adam::gui
             {
                 if (connection_to_delete.get_hash() != 0)
                 {
-                    ctrl.get_commander().request_connection_destroy(connection_to_delete.get_hash());
+                    ctrl.commander().request_connection_destroy(connection_to_delete.get_hash());
                     connection_to_delete = adam::string_hashed("");
                 }
                 ImGui::CloseCurrentPopup();
@@ -62,7 +62,7 @@ namespace adam::gui
             {
                 if (conn_name[0] != '\0')
                 {
-                    ctrl.get_commander().request_connection_create(adam::string_hashed(&conn_name[0]));
+                    ctrl.commander().request_connection_create(adam::string_hashed(&conn_name[0]));
                     conn_name[0] = '\0';
                     ImGui::CloseCurrentPopup();
                 }
@@ -101,15 +101,15 @@ namespace adam::gui
         {
             if (target_direction == adam::port_direction::input)
             {
-                snprintf(port_popup_title, sizeof(port_popup_title), "Add Input Port to %s###PortPopup", target_connection.c_str());
+                snprintf(port_popup_title, sizeof(port_popup_title), get_gui_string(gui_string_id::dlg_add_input_port_to, lang), target_connection.c_str());
             }
             else if (target_direction == adam::port_direction::output)
             {
-                snprintf(port_popup_title, sizeof(port_popup_title), "Add Output Port to %s###PortPopup", target_connection.c_str());
+                snprintf(port_popup_title, sizeof(port_popup_title), get_gui_string(gui_string_id::dlg_add_output_port_to, lang), target_connection.c_str());
             }
             else
             {
-                snprintf(port_popup_title, sizeof(port_popup_title), "Add Port###PortPopup");
+                snprintf(port_popup_title, sizeof(port_popup_title), "%s", get_gui_string(gui_string_id::dlg_add_port, lang));
             }
 
             existing_grouped.clear();
@@ -119,13 +119,13 @@ namespace adam::gui
             used_ports.clear();
 
             {
-                std::lock_guard<const adam::module_view> mod_lock(ctrl.get_commander().modules());
-                std::lock_guard<const adam::registry_view> reg_lock(ctrl.get_commander().registry());
+                std::lock_guard<const adam::module_view> mod_lock(ctrl.commander().modules());
+                std::lock_guard<const adam::registry_view> reg_lock(ctrl.commander().registry());
 
-                const auto& db = ctrl.get_commander().get_modules().database();
-                const auto& loaded_modules = ctrl.get_commander().get_modules().get_loaded();
-                const auto& reg_ports = ctrl.get_commander().registry().get_ports();
-                const auto& reg_conns = ctrl.get_commander().registry().get_connections();
+                const auto& db              = ctrl.get_commander().get_modules().database();
+                const auto& loaded_modules  = ctrl.get_commander().get_modules().get_loaded();
+                const auto& reg_ports       = ctrl.commander().registry().get_ports();
+                const auto& reg_conns       = ctrl.commander().registry().get_connections();
 
                 auto conn_it = reg_conns.find(target_connection.get_hash());
                 if (conn_it != reg_conns.end())
@@ -183,7 +183,7 @@ namespace adam::gui
                     pdi.module_name = "Internal";
                     pdi.port_name = "internal";
                     pdi.type_name = "internal";
-                    pdi.port_hash = adam::string_hashed("internal").get_hash();
+                    pdi.port_hash = ("internal"_ct).get_hash();
                     pdi.direction = adam::port_direction::in_out;
                     pdi.is_unavailable = false;
 
@@ -211,7 +211,7 @@ namespace adam::gui
                     }
                     else
                     {
-                        if (p_view->type.get_hash() == adam::string_hashed("internal").get_hash())
+                        if (p_view->type.get_hash() == ("internal"_ct).get_hash())
                         {
                             pdi.module_name = "Internal";
                             pdi.module_hash = 0;
@@ -346,7 +346,7 @@ namespace adam::gui
                             ImGui::PushID(static_cast<int>(pdi.port_hash));
                             if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang)))
                             {
-                                ctrl.get_commander().request_connection_port_add(target_connection.get_hash(), pdi.port_hash, target_direction == adam::port_direction::input);
+                                ctrl.commander().request_connection_port_add(target_connection.get_hash(), pdi.port_hash, target_direction == adam::port_direction::input);
                                 ImGui::CloseCurrentPopup();
                             }
                             if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -435,14 +435,14 @@ namespace adam::gui
                             
                             if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang)))
                             {
-                                ctrl.get_commander().request_port_create(
+                                ctrl.commander().request_port_create(
                                     adam::string_hashed(name_buffer.data()),
                                     pdi.port_hash,
                                     pdi.module_hash
                                 );
                                 
                                 adam::string_hashed::hash_datatype new_port_hash = adam::string_hashed(name_buffer.data()).get_hash();
-                                ctrl.get_commander().request_connection_port_add(target_connection.get_hash(), new_port_hash, target_direction == adam::port_direction::input);
+                                ctrl.commander().request_connection_port_add(target_connection.get_hash(), new_port_hash, target_direction == adam::port_direction::input);
 
                                 name_buffer[0] = '\0';
                                 ImGui::CloseCurrentPopup();
@@ -474,7 +474,7 @@ namespace adam::gui
             ImGui::EndPopup();
         }
 
-        auto& reg_view = ctrl.get_commander().registry();
+        auto& reg_view = ctrl.commander().registry();
 
         std::lock_guard<const adam::registry_view> lock(reg_view);
 
@@ -486,11 +486,11 @@ namespace adam::gui
             auto conn = std::make_unique<adam::connection_view>();
             conn->name = adam::string_hashed("Debug_Connection");
             
-            auto p_in1 = std::make_unique<adam::port_view>(); p_in1->name = adam::string_hashed("Video_In"); p_in1->type = adam::string_hashed("internal");
-            auto p_in2 = std::make_unique<adam::port_view>(); p_in2->name = adam::string_hashed("Audio_In"); p_in2->type = adam::string_hashed("internal");
+            auto p_in1 = std::make_unique<adam::port_view>(); p_in1->name = adam::string_hashed("Video_In"); p_in1->type = ("internal"_ct);
+            auto p_in2 = std::make_unique<adam::port_view>(); p_in2->name = adam::string_hashed("Audio_In"); p_in2->type = ("internal"_ct);
             
-            auto p_out1 = std::make_unique<adam::port_view>(); p_out1->name = adam::string_hashed("Stream_Out"); p_out1->type = adam::string_hashed("internal");
-            auto p_out2 = std::make_unique<adam::port_view>(); p_out2->name = adam::string_hashed("Preview_Out"); p_out2->type = adam::string_hashed("internal");
+            auto p_out1 = std::make_unique<adam::port_view>(); p_out1->name = adam::string_hashed("Stream_Out"); p_out1->type = ("internal"_ct);
+            auto p_out2 = std::make_unique<adam::port_view>(); p_out2->name = adam::string_hashed("Preview_Out"); p_out2->type = ("internal"_ct);
 
             conn->inputs.push_back(p_in1->name.get_hash());
             conn->inputs.push_back(p_in2->name.get_hash());
@@ -510,8 +510,8 @@ namespace adam::gui
             auto conn2 = std::make_unique<adam::connection_view>();
             conn2->name = adam::string_hashed("Converter_Connection");
             
-            auto p2_in1 = std::make_unique<adam::port_view>(); p2_in1->name = adam::string_hashed("Raw_Data_In"); p2_in1->type = adam::string_hashed("internal");
-            auto p2_out1 = std::make_unique<adam::port_view>(); p2_out1->name = adam::string_hashed("Processed_Out"); p2_out1->type = adam::string_hashed("internal");
+            auto p2_in1 = std::make_unique<adam::port_view>(); p2_in1->name = adam::string_hashed("Raw_Data_In"); p2_in1->type = ("internal"_ct);
+            auto p2_out1 = std::make_unique<adam::port_view>(); p2_out1->name = adam::string_hashed("Processed_Out"); p2_out1->type = ("internal"_ct);
 
             conn2->inputs.push_back(p2_in1->name.get_hash());
             conn2->outputs.push_back(p2_out1->name.get_hash());
@@ -527,12 +527,12 @@ namespace adam::gui
             auto conn3 = std::make_unique<adam::connection_view>();
             conn3->name = adam::string_hashed("Splitter_Connection");
             
-            auto p3_in1 = std::make_unique<adam::port_view>(); p3_in1->name = adam::string_hashed("Sensor_1"); p3_in1->type = adam::string_hashed("internal");
-            auto p3_in2 = std::make_unique<adam::port_view>(); p3_in2->name = adam::string_hashed("Sensor_2"); p3_in2->type = adam::string_hashed("internal");
+            auto p3_in1 = std::make_unique<adam::port_view>(); p3_in1->name = adam::string_hashed("Sensor_1"); p3_in1->type = ("internal"_ct);
+            auto p3_in2 = std::make_unique<adam::port_view>(); p3_in2->name = adam::string_hashed("Sensor_2"); p3_in2->type = ("internal"_ct);
             
-            auto p3_out1 = std::make_unique<adam::port_view>(); p3_out1->name = adam::string_hashed("Log_Out"); p3_out1->type = adam::string_hashed("internal");
-            auto p3_out2 = std::make_unique<adam::port_view>(); p3_out2->name = adam::string_hashed("Display_Out"); p3_out2->type = adam::string_hashed("internal");
-            auto p3_out3 = std::make_unique<adam::port_view>(); p3_out3->name = adam::string_hashed("Network_Out"); p3_out3->type = adam::string_hashed("internal");
+            auto p3_out1 = std::make_unique<adam::port_view>(); p3_out1->name = adam::string_hashed("Log_Out"); p3_out1->type = ("internal"_ct);
+            auto p3_out2 = std::make_unique<adam::port_view>(); p3_out2->name = adam::string_hashed("Display_Out"); p3_out2->type = ("internal"_ct);
+            auto p3_out3 = std::make_unique<adam::port_view>(); p3_out3->name = adam::string_hashed("Network_Out"); p3_out3->type = ("internal"_ct);
 
             conn3->inputs.push_back(p3_in1->name.get_hash());
             conn3->inputs.push_back(p3_in2->name.get_hash());
@@ -551,11 +551,11 @@ namespace adam::gui
             auto conn4 = std::make_unique<adam::connection_view>();
             conn4->name = adam::string_hashed("Complex_Filter_Connection");
             
-            auto p4_in1 = std::make_unique<adam::port_view>(); p4_in1->name = adam::string_hashed("Mic_1"); p4_in1->type = adam::string_hashed("internal");
-            auto p4_in2 = std::make_unique<adam::port_view>(); p4_in2->name = adam::string_hashed("Mic_2"); p4_in2->type = adam::string_hashed("internal");
-            auto p4_in3 = std::make_unique<adam::port_view>(); p4_in3->name = adam::string_hashed("Mic_3"); p4_in3->type = adam::string_hashed("internal");
+            auto p4_in1 = std::make_unique<adam::port_view>(); p4_in1->name = adam::string_hashed("Mic_1"); p4_in1->type = ("internal"_ct);
+            auto p4_in2 = std::make_unique<adam::port_view>(); p4_in2->name = adam::string_hashed("Mic_2"); p4_in2->type = ("internal"_ct);
+            auto p4_in3 = std::make_unique<adam::port_view>(); p4_in3->name = adam::string_hashed("Mic_3"); p4_in3->type = ("internal"_ct);
             
-            auto p4_out1 = std::make_unique<adam::port_view>(); p4_out1->name = adam::string_hashed("Mixed_Audio_Out"); p4_out1->type = adam::string_hashed("internal");
+            auto p4_out1 = std::make_unique<adam::port_view>(); p4_out1->name = adam::string_hashed("Mixed_Audio_Out"); p4_out1->type = ("internal"_ct);
 
             conn4->inputs.push_back(p4_in1->name.get_hash());
             conn4->inputs.push_back(p4_in2->name.get_hash());
@@ -576,14 +576,14 @@ namespace adam::gui
             auto conn5 = std::make_unique<adam::connection_view>();
             conn5->name = adam::string_hashed("Massive_Connection");
             
-            auto p5_in1 = std::make_unique<adam::port_view>(); p5_in1->name = adam::string_hashed("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); p5_in1->type = adam::string_hashed("internal");
-            auto p5_in2 = std::make_unique<adam::port_view>(); p5_in2->name = adam::string_hashed("In_2"); p5_in2->type = adam::string_hashed("internal");
-            auto p5_in3 = std::make_unique<adam::port_view>(); p5_in3->name = adam::string_hashed("In_3"); p5_in3->type = adam::string_hashed("internal");
-            auto p5_in4 = std::make_unique<adam::port_view>(); p5_in4->name = adam::string_hashed("In_4"); p5_in4->type = adam::string_hashed("internal");
-            auto p5_in5 = std::make_unique<adam::port_view>(); p5_in5->name = adam::string_hashed("In_5"); p5_in5->type = adam::string_hashed("internal");
+            auto p5_in1 = std::make_unique<adam::port_view>(); p5_in1->name = adam::string_hashed("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); p5_in1->type = ("internal"_ct);
+            auto p5_in2 = std::make_unique<adam::port_view>(); p5_in2->name = adam::string_hashed("In_2"); p5_in2->type = ("internal"_ct);
+            auto p5_in3 = std::make_unique<adam::port_view>(); p5_in3->name = adam::string_hashed("In_3"); p5_in3->type = ("internal"_ct);
+            auto p5_in4 = std::make_unique<adam::port_view>(); p5_in4->name = adam::string_hashed("In_4"); p5_in4->type = ("internal"_ct);
+            auto p5_in5 = std::make_unique<adam::port_view>(); p5_in5->name = adam::string_hashed("In_5"); p5_in5->type = ("internal"_ct);
             
-            auto p5_out1 = std::make_unique<adam::port_view>(); p5_out1->name = adam::string_hashed("Out_1"); p5_out1->type = adam::string_hashed("internal");
-            auto p5_out2 = std::make_unique<adam::port_view>(); p5_out2->name = adam::string_hashed("Out_2"); p5_out2->type = adam::string_hashed("internal");
+            auto p5_out1 = std::make_unique<adam::port_view>(); p5_out1->name = adam::string_hashed("Out_1"); p5_out1->type = ("internal"_ct);
+            auto p5_out2 = std::make_unique<adam::port_view>(); p5_out2->name = adam::string_hashed("Out_2"); p5_out2->type = ("internal"_ct);
 
             conn5->inputs.push_back(p5_in1->name.get_hash());
             conn5->inputs.push_back(p5_in2->name.get_hash());
@@ -811,7 +811,7 @@ namespace adam::gui
                 {
                     if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
                     {
-                        ctrl.get_commander().request_connection_rename(conn->name.get_hash(), adam::string_hashed(&name_buf[0]));
+                        ctrl.commander().request_connection_rename(conn->name.get_hash(), adam::string_hashed(&name_buf[0]));
                     }
                 }
 
@@ -824,7 +824,7 @@ namespace adam::gui
                 if (is_active) ImGui::BeginDisabled();
                 if (ImGui::Button(btn_start_str) && !is_drag_preview)
                 {
-                    ctrl.get_commander().request_connection_start(conn->name.get_hash());
+                    ctrl.commander().request_connection_start(conn->name.get_hash());
                 }
                 if (is_active) ImGui::EndDisabled();
                 
@@ -832,7 +832,7 @@ namespace adam::gui
                 if (!is_active) ImGui::BeginDisabled();
                 if (ImGui::Button(btn_stop_str) && !is_drag_preview)
                 {
-                    ctrl.get_commander().request_connection_stop(conn->name.get_hash());
+                    ctrl.commander().request_connection_stop(conn->name.get_hash());
                 }
                 if (!is_active) ImGui::EndDisabled();
 
@@ -1155,7 +1155,7 @@ namespace adam::gui
                                     if (new_order[new_idx].second->sorting_index != new_idx)
                                     {
                                         if (commander_active)
-                                            ctrl.get_commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
+                                            ctrl.commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
                                         new_order[new_idx].second->sorting_index = new_idx; 
                                     }
                                 }
@@ -1230,7 +1230,7 @@ namespace adam::gui
                             if (new_order[new_idx].second->sorting_index != new_idx)
                             {
                                 if (commander_active)
-                                    ctrl.get_commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
+                                    ctrl.commander().request_connection_sorting_index_change(new_order[new_idx].first, new_idx);
                                 new_order[new_idx].second->sorting_index = new_idx; 
                             }
                         }
@@ -1250,7 +1250,7 @@ namespace adam::gui
             else
             {
                 std::string default_name = "connection_" + std::to_string(connections.size());
-                ctrl.get_commander().request_connection_create(adam::string_hashed(default_name.c_str()));
+                ctrl.commander().request_connection_create(adam::string_hashed(default_name.c_str()));
             }
         }
         if (!commander_active) ImGui::EndDisabled();

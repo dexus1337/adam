@@ -32,6 +32,9 @@ namespace adam::gui
         menu_show_log,
         menu_show_performance,
         menu_settings,
+        menu_gui_mode,
+        gui_mode_default,
+        gui_mode_immediate,
         combo_language,
         slider_font_scale,
         combo_theme,
@@ -123,7 +126,10 @@ namespace adam::gui
         sort_edited_asc,
         sort_edited_desc,
         sort_custom,
-        lbl_move_connection
+        lbl_move_connection,
+        dlg_add_input_port_to,
+        dlg_add_output_port_to,
+        dlg_add_port
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);
@@ -147,6 +153,7 @@ namespace adam::gui
 
         adam::configuration_parameter_boolean* m_p_show_log;
         adam::configuration_parameter_boolean* m_p_show_performance;
+        adam::configuration_parameter_integer* m_p_gui_mode;
         adam::configuration_parameter_string*  m_p_theme;
         adam::configuration_parameter_double*  m_p_font_scale;
         adam::configuration_parameter_double*  m_p_log_height;

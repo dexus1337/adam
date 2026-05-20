@@ -73,32 +73,38 @@ namespace adam
     using string_hashed_ct_utf16    = string_hashed_ct_template<char16_t>;
     using string_hashed_ct_utf32    = string_hashed_ct_template<char32_t>;
 
-    ADAM_CONSTEVAL string_hashed_ct operator""_ct(const char* str, size_t len) 
+    namespace string_hashed_ct_literals 
     {
-        return string_hashed_ct(str, len);
+        ADAM_CONSTEVAL string_hashed_ct operator""_ct(const char* str, size_t len) 
+        {
+            return string_hashed_ct(str, len);
+        }
+
+        ADAM_CONSTEVAL wstring_hashed_ct operator""_ct(const wchar_t* str, size_t len) 
+        {
+            return wstring_hashed_ct(str, len);
+        }
+
+        #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
+        ADAM_CONSTEVAL string_hashed_ct_utf8 operator""_ct(const char8_t* str, size_t len) 
+        {
+            return string_hashed_ct_utf8(str, len);
+        }
+        #endif
+
+        ADAM_CONSTEVAL string_hashed_ct_utf16 operator""_ct(const char16_t* str, size_t len) 
+        {
+            return string_hashed_ct_utf16(str, len);
+        }
+        
+        ADAM_CONSTEVAL string_hashed_ct_utf32 operator""_ct(const char32_t* str, size_t len) 
+        {
+            return string_hashed_ct_utf32(str, len);
+        }
     }
 
-    ADAM_CONSTEVAL wstring_hashed_ct operator""_ct(const wchar_t* str, size_t len) 
-    {
-        return wstring_hashed_ct(str, len);
-    }
-
-    #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
-    ADAM_CONSTEVAL string_hashed_ct_utf8 operator""_ct(const char8_t* str, size_t len) 
-    {
-        return string_hashed_ct_utf8(str, len);
-    }
-    #endif
-
-    ADAM_CONSTEVAL string_hashed_ct_utf16 operator""_ct(const char16_t* str, size_t len) 
-    {
-        return string_hashed_ct_utf16(str, len);
-    }
-    
-    ADAM_CONSTEVAL string_hashed_ct_utf32 operator""_ct(const char32_t* str, size_t len) 
-    {
-        return string_hashed_ct_utf32(str, len);
-    }
+    // Inside the sdk, we will use this everywhere
+    using namespace adam::string_hashed_ct_literals;
 }
 
 namespace std 

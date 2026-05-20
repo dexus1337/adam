@@ -8,6 +8,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <functional>
 
 namespace adam 
 {
@@ -38,24 +39,29 @@ namespace adam::gui
         const std::vector<log_entry>& get_log_history() const;
         void clear_log_history();
 
-        adam::commander& get_commander() { return m_commander; }
-        const adam::commander& get_commander() const { return m_commander; }
+        void request_redraw();
+        void set_redraw_callback(std::function<void()> cb);
 
-        adam::logger_sink& get_log_sink() { return m_log_sink; }
-        const adam::logger_sink& get_log_sink() const { return m_log_sink; }
+        const adam::commander&      get_commander()     const { return m_commander; }
+        const adam::logger_sink&    get_log_sink()      const { return m_log_sink; }
+
+        adam::logger_sink&  log_sink()  { return m_log_sink; }
+        adam::commander&    commander() { return m_commander; }
 
     private:
         void update_loop();
 
-        adam::commander m_commander;
-        adam::logger_sink m_log_sink;
+        adam::commander         m_commander;
+        adam::logger_sink       m_log_sink;
+
+        size_t                  m_max_log_history = 1000;
         
-        mutable std::mutex m_mutex;
-        std::vector<log_entry> m_log_history;
-        size_t m_max_log_history = 1000;
-        
-        std::atomic<bool> m_running;
-        std::atomic<bool> m_commander_active;
-        std::thread m_worker_thread;
+        mutable std::mutex      m_mutex;
+        std::vector<log_entry>  m_log_history;
+
+        std::function<void()>   m_redraw_callback;
+        std::atomic<bool>       m_running;
+        std::atomic<bool>       m_commander_active;
+        std::thread             m_worker_thread;
     };
 }
