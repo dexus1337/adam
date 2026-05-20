@@ -12,7 +12,8 @@
 
 using namespace adam::string_hashed_ct_literals;
 
-static ADAM_CONSTEXPR int event_redraw_count = 3;
+static ADAM_CONSTEXPR int event_redraw_count            = 3;
+static ADAM_CONSTEXPR int perf_overlay_redraw_time      = 2000;
 
 int main(int, char**) 
 {
@@ -38,18 +39,14 @@ int main(int, char**)
 
     bool done = false;
     int frames_to_render = event_redraw_count;
+
+    auto* p_immediate = dynamic_cast<adam::configuration_parameter_integer*>(controller.get_parameters().get("gui_mode"_ct));
+    auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(controller.get_parameters().get("show_performance"_ct));
+
     while (!done)
     {
-        bool continuous_redraw = false;
-        if (auto* param = dynamic_cast<adam::configuration_parameter_integer*>(controller.get_parameters().get("gui_mode"_ct)))
-            continuous_redraw = (param->get_value() == 1);
-
-        bool show_performance = false;
-        if (auto* param = dynamic_cast<adam::configuration_parameter_boolean*>(controller.get_parameters().get("show_performance"_ct)))
-            show_performance = param->get_value();
-
         SDL_Event event;
-        bool needs_redraw = continuous_redraw || (frames_to_render > 0);
+        bool needs_redraw = p_immediate->get_value() || (frames_to_render > 0);
 
         if (needs_redraw)
         {
@@ -67,8 +64,8 @@ int main(int, char**)
         else
         {
             bool has_event = false;
-            if (show_performance)
-                has_event = SDL_WaitEventTimeout(&event, 2000);
+            if (p_show_perf->get_value())
+                has_event = SDL_WaitEventTimeout(&event, perf_overlay_redraw_time);
             else
                 has_event = SDL_WaitEvent(&event);
 
@@ -85,7 +82,7 @@ int main(int, char**)
                         done = true;
                 } while (SDL_PollEvent(&event));
             }
-            else if (show_performance)
+            else if (p_show_perf->get_value())
             {
                 frames_to_render = 1;
                 needs_redraw = true;
@@ -95,7 +92,7 @@ int main(int, char**)
         if (!needs_redraw && !done)
             continue;
 
-        if (frames_to_render > event_redraw_count)
+        if (frames_to_render > 0)
             frames_to_render--;
 
         // Render ImGui Frame
