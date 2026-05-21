@@ -180,13 +180,13 @@ namespace adam
                 auto* conn_info = ctx.responses[resp_idx].data_as<connection::basic_info>();
                 conn_info->setup(conn->get_name());
                 
-                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("created"_ct)))
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_created"_ct)))
                     conn_info->created = static_cast<uint64_t>(param->get_value());
-                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("edited"_ct)))
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_edited"_ct)))
                     conn_info->edited = static_cast<uint64_t>(param->get_value());
                 if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("sorting_index"_ct)))
                     conn_info->sorting_index = static_cast<uint32_t>(param->get_value());
-                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("color"_ct)))
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("color_code"_ct)))
                     conn_info->color = static_cast<uint32_t>(param->get_value());
 
                 conn_info->input_count = 0;
@@ -384,9 +384,20 @@ namespace adam
                 return;
             }
 
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            if (new_conn)
+            {
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_created"_ct)))
+                    param->set_value(current_time);
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_edited"_ct)))
+                    param->set_value(current_time);
+            }
+
             event evt(event_type::connection_created);
             auto* evt_data = evt.data_as<connection::basic_info>();
             *evt_data = *params;
+            evt_data->created = current_time;
+            evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
             auto name_view = name.c_str();
@@ -527,9 +538,18 @@ namespace adam
                 return;
             }
 
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            auto it_renamed = ctx.reg.connections().find(new_name.get_hash());
+            if (it_renamed != ctx.reg.connections().end())
+            {
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(it_renamed->second->get_parameters().get("date_edited"_ct)))
+                    param->set_value(static_cast<int64_t>(current_time));
+            }
+
             event evt(event_type::connection_renamed);
             auto* evt_data = evt.data_as<messages::connection_rename_data>();
             *evt_data = *params;
+            evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_renamed, ctx.ctrl.get_language()), ctx.tid, old_conn_str.c_str(), new_name.c_str()));
@@ -562,9 +582,17 @@ namespace adam
                 return;
             }
 
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            if (it_conn != ctx.reg.connections().end())
+            {
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(it_conn->second->get_parameters().get("date_edited"_ct)))
+                    param->set_value(static_cast<int64_t>(current_time));
+            }
+
             event evt(event_type::connection_port_added);
             auto* evt_data = evt.data_as<messages::connection_port_add_data>();
             *evt_data = *params;
+            evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str()));
@@ -596,12 +624,14 @@ namespace adam
                 it->second->get_parameters().add(std::move(new_param));
             }
 
-            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("edited"_ct)))
-                param->set_value(static_cast<int64_t>(std::time(nullptr)));
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("date_edited"_ct)))
+                param->set_value(static_cast<int64_t>(current_time));
 
             event evt(event_type::connection_sorting_index_changed);
             auto* evt_data = evt.data_as<messages::connection_property_change_data>();
             *evt_data = *params;
+            evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value));
@@ -624,21 +654,23 @@ namespace adam
 
             conn_str = it->second->get_name().c_str();
 
-            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("color"_ct)))
+            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("color_code"_ct)))
                 param->set_value(params->value);
             else
             {
-                auto new_param = std::make_unique<configuration_parameter_integer>("color"_ct);
+                auto new_param = std::make_unique<configuration_parameter_integer>("color_code"_ct);
                 new_param->set_value(params->value);
                 it->second->get_parameters().add(std::move(new_param));
             }
 
-            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("edited"_ct)))
-                param->set_value(static_cast<int64_t>(std::time(nullptr)));
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("date_edited"_ct)))
+                param->set_value(static_cast<int64_t>(current_time));
 
             event evt(event_type::connection_color_changed);
             auto* evt_data = evt.data_as<messages::connection_property_change_data>();
             *evt_data = *params;
+            evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value));

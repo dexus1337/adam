@@ -20,6 +20,7 @@ namespace adam::gui
         node_processor,
         node_output,
         node_connection_line,
+        node_connection_line_light,
         count
     };
 

@@ -35,6 +35,6 @@ namespace adam::cmd
         if (it != translations.end())
             return it->second[lang];
         
-        return language_strings::unknown_type_message("cmd_string_id", id, lang);
+        return language_strings::unknown_type_message("cmd_string_id", static_cast<int>(id), lang).data();
     }
 }

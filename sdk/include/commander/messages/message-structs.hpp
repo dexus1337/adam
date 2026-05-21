@@ -124,6 +124,7 @@ namespace adam
         {
             string_hashed::hash_datatype connection;
             char new_name[max_name_length];
+            uint64_t edited;
         };
         static_assert(sizeof(connection_rename_data) <= command::get_max_data_length(), "connection_rename_data exceeds maximum command data size");
 
@@ -132,6 +133,7 @@ namespace adam
             string_hashed::hash_datatype connection;
             string_hashed::hash_datatype port;
             bool is_input;
+            uint64_t edited;
         };
         static_assert(sizeof(connection_port_add_data) <= command::get_max_data_length(), "connection_port_add_data exceeds maximum command data size");
         
@@ -139,6 +141,7 @@ namespace adam
         {
             string_hashed::hash_datatype connection;
             uint32_t value;
+            uint64_t edited;
         };
         static_assert(sizeof(connection_property_change_data ) <= command::get_max_data_length(), "connection_property_change_data  exceeds maximum command data size");
     }

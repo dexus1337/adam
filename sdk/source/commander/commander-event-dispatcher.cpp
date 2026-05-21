@@ -260,6 +260,7 @@ namespace adam
                 
                 string_hashed new_name(data->new_name);
                 view->name = new_name;
+                view->edited = data->edited;
                 ctx.cmdr.registry().connections()[new_name.get_hash()] = std::move(view);
             }
         });
@@ -275,6 +276,7 @@ namespace adam
                     it->second->inputs.push_back(data->port);
                 else
                     it->second->outputs.push_back(data->port);
+                it->second->edited = data->edited;
             }
         });
 
@@ -286,6 +288,7 @@ namespace adam
             if (it != ctx.cmdr.registry().connections().end())
             {
                 it->second->sorting_index = data->value;
+                it->second->edited = data->edited;
             }
         });
 
@@ -297,6 +300,7 @@ namespace adam
             if (it != ctx.cmdr.registry().connections().end())
             {
                 it->second->color = data->value;
+                it->second->edited = data->edited;
             }
         });
     }

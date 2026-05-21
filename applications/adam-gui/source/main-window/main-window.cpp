@@ -92,9 +92,9 @@ namespace adam::gui
                 colors[ImGuiCol_CheckMark]              = ImVec4(0.00f, 0.48f, 1.00f, 1.00f);
                 colors[ImGuiCol_SliderGrab]             = ImVec4(0.00f, 0.48f, 1.00f, 1.00f);
                 colors[ImGuiCol_SliderGrabActive]       = ImVec4(0.00f, 0.35f, 0.85f, 1.00f);
-                colors[ImGuiCol_Button]                 = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-                colors[ImGuiCol_ButtonHovered]          = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
-                colors[ImGuiCol_ButtonActive]           = ImVec4(0.75f, 0.75f, 0.75f, 1.00f);
+                colors[ImGuiCol_Button]                 = ImVec4(0.80f, 0.80f, 0.80f, 1.00f);
+                colors[ImGuiCol_ButtonHovered]          = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
+                colors[ImGuiCol_ButtonActive]           = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
                 colors[ImGuiCol_Header]                 = ImVec4(0.00f, 0.48f, 1.00f, 0.20f);
                 colors[ImGuiCol_HeaderHovered]          = ImVec4(0.00f, 0.48f, 1.00f, 0.40f);
                 colors[ImGuiCol_HeaderActive]           = ImVec4(0.00f, 0.48f, 1.00f, 0.60f);
@@ -131,7 +131,8 @@ namespace adam::gui
             ImColor(0x26, 0x76, 0xA6, 220), // #2676A6 node_input
             ImColor(0xA6, 0x76, 0x26, 220), // #A67626 node_processor
             ImColor(0xA6, 0x26, 0x26, 220), // #A62626 node_output
-            ImColor(0xC8, 0xC8, 0xC8, 180)  // #C8C8C8 node_connection_line
+            ImColor(0xC8, 0xC8, 0xC8, 0xff), // #C8C8C8 node_connection_line
+            ImColor(0xff, 0xff, 0xff, 0xff)  // #ffffff node_connection_line_light
         };
         return colors[static_cast<size_t>(id)];
     }
@@ -234,11 +235,11 @@ namespace adam::gui
             { gui_string_id::lbl_sort_by,                 { "Sort by:", "Sortieren nach:" } },
             { gui_string_id::sort_name_asc,               { "Name (Ascending)", "Name (aufsteigend)" } },
             { gui_string_id::sort_name_desc,              { "Name (Descending)", "Name (absteigend)" } },
-            { gui_string_id::sort_date_asc,               { "Date (Ascending)", "Datum (aufsteigend)" } },
-            { gui_string_id::sort_date_desc,              { "Date (Descending)", "Datum (absteigend)" } },
-            { gui_string_id::sort_edited_asc,             { "Edited (Ascending)", "Bearbeitet (aufsteigend)" } },
-            { gui_string_id::sort_edited_desc,            { "Edited (Descending)", "Bearbeitet (absteigend)" } },
-            { gui_string_id::sort_custom,                 { "Custom", "Benutzerdef." } },
+            { gui_string_id::sort_date_asc,               { "Created (Old -> New)", "Erstellt (Alt -> Neu)" } },
+            { gui_string_id::sort_date_desc,              { "Created (New -> Old)", "Erstellt (Neu -> Alt)" } },
+            { gui_string_id::sort_edited_asc,             { "Edited (Old -> New)", "Bearbeitet (Alt -> Neu)" } },
+            { gui_string_id::sort_edited_desc,            { "Edited (New -> Old)", "Bearbeitet (Neu -> Alt)" } },
+            { gui_string_id::sort_custom,                 { "Custom", "Benutzerdefiniert" } },
             { gui_string_id::lbl_move_connection,         { "Move %s", "%s verschieben" } },
             { gui_string_id::dlg_add_input_port_to,       { "Add Input Port to %s###PortPopup", "Eingangsport zu %s hinzufügen###PortPopup" } },
             { gui_string_id::dlg_add_output_port_to,      { "Add Output Port to %s###PortPopup", "Ausgangsport zu %s hinzufügen###PortPopup" } },
