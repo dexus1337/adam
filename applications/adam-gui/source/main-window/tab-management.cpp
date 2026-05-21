@@ -843,8 +843,15 @@ namespace adam::gui
                 
                 if (ImGui::Button(btn_delete_str) && !is_drag_preview)
                 {
-                    connection_to_delete = conn->name;
-                    request_delete_popup = true;
+                    if (conn->inputs.empty() && conn->outputs.empty() && conn->filters.empty())
+                    {
+                        ctrl.commander().request_connection_destroy(conn->name.get_hash());
+                    }
+                    else
+                    {
+                        connection_to_delete = conn->name;
+                        request_delete_popup = true;
+                    }
                 }
 
                 ImGui::Separator();

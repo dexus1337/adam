@@ -31,7 +31,7 @@ namespace adam
 
     controller_cmd_dispatcher::~controller_cmd_dispatcher() {}
 
-    void controller_cmd_dispatcher::register_handler(int type, handler_fn handler) 
+    void controller_cmd_dispatcher::register_handler(command_type type, handler_fn handler) 
     {
         m_handlers[type] = std::move(handler);
     }
@@ -44,7 +44,7 @@ namespace adam
             return;
         }
 
-        auto it = m_handlers.find(static_cast<int>(cmds->get_type()));
+        auto it = m_handlers.find(cmds->get_type());
         if (it != m_handlers.end())
         {
             it->second(cmds, count, ctx);
@@ -56,7 +56,7 @@ namespace adam
 
     void controller_cmd_dispatcher::register_default_handlers()
     {
-        register_handler(static_cast<int>(command_type::acquire_initial_data), [](const command*, size_t, command_context& ctx)
+        register_handler(command_type::acquire_initial_data, [](const command*, size_t, command_context& ctx)
         {
             ctx.set_single_response_status(response_status::success);
             auto* data = ctx.responses.front().data_as<messages::initial_data_header>();
@@ -225,7 +225,7 @@ namespace adam
             }
         });
 
-        register_handler(static_cast<int>(command_type::set_language), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::set_language, [](const command* cmds, size_t, command_context& ctx) 
         {
             ctx.ctrl.set_language(*cmds->get_data_as<language>());
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::language_changed, ctx.ctrl.get_language()));
@@ -237,7 +237,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::module_path_add), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::module_path_add, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::module_path_data>();
             string_hashed path(params->path);
@@ -259,7 +259,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::module_path_remove), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::module_path_remove, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::module_path_remove_data>();
 
@@ -279,7 +279,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::module_scan), [](const command*, size_t, command_context& ctx) 
+        register_handler(command_type::module_scan, [](const command*, size_t, command_context& ctx) 
         {
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_scan_requested, ctx.ctrl.get_language()), ctx.tid));
             
@@ -287,7 +287,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::module_load), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::module_load, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::module_action_data>();
             string_hashed name(params->module_name);
@@ -298,7 +298,7 @@ namespace adam
                 ctx.set_single_response_status(response_status::failed);
         });
 
-        register_handler(static_cast<int>(command_type::module_unload), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::module_unload, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::module_action_data>();
             string_hashed name(params->module_name);
@@ -309,7 +309,7 @@ namespace adam
                 ctx.set_single_response_status(response_status::failed);
         });
 
-        register_handler(static_cast<int>(command_type::port_create), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::port_create, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<port::basic_info>();
             string_hashed name(params->name);
@@ -334,11 +334,11 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             auto name_view = name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, params->type));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, new_port->get_type_name().c_str()));
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::port_destroy), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::port_destroy, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::port_destroy_data>();
 
@@ -367,7 +367,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_create), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_create, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<connection::basic_info>();
             string_hashed name(params->name);
@@ -394,7 +394,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_destroy), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_destroy, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_destroy_data>();
 
@@ -422,7 +422,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::port_start), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::port_start, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::port_action_data>();
             auto it = ctx.reg.ports().find(params->port);
@@ -443,7 +443,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::port_stop), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::port_stop, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::port_action_data>();
             auto it = ctx.reg.ports().find(params->port);
@@ -464,7 +464,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_start), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_start, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_action_data>();
             auto it = ctx.reg.connections().find(params->connection);
@@ -485,7 +485,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_stop), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_stop, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_action_data>();
             auto it = ctx.reg.connections().find(params->connection);
@@ -506,7 +506,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_rename), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_rename, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_rename_data>();
             string_hashed new_name(params->new_name);
@@ -536,7 +536,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_port_add), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_port_add, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_port_add_data>();
 
@@ -571,7 +571,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_sorting_index_change), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_sorting_index_change, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_property_change_data>();
 
@@ -608,7 +608,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::connection_color_change), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_color_change, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_property_change_data>();
 
@@ -645,7 +645,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::inspector_create), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::inspector_create, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::inspector_create_data>();
             auto port = ctx.reg.ports().find(params->port);
@@ -677,7 +677,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(static_cast<int>(command_type::inspector_destroy), [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::inspector_destroy, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::inspector_destroy_data>();
             auto it = ctx.thread_inspectors.find(params->port);
@@ -705,160 +705,159 @@ namespace adam
 
     std::string_view controller_cmd_dispatcher::get_log_event_text(log_event event, language lang)
     {
-        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        static const std::unordered_map<log_event, std::array<std::string_view, languages_count>> translations =
         {
             { 
-                static_cast<int>(log_event::language_changed),
+                log_event::language_changed,
                 { "Language changed to: english!",                  "Sprache geändert zu: Deutsch." }
             },
             {
-                static_cast<int>(log_event::inspector_created),
+                log_event::inspector_created,
                 { "Thread {:d} successfully created inspector for port \"{}\".", "Thread {:d} hat erfolgreich einen Inspektor für Port \"{}\" erstellt." }
             },
             {
-                static_cast<int>(log_event::inspector_destroyed),
+                log_event::inspector_destroyed,
                 { "Thread {:d} successfully destroyed inspector for port \"{}\".", "Thread {:d} hat erfolgreich den Inspektor für Port \"{}\" entfernt." }
             },
             {
-                static_cast<int>(log_event::inspector_create_failed_port_unknown),
+                log_event::inspector_create_failed_port_unknown,
                 { "Thread {:d} failed to create inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht erstellen: Unbekannter Port-Hash {:d}." }
             },
             {
-                static_cast<int>(log_event::inspector_create_failed_open),
+                log_event::inspector_create_failed_open,
                 { "Thread {:d} failed to create inspector: Could not open queue for port \"{}\".", "Thread {:d} konnte Inspektor nicht erstellen: Warteschlange für Port \"{}\" konnte nicht geöffnet werden." }
             },
             {
-                static_cast<int>(log_event::inspector_destroy_failed_port_unknown),
+                log_event::inspector_destroy_failed_port_unknown,
                 { "Thread {:d} failed to destroy inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht entfernen: Unbekannter Port-Hash {:d}." }
             },
             {
-                static_cast<int>(log_event::inspector_destroy_failed_not_found),
+                log_event::inspector_destroy_failed_not_found,
                 { "Thread {:d} failed to destroy inspector: Inspector not found for port \"{}\".", "Thread {:d} konnte Inspektor nicht entfernen: Kein Inspektor für Port \"{}\" gefunden." }
             },
-        {
-            static_cast<int>(log_event::module_path_added),
-            { "Thread {:d} successfully added module path \"{}\".", "Thread {:d} hat Modulpfad \"{}\" erfolgreich hinzugefügt." }
-        },
-        {
-            static_cast<int>(log_event::module_path_add_failed),
-            { "Thread {:d} failed to add module path \"{}\".", "Thread {:d} konnte Modulpfad \"{}\" nicht hinzufügen." }
-        },
-        {
-            static_cast<int>(log_event::module_path_removed),
-            { "Thread {:d} successfully removed module path {:d}.", "Thread {:d} hat Modulpfad {:d} erfolgreich entfernt." }
-        },
-        {
-            static_cast<int>(log_event::module_path_remove_failed),
-            { "Thread {:d} failed to remove module path {:d}.", "Thread {:d} konnte Modulpfad {:d} nicht entfernen." }
-        },
-        {
-            static_cast<int>(log_event::module_scan_requested),
-            { "Thread {:d} requested a module scan.", "Thread {:d} hat eine Modulsuche angefordert." }
-        },
             {
-                static_cast<int>(log_event::port_created),
+                log_event::module_path_added,
+                { "Thread {:d} successfully added module path \"{}\".", "Thread {:d} hat Modulpfad \"{}\" erfolgreich hinzugefügt." }
+            },
+            {
+                log_event::module_path_add_failed,
+                { "Thread {:d} failed to add module path \"{}\".", "Thread {:d} konnte Modulpfad \"{}\" nicht hinzufügen." }
+            },
+            {
+                log_event::module_path_removed,
+                { "Thread {:d} successfully removed module path {:d}.", "Thread {:d} hat Modulpfad {:d} erfolgreich entfernt." }
+            },
+            {
+                log_event::module_path_remove_failed,
+                { "Thread {:d} failed to remove module path {:d}.", "Thread {:d} konnte Modulpfad {:d} nicht entfernen." }
+            },
+            {
+                log_event::module_scan_requested,
+                { "Thread {:d} requested a module scan.", "Thread {:d} hat eine Modulsuche angefordert." }
+            },
+            {
+                log_event::port_created,
                 { "Thread {:d} successfully created port \"{}\" of type \"{}\".", "Thread {:d} hat Port \"{}\" vom Typ \"{}\" erfolgreich erstellt." }
             },
             {
-                static_cast<int>(log_event::port_create_failed),
+                log_event::port_create_failed,
                 { "Thread {:d} failed to create port \"{}\": {}", "Thread {:d} konnte Port \"{}\" nicht erstellen: {}" }
             },
             {
-                static_cast<int>(log_event::port_destroyed),
+                log_event::port_destroyed,
                 { "Thread {:d} successfully destroyed port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich entfernt." }
             },
             {
-                static_cast<int>(log_event::port_destroy_failed),
+                log_event::port_destroy_failed,
                 { "Thread {:d} failed to destroy port {:d}: {}", "Thread {:d} konnte Port {:d} nicht entfernen: {}" }
             },
             {
-                static_cast<int>(log_event::connection_created),
+                log_event::connection_created,
                 { "Thread {:d} successfully created connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich erstellt." }
             },
             {
-                static_cast<int>(log_event::connection_create_failed),
+                log_event::connection_create_failed,
                 { "Thread {:d} failed to create connection \"{}\": {}", "Thread {:d} konnte Verbindung \"{}\" nicht erstellen: {}" }
             },
             {
-                static_cast<int>(log_event::connection_destroyed),
+                log_event::connection_destroyed,
                 { "Thread {:d} successfully destroyed connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich entfernt." }
             },
             {
-                static_cast<int>(log_event::connection_destroy_failed),
+                log_event::connection_destroy_failed,
                 { "Thread {:d} failed to destroy connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht entfernen: {}" }
             },
             {
-                static_cast<int>(log_event::port_started),
+                log_event::port_started,
                 { "Thread {:d} successfully started port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich gestartet." }
             },
             {
-                static_cast<int>(log_event::port_start_failed),
+                log_event::port_start_failed,
                 { "Thread {:d} failed to start port {:d}.", "Thread {:d} konnte Port {:d} nicht starten." }
             },
             {
-                static_cast<int>(log_event::port_stopped),
+                log_event::port_stopped,
                 { "Thread {:d} successfully stopped port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich gestoppt." }
             },
             {
-                static_cast<int>(log_event::port_stop_failed),
+                log_event::port_stop_failed,
                 { "Thread {:d} failed to stop port {:d}.", "Thread {:d} konnte Port {:d} nicht stoppen." }
             },
             {
-                static_cast<int>(log_event::connection_started),
+                log_event::connection_started,
                 { "Thread {:d} successfully started connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich gestartet." }
             },
             {
-                static_cast<int>(log_event::connection_start_failed),
+                log_event::connection_start_failed,
                 { "Thread {:d} failed to start connection {:d}.", "Thread {:d} konnte Verbindung {:d} nicht starten." }
             },
             {
-                static_cast<int>(log_event::connection_stopped),
+                log_event::connection_stopped,
                 { "Thread {:d} successfully stopped connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich gestoppt." }
             },
             {
-                static_cast<int>(log_event::connection_stop_failed),
+                log_event::connection_stop_failed,
                 { "Thread {:d} failed to stop connection {:d}.", "Thread {:d} konnte Verbindung {:d} nicht stoppen." }
             },
             {
-                static_cast<int>(log_event::connection_renamed),
+                log_event::connection_renamed,
                 { "Thread {:d} successfully renamed connection \"{}\" to \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich zu \"{}\" umbenannt." }
             },
             {
-                static_cast<int>(log_event::connection_rename_failed),
+                log_event::connection_rename_failed,
                 { "Thread {:d} failed to rename connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht umbenennen: {}" }
             },
             {
-                static_cast<int>(log_event::connection_port_added),
+                log_event::connection_port_added,
                 { "Thread {:d} successfully added port \"{}\" to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich zur Verbindung \"{}\" hinzugefügt." }
             },
             {
-                static_cast<int>(log_event::connection_port_add_failed),
+                log_event::connection_port_add_failed,
                 { "Thread {:d} failed to add port {:d} to connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
             },
             {
-                static_cast<int>(log_event::connection_sorting_index_changed),
+                log_event::connection_sorting_index_changed,
                 { "Thread {:d} successfully changed sorting index of connection \"{}\" to {:d}.", "Thread {:d} hat den Sortierindex von Verbindung \"{}\" erfolgreich auf {:d} geändert." }
             },
             {
-                static_cast<int>(log_event::connection_sorting_index_change_failed),
+                log_event::connection_sorting_index_change_failed,
                 { "Thread {:d} failed to change sorting index of connection {:d}.", "Thread {:d} konnte den Sortierindex von Verbindung {:d} nicht ändern." }
             },
             {
-                static_cast<int>(log_event::connection_color_changed),
+                log_event::connection_color_changed,
                 { "Thread {:d} successfully changed color of connection \"{}\" to {:d}.", "Thread {:d} hat die Farbe von Verbindung \"{}\" erfolgreich auf {:d} geändert." }
             },
             {
-                static_cast<int>(log_event::connection_color_change_failed),
+                log_event::connection_color_change_failed,
                 { "Thread {:d} failed to change color of connection {:d}.", "Thread {:d} konnte die Farbe von Verbindung {:d} nicht ändern." }
             }
         };
 
-        auto val    = static_cast<int>(event);
-        auto it     = translations.find(val);
+        auto it = translations.find(event);
 
         if (it != translations.end())
-            return it->second[static_cast<int>(lang)];
+            return it->second[lang];
         
-        return language_strings::unknown_type_message("controller_cmd_dispatcher::log_event", val, lang);
+        return language_strings::unknown_type_message("controller_cmd_dispatcher::log_event", event, lang);
     }
 }

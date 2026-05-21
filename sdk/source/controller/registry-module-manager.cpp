@@ -24,49 +24,48 @@ namespace adam
 
     std::string_view registry_module_manager::get_log_event_text(log_event event, language lang)
     {
-        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        static const std::unordered_map<log_event, std::array<std::string_view, languages_count>> translations =
         {
             {
-                static_cast<int>(log_event::module_requires_newer_sdk),
+                log_event::module_requires_newer_sdk,
                 { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}" }
             },
             {
-                static_cast<int>(log_event::module_requires_newer_sdk_cannot_load),
+                log_event::module_requires_newer_sdk_cannot_load,
                 { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}. Kann nicht geladen werden!" }
             },
             {
-                static_cast<int>(log_event::module_available),
+                log_event::module_available,
                 { "Available module: {} ver {:d}.{:d}.{:d} -> ({})", "Verfügbares Modul: {} Ver {:d}.{:d}.{:d} -> ({})" }
             },
             {
-                static_cast<int>(log_event::module_loaded),
+                log_event::module_loaded,
                 { "Loaded module \"{}\"", "Modul \"{}\" geladen" }
             },
             {
-                static_cast<int>(log_event::module_load_failed),
+                log_event::module_load_failed,
                 { "Failed to load module \"{}\"", "Modul \"{}\" konnte nicht geladen werden" }
             },
             {
-                static_cast<int>(log_event::module_unloaded),
+                log_event::module_unloaded,
                 { "Unloaded module \"{}\"", "Modul \"{}\" entladen" }
             },
             {
-                static_cast<int>(log_event::module_unload_failed),
+                log_event::module_unload_failed,
                 { "Failed to unload module \"{}\"", "Modul \"{}\" konnte nicht entladen werden" }
             },
             {
-                static_cast<int>(log_event::module_removed),
+                log_event::module_removed,
                 { "Removed module \"{}\"", "Modul \"{}\" entfernt" }
             }
         };
 
-        auto val    = static_cast<int>(event);
-        auto it     = translations.find(val);
+        auto it = translations.find(event);
 
         if (it != translations.end())
             return it->second[static_cast<int>(lang)];
         
-        return language_strings::unknown_type_message("registry_module_manager::log_event", val, lang);
+        return language_strings::unknown_type_message("registry_module_manager::log_event", event, lang);
     }
 
     const module* registry_module_manager::get_loaded_module(const string_hashed& name) const 

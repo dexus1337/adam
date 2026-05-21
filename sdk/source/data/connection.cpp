@@ -14,6 +14,9 @@ namespace adam
             p.add(std::make_unique<adam::configuration_parameter_list>("inputs"_ct));
             p.add(std::make_unique<adam::configuration_parameter_list>("processors"_ct));
             p.add(std::make_unique<adam::configuration_parameter_list>("outputs"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("date_created"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("date_edited"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_integer>("color_code"_ct));
             return p;
         }();
         return params;

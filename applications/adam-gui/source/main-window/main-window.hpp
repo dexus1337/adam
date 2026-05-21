@@ -25,7 +25,7 @@ namespace adam::gui
 
     const ImVec4& get_gui_color(gui_color_id id);
 
-    enum class gui_string_id
+    enum gui_string_id : uint32_t
     {
         main_ui,
         menu_view,
@@ -133,6 +133,7 @@ namespace adam::gui
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);
+
     class main_window 
     {
     public:

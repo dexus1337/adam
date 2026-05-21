@@ -19,7 +19,7 @@ TEST_F(controller_cmd_dispatcher_test, register_and_dispatch_custom_handler)
     adam::controller_cmd_dispatcher dispatcher;
     
     // Arbitrary command type ID for our custom handler
-    const int custom_cmd_type = 9999;
+    const adam::command_type custom_cmd_type = static_cast<adam::command_type>(9999);
     bool handler_invoked = false;
     
     dispatcher.register_handler(custom_cmd_type, [&](const adam::command*, size_t, adam::command_context& ctx) 
@@ -54,7 +54,7 @@ TEST_F(controller_cmd_dispatcher_test, multiple_responses)
     adam::registry& reg = ctrl.get_registry();
     adam::controller_cmd_dispatcher dispatcher;
     
-    const int custom_cmd_type = 9999;
+    const adam::command_type custom_cmd_type = static_cast<adam::command_type>(9999);
     
     dispatcher.register_handler(custom_cmd_type, [&](const adam::command*, size_t, adam::command_context& ctx) 
     {

@@ -105,7 +105,7 @@ namespace adam
         ~controller_cmd_dispatcher();
 
         /** @brief Registers a new command handler for a specific command type. */
-        void register_handler(int type, handler_fn handler);
+        void register_handler(command_type type, handler_fn handler);
         
         /** @brief Dispatches a command to the appropriate registered handler. */
         void dispatch(const command* cmds, size_t count, command_context& ctx) const;
@@ -114,6 +114,6 @@ namespace adam
         void register_default_handlers();
 
     private:
-        std::unordered_map<int, handler_fn> m_handlers; /**< A map of registered command handlers, indexed by their command type. */
+        std::unordered_map<command_type, handler_fn> m_handlers; /**< A map of registered command handlers, indexed by their command type. */
     };
 }

@@ -52,7 +52,7 @@ TEST_F(commander_test, event_broadcast_and_receive)
     std::atomic<bool> event_received{false};
     adam::event_type received_type = adam::event_type::invalid;
 
-    cmdr.dispatcher().register_handler(static_cast<int>(adam::event_type::language_changed), [&](const adam::event& e, adam::event_context&)
+    cmdr.dispatcher().register_handler(adam::event_type::language_changed, [&](const adam::event& e, adam::event_context&)
     {
         received_type = e.get_type();
         event_received = true;
@@ -82,7 +82,7 @@ TEST_F(commander_test, initial_data_module_sync)
     adam::controller& ctrl = adam::controller::get();
     
     // Override the initial data handler to return some mock modules
-    ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::acquire_initial_data), [](const adam::command*, size_t, adam::command_context& ctx)
+    ctrl.dispatcher().register_handler(adam::command_type::acquire_initial_data, [](const adam::command*, size_t, adam::command_context& ctx)
     {
         ctx.set_single_response_status(adam::response_status::success);
         auto* data = ctx.responses.front().data_as<adam::messages::initial_data_header>();
@@ -296,7 +296,7 @@ TEST_F(commander_test, request_module_load_unload_flow)
     adam::controller& ctrl = adam::controller::get();
 
     // Override the default handlers to mock the controller's backend success
-    ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::module_load), [](const adam::command* cmds, size_t, adam::command_context& ctx)
+    ctrl.dispatcher().register_handler(adam::command_type::module_load, [](const adam::command* cmds, size_t, adam::command_context& ctx)
     {
         auto params = cmds->get_data_as<adam::messages::module_action_data>();
         adam::string_hashed name(params->module_name);
@@ -309,7 +309,7 @@ TEST_F(commander_test, request_module_load_unload_flow)
         ctx.set_single_response_status(adam::response_status::success);
     });
 
-    ctrl.dispatcher().register_handler(static_cast<int>(adam::command_type::module_unload), [](const adam::command* cmds, size_t, adam::command_context& ctx)
+    ctrl.dispatcher().register_handler(adam::command_type::module_unload, [](const adam::command* cmds, size_t, adam::command_context& ctx)
     {
         auto params = cmds->get_data_as<adam::messages::module_action_data>();
         adam::string_hashed name(params->module_name);

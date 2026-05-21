@@ -35,8 +35,10 @@ TEST(controller, receive_extended_commands)
     bool handler_called = false;
     int received_commands = 0;
 
+    const adam::command_type custom_cmd_type = static_cast<adam::command_type>(9998);
+
     // Register a custom test handler (type 9998)
-    ctrl.dispatcher().register_handler(9998, [&](const adam::command*, size_t count, adam::command_context& ctx) 
+    ctrl.dispatcher().register_handler(custom_cmd_type, [&](const adam::command*, size_t count, adam::command_context& ctx) 
     {
         handler_called = true;
         received_commands += count;
@@ -80,8 +82,10 @@ TEST(controller, receive_extended_responses)
     adam::controller& ctrl = adam::controller::get();
     ASSERT_TRUE(ctrl.run(true));
 
+    const adam::command_type custom_cmd_type = static_cast<adam::command_type>(9997);
+
     // Register a custom test handler (type 9997)
-    ctrl.dispatcher().register_handler(9997, [&](const adam::command*, size_t, adam::command_context& ctx) 
+    ctrl.dispatcher().register_handler(custom_cmd_type, [&](const adam::command*, size_t, adam::command_context& ctx) 
     {
         ctx.set_single_response_status(adam::response_status::success);
         ctx.responses.front().set_extended(true);

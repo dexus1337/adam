@@ -43,7 +43,7 @@ namespace adam
         ~commander_event_dispatcher();
 
         /** @brief Registers a new event handler for a specific event type. */
-        void register_handler(int type, handler_fn handler);
+        void register_handler(event_type type, handler_fn handler);
         
         /** @brief Dispatches an event to the appropriate registered handler. */
         void dispatch(const event& e, event_context& ctx) const;
@@ -52,6 +52,6 @@ namespace adam
         void register_default_handlers();
 
     private:
-        std::unordered_map<int, handler_fn> m_handlers; /**< A map of registered event handlers, indexed by their event type. */
+        std::unordered_map<event_type, handler_fn> m_handlers; /**< A map of registered event handlers, indexed by their event type. */
     };
 }
