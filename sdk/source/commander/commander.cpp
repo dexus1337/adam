@@ -221,6 +221,7 @@ namespace adam
             auto pview = std::make_unique<port_view>();
             pview->name = string_hashed(&port_info->name[0]);
             pview->direction = port_info->direction;
+            pview->is_active = port_info->is_active;
             pview->is_unavailable = port_info->is_unavailable;
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
@@ -243,6 +244,7 @@ namespace adam
             conn->created = conn_info->created;
             conn->edited = conn_info->edited;
             conn->sorting_index = conn_info->sorting_index;
+            conn->is_active = conn_info->is_active;
             conn->color = conn_info->color;
             
             for (size_t j = 0; j < conn_info->input_count; j++)

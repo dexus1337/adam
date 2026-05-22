@@ -63,6 +63,7 @@ namespace adam
             port_direction direction;
             string_hash format;
             string_hash format_module;
+            bool is_active;
             bool is_unavailable;
 
             void setup(const string_hashed& n, string_hash t, string_hash tm, string_hash f = 0, string_hash fm = 0, bool unavail = false)
@@ -73,6 +74,7 @@ namespace adam
                 format = f;
                 format_module = fm;
                 is_unavailable = unavail;
+                is_active = false;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
             }
@@ -101,7 +103,6 @@ namespace adam
 
         struct statistic_info
         {
-            bool is_active;
             uint64_t total_buffers_handled;
             uint64_t total_bytes_handled;
             uint64_t total_buffers_discarded;
@@ -130,7 +131,7 @@ namespace adam
 
         buffer* get_statistic_buffer() const { return m_statistic_buffer; }
 
-        virtual bool is_active() const { return m_statistic_buffer->get_data_as<statistic_info>()->is_active; }
+        virtual bool is_active() const { return m_is_active != nullptr && m_is_active->get_value(); }
 
         /** @brief Data management routine */
         virtual bool handle_data(buffer* buffer);
@@ -152,5 +153,8 @@ namespace adam
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;   /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
         buffer* m_statistic_buffer;                                             /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::statistic_info. */
+
+        configuration_parameter_boolean* m_is_active;                           /**< Cached pointer to the is active parameter as it will be frequently accessed. */
+
     };
 }

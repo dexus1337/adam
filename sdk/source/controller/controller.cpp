@@ -90,8 +90,8 @@ namespace adam
         m_queues_log(),
         m_log_outstream(std::cout.rdbuf()),
         m_lang_param(nullptr),
-        m_registry(*this),
-        m_dispatcher()
+        m_dispatcher(),
+        m_registry(*this)
     {
         cleanup_zombie_shared_memory();
     }
@@ -105,6 +105,8 @@ namespace adam
         
         if (!m_master_queue.create(1000))
             return false;
+
+        m_registry.resume_active_items();
 
         if (async)
         {

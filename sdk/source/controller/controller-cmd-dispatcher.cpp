@@ -156,6 +156,7 @@ namespace adam
                     
                     port_info->direction = prt->get_direction();
                     port_info->is_unavailable = false;
+                    port_info->is_active = prt->is_active();
 
                     resp_idx++;
 
@@ -192,6 +193,8 @@ namespace adam
                     conn_info->sorting_index = static_cast<uint32_t>(param->get_value());
                 if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("color_code"_ct)))
                     conn_info->color = static_cast<uint32_t>(param->get_value());
+                
+                conn_info->is_active = conn->is_active();
 
                 conn_info->input_count = 0;
                 conn_info->processor_count = 0;

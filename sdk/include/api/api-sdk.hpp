@@ -24,9 +24,15 @@
     #ifndef NOMINMAX
     #define NOMINMAX // so we can use std::min etc
     #endif
+    
     #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
     #endif
+
+    #ifndef _CRT_SECURE_NO_WARNINGS
+    #define _CRT_SECURE_NO_WARNINGS
+    #endif
+    
     #ifdef ADAM_SDK_EXPORTS // This should be defined when building the DLL, not when using it
         #define ADAM_SDK_API __declspec(dllexport)
     #elifdef ADAM_USE_SHARED_SDK

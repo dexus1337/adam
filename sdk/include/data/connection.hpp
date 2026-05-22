@@ -40,6 +40,7 @@ namespace adam
             uint64_t edited;
             uint32_t sorting_index;
             uint32_t color;
+            bool is_active;
 
             void setup(const string_hashed& n)
             {
@@ -50,6 +51,7 @@ namespace adam
                 edited = 0;
                 sorting_index = 0;
                 color = 0;
+                is_active = false;
             }
 
             uint16_t input_count;
@@ -89,13 +91,17 @@ namespace adam
         /** @brief Stops the connection. */
         bool stop();
 
+        bool is_active() const { return m_is_active != nullptr && m_is_active->get_value(); }
+
     protected:
 
-        vector_double_buffer<port*>           m_ports_input;
-        vector_double_buffer<data_processor*> m_processors;
-        vector_double_buffer<port*>           m_ports_output;
-        std::vector<string_hashed>            m_unavailable_inputs;
-        std::vector<string_hashed>            m_unavailable_outputs;
+        vector_double_buffer<port*>             m_ports_input;
+        vector_double_buffer<data_processor*>   m_processors;
+        vector_double_buffer<port*>             m_ports_output;
+        std::vector<string_hashed>              m_unavailable_inputs;
+        std::vector<string_hashed>              m_unavailable_outputs;
+        
+        configuration_parameter_boolean*        m_is_active;            /**< Cached pointer to the is active parameter as it will be frequently accessed. */
 
     };
 }

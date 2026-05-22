@@ -713,7 +713,7 @@ namespace adam::gui
         static std::vector<std::vector<ImVec2>> stage_pins_in_normal, stage_pins_out_normal;
         static std::vector<std::vector<ImVec2>> stage_pins_in_preview, stage_pins_out_preview;
 
-        auto render_connection_card = [&](auto& self, adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w) -> void
+        auto render_connection_card = [&](adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w) -> void
         {
             auto& stage_pins_in = is_drag_preview ? stage_pins_in_preview : stage_pins_in_normal;
             auto& stage_pins_out = is_drag_preview ? stage_pins_out_preview : stage_pins_out_normal;
@@ -988,13 +988,50 @@ namespace adam::gui
 
                     ImGui::SetCursorScreenPos(p_min);
                     ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16) ^ 0xABCD));
+                    ImGui::SetNextItemAllowOverlap();
                     ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
                     if (port_hash != 0 && !is_drag_preview && ImGui::BeginPopupContextItem("##node_ctx"))
                     {
-                        if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_start, lang)))
+                        bool p_is_active = false;
+                        std::string p_type = "Unknown";
+                        auto p_it = ports.find(port_hash);
+                        if (p_it != ports.end())
+                        {
+                            p_is_active = p_it->second->is_active;
+                            if (p_it->second->type.get_hash() == ("internal"_ct).get_hash())
+                            {
+                                p_type = "internal (Internal)";
+                            }
+                            else
+                            {
+                                p_type = p_it->second->type.c_str();
+                                if (p_it->second->type_module.get_hash() != 0)
+                                    p_type += std::string(" (") + p_it->second->type_module.c_str() + ")";
+                            }
+                        }
+
+                        ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s", name);
+                        ImGui::TextDisabled("%s", p_type.c_str());
+                        ImGui::Separator();
+
+                        if (p_is_active) ImGui::BeginDisabled();
+                        if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang)))
+                        {
                             ctrl.commander().request_port_start(port_hash);
-                        if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_stop, lang)))
+                            ImGui::CloseCurrentPopup();
+                        }
+                        if (p_is_active) ImGui::EndDisabled();
+
+                        ImGui::SameLine();
+
+                        if (!p_is_active) ImGui::BeginDisabled();
+                        if (ImGui::Button(get_gui_string(gui_string_id::btn_stop, lang)))
+                        {
                             ctrl.commander().request_port_stop(port_hash);
+                            ImGui::CloseCurrentPopup();
+                        }
+                        if (!p_is_active) ImGui::EndDisabled();
+
                         ImGui::EndPopup();
                     }
                     ImGui::PopID();
@@ -1268,12 +1305,14 @@ namespace adam::gui
 
         if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), false))
         {
+            card_width = ImGui::GetContentRegionAvail().x;
+
             for (size_t i = 0; i < sorted_connections.size(); ++i)
             {
                 auto hash = sorted_connections[i].first;
                 auto* conn = sorted_connections[i].second;
 
-                render_connection_card(render_connection_card, hash, conn, false, card_width);
+                render_connection_card(hash, conn, false, card_width);
 
                 if (sort_mode == 6 && is_dragging_connection)
                 {
@@ -1319,7 +1358,7 @@ namespace adam::gui
                     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.7f); // Restore native ImGui drag preview transparency
                     if (ImGui::Begin("##drag_preview", nullptr, ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
                     {
-                        render_connection_card(render_connection_card, dragged_hash, it->second.get(), true, card_width);
+                        render_connection_card(dragged_hash, it->second.get(), true, card_width);
                     }
                     ImGui::End();
                     ImGui::PopStyleVar();

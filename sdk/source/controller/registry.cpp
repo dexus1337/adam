@@ -15,6 +15,10 @@
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "configuration/parameters/configuration-parameter-reference.hpp"
 #include "commander/messages/event.hpp"
+#include "commander/messages/command.hpp"
+#include "commander/messages/response.hpp"
+#include "controller/controller-cmd-dispatcher.hpp"
+#include "os/os.hpp"
 
 #include <fstream>
 #include <string>
@@ -686,6 +690,43 @@ namespace adam
         
 
         return ifs.good();
+    }
+
+    void registry::resume_active_items()
+    {
+        if (!m_ports.empty() || !m_connections.empty())
+        {
+            std::vector<response> dummy_responses(1);
+            command_context ctx { os::get_current_thread_id(), *this, m_controller, dummy_responses, {} };
+
+            for (auto& [port_hash, port_ptr] : m_ports)
+            {
+                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(port_ptr->get_parameters().get("is_active"_ct)))
+                {
+                    if (param->get_value())
+                    {
+                        command cmd(command_type::port_start);
+                        if (auto* data = cmd.data_as<messages::port_action_data>())
+                            data->port = port_hash;
+                        m_controller.dispatcher().dispatch(&cmd, 1, ctx);
+                    }
+                }
+            }
+
+            for (auto& [conn_hash, conn_ptr] : m_connections)
+            {
+                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(conn_ptr->get_parameters().get("is_active"_ct)))
+                {
+                    if (param->get_value())
+                    {
+                        command cmd(command_type::connection_start);
+                        if (auto* data = cmd.data_as<messages::connection_action_data>())
+                            data->connection = conn_hash;
+                        m_controller.dispatcher().dispatch(&cmd, 1, ctx);
+                    }
+                }
+            }
+        }
     }
 
     void registry::retry_unavailable_ports(string_hash module_hash)

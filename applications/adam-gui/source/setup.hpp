@@ -14,7 +14,7 @@ namespace adam::gui
     void shutdown(SDL_Window* window, SDL_GLContext gl_context);
 
     /** @brief Dynamically updates the DPI scale and rebuilding fonts */
-    void update_dpi_scale(SDL_Window* window, bool is_init = false);
+    void update_dpi_scale(SDL_Window* window);
 
     /** @brief Retrieves the currently evaluated OS DPI scale */
     float get_current_dpi_scale();

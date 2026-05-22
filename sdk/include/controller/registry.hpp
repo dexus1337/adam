@@ -116,6 +116,9 @@ namespace adam
         /** @brief Clears all configuration items and parameters */
         void clear();
 
+        /** @brief Resumes active items based on their loaded configuration, must be called after system initialization */
+        void resume_active_items();
+
         /** @brief Retrieves the list of configured module paths. */
         const configuration_parameter_list* get_module_paths() const;
 

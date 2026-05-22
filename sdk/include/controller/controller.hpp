@@ -279,10 +279,11 @@ namespace adam
         // PARAMETERS                                   
         configuration_parameter_integer* m_lang_param;          /**< Storing commonly used parameters here for faster access */
 
+        // DISPATCHER
+        controller_cmd_dispatcher       m_dispatcher;
+        
         // REGISTRY
         registry                        m_registry;             /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
 
-        // DISPATCHER
-        controller_cmd_dispatcher       m_dispatcher;
     };
 }
