@@ -333,6 +333,16 @@ namespace adam
         return send_command(cmd);
     }
 
+    response_status commander::request_port_rename(string_hash old_hash, const string_hashed& new_name)
+    {
+        command cmd(command_type::port_rename);
+        auto* data = cmd.data_as<messages::port_rename_data>();
+        data->port = old_hash;
+        std::strncpy(data->new_name, new_name.c_str(), sizeof(data->new_name) - 1);
+        data->new_name[sizeof(data->new_name) - 1] = '\0';
+        return send_command(cmd);
+    }
+
     response_status commander::request_connection_create(const string_hashed& name)
     {
         command cmd(command_type::connection_create);

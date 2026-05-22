@@ -371,6 +371,53 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(command_type::port_rename, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_rename_data>();
+            string_hashed new_name(params->new_name);
+
+            std::string old_port_str;
+            auto it = ctx.reg.ports().find(params->port);
+            if (it != ctx.reg.ports().end())
+                old_port_str = it->second->get_name().c_str();
+
+            registry::status res = ctx.reg.rename_port(params->port, new_name);
+
+            if (res != registry::status_success)
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_rename_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            auto renamed_it = ctx.reg.ports().find(new_name.get_hash());
+            if (renamed_it != ctx.reg.ports().end())
+            {
+                renamed_it->second->connections().iterate([&](const auto& conns) 
+                {
+                    for (auto* conn : conns)
+                    {
+                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_edited"_ct)))
+                            param->set_value(static_cast<int64_t>(current_time));
+                    }
+                });
+            }
+
+            event evt(event_type::port_renamed);
+            auto* evt_data = evt.data_as<messages::port_rename_data>();
+            evt_data->port = params->port;
+            std::strncpy(evt_data->new_name, params->new_name, sizeof(evt_data->new_name) - 1);
+            evt_data->new_name[sizeof(evt_data->new_name) - 1] = '\0';
+            evt_data->edited = current_time;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.tid, old_port_str.c_str(), new_name.c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(command_type::connection_create, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<connection::basic_info>();
@@ -745,7 +792,7 @@ namespace adam
         {
             { 
                 log_event::language_changed,
-                { "Language changed to: english!",                  "Sprache geändert zu: Deutsch." }
+                { "Language changed to: English.", "Sprache geändert zu: Deutsch." }
             },
             {
                 log_event::inspector_created,
@@ -806,6 +853,14 @@ namespace adam
             {
                 log_event::port_destroy_failed,
                 { "Thread {:d} failed to destroy port {:d}: {}", "Thread {:d} konnte Port {:d} nicht entfernen: {}" }
+            },
+            {
+                log_event::port_renamed,
+                { "Thread {:d} successfully renamed port \"{}\" to \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich zu \"{}\" umbenannt." }
+            },
+            {
+                log_event::port_rename_failed,
+                { "Thread {:d} failed to rename port {:d}: {}", "Thread {:d} konnte Port {:d} nicht umbenennen: {}" }
             },
             {
                 log_event::connection_created,
@@ -881,7 +936,7 @@ namespace adam
             },
             {
                 log_event::connection_color_changed,
-                { "Thread {:d} successfully changed color of connection \"{}\" to {:d}.", "Thread {:d} hat die Farbe von Verbindung \"{}\" erfolgreich auf {:d} geändert." }
+                { "Thread {:d} successfully changed color of connection \"{}\" to #{:06x}.", "Thread {:d} hat die Farbe von Verbindung \"{}\" erfolgreich auf #{:06x} geändert." }
             },
             {
                 log_event::connection_color_change_failed,

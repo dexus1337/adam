@@ -72,6 +72,8 @@ namespace adam
             port_create_failed,
             port_destroyed,
             port_destroy_failed,
+            port_renamed,
+            port_rename_failed,
             port_started,
             port_start_failed,
             port_stopped,

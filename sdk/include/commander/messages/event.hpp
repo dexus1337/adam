@@ -37,6 +37,7 @@ namespace adam
         port_destroyed,
         port_started,
         port_stopped,
+        port_renamed,
 
         port_available,
         port_unavailable,

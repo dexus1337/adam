@@ -85,6 +85,9 @@ namespace adam
 
         /** @brief Requests to stop a port. */
         response_status request_port_stop(const string_hashed& port_name);
+        
+        /** @brief Requests to rename a port. */
+        response_status request_port_rename(string_hash old_hash, const string_hashed& new_name);
 
         /** @brief Requests the creation of a connection. */
         response_status request_connection_create(const string_hashed& name);

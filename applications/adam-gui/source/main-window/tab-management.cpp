@@ -969,7 +969,7 @@ namespace adam::gui
                 float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
                 float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
                 
-                auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr)
+                auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr, adam::string_hash port_hash = 0)
                 {
                     float current_node_w = (stage == 0 || stage == total_stages - 1) ? port_w : proc_w;
                     float node_x;
@@ -986,13 +986,52 @@ namespace adam::gui
                     draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
                     draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
                     
-                    float text_width = ImGui::CalcTextSize(name).x;
-                    float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
-                    if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
-                    ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
-                    draw_list->PushClipRect(p_min, p_max, true);
-                    draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
-                    draw_list->PopClipRect();
+                    if (port_hash != 0 && !is_drag_preview)
+                    {
+                        char name_buf[max_name_length];
+                        std::strncpy(name_buf, name, sizeof(name_buf));
+                        name_buf[sizeof(name_buf) - 1] = '\0';
+                        
+                        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+                        
+                        float text_width = ImGui::CalcTextSize(name_buf).x;
+                        float input_w = text_width + ImGui::GetStyle().FramePadding.x * 2.0f + 8.0f * dpi_scale;
+                        if (input_w > current_node_w - 16.0f * dpi_scale) 
+                            input_w = current_node_w - 16.0f * dpi_scale;
+                        if (input_w < 32.0f * dpi_scale)
+                            input_w = 32.0f * dpi_scale;
+                            
+                        float input_x = p_min.x + (current_node_w - input_w) * 0.5f;
+                        float input_h = ImGui::GetFrameHeight();
+                        
+                        ImGui::SetCursorScreenPos(ImVec2(input_x, p_min.y + (node_h - input_h) * 0.5f));
+                        ImGui::PushItemWidth(input_w);
+                        
+                        ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16)));
+                        bool enter_pressed = ImGui::InputText("##port_edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+                        bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
+                        ImGui::PopID();
+                        
+                        ImGui::PopItemWidth();
+                        ImGui::PopStyleColor(3);
+                        
+                        if ((enter_pressed || deactivated) && name_buf[0] != '\0' && std::strcmp(name, name_buf) != 0)
+                        {
+                            ctrl.commander().request_port_rename(port_hash, adam::string_hashed(&name_buf[0]));
+                        }
+                    }
+                    else
+                    {
+                        float text_width = ImGui::CalcTextSize(name).x;
+                        float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
+                        if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
+                        ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
+                        draw_list->PushClipRect(p_min, p_max, true);
+                        draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
+                        draw_list->PopClipRect();
+                    }
 
                     out_pin_in = ImVec2(p_min.x, p_min.y + node_h * 0.5f);
                     out_pin_out = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
@@ -1041,7 +1080,7 @@ namespace adam::gui
                     if (is_unavail && it->second->type_module.get_hash() != 0)
                         mod_name = it->second->type_module.c_str();
 
-                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, col, p_in, p_out, is_unavail, mod_name);
+                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, col, p_in, p_out, is_unavail, mod_name, pid);
                     stage_pins_out[0].push_back(p_out);
                     row_val += 1.0f;
                 }
@@ -1101,7 +1140,7 @@ namespace adam::gui
                     if (is_unavail && it->second->type_module.get_hash() != 0)
                         mod_name = it->second->type_module.c_str();
 
-                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, col, p_in, p_out, is_unavail, mod_name);
+                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, col, p_in, p_out, is_unavail, mod_name, pid);
                     stage_pins_in[total_stages - 1].push_back(p_in);
                     row_val += 1.0f;
                 }

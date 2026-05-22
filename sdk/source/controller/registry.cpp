@@ -219,6 +219,50 @@ namespace adam
         return status_success;
     }
 
+    registry::status registry::rename_port(string_hash hash, const string_hashed& new_name)
+    {
+        auto it = m_ports.find(hash);
+        if (it == m_ports.end())
+            return status_error_port_not_found;
+
+        if (m_ports.find(new_name.get_hash()) != m_ports.end())
+            return status_error_port_already_exists;
+
+        auto prt = std::move(it->second);
+        m_ports.erase(it);
+
+        prt->set_name(new_name);
+        
+        m_ports.emplace(new_name.get_hash(), std::move(prt));
+
+        for (auto& [conn_name, conn_ptr] : m_connections)
+        {
+            if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_ptr->get_parameters().get("inputs"_ct)))
+            {
+                for (auto& [idx_str, param] : inputs_list->get_children())
+                {
+                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                    {
+                        if (ref->get_target().get_hash() == hash)
+                            ref->set_target(new_name);
+                    }
+                }
+            }
+            if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_ptr->get_parameters().get("outputs"_ct)))
+            {
+                for (auto& [idx_str, param] : outputs_list->get_children())
+                {
+                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                    {
+                        if (ref->get_target().get_hash() == hash)
+                            ref->set_target(new_name);
+                    }
+                }
+            }
+        }
+        return status_success;
+    }
+
     registry::status registry::create_connection(const string_hashed& name, connection** out_connection)
     {
         if (out_connection) 

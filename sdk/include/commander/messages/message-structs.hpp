@@ -89,6 +89,14 @@ namespace adam
         };
         static_assert(sizeof(port_action_data) <= command::get_max_data_length(), "port_action_data exceeds maximum command data size");
 
+        struct port_rename_data
+        {
+            string_hash port;
+            char new_name[max_name_length];
+            uint64_t edited;
+        };
+        static_assert(sizeof(port_rename_data) <= command::get_max_data_length(), "port_rename_data exceeds maximum command data size");
+
         struct connection_action_data
         {
             string_hash connection;

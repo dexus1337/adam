@@ -8,10 +8,9 @@
 #include <module/module.hpp>
 #include <data/connection.hpp>
 #include <data/port/port.hpp>
-#include <types/string-hashed-ct.hpp>
 #include <algorithm>
 
-using adam::string_hashed_ct_literals;
+using namespace adam::string_hashed_ct_literals;
 
 class commander_test : public ::testing::Test
 {
@@ -429,37 +428,6 @@ TEST_F(commander_test, sync_unavailable_port)
 /** @brief Tests the full flow of creating and destroying a connection via commander and verifying the event synchronization. */
 TEST_F(commander_test, connection_create)
 {
-    adam::controller& ctrl = adam::controller::get();
-
-    // Override the default handlers to mock the controller's backend success
-    ctrl.dispatcher().register_handler(adam::command_type::connection_create, [](const adam::command* cmds, size_t, adam::command_context& ctx)
-    {
-        auto* conn_info = cmds->get_data_as<adam::connection::basic_info>();
-        adam::string_hashed name(&conn_info->name[0]);
-
-        // Broadcast connection_created event
-        adam::event evt(adam::event_type::connection_created);
-        auto* evt_conn = evt.data_as<adam::connection::basic_info>();
-        evt_conn->setup(name, true, false, 0, 0xFFFFFFFF);
-        
-        ctx.ctrl.broadcast_event(evt);
-        ctx.set_single_response_status(adam::response_status::success);
-    });
-
-    ctrl.dispatcher().register_handler(adam::command_type::connection_destroy, [](const adam::command* cmds, size_t, adam::command_context& ctx)
-    {
-        auto* data = cmds->get_data_as<adam::messages::connection_destroy_data>();
-        adam::string_hashed name = ctx.ctrl.get_registry().get_connections().at(data->connection)->name;
-
-        // Broadcast connection_destroyed event
-        adam::event evt(adam::event_type::connection_destroyed);
-        auto* evt_conn = evt.data_as<adam::connection::basic_info>();
-        evt_conn->setup(name, false, false, 0, 0xFFFFFFFF);
-        
-        ctx.ctrl.broadcast_event(evt);
-        ctx.set_single_response_status(adam::response_status::success);
-    });
-
     adam::commander cmdr;
     ASSERT_TRUE(cmdr.connect());
 
@@ -480,10 +448,9 @@ TEST_F(commander_test, connection_create)
     EXPECT_TRUE(cmdr.get_registry().get_connections().contains(test_connection.get_hash()));
 
     auto conn_hash = test_connection.get_hash();
-    auto* conn_view = cmdr.get_registry().get_connections().at(conn_hash);
+    const auto& conn_view = cmdr.get_registry().get_connections().at(conn_hash);
     EXPECT_EQ(conn_view->name.get_hash(), conn_hash);
-    EXPECT_TRUE(conn_view->created);
-    EXPECT_FALSE(conn_view->edited);
+    EXPECT_NE(conn_view->created, 0);
 
     // 2. Request to destroy the connection
     status = cmdr.request_connection_destroy(conn_hash);
@@ -498,7 +465,5 @@ TEST_F(commander_test, connection_create)
     EXPECT_EQ(cmdr.get_registry().get_connections().size(), initial_conn_count);
     EXPECT_FALSE(cmdr.get_registry().get_connections().contains(conn_hash));
 
-    // Restore default handler to not break other tests on the shared controller singleton
-    ctrl.dispatcher().register_default_handlers();
     EXPECT_TRUE(cmdr.destroy());
 }

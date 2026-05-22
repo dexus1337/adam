@@ -92,6 +92,9 @@ namespace adam
         /** @brief Destroys a port from the registry by its hash, and cleans up its connections. */
         status destroy_port(string_hash hash);
 
+        /** @brief Renames a port safely. */
+        status rename_port(string_hash hash, const string_hashed& new_name);
+
         /** @brief Creates a new connection and adds it to the registry. Returns the status of the operation. */
         status create_connection(const string_hashed& name, connection** out_connection = nullptr);
 

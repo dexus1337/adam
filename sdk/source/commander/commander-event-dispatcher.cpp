@@ -212,6 +212,44 @@ namespace adam
             if (it != ctx.cmdr.registry().ports().end()) it->second->is_active = false;
         });
 
+        register_handler(event_type::port_renamed, [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::port_rename_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().ports().find(data->port);
+            if (it != ctx.cmdr.registry().ports().end())
+            {
+                auto view = std::move(it->second);
+                ctx.cmdr.registry().ports().erase(it);
+                
+                string_hashed new_name(data->new_name);
+                view->name = new_name;
+                string_hash new_hash = new_name.get_hash();
+                ctx.cmdr.registry().ports()[new_hash] = std::move(view);
+                
+                for (auto& [conn_hash, conn] : ctx.cmdr.registry().connections())
+                {
+                    for (auto& pid : conn->inputs)
+                    {
+                        if (pid == data->port)
+                        {
+                            pid = new_hash;
+                            conn->edited = data->edited;
+                        }
+                    }
+
+                    for (auto& pid : conn->outputs)
+                    {
+                        if (pid == data->port)
+                        {
+                            pid = new_hash;
+                            conn->edited = data->edited;
+                        }
+                    }
+                }
+            }
+        });
+
         register_handler(event_type::connection_created, [](const event& e, event_context& ctx) 
         {
             auto* info = e.get_data_as<connection::basic_info>();

@@ -43,6 +43,7 @@ namespace adam
         port_destroy,
         port_start,
         port_stop,
+        port_rename,
 
         connection_create,
         connection_destroy,
