@@ -458,7 +458,7 @@ namespace adam
         std::vector<command>    cmds;
         std::vector<response>   resps;
 
-        static ADAM_CONSTEXPR int command_buffer_size = 256; // should be enough for most commands and their extensions, if not it will just resize automatically, no big deal
+        static ADAM_CONSTEXPR int command_buffer_size = 4096; // should be enough for most commands and their extensions, if not it will just resize automatically, no big deal
 
         cmds.reserve(command_buffer_size);
         resps.reserve(command_buffer_size);
