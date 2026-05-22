@@ -30,14 +30,14 @@ namespace adam
 {
     struct port_info
     {
-        string_hashed::hash_datatype name_hash;
+        string_hash name_hash;
         std::string type_name_str;
         port_direction direction;
     };
 
     struct processor_info
     {
-        string_hashed::hash_datatype hash;
+        string_hash hash;
         std::string name_str;
     };
 
@@ -92,10 +92,10 @@ namespace adam
         void unlock() const { m_lock.clear(std::memory_order_release); }
 
         /** @brief Extracts the type and module names for a given port hash. */
-        void extract_port_type_and_module(string_hashed::hash_datatype type_hash, string_hashed::hash_datatype module_hash, string_hashed& out_type, string_hashed& out_module) const;
+        void extract_port_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const;
 
         /** @brief Extracts the datatype and module names for a given data format hash. */
-        void extract_datatype_and_module(string_hashed::hash_datatype datatype_hash, string_hashed::hash_datatype module_hash, string_hashed& out_datatype, string_hashed& out_module) const;
+        void extract_datatype_and_module(string_hash datatype_hash, string_hash module_hash, string_hashed& out_datatype, string_hashed& out_module) const;
 
         void update_module_database(const string_hashed& name, const string_hashed& path, uint32_t version);
 

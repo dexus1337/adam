@@ -58,14 +58,14 @@ namespace adam
         struct basic_info
         {
             char name[max_name_length];
-            string_hashed::hash_datatype type;
-            string_hashed::hash_datatype type_module;
+            string_hash type;
+            string_hash type_module;
             port_direction direction;
-            string_hashed::hash_datatype format;
-            string_hashed::hash_datatype format_module;
+            string_hash format;
+            string_hash format_module;
             bool is_unavailable;
 
-            void setup(const string_hashed& n, string_hashed::hash_datatype t, string_hashed::hash_datatype tm, string_hashed::hash_datatype f = 0, string_hashed::hash_datatype fm = 0, bool unavail = false)
+            void setup(const string_hashed& n, string_hash t, string_hash tm, string_hash f = 0, string_hash fm = 0, bool unavail = false)
             {
                 type = t;
                 type_module = tm;
@@ -79,11 +79,26 @@ namespace adam
         };
         static_assert(sizeof(port::basic_info) <= command::get_max_data_length(), "port::basic_info exceeds maximum command data size");
 
+        struct unavailable_info : public configuration_item
+        {
+            string_hash type;
+            string_hash type_module;
+            string_hash format;
+            string_hash format_module;
+
+            unavailable_info(const string_hashed& item_name)
+                : configuration_item(item_name), type(0), type_module(0), format(0), format_module(0)
+            {
+            }
+        };
+
         struct statistic_info
         {
             bool is_active;
             uint64_t total_buffers_handled;
             uint64_t total_bytes_handled;
+            uint64_t total_buffers_discarded;
+            uint64_t total_bytes_discarded;
         };
 
         static ADAM_CONSTEXPR size_t statistic_info_buffer_size = sizeof(statistic_info);

@@ -19,12 +19,12 @@
 #include "factory/factory.hpp"
 #include "resources/language.hpp"
 #include "controller/registry-module-manager.hpp"
+#include "data/port/port.hpp"
 
 namespace adam
 {
     class data_format;
     class controller;
-    class port;
     class converter;
     class filter;
     class connection;
@@ -56,66 +56,53 @@ namespace adam
         /** @brief Retrieves the default configuration parameters for ports. */
         static const configuration_parameter_list& get_default_parameters();
 
-        using data_format_map       = std::unordered_map<string_hashed::hash_datatype, const data_format*>;            /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
+        using data_format_map       = std::unordered_map<string_hash, const data_format*>;                      /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
         
-        using port_map              = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<port>>;         /**< A map for storing port instances. */
-        using filter_map            = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<filter>>;       /**< A map for storing filter instances. */
-        using converter_map         = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<converter>>;    /**< A map for storing converter instances. */
-        using connection_map        = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<connection>>;   /**< A map for storing connection instances. */
+        using port_map              = std::unordered_map<string_hash, std::unique_ptr<port>>;                   /**< A map for storing port instances. */
+        using filter_map            = std::unordered_map<string_hash, std::unique_ptr<filter>>;                 /**< A map for storing filter instances. */
+        using converter_map         = std::unordered_map<string_hash, std::unique_ptr<converter>>;              /**< A map for storing converter instances. */
+        using connection_map        = std::unordered_map<string_hash, std::unique_ptr<connection>>;             /**< A map for storing connection instances. */
+        using unavailable_port_map  = std::unordered_map<string_hash, std::unique_ptr<port::unavailable_info>>; /**< A map for storing unavailable port information. */
 
-        using port_factory_map      = std::unordered_map<string_hashed::hash_datatype, const factory<port>*>;          /**< A map of factories for creating ports provided by a module. */
-        using filter_factory_map    = std::unordered_map<string_hashed::hash_datatype, const factory<filter>*>;        /**< A map of factories for creating filters provided by a module. */
-        using converter_factory_map = std::unordered_map<string_hashed::hash_datatype, const factory<converter>*>;     /**< A map of factories for creating converters provided by a module. */
-
-        struct unavailable_port_info : public configuration_item
-        {
-            string_hashed::hash_datatype type;
-            string_hashed::hash_datatype type_module;
-            string_hashed::hash_datatype format;
-            string_hashed::hash_datatype format_module;
-
-            unavailable_port_info(const string_hashed& item_name)
-                : configuration_item(item_name), type(0), type_module(0), format(0), format_module(0)
-            {
-            }
-        };
-        using unavailable_port_map = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<unavailable_port_info>>;
+        using port_factory_map      = std::unordered_map<string_hash, const factory<port>*>;                    /**< A map of factories for creating ports provided by a module. */
+        using filter_factory_map    = std::unordered_map<string_hash, const factory<filter>*>;                  /**< A map of factories for creating filters provided by a module. */
+        using converter_factory_map = std::unordered_map<string_hash, const factory<converter>*>;               /**< A map of factories for creating converters provided by a module. */
 
         /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
         registry(const registry&) = delete;
         registry& operator=(const registry&) = delete;
 
-        /** @brief Retrieves the list of configuration parameters for input ports. */
-        port_map&       ports()         { return m_ports; }
-        filter_map&     filters()       { return m_filters; }
-        converter_map&  converters()    { return m_converters; }
-        connection_map& connections()   { return m_connections; }
+        const port_map&                     get_ports()             const     { return m_ports; }
+        const filter_map&                   get_filters()           const     { return m_filters; }
+        const converter_map&                get_converters()        const     { return m_converters; }
+        const connection_map&               get_connections()       const     { return m_connections; }
+        const unavailable_port_map&         get_unavailable_ports() const     { return m_unavailable_ports; }
+        const registry_module_manager&      get_modules()           const     { return m_modules; }
 
-        /** @brief Retrieves the unavailable port map. */
-        unavailable_port_map&       unavailable_ports()       { return m_unavailable_ports; }
-        const unavailable_port_map& get_unavailable_ports() const { return m_unavailable_ports; }
-
-        /** @brief Retrieves the module manager. */
-        registry_module_manager&       modules()       { return m_modules; }
-        const registry_module_manager& get_modules() const { return m_modules; }
-
+        port_map&                           ports()                 { return m_ports; }
+        filter_map&                         filters()               { return m_filters; }
+        converter_map&                      converters()            { return m_converters; }
+        connection_map&                     connections()           { return m_connections; }
+        unavailable_port_map&               unavailable_ports()     { return m_unavailable_ports; }
+        registry_module_manager&            modules()               { return m_modules; }
+        
         /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
-        status create_port(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype type_module = 0, string_hashed::hash_datatype format = 0, string_hashed::hash_datatype format_module = 0, port** out_port = nullptr);
+        status create_port(const string_hashed& name, string_hash type, string_hash type_module = 0, string_hash format = 0, string_hash format_module = 0, port** out_port = nullptr);
 
         /** @brief Destroys a port from the registry by its hash, and cleans up its connections. */
-        status destroy_port(string_hashed::hash_datatype hash);
+        status destroy_port(string_hash hash);
 
         /** @brief Creates a new connection and adds it to the registry. Returns the status of the operation. */
         status create_connection(const string_hashed& name, connection** out_connection = nullptr);
 
         /** @brief Destroys a connection from the registry by its hash. */
-        status destroy_connection(string_hashed::hash_datatype hash);
+        status destroy_connection(string_hash hash);
 
         /** @brief Renames a connection safely. */
-        status rename_connection(string_hashed::hash_datatype hash, const string_hashed& new_name);
+        status rename_connection(string_hash hash, const string_hashed& new_name);
 
         /** @brief Adds a port to an existing connection. */
-        status connection_add_port(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input);
+        status connection_add_port(string_hash conn_hash, string_hash port_hash, bool is_input);
 
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;
@@ -127,7 +114,7 @@ namespace adam
         void clear();
 
         /** @brief Retrieves the list of configured module paths. */
-        configuration_parameter_list* get_module_paths() const;
+        const configuration_parameter_list* get_module_paths() const;
 
         /** @brief Adds a new module path to the configuration if it doesn't already exist. */
         bool add_module_path(const string_hashed& path, uint32_t* index = nullptr);
@@ -136,10 +123,10 @@ namespace adam
         bool remove_module_path(uint32_t index);
 
         /** @brief Tries to create and restore any unavailable ports that belong to the newly loaded module. */
-        void retry_unavailable_ports(string_hashed::hash_datatype module_hash);
+        void retry_unavailable_ports(string_hash module_hash);
 
         /** @brief Marks ports originating from the given module as unavailable. */
-        void mark_ports_unavailable(string_hashed::hash_datatype module_hash);
+        void mark_ports_unavailable(string_hash module_hash);
 
         /** @brief Deep copies a list of configuration parameters. */
         static void copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source);
@@ -152,16 +139,16 @@ namespace adam
         /** @brief Destroys the registry object. */
         ~registry();
 
-        port_map            m_ports;                /**< The list of configuration parameters for ports. */
-        filter_map          m_filters;              /**< The list of configuration parameters for filters. */
-        converter_map       m_converters;           /**< The list of configuration parameters for converters. */
-        connection_map      m_connections;          /**< The list of configuration parameters for connections. */
+        port_map                m_ports;                /**< The list of configuration parameters for ports. */
+        filter_map              m_filters;              /**< The list of configuration parameters for filters. */
+        converter_map           m_converters;           /**< The list of configuration parameters for converters. */
+        connection_map          m_connections;          /**< The list of configuration parameters for connections. */
 
-        unavailable_port_map m_unavailable_ports;   /**< The list of ports that failed to load because their module was missing. */
+        unavailable_port_map    m_unavailable_ports;    /**< The list of ports that failed to load because their module was missing. */
 
-        port_factory_map    m_default_port_factory; /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
+        port_factory_map        m_default_port_factory; /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
 
-        controller&             m_controller;       /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
-        registry_module_manager m_modules;          /**< Manages external modules loaded into the registry. */
+        controller&             m_controller;           /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
+        registry_module_manager m_modules;              /**< Manages external modules loaded into the registry. */
     };
 }

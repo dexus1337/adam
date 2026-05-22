@@ -38,7 +38,7 @@ namespace adam
         controller& ctrl;                   /**< A reference to the main controller instance. */
         std::vector<response>& responses;   /**< A reference to the pre-allocated buffer handling multiple outgoing responses. */
         
-        std::unordered_map<string_hashed::hash_datatype, std::shared_ptr<data_inspector>> thread_inspectors; /**< A map of data inspectors managed by this thread context. */
+        std::unordered_map<string_hash, std::shared_ptr<data_inspector>> thread_inspectors; /**< A map of data inspectors managed by this thread context. */
 
         void set_single_response_status(response_status status)
         {

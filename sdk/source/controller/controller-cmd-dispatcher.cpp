@@ -129,51 +129,55 @@ namespace adam
                         ctx.responses.emplace_back();
                 }
             }
-            
-            data->conn_info.ports       = static_cast<uint32_t>(ctx.reg.ports().size() + ctx.reg.get_unavailable_ports().size());
-            data->conn_info.processors  = static_cast<uint32_t>(ctx.reg.filters().size() + ctx.reg.converters().size());
-            data->conn_info.connections = static_cast<uint32_t>(ctx.reg.connections().size());
 
-            for (const auto& [hash, prt] : ctx.reg.ports())
+            // Ports
             {
-                ctx.responses[resp_idx-1].set_extended(true);
-                auto* port_info = ctx.responses[resp_idx].data_as<port::basic_info>();
-                
-                std::strncpy(port_info->name, prt->get_name().c_str(), sizeof(port_info->name) - 1);
-                port_info->name[sizeof(port_info->name) - 1] = '\0';
-                
-                port_info->type = prt->get_type_name().get_hash();
-                
-                if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct)))
-                    port_info->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
-                else
-                    port_info->type_module = 0;
+                data->conn_info.ports       = static_cast<uint32_t>(ctx.reg.ports().size() + ctx.reg.get_unavailable_ports().size());
+                data->conn_info.processors  = static_cast<uint32_t>(ctx.reg.filters().size() + ctx.reg.converters().size());
+                data->conn_info.connections = static_cast<uint32_t>(ctx.reg.connections().size());
+
+                for (const auto& [hash, prt] : ctx.reg.ports())
+                {
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* port_info = ctx.responses[resp_idx].data_as<port::basic_info>();
                     
-                port_info->format = 0;
-                port_info->format_module = 0;
-                
-                port_info->direction = prt->get_direction();
-                port_info->is_unavailable = false;
+                    std::strncpy(port_info->name, prt->get_name().c_str(), sizeof(port_info->name) - 1);
+                    port_info->name[sizeof(port_info->name) - 1] = '\0';
+                    
+                    port_info->type = prt->get_type_name().get_hash();
+                    
+                    if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct)))
+                        port_info->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
+                    else
+                        port_info->type_module = 0;
+                        
+                    port_info->format = 0;
+                    port_info->format_module = 0;
+                    
+                    port_info->direction = prt->get_direction();
+                    port_info->is_unavailable = false;
 
-                resp_idx++;
+                    resp_idx++;
 
-                if (resp_idx >= ctx.responses.size())
-                    ctx.responses.emplace_back();
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
+
+                for (const auto& [hash, upi] : ctx.reg.get_unavailable_ports())
+                {
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* port_info = ctx.responses[resp_idx].data_as<port::basic_info>();
+                    
+                    port_info->setup(upi->get_name(), upi->type, upi->type_module, upi->format, upi->format_module, true);
+
+                    resp_idx++;
+
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
             }
 
-            for (const auto& [hash, upi] : ctx.reg.get_unavailable_ports())
-            {
-                ctx.responses[resp_idx-1].set_extended(true);
-                auto* port_info = ctx.responses[resp_idx].data_as<port::basic_info>();
-                
-                port_info->setup(upi->get_name(), upi->type, upi->type_module, upi->format, upi->format_module, true);
-
-                resp_idx++;
-
-                if (resp_idx >= ctx.responses.size())
-                    ctx.responses.emplace_back();
-            }
-
+            // Connections
             for (const auto& [hash, conn] : ctx.reg.connections())
             {
                 ctx.responses[resp_idx-1].set_extended(true);

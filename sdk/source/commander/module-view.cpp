@@ -9,7 +9,7 @@
 
 namespace adam 
 {
-    void module_view::extract_port_type_and_module(string_hashed::hash_datatype type_hash, string_hashed::hash_datatype module_hash, string_hashed& out_type, string_hashed& out_module) const
+    void module_view::extract_port_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const
     {
         if (type_hash == string_hashed("internal").get_hash())
         {
@@ -34,7 +34,7 @@ namespace adam
         }
     }
 
-    void module_view::extract_datatype_and_module(string_hashed::hash_datatype datatype_hash, string_hashed::hash_datatype module_hash, string_hashed& out_datatype, string_hashed& out_module) const
+    void module_view::extract_datatype_and_module(string_hash datatype_hash, string_hash module_hash, string_hashed& out_datatype, string_hashed& out_module) const
     {
         if (datatype_hash == string_hashed("transparent").get_hash() || datatype_hash == 0)
         {

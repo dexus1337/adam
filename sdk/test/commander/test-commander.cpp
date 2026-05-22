@@ -380,7 +380,7 @@ TEST_F(commander_test, sync_unavailable_port)
     adam::controller& ctrl = adam::controller::get();
     
     // Setup an unavailable port in the controller's registry
-    auto upi = std::make_unique<adam::registry::unavailable_port_info>(adam::string_hashed("cmd_unavail_port"));
+    auto upi = std::make_unique<adam::port::unavailable_info>(adam::string_hashed("cmd_unavail_port"));
     upi->type = adam::string_hashed("some_type").get_hash();
     upi->type_module = adam::string_hashed("missing_mod").get_hash();
     ctrl.get_registry().unavailable_ports()[adam::string_hashed("cmd_unavail_port").get_hash()] = std::move(upi);

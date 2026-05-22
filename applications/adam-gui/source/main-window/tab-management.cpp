@@ -85,9 +85,9 @@ namespace adam::gui
         struct port_display_info
         {
             std::string module_name;
-            adam::string_hashed::hash_datatype module_hash;
+            adam::string_hash module_hash;
             std::string port_name;
-            adam::string_hashed::hash_datatype port_hash;
+            adam::string_hash port_hash;
             adam::port_direction direction;
             std::string type_name;
             bool is_unavailable = false;
@@ -95,9 +95,9 @@ namespace adam::gui
 
         static std::map<std::string, std::vector<port_display_info>> existing_grouped;
         static std::map<std::string, std::vector<port_display_info>> new_grouped;
-        static std::map<adam::string_hashed::hash_datatype, port_display_info> known_port_types;
-        static std::map<adam::string_hashed::hash_datatype, std::array<char, 128>> new_port_names;
-        static std::vector<adam::string_hashed::hash_datatype> used_ports;
+        static std::map<adam::string_hash, port_display_info> known_port_types;
+        static std::map<adam::string_hash, std::array<char, 128>> new_port_names;
+        static std::vector<adam::string_hash> used_ports;
 
         if (request_port_popup)
         {
@@ -443,7 +443,7 @@ namespace adam::gui
                                     pdi.module_hash
                                 );
                                 
-                                adam::string_hashed::hash_datatype new_port_hash = adam::string_hashed(name_buffer.data()).get_hash();
+                                adam::string_hash new_port_hash = adam::string_hashed(name_buffer.data()).get_hash();
                                 ctrl.commander().request_connection_port_add(target_connection.get_hash(), new_port_hash, target_direction == adam::port_direction::input);
 
                                 name_buffer[0] = '\0';
@@ -643,7 +643,7 @@ namespace adam::gui
 
         ImGui::Spacing();
 
-        std::vector<std::pair<adam::string_hashed::hash_datatype, adam::connection_view*>> sorted_connections;
+        std::vector<std::pair<adam::string_hash, adam::connection_view*>> sorted_connections;
         for (const auto& [hash, conn] : connections)
             sorted_connections.push_back({hash, conn.get()});
 
@@ -666,7 +666,7 @@ namespace adam::gui
             return false;
         });
 
-        static adam::string_hashed::hash_datatype active_drag_hash = 0;
+        static adam::string_hash active_drag_hash = 0;
         static size_t active_drag_target_index = 0;
         bool is_dragging_connection = false;
 
@@ -677,7 +677,7 @@ namespace adam::gui
                 if (payload->IsDataType("DND_CONNECTION"))
                 {
                     is_dragging_connection = true;
-                    adam::string_hashed::hash_datatype dragged_hash = *(const adam::string_hashed::hash_datatype*)payload->Data;
+                    adam::string_hash dragged_hash = *(const adam::string_hash*)payload->Data;
                     
                     if (active_drag_hash != dragged_hash)
                     {
@@ -713,7 +713,7 @@ namespace adam::gui
         static std::vector<std::vector<ImVec2>> stage_pins_in_normal, stage_pins_out_normal;
         static std::vector<std::vector<ImVec2>> stage_pins_in_preview, stage_pins_out_preview;
 
-        auto render_connection_card = [&](auto& self, adam::string_hashed::hash_datatype hash, adam::connection_view* conn, bool is_drag_preview, float card_w) -> void
+        auto render_connection_card = [&](auto& self, adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w) -> void
         {
             auto& stage_pins_in = is_drag_preview ? stage_pins_in_preview : stage_pins_in_normal;
             auto& stage_pins_out = is_drag_preview ? stage_pins_out_preview : stage_pins_out_normal;
@@ -725,7 +725,7 @@ namespace adam::gui
             {
                 if (const ImGuiPayload* payload = ImGui::GetDragDropPayload()) 
                 {
-                    if (payload->IsDataType("DND_CONNECTION") && *(adam::string_hashed::hash_datatype*)payload->Data == hash) 
+                    if (payload->IsDataType("DND_CONNECTION") && *(adam::string_hash*)payload->Data == hash) 
                     {
                         is_being_dragged = true;
                     }
@@ -951,7 +951,7 @@ namespace adam::gui
 
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID | ImGuiDragDropFlags_SourceNoPreviewTooltip))
                     {
-                        ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hashed::hash_datatype));
+                        ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hash));
                         ImGui::EndDragDropSource();
                     }
                     if (ImGui::IsItemHovered())
@@ -1256,7 +1256,7 @@ namespace adam::gui
         {
             if (payload->IsDataType("DND_CONNECTION") && payload->Data)
             {
-                adam::string_hashed::hash_datatype dragged_hash = *(const adam::string_hashed::hash_datatype*)payload->Data;
+                adam::string_hash dragged_hash = *(const adam::string_hash*)payload->Data;
                 auto it = reg_view.get_connections().find(dragged_hash);
                 if (it != reg_view.get_connections().end())
                 {

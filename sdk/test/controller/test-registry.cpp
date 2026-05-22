@@ -269,7 +269,7 @@ TEST_F(registry_test, unavailable_port_retry)
     adam::test::testable_registry reg;
     
     // 1. Manually add an unavailable port to the configuration
-    auto upi = std::make_unique<adam::registry::unavailable_port_info>(adam::string_hashed("my_unavail_port"));
+    auto upi = std::make_unique<adam::port::unavailable_info>(adam::string_hashed("my_unavail_port"));
     upi->type = adam::string_hashed("some_missing_type").get_hash();
     upi->type_module = adam::string_hashed("missing_module").get_hash();
     
@@ -308,7 +308,7 @@ TEST_F(registry_test, unavailable_port_retry)
     // 4. Now let's pretend the module "missing_module" is loaded.
     // We clear the unavailable ports and insert a valid internal port mock to test the retry mechanism natively
     loaded_reg.unavailable_ports().clear();
-    auto upi3 = std::make_unique<adam::registry::unavailable_port_info>(adam::string_hashed("test_retry_port"));
+    auto upi3 = std::make_unique<adam::port::unavailable_info>(adam::string_hashed("test_retry_port"));
     upi3->type = adam::port_internal::type_name().get_hash();
     upi3->type_module = 0; 
     

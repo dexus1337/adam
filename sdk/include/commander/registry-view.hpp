@@ -56,10 +56,10 @@ namespace adam
     struct connection_view
     {
         string_hashed name;
-        std::vector<string_hashed::hash_datatype> inputs;
-        std::vector<string_hashed::hash_datatype> outputs;
-        std::vector<string_hashed::hash_datatype> filters;
-        std::vector<string_hashed::hash_datatype> converters;
+        std::vector<string_hash> inputs;
+        std::vector<string_hash> outputs;
+        std::vector<string_hash> filters;
+        std::vector<string_hash> converters;
         bool is_active = false;
 
         uint64_t created = 0;
@@ -75,10 +75,10 @@ namespace adam
     class ADAM_SDK_API registry_view
     {
     public:
-        using port_map       = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<port_view>>;
-        using filter_map     = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<filter_view>>;
-        using converter_map  = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<converter_view>>;
-        using connection_map = std::unordered_map<string_hashed::hash_datatype, std::unique_ptr<connection_view>>;
+        using port_map       = std::unordered_map<string_hash, std::unique_ptr<port_view>>;
+        using filter_map     = std::unordered_map<string_hash, std::unique_ptr<filter_view>>;
+        using converter_map  = std::unordered_map<string_hash, std::unique_ptr<converter_view>>;
+        using connection_map = std::unordered_map<string_hash, std::unique_ptr<connection_view>>;
 
         port_map&       ports()         { return m_ports; }
         filter_map&     filters()       { return m_filters; }

@@ -104,7 +104,7 @@ namespace adam
         m_unavailable_ports.clear();
     }
 
-    registry::status registry::create_port(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype type_module, string_hashed::hash_datatype format, string_hashed::hash_datatype format_module, port** out_port)
+    registry::status registry::create_port(const string_hashed& name, string_hash type, string_hash type_module, string_hash format, string_hash format_module, port** out_port)
     {
         if (out_port) 
             *out_port = nullptr;
@@ -197,7 +197,7 @@ namespace adam
         return status_success;
     }
 
-    registry::status registry::destroy_port(string_hashed::hash_datatype hash)
+    registry::status registry::destroy_port(string_hash hash)
     {
         auto port_it = m_ports.find(hash);
         if (port_it == m_ports.end())
@@ -228,13 +228,14 @@ namespace adam
             return status_error_connection_already_exists;
 
         auto new_connection = std::make_unique<connection>(name);
+        auto timestamp      = std::time(nullptr);
 
         auto created_param = std::make_unique<configuration_parameter_integer>("created"_ct);
-        created_param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        created_param->set_value(static_cast<int64_t>(timestamp));
         new_connection->get_parameters().add(std::move(created_param));
 
         auto edited_param = std::make_unique<configuration_parameter_integer>("edited"_ct);
-        edited_param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        edited_param->set_value(static_cast<int64_t>(timestamp));
         new_connection->get_parameters().add(std::move(edited_param));
 
         auto sorting_param = std::make_unique<configuration_parameter_integer>("sorting_index"_ct);
@@ -247,11 +248,13 @@ namespace adam
 
         if (out_connection) 
             *out_connection = new_connection.get();
+
         m_connections.emplace(name, std::move(new_connection));
+
         return status_success;
     }
 
-    registry::status registry::destroy_connection(string_hashed::hash_datatype hash)
+    registry::status registry::destroy_connection(string_hash hash)
     {
         auto it = m_connections.find(hash);
         if (it == m_connections.end())
@@ -261,7 +264,7 @@ namespace adam
         return status_success;
     }
     
-    registry::status registry::rename_connection(string_hashed::hash_datatype hash, const string_hashed& new_name)
+    registry::status registry::rename_connection(string_hash hash, const string_hashed& new_name)
     {
         auto it = m_connections.find(hash);
         if (it == m_connections.end())
@@ -282,7 +285,7 @@ namespace adam
         return status_success;
     }
 
-    registry::status registry::connection_add_port(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input)
+    registry::status registry::connection_add_port(string_hash conn_hash, string_hash port_hash, bool is_input)
     {
         auto conn_it = m_connections.find(conn_hash);
         if (conn_it == m_connections.end())
@@ -294,6 +297,8 @@ namespace adam
             
         if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("edited"_ct)))
             param->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+        port_it->second->connections().push_back(conn_it->second.get());
 
         if (is_input)
         {
@@ -564,7 +569,7 @@ namespace adam
                             }
                             else if (status == status_error_module_not_found || status == status_error_factory_not_found)
                             {
-                                auto upi = std::make_unique<unavailable_port_info>(port_name);
+                                auto upi = std::make_unique<port::unavailable_info>(port_name);
                                 upi->type = port_type.get_hash();
                                 upi->type_module = module_name.empty() ? 0 : module_name.get_hash();
                                 copy_parameters(&upi->get_parameters(), port_params);
@@ -642,7 +647,7 @@ namespace adam
         return ifs.good();
     }
 
-    void registry::retry_unavailable_ports(string_hashed::hash_datatype module_hash)
+    void registry::retry_unavailable_ports(string_hash module_hash)
     {
         for (auto it = m_unavailable_ports.begin(); it != m_unavailable_ports.end();)
         {
@@ -696,7 +701,7 @@ namespace adam
         }
     }
 
-    void registry::mark_ports_unavailable(string_hashed::hash_datatype module_hash)
+    void registry::mark_ports_unavailable(string_hash module_hash)
     {
         for (auto it = m_ports.begin(); it != m_ports.end();)
         {
@@ -717,7 +722,7 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("data_format"_ct)))
                     orig_format = param->get_value();
 
-                auto upi = std::make_unique<unavailable_port_info>(port_name);
+                auto upi = std::make_unique<port::unavailable_info>(port_name);
                 upi->type = orig_type.get_hash();
                 upi->type_module = module_hash;
                 upi->format = orig_format.get_hash();
@@ -772,7 +777,7 @@ namespace adam
         }
     }
 
-    configuration_parameter_list* registry::get_module_paths() const
+    const configuration_parameter_list* registry::get_module_paths() const
     {
         return dynamic_cast<configuration_parameter_list*>(m_parameters.get("module_paths"_ct));
     }

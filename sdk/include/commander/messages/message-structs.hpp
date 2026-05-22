@@ -79,50 +79,50 @@ namespace adam
 
         struct port_destroy_data
         {
-            string_hashed::hash_datatype port;
+            string_hash port;
         };
         static_assert(sizeof(port_destroy_data) <= command::get_max_data_length(), "port_destroy_data exceeds maximum command data size");
 
         struct port_action_data
         {
-            string_hashed::hash_datatype port;
+            string_hash port;
         };
         static_assert(sizeof(port_action_data) <= command::get_max_data_length(), "port_action_data exceeds maximum command data size");
 
         struct connection_action_data
         {
-            string_hashed::hash_datatype connection;
+            string_hash connection;
         };
         static_assert(sizeof(connection_action_data) <= command::get_max_data_length(), "connection_action_data exceeds maximum command data size");
 
         struct port_parameter_updated_data
         {
-            string_hashed::hash_datatype port;
-            string_hashed::hash_datatype parameter;
+            string_hash port;
+            string_hash parameter;
         };
         static_assert(sizeof(port_parameter_updated_data) <= command::get_max_data_length(), "port_parameter_updated_data exceeds maximum command data size");
 
         struct inspector_create_data
         {
-            string_hashed::hash_datatype port;
+            string_hash port;
         };
         static_assert(sizeof(inspector_create_data) <= command::get_max_data_length(), "inspector_create_data exceeds maximum command data size");
 
         struct inspector_destroy_data
         {
-            string_hashed::hash_datatype port;
+            string_hash port;
         };
         static_assert(sizeof(inspector_destroy_data) <= command::get_max_data_length(), "inspector_destroy_data exceeds maximum command data size");
 
         struct connection_destroy_data
         {
-            string_hashed::hash_datatype connection;
+            string_hash connection;
         };
         static_assert(sizeof(connection_destroy_data) <= command::get_max_data_length(), "connection_destroy_data exceeds maximum command data size");
 
         struct connection_rename_data
         {
-            string_hashed::hash_datatype connection;
+            string_hash connection;
             char new_name[max_name_length];
             uint64_t edited;
         };
@@ -130,8 +130,8 @@ namespace adam
 
         struct connection_port_add_data
         {
-            string_hashed::hash_datatype connection;
-            string_hashed::hash_datatype port;
+            string_hash connection;
+            string_hash port;
             bool is_input;
             uint64_t edited;
         };
@@ -139,7 +139,7 @@ namespace adam
         
         struct connection_property_change_data 
         {
-            string_hashed::hash_datatype connection;
+            string_hash connection;
             uint32_t value;
             uint64_t edited;
         };

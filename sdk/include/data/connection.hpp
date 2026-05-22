@@ -56,11 +56,11 @@ namespace adam
             uint16_t processor_count;
             uint16_t output_count;
 
-            static ADAM_CONSTEXPR size_t default_type_count = ((command::get_max_data_length() - sizeof(name) - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2 - sizeof(uint16_t) * 3) / 3) / sizeof(string_hashed::hash_datatype);
+            static ADAM_CONSTEXPR size_t default_type_count = ((command::get_max_data_length() - sizeof(name) - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2 - sizeof(uint16_t) * 3) / 3) / sizeof(string_hash);
 
-            string_hashed::hash_datatype inputs[default_type_count];
-            string_hashed::hash_datatype processors[default_type_count];
-            string_hashed::hash_datatype outputs[default_type_count];
+            string_hash inputs[default_type_count];
+            string_hash processors[default_type_count];
+            string_hash outputs[default_type_count];
         };
         static_assert(sizeof(connection::basic_info) <= command::get_max_data_length(), "connection::basic_info exceeds maximum command data size");
 

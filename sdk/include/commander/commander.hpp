@@ -75,7 +75,7 @@ namespace adam
         response_status request_module_unload(const string_hashed& name);
 
         /** @brief Requests the creation of a port. */
-        response_status request_port_create(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype type_module = 0, string_hashed::hash_datatype format = 0, string_hashed::hash_datatype format_module = 0);
+        response_status request_port_create(const string_hashed& name, string_hash type, string_hash type_module = 0, string_hash format = 0, string_hash format_module = 0);
 
         /** @brief Requests the destruction of a port. */
         response_status request_port_destroy(const string_hashed& port_name);
@@ -90,25 +90,25 @@ namespace adam
         response_status request_connection_create(const string_hashed& name);
 
         /** @brief Requests the destruction of a connection. */
-        response_status request_connection_destroy(string_hashed::hash_datatype hash);
+        response_status request_connection_destroy(string_hash hash);
 
         /** @brief Requests to start a connection. */
-        response_status request_connection_start(string_hashed::hash_datatype hash);
+        response_status request_connection_start(string_hash hash);
 
         /** @brief Requests to stop a connection. */
-        response_status request_connection_stop(string_hashed::hash_datatype hash);
+        response_status request_connection_stop(string_hash hash);
 
         /** @brief Requests to rename a connection. */
-        response_status request_connection_rename(string_hashed::hash_datatype old_hash, const string_hashed& new_name);
+        response_status request_connection_rename(string_hash old_hash, const string_hashed& new_name);
 
         /** @brief Requests to attach a port to a connection. */
-        response_status request_connection_port_add(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input);
+        response_status request_connection_port_add(string_hash conn_hash, string_hash port_hash, bool is_input);
 
         /** @brief Requests to change the sorting index of a connection. */
-        response_status request_connection_sorting_index_change(string_hashed::hash_datatype hash, uint32_t sorting_index);
+        response_status request_connection_sorting_index_change(string_hash hash, uint32_t sorting_index);
 
         /** @brief Requests to change the color of a connection. */
-        response_status request_connection_color_change(string_hashed::hash_datatype hash, uint32_t color);
+        response_status request_connection_color_change(string_hash hash, uint32_t color);
 
         /** @brief Requests the creation of a data inspector on a specific port. */
         response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
@@ -153,7 +153,7 @@ namespace adam
 
         language_info               m_lang;
 
-        std::unordered_map<string_hashed::hash_datatype, data_inspector*> m_inspectors;
+        std::unordered_map<string_hash, data_inspector*> m_inspectors;
 
         registry_view m_registry_view; /**< Local view of the controller's registry components */
         module_view   m_module_view;   /**< Local view of the controller's modules */

@@ -62,7 +62,7 @@ namespace adam
 
     port::port(const string_hashed& item_name) 
     :   configuration_item(item_name, port::get_default_parameters()),
-        m_data_format(&data_format_transparent) 
+        m_data_format(&data_format_transparent)
     {
 
     }

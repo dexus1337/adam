@@ -303,7 +303,7 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_port_create(const string_hashed& name, string_hashed::hash_datatype type, string_hashed::hash_datatype type_module, string_hashed::hash_datatype format, string_hashed::hash_datatype format_module)
+    response_status commander::request_port_create(const string_hashed& name, string_hash type, string_hash type_module, string_hash format, string_hash format_module)
     {
         command cmd(command_type::port_create);
         cmd.data_as<port::basic_info>()->setup(name, type, type_module, format, format_module);
@@ -341,7 +341,7 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_destroy(string_hashed::hash_datatype hash)
+    response_status commander::request_connection_destroy(string_hash hash)
     {
         command cmd(command_type::connection_destroy);
         cmd.data_as<messages::connection_destroy_data>()->connection = hash;
@@ -349,21 +349,21 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_start(string_hashed::hash_datatype hash)
+    response_status commander::request_connection_start(string_hash hash)
     {
         command cmd(command_type::connection_start);
         cmd.data_as<messages::connection_action_data>()->connection = hash;
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_stop(string_hashed::hash_datatype hash)
+    response_status commander::request_connection_stop(string_hash hash)
     {
         command cmd(command_type::connection_stop);
         cmd.data_as<messages::connection_action_data>()->connection = hash;
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_rename(string_hashed::hash_datatype old_hash, const string_hashed& new_name)
+    response_status commander::request_connection_rename(string_hash old_hash, const string_hashed& new_name)
     {
         command cmd(command_type::connection_rename);
         auto* data = cmd.data_as<messages::connection_rename_data>();
@@ -373,7 +373,7 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_port_add(string_hashed::hash_datatype conn_hash, string_hashed::hash_datatype port_hash, bool is_input)
+    response_status commander::request_connection_port_add(string_hash conn_hash, string_hash port_hash, bool is_input)
     {
         command cmd(command_type::connection_port_add);
         auto* data = cmd.data_as<messages::connection_port_add_data>();
@@ -383,7 +383,7 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_sorting_index_change(string_hashed::hash_datatype hash, uint32_t sorting_index)
+    response_status commander::request_connection_sorting_index_change(string_hash hash, uint32_t sorting_index)
     {
         command cmd(command_type::connection_sorting_index_change);
         auto* data = cmd.data_as<messages::connection_property_change_data>();
@@ -392,7 +392,7 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_color_change(string_hashed::hash_datatype hash, uint32_t color)
+    response_status commander::request_connection_color_change(string_hash hash, uint32_t color)
     {
         command cmd(command_type::connection_color_change);
         auto* data = cmd.data_as<messages::connection_property_change_data>();
