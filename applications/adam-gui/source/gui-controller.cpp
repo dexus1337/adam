@@ -17,7 +17,7 @@ namespace adam::gui
             p.add(std::make_unique<configuration_parameter_double>("perf_ovly_y"_ct, -1.0));
             p.add(std::make_unique<configuration_parameter_integer>("perf_ovly_content"_ct, 7));
             p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "default-dark"_ct));
-            p.add(std::make_unique<configuration_parameter_double>("log_height"_ct, 250.0));
+            p.add(std::make_unique<configuration_parameter_double>("log_height"_ct, 0.0));
             p.add(std::make_unique<configuration_parameter_double>("font_scale"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_integer>("window_x"_ct, -1));
             p.add(std::make_unique<configuration_parameter_integer>("window_y"_ct, -1));
@@ -26,7 +26,7 @@ namespace adam::gui
             p.add(std::make_unique<configuration_parameter_boolean>("window_maximized"_ct, false));
             p.add(std::make_unique<configuration_parameter_integer>("log_level"_ct, 0));
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, 0));
-            p.add(std::make_unique<configuration_parameter_integer>("connection_sort_mode"_ct, 0));
+            p.add(std::make_unique<configuration_parameter_integer>("connection_sort_mode"_ct, 3));
             return p;
         }();
         return params;

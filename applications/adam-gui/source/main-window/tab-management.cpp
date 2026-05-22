@@ -985,6 +985,19 @@ namespace adam::gui
                     
                     draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
                     draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+
+                    ImGui::SetCursorScreenPos(p_min);
+                    ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16) ^ 0xABCD));
+                    ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
+                    if (port_hash != 0 && !is_drag_preview && ImGui::BeginPopupContextItem("##node_ctx"))
+                    {
+                        if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_start, lang)))
+                            ctrl.commander().request_port_start(port_hash);
+                        if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_stop, lang)))
+                            ctrl.commander().request_port_stop(port_hash);
+                        ImGui::EndPopup();
+                    }
+                    ImGui::PopID();
                     
                     if (port_hash != 0 && !is_drag_preview)
                     {

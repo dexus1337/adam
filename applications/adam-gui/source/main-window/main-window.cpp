@@ -1,4 +1,5 @@
 #include "main-window.hpp"
+#include "../setup.hpp"
 
 
 #include <imgui.h>
@@ -295,7 +296,7 @@ namespace adam::gui
         if (maximized)
             SDL_MaximizeWindow(m_window);
 
-        ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value());
+        ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::gui::get_current_dpi_scale();
         
         bool is_dark = m_p_theme->get_value() == "default-dark"_ct;
         apply_theme(is_dark);
@@ -325,8 +326,6 @@ namespace adam::gui
 
     void main_window::render()
     {
-        float dpi_scale = ImGui::GetStyle()._MainScale;
-
         adam::language lang;
         if (m_ctrl.is_commander_active())
         {
@@ -399,7 +398,7 @@ namespace adam::gui
         float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
         float content_avail_y = ImGui::GetWindowHeight() - ImGui::GetCursorPosY() - status_bar_height;
         float log_height_val = static_cast<float>(m_p_log_height->get_value());
-        float default_space = dpi_scale * 100.f;
+        float default_space = content_avail_y * 0.2f;
         float max_height = content_avail_y - default_space;
         if (max_height < default_space) max_height = default_space;
 
@@ -559,7 +558,7 @@ namespace adam::gui
             }
             if (ImGui::IsItemDeactivatedAfterEdit())
             {
-                ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value());
+                ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::gui::get_current_dpi_scale();
             }
 
             ImGui::Separator();

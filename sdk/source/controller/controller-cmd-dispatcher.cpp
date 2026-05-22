@@ -498,7 +498,12 @@ namespace adam
             }
 
             event evt(event_type::port_started);
-            evt.data_as<messages::port_action_data>()->port = params->port;
+            auto* info = evt.data_as<port::status_event_info>();
+            info->port_hash = params->port;
+            if (it->second->get_statistic_buffer())
+                info->statistic_buffer_handle = it->second->get_statistic_buffer()->get_handle();
+            else
+                info->statistic_buffer_handle.set_invalid();
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
@@ -519,7 +524,12 @@ namespace adam
             }
 
             event evt(event_type::port_stopped);
-            evt.data_as<messages::port_action_data>()->port = params->port;
+            auto* info = evt.data_as<port::status_event_info>();
+            info->port_hash = params->port;
+            if (it->second->get_statistic_buffer())
+                info->statistic_buffer_handle = it->second->get_statistic_buffer()->get_handle();
+            else
+                info->statistic_buffer_handle.set_invalid();
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
@@ -744,7 +754,7 @@ namespace adam
             const auto& port_name = port->second->get_name();
             auto new_inspector = std::make_shared<data_inspector>();
 
-            if (!new_inspector->open(port_name, ctx.tid))
+            if (!new_inspector->open(port_name.get_hash(), ctx.tid))
             {
                 auto name_view = port_name.c_str();
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.ctrl.get_language()), ctx.tid, name_view));

@@ -6,7 +6,7 @@ namespace adam
     data_inspector::data_inspector()
      :  m_buffer_queue(),
         m_inspector_thread(),
-        m_port_name()
+        m_port_hash(0)
     {
     }
 
@@ -16,27 +16,27 @@ namespace adam
     };
 
     /** @brief Creates a new data director with the given port name and max items for the buffer queue. */
-    bool data_inspector::create(const string_hashed& port_name)
+    bool data_inspector::create(string_hash port_hash)
     {
-        m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(os::get_current_thread_id()) + "_" + std::to_string(port_name.get_hash())));
+        m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(os::get_current_thread_id()) + "_" + std::to_string(port_hash)));
 
         if (!m_buffer_queue.create(0x1000))
             return false;
 
-        m_port_name = port_name;
+        m_port_hash = port_hash;
 
         return true;
     }
 
     /** @brief Opens an existing buffer queue */
-    bool data_inspector::open(const string_hashed& port_name, os::thread_id tid)
+    bool data_inspector::open(string_hash port_hash, os::thread_id tid)
     {
-        m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(tid) + "_" + std::to_string(port_name.get_hash())));
+        m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(tid) + "_" + std::to_string(port_hash)));
 
         if (!m_buffer_queue.open())
             return false;
 
-        m_port_name = port_name;
+        m_port_hash = port_hash;
 
         return true;
     }

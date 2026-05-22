@@ -32,8 +32,9 @@ namespace adam
     buffer_handle buffer::get_handle() const 
     {
         // Assuming string_hashed exposes .get_hash() or similar to retrieve the uint64_t hash.
-        uint64_t fmt_hash = m_data_format ? m_data_format->get_name().get_hash() : 0;
-        return { m_memory_index, m_thread_id, m_offset, m_capacity, m_size, fmt_hash };
+        string_hash fmt_hash = m_data_format ? m_data_format->get_name().get_hash() : 0;
+
+        return {m_size, m_capacity, m_memory_index, m_offset, fmt_hash , m_thread_id};
     }
 
     bool buffer::fill_data(const void* in_data, uint32_t len, uint32_t offset)

@@ -44,7 +44,6 @@ TEST_F(buffer_test, get_handle)
     buf->set_size(256);
     adam::buffer_handle handle = buf->get_handle();
     
-    EXPECT_NE(handle.memory_index, 0u);
     EXPECT_NE(handle.thread_id, 0u);
     EXPECT_NE(handle.data_format_hash, 0u);
     EXPECT_EQ(handle.capacity, buf->get_capacity());

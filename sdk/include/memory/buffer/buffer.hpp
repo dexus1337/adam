@@ -32,12 +32,15 @@ namespace adam
      */
     struct buffer_handle
     {
-        uint32_t memory_index;      /**< The globally unique index of the shared memory segment. */
-        os::thread_id thread_id;    /**< The ID of the thread that created the memory block. */
-        uint32_t offset;            /**< The offset within the shared memory segment. */
-        uint32_t capacity;          /**< The full capacity of the buffer. */
-        uint32_t size;              /**< The size of the buffer payload. */
-        uint64_t data_format_hash;  /**< The hash of the name of the data format. */
+        uint32_t size;                  /**< The size of the buffer payload. */
+        uint32_t capacity;              /**< The full capacity of the buffer. Also used for checking validity. If 0, invalid */
+        uint32_t memory_index;          /**< The globally unique index of the shared memory segment. */
+        uint32_t offset;                /**< The offset within the shared memory segment. */
+        string_hash data_format_hash;   /**< The hash of the name of the data format. */
+        os::thread_id thread_id;        /**< The ID of the thread that created the memory block. */
+
+        bool is_valid() const { return capacity != 0; }
+        void set_invalid() { capacity = 0; }
     };
 
     /**

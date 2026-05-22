@@ -57,6 +57,10 @@ int main(int, char**)
                     done = true;
                 if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
                     done = true;
+                if (event.type == SDL_WINDOWEVENT && (event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED || event.window.event == SDL_WINDOWEVENT_MOVED))
+                {
+                    adam::gui::update_dpi_scale(window);
+                }
 
                 frames_to_render = event_redraw_count;
             }
@@ -80,6 +84,10 @@ int main(int, char**)
                         done = true;
                     if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
                         done = true;
+                    if (event.type == SDL_WINDOWEVENT && (event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED || event.window.event == SDL_WINDOWEVENT_MOVED))
+                    {
+                        adam::gui::update_dpi_scale(window);
+                    }
                 } while (SDL_PollEvent(&event));
             }
             else if (p_show_perf->get_value())

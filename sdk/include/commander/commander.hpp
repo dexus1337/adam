@@ -78,13 +78,13 @@ namespace adam
         response_status request_port_create(const string_hashed& name, string_hash type, string_hash type_module = 0, string_hash format = 0, string_hash format_module = 0);
 
         /** @brief Requests the destruction of a port. */
-        response_status request_port_destroy(const string_hashed& port_name);
+        response_status request_port_destroy(string_hash port_hash);
 
         /** @brief Requests to start a port. */
-        response_status request_port_start(const string_hashed& port_name);
+        response_status request_port_start(string_hash port_hash);
 
         /** @brief Requests to stop a port. */
-        response_status request_port_stop(const string_hashed& port_name);
+        response_status request_port_stop(string_hash port_hash);
         
         /** @brief Requests to rename a port. */
         response_status request_port_rename(string_hash old_hash, const string_hashed& new_name);
@@ -114,7 +114,7 @@ namespace adam
         response_status request_connection_color_change(string_hash hash, uint32_t color);
 
         /** @brief Requests the creation of a data inspector on a specific port. */
-        response_status request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
+        response_status request_inspector_create(string_hash port_hash, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
 
         /** @brief Requests the destruction of a data inspector on a specific port. */
         response_status request_inspector_destroy(data_inspector* inspector);

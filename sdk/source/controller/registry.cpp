@@ -75,11 +75,7 @@ namespace adam
     {
         add_parameters(get_default_parameters());
 
-        // Guarantee the global fast-access pointer is bound even if load() fails due to a missing file.
-        if (this == &m_controller.get_registry())
-        {
-            const_cast<controller&>(m_controller).m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get("language"_ct));
-        }
+        m_controller.m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get("language"_ct));
 
         m_default_port_factory.emplace
         (
@@ -87,7 +83,8 @@ namespace adam
             &global_port_internal_factory
         );
 
-        load("adam-config.bin");
+        if (!load("adam-config.bin"))
+            m_modules.scan_for_modules();
     }
 
     registry::~registry() 

@@ -311,25 +311,25 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_port_destroy(const string_hashed& port_name)
+    response_status commander::request_port_destroy(string_hash port_hash)
     {
         command cmd(command_type::port_destroy);
-        cmd.data_as<messages::port_destroy_data>()->port = port_name.get_hash();
+        cmd.data_as<messages::port_destroy_data>()->port = port_hash;
 
         return send_command(cmd);
     }
 
-    response_status commander::request_port_start(const string_hashed& port_name)
+    response_status commander::request_port_start(string_hash port_hash)
     {
         command cmd(command_type::port_start);
-        cmd.data_as<messages::port_action_data>()->port = port_name.get_hash();
+        cmd.data_as<messages::port_action_data>()->port = port_hash;
         return send_command(cmd);
     }
 
-    response_status commander::request_port_stop(const string_hashed& port_name)
+    response_status commander::request_port_stop(string_hash port_hash)
     {
         command cmd(command_type::port_stop);
-        cmd.data_as<messages::port_action_data>()->port = port_name.get_hash();
+        cmd.data_as<messages::port_action_data>()->port = port_hash;
         return send_command(cmd);
     }
 
@@ -411,16 +411,14 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_inspector_create(const string_hashed& port_name, std::function<void(buffer*)> callback, data_inspector*& out_inspector)
+    response_status commander::request_inspector_create(string_hash port_hash, std::function<void(buffer*)> callback, data_inspector*& out_inspector)
     {
-        auto port_hash = port_name.get_hash();
-
         if (m_inspectors.find(port_hash) != m_inspectors.end())
             return response_status::inspector_already_exists;
 
         data_inspector* inspector = new data_inspector();
         
-        if (!inspector->create(port_name))
+        if (!inspector->create(port_hash))
         {
             delete inspector;
             return response_status::inspector_creation_failed;
@@ -456,7 +454,7 @@ namespace adam
         if (!inspector)
             return response_status::inspector_not_found;
 
-        auto it = m_inspectors.find(inspector->get_port_name());
+        auto it = m_inspectors.find(inspector->get_port_hash());
         if (it != m_inspectors.end() && it->second == inspector)
         {
             command cmd(command_type::inspector_destroy);

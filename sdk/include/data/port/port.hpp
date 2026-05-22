@@ -79,6 +79,13 @@ namespace adam
         };
         static_assert(sizeof(port::basic_info) <= command::get_max_data_length(), "port::basic_info exceeds maximum command data size");
 
+        struct status_event_info
+        {
+            string_hash     port_hash;
+            buffer_handle   statistic_buffer_handle;
+        };
+        static_assert(sizeof(port::status_event_info) <= command::get_max_data_length(), "port::status_event_info exceeds maximum command data size");
+
         struct unavailable_info : public configuration_item
         {
             string_hash type;
@@ -120,6 +127,8 @@ namespace adam
 
         vector_double_buffer<connection*>&                      connections()   { return m_connections; }
         vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors()    { return m_inspectors; }
+
+        buffer* get_statistic_buffer() const { return m_statistic_buffer; }
 
         virtual bool is_active() const { return m_statistic_buffer->get_data_as<statistic_info>()->is_active; }
 

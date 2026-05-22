@@ -8,6 +8,67 @@
 
 namespace adam::gui 
 {
+    static float g_current_dpi_scale = 1.0f;
+
+    float get_current_dpi_scale()
+    {
+        return g_current_dpi_scale;
+    }
+
+    void update_dpi_scale(SDL_Window* window, bool is_init)
+    {
+        // Calculate DPI scale (using standard 96 DPI as base)
+        float ddpi = 96.0f, hdpi = 96.0f, vdpi = 96.0f;
+        int display_index = SDL_GetWindowDisplayIndex(window);
+        if (display_index >= 0)
+        {
+            if(SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi) != 0 )
+                ddpi = 96.f;
+        }
+        float new_dpi_scale = ddpi / 96.0f;
+
+        if (!is_init && new_dpi_scale == g_current_dpi_scale) 
+            return; // No DPI change across monitors, skip rebuilding
+
+        ImGuiIO& io = ImGui::GetIO();
+
+        // 1. Scale all standard ImGui sizes relatively
+        float relative_scale = new_dpi_scale / g_current_dpi_scale;
+        ImGui::GetStyle().ScaleAllSizes(relative_scale);
+
+        // 2. Scale font size dynamically without rebuilding the atlas
+        if (!is_init) 
+        {
+            io.FontGlobalScale *= relative_scale;
+        } 
+        else 
+        {
+            io.Fonts->Clear();
+
+            // Load nicer system fonts instead of the default pixel font
+            #if defined(ADAM_PLATFORM_WINDOWS)
+            if (std::filesystem::exists("C:\\Windows\\Fonts\\tahoma.ttf"))
+                io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f * new_dpi_scale);
+            else if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
+                io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f * new_dpi_scale);
+            #elif defined(ADAM_PLATFORM_LINUX)
+            if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSans.ttf"))
+                io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f * new_dpi_scale);
+            else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+                io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f * new_dpi_scale);
+            else if (std::filesystem::exists("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf"))
+                io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf", 16.0f * new_dpi_scale);
+            else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
+                io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f * new_dpi_scale);
+            #elif defined(__APPLE__)
+            if (std::filesystem::exists("/System/Library/Fonts/Helvetica.ttc"))
+                io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f * new_dpi_scale);
+            #endif
+        }
+
+        g_current_dpi_scale = new_dpi_scale;
+    }
+
     bool initialize(SDL_Window*& window, SDL_GLContext& gl_context, const char*& glsl_version)
     {
         // Tell Windows we handle DPI ourselves to prevent blurry upscaling
@@ -77,36 +138,8 @@ namespace adam::gui
         style.FrameBorderSize = 1.0f;
         style.PopupBorderSize = 1.0f;
         
-        // Calculate DPI scale (using standard 96 DPI as base)
-        float ddpi = 96.0f, hdpi = 96.0f, vdpi = 96.0f;
-        int display_index = SDL_GetWindowDisplayIndex(window);
-        if (display_index >= 0)
-        {
-            if(SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi) != 0 )
-                ddpi = 96.f;
-        }
-        float dpi_scale = ddpi / 96.0f;
-        ImGui::GetStyle().ScaleAllSizes(dpi_scale);
-
-        // Load nicer system fonts instead of the default pixel font
-        #if defined(ADAM_PLATFORM_WINDOWS)
-        if (std::filesystem::exists("C:\\Windows\\Fonts\\tahoma.ttf"))
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f * dpi_scale);
-        else if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f * dpi_scale);
-        #elif defined(ADAM_PLATFORM_LINUX)
-        if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSans.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f * dpi_scale);
-        else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f * dpi_scale);
-        else if (std::filesystem::exists("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf", 16.0f * dpi_scale);
-        else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f * dpi_scale);
-        #elif defined(__APPLE__)
-        if (std::filesystem::exists("/System/Library/Fonts/Helvetica.ttc"))
-            io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f * dpi_scale);
-        #endif
+        // Execute the first DPI evaluation and Font Atlas building
+        update_dpi_scale(window, true);
 
         ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
         ImGui_ImplOpenGL3_Init(glsl_version);
