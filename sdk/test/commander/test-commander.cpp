@@ -8,7 +8,10 @@
 #include <module/module.hpp>
 #include <data/connection.hpp>
 #include <data/port/port.hpp>
+#include <types/string-hashed-ct.hpp>
 #include <algorithm>
+
+using adam::string_hashed_ct_literals;
 
 class commander_test : public ::testing::Test
 {
@@ -351,7 +354,7 @@ TEST_F(commander_test, request_module_load_unload_flow)
     EXPECT_TRUE(cmdr.destroy());
 }
 
-/** @brief Tests the behavior when a shutdown event is received from the controller. 
+/** @brief Tests the behavior when a shutdown event is received from the controller.
 TEST_F(commander_test, shutdown_event_flow)
 {
     adam::commander cmdr;
@@ -372,7 +375,7 @@ TEST_F(commander_test, shutdown_event_flow)
     // Verify the commander is no longer active
     EXPECT_FALSE(cmdr.is_active());
     EXPECT_TRUE(cmdr.destroy());
-}*/
+} */
 
 /** @brief Tests synchronization of an unavailable port changing its state after module load. */
 TEST_F(commander_test, sync_unavailable_port)
@@ -420,5 +423,82 @@ TEST_F(commander_test, sync_unavailable_port)
     EXPECT_FALSE(ports.at(port_hash)->is_unavailable);
     EXPECT_EQ(ports.at(port_hash)->direction, adam::port_direction::in_out);
 
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests the full flow of creating and destroying a connection via commander and verifying the event synchronization. */
+TEST_F(commander_test, connection_create)
+{
+    adam::controller& ctrl = adam::controller::get();
+
+    // Override the default handlers to mock the controller's backend success
+    ctrl.dispatcher().register_handler(adam::command_type::connection_create, [](const adam::command* cmds, size_t, adam::command_context& ctx)
+    {
+        auto* conn_info = cmds->get_data_as<adam::connection::basic_info>();
+        adam::string_hashed name(&conn_info->name[0]);
+
+        // Broadcast connection_created event
+        adam::event evt(adam::event_type::connection_created);
+        auto* evt_conn = evt.data_as<adam::connection::basic_info>();
+        evt_conn->setup(name, true, false, 0, 0xFFFFFFFF);
+        
+        ctx.ctrl.broadcast_event(evt);
+        ctx.set_single_response_status(adam::response_status::success);
+    });
+
+    ctrl.dispatcher().register_handler(adam::command_type::connection_destroy, [](const adam::command* cmds, size_t, adam::command_context& ctx)
+    {
+        auto* data = cmds->get_data_as<adam::messages::connection_destroy_data>();
+        adam::string_hashed name = ctx.ctrl.get_registry().get_connections().at(data->connection)->name;
+
+        // Broadcast connection_destroyed event
+        adam::event evt(adam::event_type::connection_destroyed);
+        auto* evt_conn = evt.data_as<adam::connection::basic_info>();
+        evt_conn->setup(name, false, false, 0, 0xFFFFFFFF);
+        
+        ctx.ctrl.broadcast_event(evt);
+        ctx.set_single_response_status(adam::response_status::success);
+    });
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto test_connection = "test_connection"_ct;
+    size_t initial_conn_count = cmdr.get_registry().get_connections().size();
+
+    // 1. Request to create a connection
+    adam::response_status status = cmdr.request_connection_create(test_connection);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    // Wait for the event to propagate and update the commander's connections list
+    auto start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_connections().size() == initial_conn_count && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    // Verify the connection was created
+    EXPECT_EQ(cmdr.get_registry().get_connections().size(), initial_conn_count + 1);
+    EXPECT_TRUE(cmdr.get_registry().get_connections().contains(test_connection.get_hash()));
+
+    auto conn_hash = test_connection.get_hash();
+    auto* conn_view = cmdr.get_registry().get_connections().at(conn_hash);
+    EXPECT_EQ(conn_view->name.get_hash(), conn_hash);
+    EXPECT_TRUE(conn_view->created);
+    EXPECT_FALSE(conn_view->edited);
+
+    // 2. Request to destroy the connection
+    status = cmdr.request_connection_destroy(conn_hash);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    // Wait for the event to propagate
+    start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_connections().size() > initial_conn_count && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    // Verify the connection was destroyed
+    EXPECT_EQ(cmdr.get_registry().get_connections().size(), initial_conn_count);
+    EXPECT_FALSE(cmdr.get_registry().get_connections().contains(conn_hash));
+
+    // Restore default handler to not break other tests on the shared controller singleton
+    ctrl.dispatcher().register_default_handlers();
     EXPECT_TRUE(cmdr.destroy());
 }
