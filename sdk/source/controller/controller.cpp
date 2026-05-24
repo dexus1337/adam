@@ -19,6 +19,8 @@ namespace adam
     static ADAM_CONSTEXPR uint16_t xtea_delta    = 0x9e37;
     static ADAM_CONSTEXPR uint16_t xtea_key[2]   = { 0xbeef, 0xbabe };
 
+    static thread_local command_context* t_current_context = nullptr;
+
     /** @brief Calculates a small secret based on the XTEA-lite algorith, using ther thread id . Only this source file knows how to reverse for authorization to commands */
     uint32_t calculate_secret(os::thread_id tid)
     {
@@ -97,6 +99,16 @@ namespace adam
     }
 
     controller::~controller() {}
+
+    command_context* controller::get_context() const
+    {
+        return t_current_context;
+    }
+
+    void controller::set_context(command_context* ctx)
+    {
+        t_current_context = ctx;
+    }
 
     bool controller::run(bool async)
     {

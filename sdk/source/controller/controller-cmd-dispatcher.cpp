@@ -38,9 +38,13 @@ namespace adam
 
     void controller_cmd_dispatcher::dispatch(const command* cmds, size_t count, command_context& ctx) const
     {
+        auto* prev_ctx = ctx.ctrl.get_context();
+        ctx.ctrl.set_context(&ctx);
+
         if (!cmds || count == 0)
         {
             ctx.set_single_response_status(response_status::invalid);
+            ctx.ctrl.set_context(prev_ctx);
             return;
         }
 
@@ -48,10 +52,12 @@ namespace adam
         if (it != m_handlers.end())
         {
             it->second(cmds, count, ctx);
+            ctx.ctrl.set_context(prev_ctx);
             return;
         }
         
         ctx.set_single_response_status(response_status::unknown);
+        ctx.ctrl.set_context(prev_ctx);
     }
 
     void controller_cmd_dispatcher::register_default_handlers()
@@ -321,6 +327,16 @@ namespace adam
             auto params = cmds->get_data_as<port::basic_info>();
             string_hashed name(params->name);
             
+            if (ctx.reg.ports().find(name.get_hash()) != ctx.reg.ports().end() || 
+                ctx.reg.get_unavailable_ports().find(name.get_hash()) != ctx.reg.get_unavailable_ports().end())
+            {
+                auto name_view = name.c_str();
+                auto status_text = registry::get_status_text(registry::status_error_port_already_exists, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
             port* new_port = nullptr;
             registry::status res = ctx.reg.create_port(name, params->type, params->type_module, params->format, params->format_module, &new_port);
 

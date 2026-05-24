@@ -142,6 +142,12 @@ namespace adam
         registry& get_registry() { return m_registry; }
         const registry& get_registry() const { return m_registry; }
 
+        /** @brief Gets the current command context for the calling thread. */
+        command_context* get_context() const;
+
+        /** @brief Sets the current command context for the calling thread. */
+        void set_context(command_context* ctx);
+
     protected:
 
         /** @brief Cleans up orphaned shared memory files left by previous crashes (Linux mostly). */

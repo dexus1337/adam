@@ -654,6 +654,7 @@ namespace adam
                                         if (port_it != m_ports.end())
                                         {
                                             new_conn->ports_input().push_back(port_it->second.get());
+                                            port_it->second->connections().push_back(new_conn);
                                         }
                                         else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
                                         {
@@ -674,6 +675,7 @@ namespace adam
                                         if (port_it != m_ports.end())
                                         {
                                             new_conn->ports_output().push_back(port_it->second.get());
+                                            port_it->second->connections().push_back(new_conn);
                                         }
                                         else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
                                         {
@@ -753,6 +755,7 @@ namespace adam
                         if (in_it != unavail_in.end())
                         {
                             conn->ports_input().push_back(new_port);
+                            new_port->connections().push_back(conn.get());
                             unavail_in.erase(in_it);
                         }
 
@@ -765,6 +768,7 @@ namespace adam
                         if (out_it != unavail_out.end())
                         {
                             conn->ports_output().push_back(new_port);
+                            new_port->connections().push_back(conn.get());
                             unavail_out.erase(out_it);
                         }
                     }

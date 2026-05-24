@@ -2,6 +2,10 @@
 
 #include "data/port/port.hpp"
 #include "data/processor.hpp"
+#include "controller/controller.hpp"
+#include "controller/controller-cmd-dispatcher.hpp"
+#include "commander/messages/command.hpp"
+#include "commander/messages/message-structs.hpp"
 
 
 namespace adam 
@@ -66,7 +70,27 @@ namespace adam
         m_ports_input.iterate([&](const auto& inputs) 
         {
             for (auto* in : inputs) 
-                result &= in->start();
+            {
+                if (!in->is_active())
+                {
+                    command cmd(command_type::port_start);
+                    cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
+                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                }
+            }
+        });
+
+        m_ports_output.iterate([&](const auto& outputs) 
+        {
+            for (auto* out : outputs) 
+            {
+                if (!out->is_active())
+                {
+                    command cmd(command_type::port_start);
+                    cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
+                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                }
+            }
         });
 
         m_is_active->set_value(result);
@@ -81,7 +105,47 @@ namespace adam
         m_ports_input.iterate([&](const auto& inputs) 
         {
             for (auto* in : inputs) 
-                result &= in->stop();
+            {
+                bool is_used_elsewhere = false;
+                in->connections().iterate([&](const auto& conns) 
+                {
+                    for (auto* c : conns) 
+                    {
+                        if (c != this && c->is_active()) 
+                            is_used_elsewhere = true;
+                    }
+                });
+
+                if (!is_used_elsewhere)
+                {
+                    command cmd(command_type::port_stop);
+                    cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
+                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                }
+            }
+        });
+
+        m_ports_output.iterate([&](const auto& outputs) 
+        {
+            for (auto* out : outputs) 
+            {
+                bool is_used_elsewhere = false;
+                out->connections().iterate([&](const auto& conns) 
+                {
+                    for (auto* c : conns) 
+                    {
+                        if (c != this && c->is_active()) 
+                            is_used_elsewhere = true;
+                    }
+                });
+
+                if (!is_used_elsewhere)
+                {
+                    command cmd(command_type::port_stop);
+                    cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
+                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                }
+            }
         });
 
         if (result)
