@@ -307,6 +307,12 @@ namespace adam
 
     response_status commander::request_port_create(const string_hashed& name, string_hash type, string_hash type_module, string_hash format, string_hash format_module)
     {
+        {
+            std::lock_guard<const registry_view> lg(m_registry_view);
+            if (m_registry_view.ports().find(name.get_hash()) != m_registry_view.ports().end())
+                return response_status::command_send_failed;
+        }
+
         command cmd(command_type::port_create);
         cmd.data_as<port::basic_info>()->setup(name, type, type_module, format, format_module);
 
@@ -337,6 +343,15 @@ namespace adam
 
     response_status commander::request_port_rename(string_hash old_hash, const string_hashed& new_name)
     {
+        if (old_hash == new_name.get_hash())
+            return response_status::success;
+
+        {
+            std::lock_guard<const registry_view> lg(m_registry_view);
+            if (m_registry_view.ports().find(new_name.get_hash()) != m_registry_view.ports().end())
+                return response_status::command_send_failed;
+        }
+
         command cmd(command_type::port_rename);
         auto* data = cmd.data_as<messages::port_rename_data>();
         data->port = old_hash;
@@ -347,6 +362,12 @@ namespace adam
 
     response_status commander::request_connection_create(const string_hashed& name)
     {
+        {
+            std::lock_guard<const registry_view> lg(m_registry_view);
+            if (m_registry_view.connections().find(name.get_hash()) != m_registry_view.connections().end())
+                return response_status::command_send_failed;
+        }
+
         command cmd(command_type::connection_create);
         cmd.data_as<connection::basic_info>()->setup(name);
 
@@ -377,6 +398,15 @@ namespace adam
 
     response_status commander::request_connection_rename(string_hash old_hash, const string_hashed& new_name)
     {
+        if (old_hash == new_name.get_hash())
+            return response_status::success;
+
+        {
+            std::lock_guard<const registry_view> lg(m_registry_view);
+            if (m_registry_view.connections().find(new_name.get_hash()) != m_registry_view.connections().end())
+                return response_status::command_send_failed;
+        }
+
         command cmd(command_type::connection_rename);
         auto* data = cmd.data_as<messages::connection_rename_data>();
         data->connection = old_hash;

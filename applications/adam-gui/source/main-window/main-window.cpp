@@ -133,7 +133,8 @@ namespace adam::gui
             ImColor(0xA6, 0x76, 0x26, 220), // #A67626 node_processor
             ImColor(0xA6, 0x26, 0x26, 220), // #A62626 node_output
             ImColor(0xC8, 0xC8, 0xC8, 0xff), // #C8C8C8 node_connection_line
-            ImColor(0xff, 0xff, 0xff, 0xff)  // #ffffff node_connection_line_light
+            ImColor(0xff, 0xff, 0xff, 0xff), // #ffffff node_connection_line_light
+            ImColor(0x28, 0xBC, 0x28, 0xff)  // #28bc28 node_pin_active (Darker green, 100% Alpha)
         };
         return colors[static_cast<size_t>(id)];
     }

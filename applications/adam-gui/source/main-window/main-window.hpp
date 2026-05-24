@@ -21,6 +21,7 @@ namespace adam::gui
         node_output,
         node_connection_line,
         node_connection_line_light,
+        node_pin_active,
         count
     };
 

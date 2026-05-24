@@ -12,19 +12,36 @@
 
 namespace adam::gui 
 {
-    void render_tab_management(gui_controller& ctrl, adam::language lang)
+    namespace
     {
-        bool commander_active   = ctrl.is_commander_active();
-        float dpi_scale         = ImGui::GetStyle()._MainScale;
+        adam::string_hashed g_connection_to_delete("");
+        bool g_request_delete_popup = false;
+        ImVec2 g_connection_drag_offset(0, 0);
 
-        static adam::string_hashed connection_to_delete("");
-        static bool request_delete_popup = false;
-        static ImVec2 connection_drag_offset(0, 0);
+        adam::string_hashed g_target_connection("");
+        adam::port_direction g_target_direction = adam::port_direction::none;
+        bool g_request_port_popup = false;
+        char g_port_popup_title[128] = "Add Port###PortPopup";
 
-        if (request_delete_popup)
+        adam::string_hash g_active_drag_hash = 0;
+        size_t g_active_drag_target_index = 0;
+
+        struct connection_pin_data {
+            ImVec2 pos;
+            ImColor col;
+        };
+
+        std::vector<std::vector<connection_pin_data>> g_stage_pins_in_normal, g_stage_pins_out_normal;
+        std::vector<std::vector<connection_pin_data>> g_stage_pins_in_preview, g_stage_pins_out_preview;
+    }
+
+    void render_delete_connection_modal(gui_controller& ctrl, adam::language lang)
+    {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+        if (g_request_delete_popup)
         {
             ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_delete_connection, lang));
-            request_delete_popup = false;
+            g_request_delete_popup = false;
         }
 
         if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_delete_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
@@ -37,10 +54,10 @@ namespace adam::gui
 
             if (ImGui::Button(get_gui_string(gui_string_id::btn_ok, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
             {
-                if (connection_to_delete.get_hash() != 0)
+                if (g_connection_to_delete.get_hash() != 0)
                 {
-                    ctrl.commander().request_connection_destroy(connection_to_delete.get_hash());
-                    connection_to_delete = adam::string_hashed("");
+                    ctrl.commander().request_connection_destroy(g_connection_to_delete.get_hash());
+                    g_connection_to_delete = adam::string_hashed("");
                 }
                 ImGui::CloseCurrentPopup();
             }
@@ -48,18 +65,34 @@ namespace adam::gui
             ImGui::SameLine();
             if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
             {
-                connection_to_delete = adam::string_hashed("");
+                g_connection_to_delete = adam::string_hashed("");
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
         }
+    }
 
+    void render_create_connection_modal(gui_controller& ctrl, adam::language lang)
+    {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
         if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             static char conn_name[256] = "";
             ImGui::InputText(get_gui_string(gui_string_id::tbl_name, lang), conn_name, sizeof(conn_name));
 
             ImGui::Spacing();
+            
+            bool can_create = conn_name[0] != '\0';
+            if (can_create)
+            {
+                adam::string_hash proposed_hash = adam::string_hashed(&conn_name[0]).get_hash();
+                if (ctrl.commander().registry().get_connections().find(proposed_hash) != ctrl.commander().registry().get_connections().end())
+                {
+                    can_create = false;
+                }
+            }
+
+            if (!can_create) ImGui::BeginDisabled();
             if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
             {
                 if (conn_name[0] != '\0')
@@ -69,6 +102,8 @@ namespace adam::gui
                     ImGui::CloseCurrentPopup();
                 }
             }
+            if (!can_create) ImGui::EndDisabled();
+            
             ImGui::SetItemDefaultFocus();
             ImGui::SameLine();
             if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
@@ -76,12 +111,11 @@ namespace adam::gui
             
             ImGui::EndPopup();
         }
+    }
 
-        static adam::string_hashed target_connection("");
-        static adam::port_direction target_direction = adam::port_direction::none;
-        static bool request_port_popup = false;
-        static char port_popup_title[128] = "Add Port###PortPopup";
-
+    void render_add_create_port_modal(gui_controller& ctrl, adam::language lang)
+    {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
         struct port_display_info
         {
             std::string module_name;
@@ -99,19 +133,19 @@ namespace adam::gui
         static std::map<adam::string_hash, std::array<char, 128>> new_port_names;
         static std::vector<adam::string_hash> used_ports;
 
-        if (request_port_popup)
+        if (g_request_port_popup)
         {
-            if (target_direction == adam::port_direction::input)
+            if (g_target_direction == adam::port_direction::input)
             {
-                snprintf(port_popup_title, sizeof(port_popup_title), get_gui_string(gui_string_id::dlg_add_input_port_to, lang), target_connection.c_str());
+                snprintf(g_port_popup_title, sizeof(g_port_popup_title), get_gui_string(gui_string_id::dlg_add_input_port_to, lang), g_target_connection.c_str());
             }
-            else if (target_direction == adam::port_direction::output)
+            else if (g_target_direction == adam::port_direction::output)
             {
-                snprintf(port_popup_title, sizeof(port_popup_title), get_gui_string(gui_string_id::dlg_add_output_port_to, lang), target_connection.c_str());
+                snprintf(g_port_popup_title, sizeof(g_port_popup_title), get_gui_string(gui_string_id::dlg_add_output_port_to, lang), g_target_connection.c_str());
             }
             else
             {
-                snprintf(port_popup_title, sizeof(port_popup_title), "%s", get_gui_string(gui_string_id::dlg_add_port, lang));
+                snprintf(g_port_popup_title, sizeof(g_port_popup_title), "%s", get_gui_string(gui_string_id::dlg_add_port, lang));
             }
 
             existing_grouped.clear();
@@ -129,14 +163,14 @@ namespace adam::gui
                 const auto& reg_ports       = ctrl.commander().registry().get_ports();
                 const auto& reg_conns       = ctrl.commander().registry().get_connections();
 
-                auto conn_it = reg_conns.find(target_connection.get_hash());
+                auto conn_it = reg_conns.find(g_target_connection.get_hash());
                 if (conn_it != reg_conns.end())
                 {
-                    if (target_direction == adam::port_direction::input)
+                    if (g_target_direction == adam::port_direction::input)
                     {
                         used_ports = conn_it->second->inputs;
                     }
-                    else if (target_direction == adam::port_direction::output)
+                    else if (g_target_direction == adam::port_direction::output)
                     {
                         used_ports = conn_it->second->outputs;
                     }
@@ -171,7 +205,7 @@ namespace adam::gui
 
                         if (is_loaded)
                         {
-                            if (target_direction == adam::port_direction::none || (pdi.direction & target_direction) != adam::port_direction::none)
+                            if (g_target_direction == adam::port_direction::none || (pdi.direction & g_target_direction) != adam::port_direction::none)
                             {
                                 new_grouped[pdi.module_name].push_back(pdi);
                             }
@@ -189,7 +223,7 @@ namespace adam::gui
                     pdi.direction = adam::port_direction::in_out;
                     pdi.is_unavailable = false;
 
-                    if (target_direction == adam::port_direction::none || (pdi.direction & target_direction) != adam::port_direction::none)
+                    if (g_target_direction == adam::port_direction::none || (pdi.direction & g_target_direction) != adam::port_direction::none)
                     {
                         new_grouped[pdi.module_name].push_back(pdi);
                         known_port_types[pdi.port_hash] = pdi;
@@ -245,19 +279,19 @@ namespace adam::gui
                         }
                     }
 
-                    if (target_direction == adam::port_direction::none || pdi.direction == adam::port_direction::none || (pdi.direction & target_direction) != adam::port_direction::none)
+                    if (g_target_direction == adam::port_direction::none || pdi.direction == adam::port_direction::none || (pdi.direction & g_target_direction) != adam::port_direction::none)
                     {
                         existing_grouped[pdi.module_name].push_back(pdi);
                     }
                 }
             }
 
-            ImGui::OpenPopup(port_popup_title);
-            request_port_popup = false;
+            ImGui::OpenPopup(g_port_popup_title);
+            g_request_port_popup = false;
         }
 
         ImGui::SetNextWindowSize(ImVec2(1200.0f * dpi_scale, 600.0f * dpi_scale), ImGuiCond_Appearing);
-        if (ImGui::BeginPopupModal(port_popup_title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize))
+        if (ImGui::BeginPopupModal(g_port_popup_title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
         {
             float half_w = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
             float bottom_h = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 4.0f + 4.0f * dpi_scale;
@@ -348,8 +382,8 @@ namespace adam::gui
                             ImGui::PushID(static_cast<int>(pdi.port_hash));
                             if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang)))
                             {
-                                ctrl.commander().request_connection_port_add(target_connection.get_hash(), pdi.port_hash, target_direction == adam::port_direction::input);
-                                ImGui::CloseCurrentPopup();
+                                ctrl.commander().request_connection_port_add(g_target_connection.get_hash(), pdi.port_hash, g_target_direction == adam::port_direction::input);
+                                used_ports.push_back(pdi.port_hash);
                             }
                             if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                             {
@@ -430,6 +464,15 @@ namespace adam::gui
                             ImGui::TableSetColumnIndex(3);
                             bool has_name = name_buffer[0] != '\0';
                             
+                            if (has_name)
+                            {
+                                adam::string_hash proposed_hash = adam::string_hashed(name_buffer.data()).get_hash();
+                                if (ctrl.commander().registry().get_ports().find(proposed_hash) != ctrl.commander().registry().get_ports().end())
+                                {
+                                    has_name = false;
+                                }
+                            }
+                            
                             if (!has_name)
                             {
                                 ImGui::BeginDisabled();
@@ -444,10 +487,9 @@ namespace adam::gui
                                 );
                                 
                                 adam::string_hash new_port_hash = adam::string_hashed(name_buffer.data()).get_hash();
-                                ctrl.commander().request_connection_port_add(target_connection.get_hash(), new_port_hash, target_direction == adam::port_direction::input);
+                                ctrl.commander().request_connection_port_add(g_target_connection.get_hash(), new_port_hash, g_target_direction == adam::port_direction::input);
 
                                 name_buffer[0] = '\0';
-                                ImGui::CloseCurrentPopup();
                             }
                             
                             if (!has_name)
@@ -475,9 +517,717 @@ namespace adam::gui
 
             ImGui::EndPopup();
         }
+        // --- END: Add/Create Port Modal ---
+    }
+
+    void render_top_control_bar(gui_controller& ctrl, adam::language lang, int& sort_mode)
+    {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+        // --- START: Top Control Bar (Sort) ---
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_sort_by, lang));
+        ImGui::SameLine();
+        const char* sort_options[] = {
+            get_gui_string(gui_string_id::sort_name_asc, lang),
+            get_gui_string(gui_string_id::sort_name_desc, lang),
+            get_gui_string(gui_string_id::sort_date_asc, lang),
+            get_gui_string(gui_string_id::sort_date_desc, lang),
+            get_gui_string(gui_string_id::sort_edited_asc, lang),
+            get_gui_string(gui_string_id::sort_edited_desc, lang),
+            get_gui_string(gui_string_id::sort_custom, lang)
+        };
+        ImGui::SetNextItemWidth(200.0f * dpi_scale);
+        if (ImGui::Combo("##SortMode", &sort_mode, sort_options, IM_ARRAYSIZE(sort_options)))
+        {
+            auto* sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(ctrl.get_parameters().get("connection_sort_mode"_ct));
+            if (sort_mode_param)
+                sort_mode_param->set_value(static_cast<int64_t>(sort_mode));
+        }
+    }
+
+    void render_connection_card(gui_controller& ctrl, adam::language lang, int sort_mode, adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w)
+    {
+        bool commander_active = ctrl.is_commander_active();
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+        auto& reg_view = ctrl.commander().registry();
+        const auto& connections = reg_view.get_connections();
+        const auto& ports = reg_view.get_ports();
+
+        auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
+        bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
+
+        auto& stage_pins_in = is_drag_preview ? g_stage_pins_in_preview : g_stage_pins_in_normal;
+        auto& stage_pins_out = is_drag_preview ? g_stage_pins_out_preview : g_stage_pins_out_normal;
+
+        ImGui::PushID(is_drag_preview ? static_cast<int>(hash) + 0x1000000 : static_cast<int>(hash));
+            
+        bool is_being_dragged = false;
+        if (!is_drag_preview && sort_mode == 6) 
+        {
+            if (const ImGuiPayload* payload = ImGui::GetDragDropPayload()) 
+            {
+                if (payload->IsDataType("DND_CONNECTION") && *(adam::string_hash*)payload->Data == hash) 
+                {
+                    is_being_dragged = true;
+                }
+            }
+        }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
+            
+        ImVec4 bg = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 0.9f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+            
+        if (conn->color != 0xFFFFFF && conn->color != 0)
+        {
+            bg.x = ((conn->color >> 16) & 0xFF) / 255.0f * 0.35f + bg.x * 0.65f;
+            bg.y = ((conn->color >> 8) & 0xFF) / 255.0f * 0.35f + bg.y * 0.65f;
+            bg.z = (conn->color & 0xFF) / 255.0f * 0.35f + bg.z * 0.65f;
+        }
+            
+        if (is_being_dragged)
+        {
+            bg.w *= 0.4f; // Ghost transparency
+        }
+            
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, bg);
+
+        size_t max_rows = std::max(conn->inputs.size(), conn->outputs.size());
+        size_t num_processors = conn->filters.size() + conn->converters.size();
+        if (max_rows == 0 && num_processors > 0) max_rows = 1;
+            
+        float node_h = ImGui::GetTextLineHeight() * 2.0f;
+        float row_height = node_h + 10.0f * dpi_scale;
+            
+        float base_height = ImGui::GetFrameHeight() * 2.0f + ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
+        if (max_rows == 0)
+            base_height -= ImGui::GetTextLineHeight();
+        float child_height = base_height + static_cast<float>(max_rows) * row_height;
+
+        if (!is_drag_preview) ImGui::BeginGroup();
+
+        if (is_being_dragged) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.4f);
+
+        if (ImGui::BeginChild(is_drag_preview ? "ConnCardPreview" : "ConnCard", ImVec2(card_w, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+        {
+            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+            float avail_x = ImGui::GetContentRegionAvail().x;
+                
+            int total_stages = 2 + static_cast<int>(num_processors);
+                
+            float char_width = ImGui::CalcTextSize("x").x;
+            float desired_node_w = char_width * 40.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+                
+            float port_w = std::min(desired_node_w, avail_x * 0.25f);
+            if (port_w < char_width * 15.0f) port_w = char_width * 15.0f;
+                
+            float proc_w = port_w;
+            bool compact_processors = false;
+                
+            if (total_stages > 2)
+            {
+                float gap_if_large = (avail_x - static_cast<float>(total_stages) * port_w) / static_cast<float>(total_stages - 1);
+                if (gap_if_large < 10.0f * dpi_scale)
+                {
+                    proc_w = char_width * 5.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+                    compact_processors = true;
+                        
+                    float gap_if_compact = (avail_x - 2.0f * port_w - static_cast<float>(num_processors) * proc_w) / static_cast<float>(total_stages - 1);
+                    if (gap_if_compact < 10.0f * dpi_scale)
+                    {
+                        float available_for_procs = avail_x - 2.0f * port_w - static_cast<float>(total_stages - 1) * 10.0f * dpi_scale;
+                        if (available_for_procs > 0.0f)
+                            proc_w = available_for_procs / static_cast<float>(num_processors);
+                        else
+                            proc_w = 4.0f * dpi_scale; 
+                    }
+                }
+            }
+
+            ImGui::AlignTextToFramePadding();
+
+            char name_buf[max_name_length];
+            std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
+            name_buf[sizeof(name_buf) - 1] = '\0';
+
+            ImGui::PushID("conn_name_edit");
+            bool enter_pressed = false;
+            bool deactivated = false;
+            if (!is_drag_preview)
+            {
+                ImGui::SetNextItemWidth(port_w);
+                enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+                deactivated = ImGui::IsItemDeactivatedAfterEdit();
+            }
+            else
+            {
+                ImGui::TextUnformatted(name_buf);
+            }
+            ImGui::PopID();
+
+            if (enter_pressed || deactivated)
+            {
+                if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
+                {
+                    adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
+                    if (connections.find(proposed_hash) == connections.end())
+                    {
+                        ctrl.commander().request_connection_rename(conn->name.get_hash(), adam::string_hashed(&name_buf[0]));
+                    }
+                }
+            }
+
+            ImGui::SameLine();
+
+            ImVec4 conn_color_vec;
+            if (conn->color == 0)
+            {
+                conn_color_vec = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+            }
+            else
+            {
+                conn_color_vec.x = ((conn->color >> 16) & 0xFF) / 255.0f;
+                conn_color_vec.y = ((conn->color >> 8) & 0xFF) / 255.0f;
+                conn_color_vec.z = (conn->color & 0xFF) / 255.0f;
+                conn_color_vec.w = 1.0f;
+            }
+
+            if (!is_drag_preview)
+            {
+                ImGui::PushID("conn_color_edit");
+                    
+                if (ImGui::ColorButton("##color_btn", conn_color_vec, ImGuiColorEditFlags_NoTooltip))
+                {
+                    ImGui::OpenPopup("ColorPickerPopup");
+                }
+                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                {
+                    conn->color = 0;
+                    if (commander_active)
+                        ctrl.commander().request_connection_color_change(conn->name.get_hash(), conn->color);
+                }
+                    
+                if (ImGui::BeginPopup("ColorPickerPopup"))
+                {
+                    float picker_col[3] = { conn_color_vec.x, conn_color_vec.y, conn_color_vec.z };
+                        
+                    if (conn->color == 0) 
+                    {
+                        picker_col[0] = 1.0f; picker_col[1] = 1.0f; picker_col[2] = 1.0f;
+                    }
+
+                    if (ImGui::ColorPicker3("##picker", picker_col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview))
+                    {
+                        uint32_t new_color = (static_cast<uint32_t>(picker_col[0] * 255.0f + 0.5f) << 16) |
+                                             (static_cast<uint32_t>(picker_col[1] * 255.0f + 0.5f) << 8) |
+                                             (static_cast<uint32_t>(picker_col[2] * 255.0f + 0.5f));
+                        if (new_color == 0) new_color = 0x000001; 
+                        conn->color = new_color;
+                    }
+                        
+                    if (ImGui::IsItemDeactivatedAfterEdit())
+                    {
+                        if (commander_active)
+                            ctrl.commander().request_connection_color_change(conn->name.get_hash(), conn->color);
+                    }
+                        
+                    ImGui::EndPopup();
+                }
+                ImGui::PopID();
+            }
+            else
+            {
+                ImGui::ColorButton("##color_preview", conn_color_vec, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+            }
+
+            const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
+            const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
+                
+            ImGui::SameLine();
+
+            bool is_active = conn->is_active;
+            if (is_active) ImGui::BeginDisabled();
+            if (ImGui::Button(btn_start_str) && !is_drag_preview)
+            {
+                ctrl.commander().request_connection_start(conn->name.get_hash());
+            }
+            if (is_active) ImGui::EndDisabled();
+                
+            ImGui::SameLine();
+            if (!is_active) ImGui::BeginDisabled();
+            if (ImGui::Button(btn_stop_str) && !is_drag_preview)
+            {
+                ctrl.commander().request_connection_stop(conn->name.get_hash());
+            }
+            if (!is_active) ImGui::EndDisabled();
+
+            const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
+            float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                
+            ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
+                
+            if (ImGui::Button(btn_delete_str) && !is_drag_preview)
+            {
+                if (conn->inputs.empty() && conn->outputs.empty() && conn->filters.empty())
+                {
+                    ctrl.commander().request_connection_destroy(conn->name.get_hash());
+                }
+                else
+                {
+                    g_connection_to_delete = conn->name;
+                    g_request_delete_popup = true;
+                }
+            }
+
+            if (sort_mode == 6 && !is_drag_preview)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+                ImGui::Button("##drag_handle", ImVec2(-1.0f, 4.0f * dpi_scale));
+                ImGui::PopStyleColor(3);
+
+                if (ImGui::IsItemActivated())
+                {
+                    ImVec2 mouse_pos = ImGui::GetMousePos();
+                    ImVec2 win_pos = ImGui::GetWindowPos(); // The top-left of the card child
+                    g_connection_drag_offset = ImVec2(mouse_pos.x - win_pos.x, mouse_pos.y - win_pos.y);
+                }
+
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID | ImGuiDragDropFlags_SourceNoPreviewTooltip))
+                {
+                    ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hash));
+                    ImGui::EndDragDropSource();
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                }
+            }
+            else
+            {
+                ImGui::Separator();
+            }
+
+            ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+                
+            float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
+            float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
+                
+            // --- START: Node Renderer ---
+            auto draw_node = [&](const char* name, int stage, float row, ImColor color, connection_pin_data& out_pin_in, connection_pin_data& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr, adam::string_hash port_hash = 0)
+            {
+                float current_node_w = (stage == 0 || stage == total_stages - 1) ? port_w : proc_w;
+                float node_x;
+                if (total_stages == 1) node_x = cur_pos.x;
+                else if (stage == 0) node_x = cur_pos.x;
+                else if (stage == total_stages - 1) node_x = cur_pos.x + avail_x - current_node_w;
+                else node_x = cur_pos.x + port_w + gap + static_cast<float>(stage - 1) * (proc_w + gap);
+                    
+                float node_y = cur_pos.y + row * row_height + (row_height - node_h) * 0.5f;
+                    
+                ImVec2 p_min(node_x, node_y);
+                ImVec2 p_max(node_x + current_node_w, node_y + node_h);
+                    
+                draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
+                draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+
+                ImGui::SetCursorScreenPos(p_min);
+                ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16) ^ 0xABCD));
+                ImGui::SetNextItemAllowOverlap();
+                ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
+                // --- START: Node Context Menu ---
+                if (port_hash != 0 && !is_drag_preview && ImGui::BeginPopupContextItem("##node_ctx"))
+                {
+                    bool p_is_active = false;
+                    std::string p_type = "Unknown";
+                    auto p_it = ports.find(port_hash);
+                    if (p_it != ports.end())
+                    {
+                        p_is_active = p_it->second->is_active;
+                        if (p_it->second->type.get_hash() == ("internal"_ct).get_hash())
+                        {
+                            p_type = "internal (Internal)";
+                        }
+                        else
+                        {
+                            p_type = p_it->second->type.c_str();
+                            if (p_it->second->type_module.get_hash() != 0)
+                                p_type += std::string(" (") + p_it->second->type_module.c_str() + ")";
+                        }
+                    }
+
+                    ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s", name);
+                    ImGui::TextDisabled("%s", p_type.c_str());
+                    ImGui::Separator();
+
+                    if (p_is_active) ImGui::BeginDisabled();
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang)))
+                    {
+                        ctrl.commander().request_port_start(port_hash);
+                    }
+                    if (p_is_active) ImGui::EndDisabled();
+
+                    ImGui::SameLine();
+
+                    if (!p_is_active) ImGui::BeginDisabled();
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_stop, lang)))
+                    {
+                        ctrl.commander().request_port_stop(port_hash);
+                    }
+                    if (!p_is_active) ImGui::EndDisabled();
+
+                    ImGui::EndPopup();
+                }
+                // --- END: Node Context Menu ---
+                ImGui::PopID();
+                    
+                // --- START: Node Name Editor ---
+                if (port_hash != 0 && !is_drag_preview)
+                {
+                    char name_buf[max_name_length];
+                    std::strncpy(name_buf, name, sizeof(name_buf));
+                    name_buf[sizeof(name_buf) - 1] = '\0';
+                        
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+                        
+                    float text_width = ImGui::CalcTextSize(name_buf).x;
+                    float input_w = text_width + ImGui::GetStyle().FramePadding.x * 2.0f + 8.0f * dpi_scale;
+                    if (input_w > current_node_w - 16.0f * dpi_scale) 
+                        input_w = current_node_w - 16.0f * dpi_scale;
+                    if (input_w < 32.0f * dpi_scale)
+                        input_w = 32.0f * dpi_scale;
+                            
+                    float input_x = p_min.x + (current_node_w - input_w) * 0.5f;
+                    float input_h = ImGui::GetFrameHeight();
+                        
+                    ImGui::SetCursorScreenPos(ImVec2(input_x, p_min.y + (node_h - input_h) * 0.5f));
+                    ImGui::PushItemWidth(input_w);
+                        
+                    ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16)));
+                    bool enter_pressed = ImGui::InputText("##port_edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+                    bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
+                    ImGui::PopID();
+                        
+                    ImGui::PopItemWidth();
+                    ImGui::PopStyleColor(3);
+                        
+                    if ((enter_pressed || deactivated) && name_buf[0] != '\0' && std::strcmp(name, name_buf) != 0)
+                    {
+                        adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
+                        if (ports.find(proposed_hash) == ports.end())
+                        {
+                            ctrl.commander().request_port_rename(port_hash, adam::string_hashed(&name_buf[0]));
+                        }
+                    }
+                }
+                // --- END: Node Name Editor ---
+                else
+                {
+                    float text_width = ImGui::CalcTextSize(name).x;
+                    float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
+                    if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
+                    ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
+                    draw_list->PushClipRect(p_min, p_max, true);
+                    draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
+                    draw_list->PopClipRect();
+                }
+
+                out_pin_in.pos = ImVec2(p_min.x, p_min.y + node_h * 0.5f);
+                out_pin_out.pos = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
+
+                bool is_port_active = false;
+                if (port_hash != 0)
+                {
+                    auto p_it = ports.find(port_hash);
+                    if (p_it != ports.end())
+                        is_port_active = p_it->second->is_active;
+                }
+
+                ImColor pin_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
+                if (is_port_active)
+                {
+                    pin_col = get_gui_color(gui_color_id::node_pin_active);
+                }
+
+                out_pin_in.col = pin_col;
+                out_pin_out.col = pin_col;
+                        
+                if (is_unavail && !is_drag_preview && ImGui::IsMouseHoveringRect(p_min, p_max))
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), unavail_module ? unavail_module : "Unknown");
+                    ImGui::EndTooltip();
+                }
+            };
+            // --- END: Node Renderer ---
+
+            if (stage_pins_in.size() < static_cast<size_t>(total_stages))
+            {
+                stage_pins_in.resize(total_stages);
+                stage_pins_out.resize(total_stages);
+            }
+            for (int i = 0; i < total_stages; ++i)
+            {
+                stage_pins_in[i].clear();
+                stage_pins_out[i].clear();
+            }
+
+            ImColor in_col = get_gui_color(gui_color_id::node_input);
+            ImColor proc_col = get_gui_color(gui_color_id::node_processor);
+            ImColor out_col = get_gui_color(gui_color_id::node_output);
+
+            float in_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->inputs.size())) * 0.5f;
+            float out_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->outputs.size())) * 0.5f;
+
+            float row_val = in_offset;
+            for (auto pid : conn->inputs)
+            {
+                connection_pin_data p_in, p_out;
+                auto it = ports.find(pid);
+                bool is_unavail = (it != ports.end() && it->second->is_unavailable);
+                ImColor col = in_col;
+                if (is_unavail) col.Value.w *= 0.4f;
+
+                const char* mod_name = "Unknown";
+                if (is_unavail && it->second->type_module.get_hash() != 0)
+                    mod_name = it->second->type_module.c_str();
+
+                draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, col, p_in, p_out, is_unavail, mod_name, pid);
+                stage_pins_out[0].push_back(p_out);
+                row_val += 1.0f;
+            }
+
+            int current_stage = 1;
+            int processor_idx = 1;
+            float proc_row_val = (static_cast<float>(max_rows) - 1.0f) * 0.5f;
+            for (auto fid : conn->filters)
+            {
+                (void)fid; // Unused
+                connection_pin_data p_in, p_out;
+                if (compact_processors)
+                {
+                    char short_name[16];
+                    snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
+                    draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
+                }
+                else
+                {
+                    draw_node("Filter", current_stage, proc_row_val, proc_col, p_in, p_out);
+                }
+                stage_pins_in[current_stage].push_back(p_in);
+                stage_pins_out[current_stage].push_back(p_out);
+                current_stage++;
+                processor_idx++;
+            }
+            for (auto cid : conn->converters)
+            {
+                (void)cid; // Unused
+                connection_pin_data p_in, p_out;
+                if (compact_processors)
+                {
+                    char short_name[16];
+                    snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
+                    draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
+                }
+                else
+                {
+                    draw_node("Converter", current_stage, proc_row_val, proc_col, p_in, p_out);
+                }
+                stage_pins_in[current_stage].push_back(p_in);
+                stage_pins_out[current_stage].push_back(p_out);
+                current_stage++;
+                processor_idx++;
+            }
+
+            row_val = out_offset;
+            for (auto pid : conn->outputs)
+            {
+                connection_pin_data p_in, p_out;
+                auto it = ports.find(pid);
+                bool is_unavail = (it != ports.end() && it->second->is_unavailable);
+                ImColor col = out_col;
+                if (is_unavail) col.Value.w *= 0.4f;
+
+                const char* mod_name = "Unknown";
+                if (is_unavail && it->second->type_module.get_hash() != 0)
+                    mod_name = it->second->type_module.c_str();
+
+                draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, col, p_in, p_out, is_unavail, mod_name, pid);
+                stage_pins_in[total_stages - 1].push_back(p_in);
+                row_val += 1.0f;
+            }
+
+            ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
+            float line_thickness = 5.f * dpi_scale;
+                
+            if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
+            {
+                float center_y = cur_pos.y + static_cast<float>(max_rows) * row_height * 0.5f;
+                float mid_x = cur_pos.x + avail_x * 0.5f;
+                    
+                ImVec2 p_mid(mid_x, center_y);
+                    
+                for (const auto& pin_out_data : stage_pins_out[0])
+                {
+                    ImVec2 pin_out = pin_out_data.pos;
+                    float b_strength = (mid_x - pin_out.x) * 0.5f;
+                    draw_list->AddBezierCubic(
+                        pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(mid_x - b_strength, center_y), p_mid,
+                        line_col, line_thickness);
+                }
+                    
+                for (const auto& pin_in_data : stage_pins_in[1])
+                {
+                    ImVec2 pin_in = pin_in_data.pos;
+                    float b_strength = (pin_in.x - mid_x) * 0.5f;
+                    draw_list->AddBezierCubic(
+                        p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
+                        line_col, line_thickness);
+                }
+                    
+                draw_list->AddCircleFilled(p_mid, line_thickness * 0.6f, line_col);
+            }
+            else
+            {
+                for (int s = 0; s < total_stages - 1; ++s)
+                {
+                    for (const auto& pin_out_data : stage_pins_out[s])
+                    {
+                        ImVec2 pin_out = pin_out_data.pos;
+                        for (const auto& pin_in_data : stage_pins_in[s + 1])
+                        {
+                            ImVec2 pin_in = pin_in_data.pos;
+                            float b_strength = (pin_in.x - pin_out.x) * 0.5f;
+                            draw_list->AddBezierCubic(
+                                pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
+                                line_col, line_thickness);
+                        }
+                    }
+                }
+            }
+
+            auto draw_pin_dot = [&](const connection_pin_data& pin) {
+                draw_list->AddCircleFilled(pin.pos, 6.0f * dpi_scale, pin.col);
+            };
+
+            for (int s = 0; s < total_stages; ++s)
+            {
+                if (s > 0)
+                {
+                    for (const auto& pin_in : stage_pins_in[s]) draw_pin_dot(pin_in);
+                }
+                if (s < total_stages - 1)
+                {
+                    for (const auto& pin_out : stage_pins_out[s]) draw_pin_dot(pin_out);
+                }
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + static_cast<float>(max_rows) * row_height));
+                
+            if (max_rows > 0 || num_processors > 0)
+            {
+                ImGui::Spacing();
+                ImGui::Separator();
+            }
+                
+            float avail_w = ImGui::GetWindowWidth();
+                
+            float current_y = ImGui::GetCursorPosY();
+            float start_x = ImGui::GetStyle().WindowPadding.x;
+
+            // --- START: Add Node Buttons ---
+            const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
+            const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
+            const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
+
+            float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
+            ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
+            if (ImGui::Button(btn_add_input_str) && !is_drag_preview)
+            {
+                g_target_connection = conn->name;
+                g_target_direction = adam::port_direction::input;
+                g_request_port_popup = true;
+            }
+
+            if (!conn->inputs.empty())
+            {
+                float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
+                ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
+                if (ImGui::Button(btn_add_output_str) && !is_drag_preview)
+                {
+                    g_target_connection = conn->name;
+                    g_target_direction = adam::port_direction::output;
+                    g_request_port_popup = true;
+                }
+
+                if (!conn->outputs.empty())
+                {
+                    float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                    float center_x = (avail_w - add_proc_w) * 0.5f;
+                    ImGui::SetCursorPos(ImVec2(center_x, current_y));
+                    ImGui::Button(btn_add_processor_str);
+                }
+            }
+            // --- END: Add Node Buttons ---
+        }
+        ImGui::EndChild();
+
+        if (is_being_dragged) ImGui::PopStyleVar();
+
+        if (!is_drag_preview)
+        {
+            ImGui::Spacing();
+            ImGui::EndGroup();
+        }
+
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(2);
+        ImGui::PopID();
+    }
+
+    void render_connections_list(gui_controller& ctrl, adam::language lang, int sort_mode, float& card_width, const std::vector<std::pair<adam::string_hash, adam::connection_view*>>& sorted_connections, bool is_dragging_connection)
+    {
+        if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), false))
+        {
+            card_width = ImGui::GetContentRegionAvail().x;
+
+            for (size_t i = 0; i < sorted_connections.size(); ++i)
+            {
+                auto hash = sorted_connections[i].first;
+                auto* conn = sorted_connections[i].second;
+
+                render_connection_card(ctrl, lang, sort_mode, hash, conn, false, card_width);
+
+                if (sort_mode == 6 && is_dragging_connection)
+                {
+                    ImVec2 min = ImGui::GetItemRectMin();
+                    ImVec2 max = ImGui::GetItemRectMax();
+                    ImVec2 mouse_pos = ImGui::GetMousePos();
+                    
+                    if (mouse_pos.y >= min.y && mouse_pos.y <= max.y)
+                    {
+                        g_active_drag_target_index = i;
+                    }
+                }
+            }
+        }
+        ImGui::EndChild();
+    }
+
+    void render_tab_management(gui_controller& ctrl, adam::language lang)
+    {
+        bool commander_active   = ctrl.is_commander_active();
+
+        render_delete_connection_modal(ctrl, lang);
+        render_create_connection_modal(ctrl, lang);
+        render_add_create_port_modal(ctrl, lang);
 
         auto& reg_view = ctrl.commander().registry();
-
         std::lock_guard<const adam::registry_view> lock(reg_view);
 
         /*#ifdef ADAM_BUILD_DEBUG
@@ -612,34 +1362,13 @@ namespace adam::gui
             test_injected = true;
         }
         #endif*/
-        
-        const auto& connections = reg_view.get_connections();
-        const auto& ports = reg_view.get_ports();
 
-        static adam::configuration_parameter_integer* sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(ctrl.get_parameters().get("connection_sort_mode"_ct));
+        const auto& connections = reg_view.get_connections();
         
+        static adam::configuration_parameter_integer* sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(ctrl.get_parameters().get("connection_sort_mode"_ct));
         int sort_mode = static_cast<int>(sort_mode_param->get_value());
         
-        static adam::configuration_parameter_string* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-        bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
-
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_sort_by, lang));
-        ImGui::SameLine();
-        const char* sort_options[] = {
-            get_gui_string(gui_string_id::sort_name_asc, lang),
-            get_gui_string(gui_string_id::sort_name_desc, lang),
-            get_gui_string(gui_string_id::sort_date_asc, lang),
-            get_gui_string(gui_string_id::sort_date_desc, lang),
-            get_gui_string(gui_string_id::sort_edited_asc, lang),
-            get_gui_string(gui_string_id::sort_edited_desc, lang),
-            get_gui_string(gui_string_id::sort_custom, lang)
-        };
-        ImGui::SetNextItemWidth(200.0f * dpi_scale);
-        if (ImGui::Combo("##SortMode", &sort_mode, sort_options, IM_ARRAYSIZE(sort_options)))
-        {
-            sort_mode_param->set_value(static_cast<int64_t>(sort_mode));
-        }
+        render_top_control_bar(ctrl, lang, sort_mode);
 
         ImGui::Spacing();
 
@@ -666,9 +1395,7 @@ namespace adam::gui
             return false;
         });
 
-        static adam::string_hash active_drag_hash = 0;
-        static size_t active_drag_target_index = 0;
-        bool is_dragging_connection = false;
+        bool g_is_dragging_connection = false;
 
         if (sort_mode == 6)
         {
@@ -676,18 +1403,18 @@ namespace adam::gui
             {
                 if (payload->IsDataType("DND_CONNECTION"))
                 {
-                    is_dragging_connection = true;
+                    g_is_dragging_connection = true;
                     adam::string_hash dragged_hash = *(const adam::string_hash*)payload->Data;
                     
-                    if (active_drag_hash != dragged_hash)
+                    if (g_active_drag_hash != dragged_hash)
                     {
-                        active_drag_hash = dragged_hash;
+                        g_active_drag_hash = dragged_hash;
                         auto it = std::find_if(sorted_connections.begin(), sorted_connections.end(), 
                             [dragged_hash](const auto& pair){ return pair.first == dragged_hash; });
                         if (it != sorted_connections.end())
-                            active_drag_target_index = std::distance(sorted_connections.begin(), it);
+                            g_active_drag_target_index = std::distance(sorted_connections.begin(), it);
                         else
-                            active_drag_target_index = 0;
+                            g_active_drag_target_index = 0;
                     }
 
                     auto it = std::find_if(sorted_connections.begin(), sorted_connections.end(), 
@@ -696,640 +1423,23 @@ namespace adam::gui
                     {
                         auto item = *it;
                         sorted_connections.erase(it);
-                        if (active_drag_target_index > sorted_connections.size())
-                            active_drag_target_index = sorted_connections.size();
-                        sorted_connections.insert(sorted_connections.begin() + active_drag_target_index, item);
+                        if (g_active_drag_target_index > sorted_connections.size())
+                            g_active_drag_target_index = sorted_connections.size();
+                        sorted_connections.insert(sorted_connections.begin() + g_active_drag_target_index, item);
                     }
                 }
             }
             else
             {
-                active_drag_hash = 0;
+                g_active_drag_hash = 0;
             }
         }
 
-        float card_width = ImGui::GetContentRegionAvail().x;
+        static float card_width = ImGui::GetContentRegionAvail().x;
         
-        static std::vector<std::vector<ImVec2>> stage_pins_in_normal, stage_pins_out_normal;
-        static std::vector<std::vector<ImVec2>> stage_pins_in_preview, stage_pins_out_preview;
+        render_connections_list(ctrl, lang, sort_mode, card_width, sorted_connections, g_is_dragging_connection);
 
-        auto render_connection_card = [&](adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w) -> void
-        {
-            auto& stage_pins_in = is_drag_preview ? stage_pins_in_preview : stage_pins_in_normal;
-            auto& stage_pins_out = is_drag_preview ? stage_pins_out_preview : stage_pins_out_normal;
-
-            ImGui::PushID(is_drag_preview ? static_cast<int>(hash) + 0x1000000 : static_cast<int>(hash));
-            
-            bool is_being_dragged = false;
-            if (!is_drag_preview && sort_mode == 6) 
-            {
-                if (const ImGuiPayload* payload = ImGui::GetDragDropPayload()) 
-                {
-                    if (payload->IsDataType("DND_CONNECTION") && *(adam::string_hash*)payload->Data == hash) 
-                    {
-                        is_being_dragged = true;
-                    }
-                }
-            }
-
-            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
-            
-            ImVec4 bg = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 0.9f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
-            
-            if (conn->color != 0xFFFFFF && conn->color != 0)
-            {
-                bg.x = ((conn->color >> 16) & 0xFF) / 255.0f * 0.35f + bg.x * 0.65f;
-                bg.y = ((conn->color >> 8) & 0xFF) / 255.0f * 0.35f + bg.y * 0.65f;
-                bg.z = (conn->color & 0xFF) / 255.0f * 0.35f + bg.z * 0.65f;
-            }
-            
-            if (is_being_dragged)
-            {
-                bg.w *= 0.4f; // Ghost transparency
-            }
-            
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, bg);
-
-            size_t max_rows = std::max(conn->inputs.size(), conn->outputs.size());
-            size_t num_processors = conn->filters.size() + conn->converters.size();
-            if (max_rows == 0 && num_processors > 0) max_rows = 1;
-            
-            float node_h = ImGui::GetTextLineHeight() * 2.0f;
-            float row_height = node_h + 10.0f * dpi_scale;
-            
-            float base_height = ImGui::GetFrameHeight() * 2.0f + ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
-            if (max_rows == 0)
-                base_height -= ImGui::GetTextLineHeight();
-            float child_height = base_height + static_cast<float>(max_rows) * row_height;
-
-            if (!is_drag_preview) ImGui::BeginGroup();
-
-            if (is_being_dragged) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.4f);
-
-            if (ImGui::BeginChild(is_drag_preview ? "ConnCardPreview" : "ConnCard", ImVec2(card_w, child_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
-            {
-                ImDrawList* draw_list = ImGui::GetWindowDrawList();
-                float avail_x = ImGui::GetContentRegionAvail().x;
-                
-                int total_stages = 2 + static_cast<int>(num_processors);
-                
-                float char_width = ImGui::CalcTextSize("x").x;
-                float desired_node_w = char_width * 40.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
-                
-                float port_w = std::min(desired_node_w, avail_x * 0.25f);
-                if (port_w < char_width * 15.0f) port_w = char_width * 15.0f;
-                
-                float proc_w = port_w;
-                bool compact_processors = false;
-                
-                if (total_stages > 2)
-                {
-                    float gap_if_large = (avail_x - static_cast<float>(total_stages) * port_w) / static_cast<float>(total_stages - 1);
-                    if (gap_if_large < 10.0f * dpi_scale)
-                    {
-                        proc_w = char_width * 5.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
-                        compact_processors = true;
-                        
-                        float gap_if_compact = (avail_x - 2.0f * port_w - static_cast<float>(num_processors) * proc_w) / static_cast<float>(total_stages - 1);
-                        if (gap_if_compact < 10.0f * dpi_scale)
-                        {
-                            float available_for_procs = avail_x - 2.0f * port_w - static_cast<float>(total_stages - 1) * 10.0f * dpi_scale;
-                            if (available_for_procs > 0.0f)
-                                proc_w = available_for_procs / static_cast<float>(num_processors);
-                            else
-                                proc_w = 4.0f * dpi_scale; 
-                        }
-                    }
-                }
-
-                ImGui::AlignTextToFramePadding();
-
-                char name_buf[max_name_length];
-                std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
-                name_buf[sizeof(name_buf) - 1] = '\0';
-
-                ImGui::PushID("conn_name_edit");
-                bool enter_pressed = false;
-                bool deactivated = false;
-                if (!is_drag_preview)
-                {
-                    ImGui::SetNextItemWidth(port_w);
-                    enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
-                    deactivated = ImGui::IsItemDeactivatedAfterEdit();
-                }
-                else
-                {
-                    ImGui::TextUnformatted(name_buf);
-                }
-                ImGui::PopID();
-
-                if (enter_pressed || deactivated)
-                {
-                    if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
-                    {
-                        ctrl.commander().request_connection_rename(conn->name.get_hash(), adam::string_hashed(&name_buf[0]));
-                    }
-                }
-
-                ImGui::SameLine();
-
-                ImVec4 conn_color_vec;
-                if (conn->color == 0)
-                {
-                    conn_color_vec = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
-                }
-                else
-                {
-                    conn_color_vec.x = ((conn->color >> 16) & 0xFF) / 255.0f;
-                    conn_color_vec.y = ((conn->color >> 8) & 0xFF) / 255.0f;
-                    conn_color_vec.z = (conn->color & 0xFF) / 255.0f;
-                    conn_color_vec.w = 1.0f;
-                }
-
-                if (!is_drag_preview)
-                {
-                    ImGui::PushID("conn_color_edit");
-                    
-                    if (ImGui::ColorButton("##color_btn", conn_color_vec, ImGuiColorEditFlags_NoTooltip))
-                    {
-                        ImGui::OpenPopup("ColorPickerPopup");
-                    }
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-                    {
-                        conn->color = 0;
-                        if (commander_active)
-                            ctrl.commander().request_connection_color_change(conn->name.get_hash(), conn->color);
-                    }
-                    
-                    if (ImGui::BeginPopup("ColorPickerPopup"))
-                    {
-                        float picker_col[3] = { conn_color_vec.x, conn_color_vec.y, conn_color_vec.z };
-                        
-                        if (conn->color == 0) 
-                        {
-                            picker_col[0] = 1.0f; picker_col[1] = 1.0f; picker_col[2] = 1.0f;
-                        }
-
-                        if (ImGui::ColorPicker3("##picker", picker_col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview))
-                        {
-                            uint32_t new_color = (static_cast<uint32_t>(picker_col[0] * 255.0f + 0.5f) << 16) |
-                                                 (static_cast<uint32_t>(picker_col[1] * 255.0f + 0.5f) << 8) |
-                                                 (static_cast<uint32_t>(picker_col[2] * 255.0f + 0.5f));
-                            if (new_color == 0) new_color = 0x000001; 
-                            conn->color = new_color;
-                        }
-                        
-                        if (ImGui::IsItemDeactivatedAfterEdit())
-                        {
-                            if (commander_active)
-                                ctrl.commander().request_connection_color_change(conn->name.get_hash(), conn->color);
-                        }
-                        
-                        ImGui::EndPopup();
-                    }
-                    ImGui::PopID();
-                }
-                else
-                {
-                    ImGui::ColorButton("##color_preview", conn_color_vec, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
-                }
-
-                const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
-                const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
-                
-                ImGui::SameLine();
-
-                bool is_active = conn->is_active;
-                if (is_active) ImGui::BeginDisabled();
-                if (ImGui::Button(btn_start_str) && !is_drag_preview)
-                {
-                    ctrl.commander().request_connection_start(conn->name.get_hash());
-                }
-                if (is_active) ImGui::EndDisabled();
-                
-                ImGui::SameLine();
-                if (!is_active) ImGui::BeginDisabled();
-                if (ImGui::Button(btn_stop_str) && !is_drag_preview)
-                {
-                    ctrl.commander().request_connection_stop(conn->name.get_hash());
-                }
-                if (!is_active) ImGui::EndDisabled();
-
-                const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
-                float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                
-                ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
-                
-                if (ImGui::Button(btn_delete_str) && !is_drag_preview)
-                {
-                    if (conn->inputs.empty() && conn->outputs.empty() && conn->filters.empty())
-                    {
-                        ctrl.commander().request_connection_destroy(conn->name.get_hash());
-                    }
-                    else
-                    {
-                        connection_to_delete = conn->name;
-                        request_delete_popup = true;
-                    }
-                }
-
-                if (sort_mode == 6 && !is_drag_preview)
-                {
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
-                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
-                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
-                    ImGui::Button("##drag_handle", ImVec2(-1.0f, 4.0f * dpi_scale));
-                    ImGui::PopStyleColor(3);
-
-                    if (ImGui::IsItemActivated())
-                    {
-                        ImVec2 mouse_pos = ImGui::GetMousePos();
-                        ImVec2 win_pos = ImGui::GetWindowPos(); // The top-left of the card child
-                        connection_drag_offset = ImVec2(mouse_pos.x - win_pos.x, mouse_pos.y - win_pos.y);
-                    }
-
-                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID | ImGuiDragDropFlags_SourceNoPreviewTooltip))
-                    {
-                        ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hash));
-                        ImGui::EndDragDropSource();
-                    }
-                    if (ImGui::IsItemHovered())
-                    {
-                        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                    }
-                }
-                else
-                {
-                    ImGui::Separator();
-                }
-
-                ImVec2 cur_pos = ImGui::GetCursorScreenPos();
-                
-                float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
-                float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
-                
-                auto draw_node = [&](const char* name, int stage, float row, ImColor color, ImVec2& out_pin_in, ImVec2& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr, adam::string_hash port_hash = 0)
-                {
-                    float current_node_w = (stage == 0 || stage == total_stages - 1) ? port_w : proc_w;
-                    float node_x;
-                    if (total_stages == 1) node_x = cur_pos.x;
-                    else if (stage == 0) node_x = cur_pos.x;
-                    else if (stage == total_stages - 1) node_x = cur_pos.x + avail_x - current_node_w;
-                    else node_x = cur_pos.x + port_w + gap + static_cast<float>(stage - 1) * (proc_w + gap);
-                    
-                    float node_y = cur_pos.y + row * row_height + (row_height - node_h) * 0.5f;
-                    
-                    ImVec2 p_min(node_x, node_y);
-                    ImVec2 p_max(node_x + current_node_w, node_y + node_h);
-                    
-                    draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
-                    draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
-
-                    ImGui::SetCursorScreenPos(p_min);
-                    ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16) ^ 0xABCD));
-                    ImGui::SetNextItemAllowOverlap();
-                    ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
-                    if (port_hash != 0 && !is_drag_preview && ImGui::BeginPopupContextItem("##node_ctx"))
-                    {
-                        bool p_is_active = false;
-                        std::string p_type = "Unknown";
-                        auto p_it = ports.find(port_hash);
-                        if (p_it != ports.end())
-                        {
-                            p_is_active = p_it->second->is_active;
-                            if (p_it->second->type.get_hash() == ("internal"_ct).get_hash())
-                            {
-                                p_type = "internal (Internal)";
-                            }
-                            else
-                            {
-                                p_type = p_it->second->type.c_str();
-                                if (p_it->second->type_module.get_hash() != 0)
-                                    p_type += std::string(" (") + p_it->second->type_module.c_str() + ")";
-                            }
-                        }
-
-                        ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s", name);
-                        ImGui::TextDisabled("%s", p_type.c_str());
-                        ImGui::Separator();
-
-                        if (p_is_active) ImGui::BeginDisabled();
-                        if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang)))
-                        {
-                            ctrl.commander().request_port_start(port_hash);
-                            ImGui::CloseCurrentPopup();
-                        }
-                        if (p_is_active) ImGui::EndDisabled();
-
-                        ImGui::SameLine();
-
-                        if (!p_is_active) ImGui::BeginDisabled();
-                        if (ImGui::Button(get_gui_string(gui_string_id::btn_stop, lang)))
-                        {
-                            ctrl.commander().request_port_stop(port_hash);
-                            ImGui::CloseCurrentPopup();
-                        }
-                        if (!p_is_active) ImGui::EndDisabled();
-
-                        ImGui::EndPopup();
-                    }
-                    ImGui::PopID();
-                    
-                    if (port_hash != 0 && !is_drag_preview)
-                    {
-                        char name_buf[max_name_length];
-                        std::strncpy(name_buf, name, sizeof(name_buf));
-                        name_buf[sizeof(name_buf) - 1] = '\0';
-                        
-                        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-                        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-                        
-                        float text_width = ImGui::CalcTextSize(name_buf).x;
-                        float input_w = text_width + ImGui::GetStyle().FramePadding.x * 2.0f + 8.0f * dpi_scale;
-                        if (input_w > current_node_w - 16.0f * dpi_scale) 
-                            input_w = current_node_w - 16.0f * dpi_scale;
-                        if (input_w < 32.0f * dpi_scale)
-                            input_w = 32.0f * dpi_scale;
-                            
-                        float input_x = p_min.x + (current_node_w - input_w) * 0.5f;
-                        float input_h = ImGui::GetFrameHeight();
-                        
-                        ImGui::SetCursorScreenPos(ImVec2(input_x, p_min.y + (node_h - input_h) * 0.5f));
-                        ImGui::PushItemWidth(input_w);
-                        
-                        ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16)));
-                        bool enter_pressed = ImGui::InputText("##port_edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
-                        bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
-                        ImGui::PopID();
-                        
-                        ImGui::PopItemWidth();
-                        ImGui::PopStyleColor(3);
-                        
-                        if ((enter_pressed || deactivated) && name_buf[0] != '\0' && std::strcmp(name, name_buf) != 0)
-                        {
-                            ctrl.commander().request_port_rename(port_hash, adam::string_hashed(&name_buf[0]));
-                        }
-                    }
-                    else
-                    {
-                        float text_width = ImGui::CalcTextSize(name).x;
-                        float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
-                        if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
-                        ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
-                        draw_list->PushClipRect(p_min, p_max, true);
-                        draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
-                        draw_list->PopClipRect();
-                    }
-
-                    out_pin_in = ImVec2(p_min.x, p_min.y + node_h * 0.5f);
-                    out_pin_out = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
-
-                    if (stage > 0)
-                        draw_list->AddCircleFilled(out_pin_in, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
-                    if (stage < total_stages - 1)
-                        draw_list->AddCircleFilled(out_pin_out, 4.0f * dpi_scale, ImColor(200, 200, 200, 200));
-                        
-                    if (is_unavail && !is_drag_preview && ImGui::IsMouseHoveringRect(p_min, p_max))
-                    {
-                        ImGui::BeginTooltip();
-                        ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), unavail_module ? unavail_module : "Unknown");
-                        ImGui::EndTooltip();
-                    }
-                };
-
-                if (stage_pins_in.size() < static_cast<size_t>(total_stages))
-                {
-                    stage_pins_in.resize(total_stages);
-                    stage_pins_out.resize(total_stages);
-                }
-                for (int i = 0; i < total_stages; ++i)
-                {
-                    stage_pins_in[i].clear();
-                    stage_pins_out[i].clear();
-                }
-
-                ImColor in_col = get_gui_color(gui_color_id::node_input);
-                ImColor proc_col = get_gui_color(gui_color_id::node_processor);
-                ImColor out_col = get_gui_color(gui_color_id::node_output);
-
-                float in_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->inputs.size())) * 0.5f;
-                float out_offset = (static_cast<float>(max_rows) - static_cast<float>(conn->outputs.size())) * 0.5f;
-
-                float row_val = in_offset;
-                for (auto pid : conn->inputs)
-                {
-                    ImVec2 p_in, p_out;
-                    auto it = ports.find(pid);
-                    bool is_unavail = (it != ports.end() && it->second->is_unavailable);
-                    ImColor col = in_col;
-                    if (is_unavail) col.Value.w *= 0.4f;
-
-                    const char* mod_name = "Unknown";
-                    if (is_unavail && it->second->type_module.get_hash() != 0)
-                        mod_name = it->second->type_module.c_str();
-
-                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", 0, row_val, col, p_in, p_out, is_unavail, mod_name, pid);
-                    stage_pins_out[0].push_back(p_out);
-                    row_val += 1.0f;
-                }
-
-                int current_stage = 1;
-                int processor_idx = 1;
-                float proc_row_val = (static_cast<float>(max_rows) - 1.0f) * 0.5f;
-                for (auto fid : conn->filters)
-                {
-                    (void)fid; // Unused
-                    ImVec2 p_in, p_out;
-                    if (compact_processors)
-                    {
-                        char short_name[16];
-                        snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
-                        draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
-                    }
-                    else
-                    {
-                        draw_node("Filter", current_stage, proc_row_val, proc_col, p_in, p_out);
-                    }
-                    stage_pins_in[current_stage].push_back(p_in);
-                    stage_pins_out[current_stage].push_back(p_out);
-                    current_stage++;
-                    processor_idx++;
-                }
-                for (auto cid : conn->converters)
-                {
-                    (void)cid; // Unused
-                    ImVec2 p_in, p_out;
-                    if (compact_processors)
-                    {
-                        char short_name[16];
-                        snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
-                        draw_node(short_name, current_stage, proc_row_val, proc_col, p_in, p_out);
-                    }
-                    else
-                    {
-                        draw_node("Converter", current_stage, proc_row_val, proc_col, p_in, p_out);
-                    }
-                    stage_pins_in[current_stage].push_back(p_in);
-                    stage_pins_out[current_stage].push_back(p_out);
-                    current_stage++;
-                    processor_idx++;
-                }
-
-                row_val = out_offset;
-                for (auto pid : conn->outputs)
-                {
-                    ImVec2 p_in, p_out;
-                    auto it = ports.find(pid);
-                    bool is_unavail = (it != ports.end() && it->second->is_unavailable);
-                    ImColor col = out_col;
-                    if (is_unavail) col.Value.w *= 0.4f;
-
-                    const char* mod_name = "Unknown";
-                    if (is_unavail && it->second->type_module.get_hash() != 0)
-                        mod_name = it->second->type_module.c_str();
-
-                    draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", total_stages - 1, row_val, col, p_in, p_out, is_unavail, mod_name, pid);
-                    stage_pins_in[total_stages - 1].push_back(p_in);
-                    row_val += 1.0f;
-                }
-
-                ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
-                float line_thickness = 5.f * dpi_scale;
-                
-                if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
-                {
-                    float center_y = cur_pos.y + static_cast<float>(max_rows) * row_height * 0.5f;
-                    float mid_x = cur_pos.x + avail_x * 0.5f;
-                    
-                    ImVec2 p_mid(mid_x, center_y);
-                    
-                    for (const auto& pin_out : stage_pins_out[0])
-                    {
-                        float b_strength = (mid_x - pin_out.x) * 0.5f;
-                        draw_list->AddBezierCubic(
-                            pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(mid_x - b_strength, center_y), p_mid,
-                            line_col, line_thickness);
-                    }
-                    
-                    for (const auto& pin_in : stage_pins_in[1])
-                    {
-                        float b_strength = (pin_in.x - mid_x) * 0.5f;
-                        draw_list->AddBezierCubic(
-                            p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
-                            line_col, line_thickness);
-                    }
-                    
-                    draw_list->AddCircleFilled(p_mid, line_thickness * 0.6f, line_col);
-                }
-                else
-                {
-                    for (int s = 0; s < total_stages - 1; ++s)
-                    {
-                        for (const auto& pin_out : stage_pins_out[s])
-                        {
-                            for (const auto& pin_in : stage_pins_in[s + 1])
-                            {
-                                float b_strength = (pin_in.x - pin_out.x) * 0.5f;
-                                draw_list->AddBezierCubic(
-                                    pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
-                                    line_col, line_thickness);
-                            }
-                        }
-                    }
-                }
-
-                ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + static_cast<float>(max_rows) * row_height));
-                
-                if (max_rows > 0 || num_processors > 0)
-                {
-                    ImGui::Spacing();
-                    ImGui::Separator();
-                }
-                
-                float avail_w = ImGui::GetWindowWidth();
-                
-                float current_y = ImGui::GetCursorPosY();
-                float start_x = ImGui::GetStyle().WindowPadding.x;
-
-                const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
-                const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
-                const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
-
-                float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
-                ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
-                if (ImGui::Button(btn_add_input_str) && !is_drag_preview)
-                {
-                    target_connection = conn->name;
-                    target_direction = adam::port_direction::input;
-                    request_port_popup = true;
-                }
-
-                if (!conn->inputs.empty())
-                {
-                    float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                    float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
-                    ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
-                    if (ImGui::Button(btn_add_output_str) && !is_drag_preview)
-                    {
-                        target_connection = conn->name;
-                        target_direction = adam::port_direction::output;
-                        request_port_popup = true;
-                    }
-
-                    if (!conn->outputs.empty())
-                    {
-                        float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                        float center_x = (avail_w - add_proc_w) * 0.5f;
-                        ImGui::SetCursorPos(ImVec2(center_x, current_y));
-                        ImGui::Button(btn_add_processor_str);
-                    }
-                }
-            }
-            ImGui::EndChild();
-
-            if (is_being_dragged) ImGui::PopStyleVar();
-
-            if (!is_drag_preview)
-            {
-                ImGui::Spacing();
-                ImGui::EndGroup();
-            }
-
-            ImGui::PopStyleColor();
-            ImGui::PopStyleVar(2);
-            ImGui::PopID();
-        };
-
-        if (ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), false))
-        {
-            card_width = ImGui::GetContentRegionAvail().x;
-
-            for (size_t i = 0; i < sorted_connections.size(); ++i)
-            {
-                auto hash = sorted_connections[i].first;
-                auto* conn = sorted_connections[i].second;
-
-                render_connection_card(hash, conn, false, card_width);
-
-                if (sort_mode == 6 && is_dragging_connection)
-                {
-                    ImVec2 min = ImGui::GetItemRectMin();
-                    ImVec2 max = ImGui::GetItemRectMax();
-                    ImVec2 mouse_pos = ImGui::GetMousePos();
-                    
-                    if (mouse_pos.y >= min.y && mouse_pos.y <= max.y)
-                    {
-                        active_drag_target_index = i;
-                    }
-                }
-            }
-        }
-        ImGui::EndChild();
-
-        if (sort_mode == 6 && is_dragging_connection && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        if (sort_mode == 6 && g_is_dragging_connection && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
             for (uint32_t new_idx = 0; new_idx < sorted_connections.size(); ++new_idx)
             {
@@ -1340,7 +1450,8 @@ namespace adam::gui
                     sorted_connections[new_idx].second->sorting_index = new_idx; 
                 }
             }
-            active_drag_hash = 0;
+            g_active_drag_hash = 0;
+            g_is_dragging_connection = false;
         }
 
         if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
@@ -1351,14 +1462,14 @@ namespace adam::gui
                 auto it = reg_view.get_connections().find(dragged_hash);
                 if (it != reg_view.get_connections().end())
                 {
-                    ImGui::SetNextWindowPos(ImVec2(ImGui::GetMousePos().x - connection_drag_offset.x, ImGui::GetMousePos().y - connection_drag_offset.y));
+                    ImGui::SetNextWindowPos(ImVec2(ImGui::GetMousePos().x - g_connection_drag_offset.x, ImGui::GetMousePos().y - g_connection_drag_offset.y));
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
                     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
                     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.7f); // Restore native ImGui drag preview transparency
                     if (ImGui::Begin("##drag_preview", nullptr, ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
                     {
-                        render_connection_card(dragged_hash, it->second.get(), true, card_width);
+                        render_connection_card(ctrl, lang, sort_mode, dragged_hash, it->second.get(), true, card_width);
                     }
                     ImGui::End();
                     ImGui::PopStyleVar();
@@ -1378,6 +1489,12 @@ namespace adam::gui
             else
             {
                 std::string default_name = "connection_" + std::to_string(connections.size());
+                size_t suffix = connections.size();
+                while (connections.find(adam::string_hashed(default_name.c_str()).get_hash()) != connections.end())
+                {
+                    suffix++;
+                    default_name = "connection_" + std::to_string(suffix);
+                }
                 ctrl.commander().request_connection_create(adam::string_hashed(default_name.c_str()));
             }
         }
