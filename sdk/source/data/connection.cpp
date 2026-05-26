@@ -102,21 +102,28 @@ namespace adam
     {
         bool result = true;
 
+        auto is_used_elsewhere = [&](port* p)
+        {
+            bool is_used = false;
+            p->in_connections().iterate([&](const auto& conns)
+            {
+                for (auto* c : conns)
+                    if (c != this && c->is_active()) is_used = true;
+            });
+            if (is_used) return true;
+            p->out_connections().iterate([&](const auto& conns)
+            {
+                for (auto* c : conns)
+                    if (c != this && c->is_active()) is_used = true;
+            });
+            return is_used;
+        };
+
         m_ports_input.iterate([&](const auto& inputs) 
         {
             for (auto* in : inputs) 
             {
-                bool is_used_elsewhere = false;
-                in->connections().iterate([&](const auto& conns) 
-                {
-                    for (auto* c : conns) 
-                    {
-                        if (c != this && c->is_active()) 
-                            is_used_elsewhere = true;
-                    }
-                });
-
-                if (!is_used_elsewhere)
+                if (!is_used_elsewhere(in))
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
@@ -129,17 +136,7 @@ namespace adam
         {
             for (auto* out : outputs) 
             {
-                bool is_used_elsewhere = false;
-                out->connections().iterate([&](const auto& conns) 
-                {
-                    for (auto* c : conns) 
-                    {
-                        if (c != this && c->is_active()) 
-                            is_used_elsewhere = true;
-                    }
-                });
-
-                if (!is_used_elsewhere)
+                if (!is_used_elsewhere(out))
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();

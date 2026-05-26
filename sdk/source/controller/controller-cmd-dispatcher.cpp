@@ -557,8 +557,9 @@ namespace adam
         
         if (it_port != ctx.reg.ports().end())
         {
-            it_port->second->connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
-            if (it_port->second->connections().empty())
+            it_port->second->in_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+            it_port->second->out_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+            if (it_port->second->in_connections().empty() && it_port->second->out_connections().empty())
             {
                 ctx.reg.destroy_port(params->port);
                 event evt_del(event_type::port_destroyed);
@@ -755,14 +756,17 @@ namespace adam
             auto renamed_it = ctx.reg.ports().find(new_name.get_hash());
             if (renamed_it != ctx.reg.ports().end())
             {
-                renamed_it->second->connections().iterate([&](const auto& conns) 
+                auto update_timestamp = [&](const auto& conns)
                 {
                     for (auto* conn : conns)
                     {
                         if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_edited"_ct)))
                             param->set_value(static_cast<int64_t>(current_time));
                     }
-                });
+                };
+
+                renamed_it->second->in_connections().iterate(update_timestamp);
+                renamed_it->second->out_connections().iterate(update_timestamp);
             }
 
             event evt(event_type::port_renamed);
@@ -859,6 +863,8 @@ namespace adam
                 params = cmds->get_data_as<messages::port_inject_data>();
             }
 
+            buf->set_size(off);
+
             if (it->second->handle_data(buf, params->direction))
             {
                 debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_injected, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
@@ -866,8 +872,7 @@ namespace adam
             }
             else
             {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -1101,7 +1106,7 @@ namespace adam
             },
             {
                 log_event::port_data_inject_failed,
-                { "Thread {:d} failed to inject data into port {:d}.", "Thread {:d} konnte keine Daten in Port {:d} injizieren." }
+                { "Thread {:d} failed to inject data into port \"{}\".", "Thread {:d} konnte keine Daten in Port \"{}\" injizieren." }
             }
         };
 

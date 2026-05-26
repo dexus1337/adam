@@ -26,12 +26,16 @@ namespace adam
             case data_direction_out:
             {
                 // Send data to connections as input
-                m_connections.iterate([&](const auto& connections) 
+                m_in_connections.iterate([&](const auto& connections) 
                 {
                     for (const auto& conn : connections) 
                         result &= conn->handle_data(buffer);
                 });
 
+                auto* stat_data = m_statistic_buffer->data_as<statistic_info>();
+
+                stat_data->total_buffers_handled++;
+                stat_data->total_bytes_handled += buffer->get_size();
             }
         }
 

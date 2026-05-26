@@ -116,8 +116,9 @@ namespace adam
         const data_format* get_data_format() const { return m_data_format; }
         void set_data_format(const data_format* format) { m_data_format = format; }
 
-        vector_double_buffer<connection*>&                      connections()   { return m_connections; }
         vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors()    { return m_inspectors; }
+        vector_double_buffer<connection*>&                      in_connections()   { return m_in_connections; }
+        vector_double_buffer<connection*>&                      out_connections()  { return m_out_connections; }
 
         buffer* get_statistic_buffer() const { return m_statistic_buffer; }
 
@@ -139,7 +140,8 @@ namespace adam
 
         const data_format* m_data_format;                                       /**< The data format associated with this port, used for parsing/serializing data. */
 
-        vector_double_buffer<connection*>                       m_connections;  /**< Each port needs to know where to send/recieve data from */
+        vector_double_buffer<connection*>                       m_in_connections;  /**< Connections where this port acts as an input. */
+        vector_double_buffer<connection*>                       m_out_connections; /**< Connections where this port acts as an output. */
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;   /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
         buffer* m_statistic_buffer;                                             /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::statistic_info. */

@@ -233,9 +233,9 @@ namespace adam
         }
         else
         {
-            port_it->second->connections().remove(conn_it->second.get());
             if (is_input)
             {
+                port_it->second->in_connections().remove(conn_it->second.get());
                 conn_it->second->ports_input().remove(port_it->second.get());
                 if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("inputs"_ct)))
                 {
@@ -249,6 +249,7 @@ namespace adam
             }
             else
             {
+                port_it->second->out_connections().remove(conn_it->second.get());
                 conn_it->second->ports_output().remove(port_it->second.get());
                 if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("outputs"_ct)))
                 {
@@ -413,10 +414,9 @@ namespace adam
         if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("edited"_ct)))
             param->set_value(static_cast<int64_t>(std::time(nullptr)));
 
-        port_it->second->connections().push_back(conn_it->second.get());
-
         if (is_input)
         {
+            port_it->second->in_connections().push_back(conn_it->second.get());
             conn_it->second->ports_input().push_back(port_it->second.get());
             if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("inputs"_ct)))
             {
@@ -427,6 +427,7 @@ namespace adam
         }
         else
         {
+            port_it->second->out_connections().push_back(conn_it->second.get());
             conn_it->second->ports_output().push_back(port_it->second.get());
             if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("outputs"_ct)))
             {
@@ -724,7 +725,7 @@ namespace adam
                                         if (port_it != m_ports.end())
                                         {
                                             new_conn->ports_input().push_back(port_it->second.get());
-                                            port_it->second->connections().push_back(new_conn);
+                                            port_it->second->in_connections().push_back(new_conn);
                                         }
                                         else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
                                         {
@@ -745,7 +746,7 @@ namespace adam
                                         if (port_it != m_ports.end())
                                         {
                                             new_conn->ports_output().push_back(port_it->second.get());
-                                            port_it->second->connections().push_back(new_conn);
+                                            port_it->second->out_connections().push_back(new_conn);
                                         }
                                         else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
                                         {
@@ -825,7 +826,7 @@ namespace adam
                         if (in_it != unavail_in.end())
                         {
                             conn->ports_input().push_back(new_port);
-                            new_port->connections().push_back(conn.get());
+                            new_port->in_connections().push_back(conn.get());
                             unavail_in.erase(in_it);
                         }
 
@@ -838,7 +839,7 @@ namespace adam
                         if (out_it != unavail_out.end())
                         {
                             conn->ports_output().push_back(new_port);
-                            new_port->connections().push_back(conn.get());
+                            new_port->out_connections().push_back(conn.get());
                             unavail_out.erase(out_it);
                         }
                     }

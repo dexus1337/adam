@@ -58,7 +58,7 @@ namespace adam
             case data_direction_in:
             {
                 // Send data to connections
-                m_connections.iterate([&](const auto& connections) 
+                m_in_connections.iterate([&](const auto& connections) 
                 {
                     for (const auto& conn : connections) 
                         result &= conn->handle_data(buffer);
@@ -97,7 +97,8 @@ namespace adam
     port::port(const string_hashed& item_name) 
     :   configuration_item(item_name, port::get_default_parameters()),
         m_data_format(&data_format_transparent),
-        m_connections(),
+        m_in_connections(),
+        m_out_connections(),
         m_inspectors(),
         m_statistic_buffer(buffer_manager::get().request_buffer(statistic_info_buffer_size)),
         m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct)))
