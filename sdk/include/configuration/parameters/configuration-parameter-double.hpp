@@ -3,7 +3,7 @@
 /**
  * @file    configuration-parameter-double.hpp
  * @author  dexus1337
- * @brief   Defines a an array of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+ * @brief   Defines a decimal configuration parameter. Double for better precision.
  * @version 1.0
  * @date    05.05.2026
  */
@@ -18,8 +18,8 @@
 namespace adam 
 {
     /**
-     * @class configuration_parameter_double
-     * @brief Defines a an array of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+     * @class   configuration_parameter_double
+     * @brief   Defines a decimal configuration parameter. Double for better precision.
      */
     class ADAM_SDK_API configuration_parameter_double : public configuration_parameter
     {

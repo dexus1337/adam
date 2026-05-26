@@ -6,6 +6,7 @@
 #include "data/port/port.hpp"
 #include "module/module.hpp"
 #include "data/connection.hpp"
+#include "memory/buffer/buffer-manager.hpp"
 #include <mutex>
 #include <algorithm>
 
@@ -132,7 +133,11 @@ namespace adam
             auto* info = e.get_data_as<port::basic_info>();
             auto view = std::make_unique<port_view>();
             view->name = string_hashed(info->name);
-            view->direction = info->direction;
+            view->direction = info->dir;
+            view->is_unavailable = info->is_unavailable;
+            view->is_active = info->is_active;
+            if (!view->is_unavailable)
+                view->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
             {
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
@@ -155,7 +160,13 @@ namespace adam
                 if (it != ctx.cmdr.registry().ports().end())
                 {
                     it->second->is_unavailable = false;
-                    it->second->direction = info->direction;
+                    it->second->direction = info->dir;
+                    it->second->is_active = info->is_active;
+                    if (it->second->statistic_buffer)
+                    {
+                        it->second->statistic_buffer->release();
+                    }
+                    it->second->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
                     found = true;
                 }
             }
@@ -164,8 +175,10 @@ namespace adam
             {
                 auto view = std::make_unique<port_view>();
                 view->name = string_hashed(info->name);
-                view->direction = info->direction;
+                view->direction = info->dir;
                 view->is_unavailable = false;
+                view->is_active = info->is_active;
+                view->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
                 
                 {
                     std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
@@ -186,6 +199,11 @@ namespace adam
             if (it != ctx.cmdr.registry().ports().end())
             {
                 it->second->is_unavailable = true;
+                if (it->second->statistic_buffer)
+                {
+                    it->second->statistic_buffer->release();
+                    it->second->statistic_buffer = nullptr;
+                }
             }
         });
 
@@ -317,6 +335,25 @@ namespace adam
                 it->second->edited = data->edited;
             }
         });
+
+    register_handler(event_type::connection_port_removed, [](const event& e, event_context& ctx) 
+    {
+        auto* data = e.get_data_as<messages::connection_port_add_data>();
+        std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+        auto it = ctx.cmdr.registry().connections().find(data->connection);
+        if (it != ctx.cmdr.registry().connections().end())
+        {
+            if (data->is_input)
+            {
+                it->second->inputs.erase(std::remove(it->second->inputs.begin(), it->second->inputs.end(), data->port), it->second->inputs.end());
+            }
+            else
+            {
+                it->second->outputs.erase(std::remove(it->second->outputs.begin(), it->second->outputs.end(), data->port), it->second->outputs.end());
+            }
+            it->second->edited = data->edited;
+        }
+    });
 
         register_handler(event_type::connection_sorting_index_changed, [](const event& e, event_context& ctx) 
         {

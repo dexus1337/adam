@@ -27,23 +27,6 @@ namespace adam
     class data_inspector;
 
     /**
-     * @enum    port_direction
-     * @brief   Bitmask enumeration defining the supported data flow directions of a port.
-     */
-    enum class port_direction : uint8_t
-    {
-        none          = 0,
-        input         = 1 << 0,
-        output        = 1 << 1,
-        in_out        = input | output
-    };
-
-    inline port_direction operator|(port_direction a, port_direction b) { return static_cast<port_direction>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b)); }
-    inline port_direction operator&(port_direction a, port_direction b) { return static_cast<port_direction>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b)); }
-    inline port_direction operator^(port_direction a, port_direction b) { return static_cast<port_direction>(static_cast<uint8_t>(a) ^ static_cast<uint8_t>(b)); }
-    inline port_direction operator~(port_direction a)                   { return static_cast<port_direction>(~static_cast<uint8_t>(a)); }
-
-    /**
      * @class port
      * @brief A base class for ports, providing a common interface for handling data flow in the ADAM system.
      * 
@@ -55,24 +38,35 @@ namespace adam
     class ADAM_SDK_API port : public configuration_item
     {
     public:
+    
+        enum direction : uint8_t
+        {
+            direction_invalid  = 0,
+            direction_in       = 1 << 0,
+            direction_out      = 1 << 1,
+            direction_inout    = direction_in | direction_out
+        };
+
         struct basic_info
         {
-            char name[max_name_length];
-            string_hash type;
-            string_hash type_module;
-            port_direction direction;
-            string_hash format;
-            string_hash format_module;
-            bool is_active;
-            bool is_unavailable;
+            char            name[max_name_length];
+            string_hash     type;
+            string_hash     type_module;
+            direction       dir;
+            string_hash     format;
+            string_hash     format_module;
+            buffer_handle   statistic_buffer_handle;
+            bool            is_active;
+            bool            is_unavailable;
 
-            void setup(const string_hashed& n, string_hash t, string_hash tm, string_hash f = 0, string_hash fm = 0, bool unavail = false)
+            void setup(const string_hashed& n, string_hash t, string_hash tm, string_hash f = 0, string_hash fm = 0, bool unavail = false, buffer_handle bh = buffer_handle())
             {
                 type = t;
                 type_module = tm;
-                direction = port_direction::none;
+                dir = direction_invalid;
                 format = f;
                 format_module = fm;
+                statistic_buffer_handle = bh;
                 is_unavailable = unavail;
                 is_active = false;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
@@ -83,8 +77,7 @@ namespace adam
 
         struct status_event_info
         {
-            string_hash     port_hash;
-            buffer_handle   statistic_buffer_handle;
+            string_hash port_hash;
         };
         static_assert(sizeof(port::status_event_info) <= command::get_max_data_length(), "port::status_event_info exceeds maximum command data size");
 
@@ -95,10 +88,7 @@ namespace adam
             string_hash format;
             string_hash format_module;
 
-            unavailable_info(const string_hashed& item_name)
-                : configuration_item(item_name), type(0), type_module(0), format(0), format_module(0)
-            {
-            }
+            unavailable_info(const string_hashed& item_name) : configuration_item(item_name), type(0), type_module(0), format(0), format_module(0) { }
         };
 
         struct statistic_info
@@ -121,7 +111,7 @@ namespace adam
         virtual const string_hashed_ct& get_type_name() const = 0;
 
         /** @brief Gets the supported data flow direction capabilities of this port. */
-        virtual port_direction get_direction() const = 0;
+        virtual direction get_direction() const = 0;
 
         const data_format* get_data_format() const { return m_data_format; }
         void set_data_format(const data_format* format) { m_data_format = format; }
@@ -134,7 +124,7 @@ namespace adam
         virtual bool is_active() const { return m_is_active != nullptr && m_is_active->get_value(); }
 
         /** @brief Data management routine */
-        virtual bool handle_data(buffer* buffer);
+        virtual bool handle_data(buffer* buffer, data_direction dir);
 
         /** @brief Starts the port. */
         virtual bool start();

@@ -3,7 +3,7 @@
 /**
  * @file    configuration-parameter-integer.hpp
  * @author  dexus1337
- * @brief   Defines a an array of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+ * @brief   Defines a integer configuration parameter. Signed 64bit.
  * @version 1.0
  * @date    05.05.2026
  */
@@ -19,7 +19,7 @@ namespace adam
 {
     /**
      * @class configuration_parameter_integer
-     * @brief Defines a an array of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+     * @brief Defines a integer configuration parameter. Signed 64bit.
      */
     class ADAM_SDK_API configuration_parameter_integer : public configuration_parameter
     {

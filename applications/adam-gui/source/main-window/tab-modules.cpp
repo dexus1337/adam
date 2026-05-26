@@ -259,13 +259,13 @@ namespace adam::gui
                                         ImGui::Bullet();
                                         ImGui::SameLine();
 
-                                        if ((p.direction & adam::port_direction::input) != adam::port_direction::none)
+                                        if ((p.direction & adam::port::direction_in) != adam::port::direction_invalid)
                                         {
                                             draw_dir_badge(get_gui_string(gui_string_id::lbl_badge_input, lang), get_gui_color(gui_color_id::node_input));
                                             ImGui::SameLine();
                                         }
 
-                                        if ((p.direction & adam::port_direction::output) != adam::port_direction::none)
+                                        if ((p.direction & adam::port::direction_out) != adam::port::direction_invalid)
                                         {
                                             draw_dir_badge(get_gui_string(gui_string_id::lbl_badge_output, lang), get_gui_color(gui_color_id::node_output));
                                             ImGui::SameLine();

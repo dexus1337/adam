@@ -147,6 +147,7 @@ namespace adam
             return status_error_factory_not_found; // Unknown port type
 
         // 3. Resolve the data format
+        string_hashed resolved_format_module_name;
         if (format == 0)
             format = string_hashed("dataformat_transparent").get_hash();
 
@@ -158,6 +159,7 @@ namespace adam
             if (it != m_modules.get_loaded_modules().end())
             {
                 const module* mod = it->second;
+                resolved_format_module_name = it->first;
                 auto format_it = mod->get_data_formats().find(format);
                 if (format_it != mod->get_data_formats().end())
                     port_format = format_it->second;
@@ -171,6 +173,7 @@ namespace adam
                 if (format_it != mod->get_data_formats().end())
                 {
                     port_format = format_it->second;
+                    resolved_format_module_name = mod_name;
                     break;
                 }
             }
@@ -187,13 +190,80 @@ namespace adam
                 mod_param->set_value(resolved_module_name);
         }
 
-        if (port_format)
+        if (port_format) 
+        {
             new_port->set_data_format(port_format);
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("data_format"_ct)))
+                param->set_value(port_format->get_name());
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("data_format_module"_ct)))
+                param->set_value(resolved_format_module_name);
+        }
 
         m_ports.emplace(name, std::unique_ptr<port>(new_port));
         
         if (out_port) 
             *out_port = new_port;
+            
+        return status_success;
+    }
+
+    registry::status registry::connection_remove_port(string_hash conn_hash, string_hash port_hash, bool is_input)
+    {
+        auto conn_it = m_connections.find(conn_hash);
+        if (conn_it == m_connections.end())
+            return status_error_connection_not_found;
+
+        auto port_it = m_ports.find(port_hash);
+        if (port_it == m_ports.end())
+        {
+            if (is_input)
+            {
+                auto& unavail = conn_it->second->unavailable_inputs();
+                auto it = std::find_if(unavail.begin(), unavail.end(), [port_hash](const string_hashed& sh) { return sh.get_hash() == port_hash; });
+                if (it != unavail.end())
+                    unavail.erase(it);
+            }
+            else
+            {
+                auto& unavail = conn_it->second->unavailable_outputs();
+                auto it = std::find_if(unavail.begin(), unavail.end(), [port_hash](const string_hashed& sh) { return sh.get_hash() == port_hash; });
+                if (it != unavail.end())
+                    unavail.erase(it);
+            }
+        }
+        else
+        {
+            port_it->second->connections().remove(conn_it->second.get());
+            if (is_input)
+            {
+                conn_it->second->ports_input().remove(port_it->second.get());
+                if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("inputs"_ct)))
+                {
+                    inputs_list->clear();
+                    conn_it->second->ports_input().iterate([&](const auto& inputs) 
+                    {
+                        for (size_t i = 0; i < inputs.size(); ++i)
+                            inputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), inputs[i]->get_name()));
+                    });
+                }
+            }
+            else
+            {
+                conn_it->second->ports_output().remove(port_it->second.get());
+                if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("outputs"_ct)))
+                {
+                    outputs_list->clear();
+                    conn_it->second->ports_output().iterate([&](const auto& outputs) 
+                    {
+                        for (size_t i = 0; i < outputs.size(); ++i)
+                            outputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), outputs[i]->get_name()));
+                    });
+                }
+            }
+        }
+            
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("edited"_ct)))
+            param->set_value(static_cast<int64_t>(std::time(nullptr)));
             
         return status_success;
     }
@@ -775,8 +845,16 @@ namespace adam
                     
                     event evt(event_type::port_available);
                     auto* evt_data = evt.data_as<port::basic_info>();
-                    evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, it->second->format, it->second->format_module, false);
-                    evt_data->direction = new_port->get_direction();
+                    evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, 0, 0, false, new_port->get_statistic_buffer()->get_handle());
+
+                    if (new_port->get_data_format())
+                        evt_data->format = new_port->get_data_format()->get_name().get_hash();
+
+                    if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("data_format_module"_ct)))
+                        evt_data->format_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
+
+                    evt_data->dir       = new_port->get_direction();
+                    evt_data->is_active = new_port->is_active();
                     m_controller.broadcast_event(evt);
                     
                     it = m_unavailable_ports.erase(it);

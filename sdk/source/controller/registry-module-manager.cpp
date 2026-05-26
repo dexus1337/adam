@@ -117,13 +117,17 @@ namespace adam
                     }
                 }
             }
-            catch (const std::filesystem::filesystem_error& e) { continue; }
+        catch (const std::filesystem::filesystem_error& e)
+        {
+            continue;
+        }
         }
 
         auto is_valid_path = [&](const string_hashed& path) 
         {
-            for (const auto& vp : valid_file_paths) {
-                if (vp == path) return true;
+        for (const auto& vp : valid_file_paths)
+        {
+            if (vp == path) return true;
             }
             return false;
         };

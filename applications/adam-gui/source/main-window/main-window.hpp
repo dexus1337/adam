@@ -131,7 +131,13 @@ namespace adam::gui
         lbl_move_connection,
         dlg_add_input_port_to,
         dlg_add_output_port_to,
-        dlg_add_port
+        dlg_add_port,
+        lbl_inject_data,
+        btn_inject,
+        lbl_stat_handled,
+        lbl_stat_discarded,
+        lbl_stat_unavailable,
+        btn_remove_port
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

@@ -107,6 +107,9 @@ namespace adam
         /** @brief Adds a port to an existing connection. */
         status connection_add_port(string_hash conn_hash, string_hash port_hash, bool is_input);
 
+        /** @brief Removes a port from an existing connection. */
+        status connection_remove_port(string_hash conn_hash, string_hash port_hash, bool is_input);
+
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;
 

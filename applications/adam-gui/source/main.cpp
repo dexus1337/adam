@@ -15,6 +15,8 @@ using namespace adam::string_hashed_ct_literals;
 static ADAM_CONSTEXPR int event_redraw_count            = 3;
 static ADAM_CONSTEXPR int perf_overlay_redraw_time      = 2000;
 
+adam::gui::gui_controller gui_ctrl;
+    
 int main(int, char**) 
 {
     SDL_Window* window = nullptr;
@@ -24,9 +26,7 @@ int main(int, char**)
     if (!adam::gui::initialize(window, gl_context, glsl_version))
         return -1;
 
-    adam::gui::gui_controller controller;
-    
-    controller.set_redraw_callback([]() 
+    gui_ctrl.set_redraw_callback([]() 
     {
         SDL_Event event;
         SDL_zero(event);
@@ -34,14 +34,14 @@ int main(int, char**)
         SDL_PushEvent(&event);
     });
 
-    controller.start();
-    adam::gui::main_window ui_window(controller, window);
+    gui_ctrl.start();
+    adam::gui::main_window ui_window(gui_ctrl, window);
 
     bool done = false;
     int frames_to_render = event_redraw_count;
 
-    auto* p_immediate = dynamic_cast<adam::configuration_parameter_integer*>(controller.get_parameters().get("gui_mode"_ct));
-    auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(controller.get_parameters().get("show_performance"_ct));
+    auto* p_immediate = dynamic_cast<adam::configuration_parameter_integer*>(gui_ctrl.get_parameters().get("gui_mode"_ct));
+    auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(gui_ctrl.get_parameters().get("show_performance"_ct));
 
     while (!done)
     {
@@ -121,7 +121,7 @@ int main(int, char**)
     }
 
     ui_window.save_window_state();
-    controller.stop();
+    gui_ctrl.stop();
     adam::gui::shutdown(window, gl_context);
 
     return 0;

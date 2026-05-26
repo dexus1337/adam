@@ -28,5 +28,5 @@ namespace adam::cmd
         desc_quit
     };
 
-    const char* get_cmd_string(cmd_string_id id, adam::language lang);
+    const char* get_cli_string(cmd_string_id id, adam::language lang);
 }

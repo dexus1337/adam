@@ -3,7 +3,7 @@
 /**
  * @file    configuration-parameter-reference.hpp
  * @author  dexus1337
- * @brief   Defines a an reference of another configuration parameter, used for definning relations between configuration parameters in a structured way.
+ * @brief   Defines a an reference of another configuration parameter, used for definning relations between configuration parameters.
  * @version 1.0
  * @date    05.05.2026
  */
@@ -19,7 +19,7 @@ namespace adam
 {
     /**
      * @class configuration_parameter_reference
-     * @brief Defines a an reference of another configuration parameter, used for definning relations between configuration parameters in a structured way.
+     * @brief Defines a an reference of another configuration parameter, used for definning relations between configuration parameters.
      */
     class ADAM_SDK_API configuration_parameter_reference : public configuration_parameter
     {

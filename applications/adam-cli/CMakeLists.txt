@@ -10,16 +10,16 @@ file( GLOB_RECURSE  adam_cmd_app_test_source_files   "test/*cpp"    )
 
 
 # Create the shared library target for the sdk
-add_executable(adam-cmd ${adam_cmd_app_source_files})
+add_executable(adam-cli ${adam_cmd_app_source_files})
 
 # Link libraries
-target_link_libraries(adam-cmd PRIVATE adam-sdk)  # Link against the SDK library
+target_link_libraries(adam-cli PRIVATE adam-sdk)  # Link against the SDK library
 
 # Set the output directory for the executable
-set_target_properties(adam-cmd PROPERTIES
+set_target_properties(adam-cli PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
 # Create the test application
-add_executable(adam-cmd-test ${adam_cmd_app_test_source_files})
-target_link_libraries(adam-cmd-test PRIVATE adam-sdk)  # Link against the SDK library
+add_executable(adam-cli-test ${adam_cmd_app_test_source_files})
+target_link_libraries(adam-cli-test PRIVATE adam-sdk)  # Link against the SDK library

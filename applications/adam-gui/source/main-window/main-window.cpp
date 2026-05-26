@@ -245,7 +245,13 @@ namespace adam::gui
             { gui_string_id::lbl_move_connection,         { "Move %s", "%s verschieben" } },
             { gui_string_id::dlg_add_input_port_to,       { "Add Input Port to %s###PortPopup", "Eingangsport zu %s hinzufügen###PortPopup" } },
             { gui_string_id::dlg_add_output_port_to,      { "Add Output Port to %s###PortPopup", "Ausgangsport zu %s hinzufügen###PortPopup" } },
-            { gui_string_id::dlg_add_port,                { "Add Port###PortPopup", "Port hinzufügen###PortPopup" } }
+            { gui_string_id::dlg_add_port,                { "Add Port###PortPopup", "Port hinzufügen###PortPopup" } },
+            { gui_string_id::lbl_inject_data,             { "Inject Data", "Daten injizieren" } },
+            { gui_string_id::btn_inject,                  { "Inject", "Injizieren" } },
+            { gui_string_id::lbl_stat_handled,            { "Handled: %llu msgs (%s)", "Verarbeitet: %llu Nachr. (%s)" } },
+            { gui_string_id::lbl_stat_discarded,          { "Discarded: %llu msgs (%s)", "Verworfen: %llu Nachr. (%s)" } },
+            { gui_string_id::lbl_stat_unavailable,        { "Statistics unavailable", "Statistiken nicht verfügbar" } },
+            { gui_string_id::btn_remove_port,             { "Remove Port", "Port entfernen" } }
         };
 
         auto it = translations.find(id);

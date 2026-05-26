@@ -1,6 +1,7 @@
 #include "data/port/port-internal.hpp"
 
 #include "configuration/parameters/configuration-parameter-string.hpp"
+#include "data/connection.hpp"
 
 namespace adam 
 {
@@ -12,4 +13,29 @@ namespace adam
 
     port_internal::~port_internal() {}
     
+    bool port_internal::handle_data(buffer* buffer, data_direction dir)
+    {
+        bool result = true;
+
+        switch (dir)
+        {
+            case data_direction_in:
+            {
+                return port_in_out::handle_data(buffer, dir);
+            }
+            case data_direction_out:
+            {
+                // Send data to connections as input
+                m_connections.iterate([&](const auto& connections) 
+                {
+                    for (const auto& conn : connections) 
+                        result &= conn->handle_data(buffer);
+                });
+
+            }
+        }
+
+        return result;
+    }
+
 }

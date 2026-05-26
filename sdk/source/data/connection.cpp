@@ -57,7 +57,7 @@ namespace adam
         m_ports_output.iterate([&](const auto& outputs) 
         {
             for (auto* output_port : outputs) 
-                result &= output_port->handle_data(buffer);
+                result &= output_port->handle_data(buffer, data_direction_out);
         });
 
         return result;

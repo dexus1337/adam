@@ -32,5 +32,9 @@ namespace adam
         ~port_internal();
 
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
+        
+        /** @brief Data management routine */
+        virtual bool handle_data(buffer* buffer, data_direction dir);
+
     };
 }

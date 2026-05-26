@@ -3,7 +3,7 @@
 /**
  * @file    configuration-parameter-boolean.hpp
  * @author  dexus1337
- * @brief   Defines a an array of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+ * @brief   Defines a boolean configuration parameter. True or False
  * @version 1.0
  * @date    05.05.2026
  */
@@ -18,8 +18,8 @@
 namespace adam 
 {
     /**
-     * @class configuration_parameter_boolean
-     * @brief Defines a an array of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+     * @class   configuration_parameter_boolean
+     * @brief   Defines a boolean configuration parameter. True or False
      */
     class ADAM_SDK_API configuration_parameter_boolean : public configuration_parameter
     {

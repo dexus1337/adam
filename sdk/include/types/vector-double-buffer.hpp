@@ -56,9 +56,12 @@ namespace adam
             {
                 std::unique_lock lock(m_mutex);
                 auto it = std::find(m_pending.begin(), m_pending.end(), element);
-                if (it != m_pending.end()) {
+            if (it != m_pending.end())
+            {
                     m_pending.erase(it);
-                } else {
+            }
+            else
+            {
                     return false;  // Element not found
                 }
             }

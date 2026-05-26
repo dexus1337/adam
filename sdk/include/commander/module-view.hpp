@@ -32,7 +32,7 @@ namespace adam
     {
         string_hash name_hash;
         std::string type_name_str;
-        port_direction direction;
+        port::direction direction;
     };
 
     struct processor_info

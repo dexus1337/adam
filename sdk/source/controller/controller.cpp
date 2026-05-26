@@ -12,6 +12,7 @@
 #include "version/version.hpp"
 #include "resources/language-strings.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "commander/commander.hpp"
 
 
 namespace adam
@@ -115,7 +116,7 @@ namespace adam
         if (!buffer_manager::get().initialize())
             return false;
         
-        if (!m_master_queue.create(1000))
+        if (!m_master_queue.create(0x100))
             return false;
 
         m_registry.resume_active_items();
@@ -470,7 +471,7 @@ namespace adam
         std::vector<command>    cmds;
         std::vector<response>   resps;
 
-        static ADAM_CONSTEXPR int command_buffer_size = 4096; // should be enough for most commands and their extensions, if not it will just resize automatically, no big deal
+        static ADAM_CONSTEXPR int command_buffer_size = commander::queue_command_size;
 
         cmds.reserve(command_buffer_size);
         resps.reserve(command_buffer_size);
@@ -494,7 +495,7 @@ namespace adam
             while (cmds[cmd_idx].is_extended())
             {
                 cmd_idx++;
-                if (cmd_idx >= cmds.size())
+                if (cmd_idx >= cmds.size()) // Shouldnt happen but just in case
                 {
                     cmds.emplace_back();
                 }

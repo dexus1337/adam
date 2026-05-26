@@ -6,7 +6,7 @@
 #include <functional>
 #include <unordered_map>
 #include <mutex>
-#include "cmd-strings.hpp"
+#include "cli-strings.hpp"
 
 namespace adam::cmd
 {

@@ -1,7 +1,7 @@
 #include <adam-sdk.hpp>
 
 #include "terminal-manager.hpp"
-#include "cmd-strings.hpp"
+#include "cli-strings.hpp"
 #include "command-database.hpp"
 #include "default-commands.hpp"
 
@@ -14,15 +14,6 @@
 #include <mutex>
 #include <thread>
 
-#ifdef ADAM_PLATFORM_LINUX
-void signal_handler(int signal) 
-{
-    if (signal == SIGINT) 
-    {
-    }
-}
-#endif
-
 struct app_context
 {
     adam::commander cmd;
@@ -31,35 +22,42 @@ struct app_context
     adam::cmd::command_database db;
 };
 
+void signal_handler(int signal) 
+{
+    if (signal == SIGINT) 
+    {
+    }
+}
+
 bool setup(app_context& ctx)
 {
     adam::language lang = adam::language_english;
 
     if (!ctx.cmd.connect())
     {
-        adam::stream_log(adam::log::fatal, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::cannot_connect_controller, lang), std::cerr);
+        adam::stream_log(adam::log::fatal, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::cannot_connect_controller, lang), std::cerr);
         return false;
     }
     
     lang = ctx.cmd.get_language();
-    adam::stream_log(adam::log::info, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::connected_controller, lang), std::cout);
+    adam::stream_log(adam::log::info, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::connected_controller, lang), std::cout);
 
     if (!ctx.lg.connect())
     {
-        adam::stream_log(adam::log::warning, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::failed_connect_logger, lang), std::cout);
+        adam::stream_log(adam::log::warning, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::failed_connect_logger, lang), std::cout);
     }
     else
     {
-        adam::stream_log(adam::log::info, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::connected_logger, lang), std::cout);
+        adam::stream_log(adam::log::info, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::connected_logger, lang), std::cout);
     }
     
     if (!ctx.lgsnk.connect())
     {
-        adam::stream_log(adam::log::warning, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::failed_connect_logger_sink, lang), std::cout);
+        adam::stream_log(adam::log::warning, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::failed_connect_logger_sink, lang), std::cout);
     }
     else
     {
-        adam::stream_log(adam::log::info, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::connected_logger_sink, lang), std::cout);
+        adam::stream_log(adam::log::info, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::connected_logger_sink, lang), std::cout);
     }
     
     adam::cmd::register_default_commands(ctx.db, ctx.lgsnk);
@@ -72,22 +70,20 @@ void teardown(app_context& ctx)
     adam::language lang = ctx.cmd.is_active() ? ctx.cmd.get_language() : adam::language_english;
 
     if (!ctx.lgsnk.destroy())
-        adam::stream_log(adam::log::warning, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::failed_destroy_logger_sink, lang), std::cout);
+        adam::stream_log(adam::log::warning, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::failed_destroy_logger_sink, lang), std::cout);
 
     if (!ctx.lg.destroy())
-        adam::stream_log(adam::log::warning, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::failed_destroy_logger, lang), std::cout);
+        adam::stream_log(adam::log::warning, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::failed_destroy_logger, lang), std::cout);
     
     if (!ctx.cmd.destroy())
-        adam::stream_log(adam::log::error, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::failed_destroy_commander, lang), std::cerr);
+        adam::stream_log(adam::log::error, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::failed_destroy_commander, lang), std::cerr);
 
-    adam::stream_log(adam::log::info, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::exiting, lang), std::cout);
+    adam::stream_log(adam::log::info, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::exiting, lang), std::cout);
 }
 
 int main() 
 {
-    #ifdef ADAM_PLATFORM_LINUX
     std::signal(SIGINT, signal_handler);
-    #endif
 
     app_context ctx;
     if (!setup(ctx))
@@ -179,7 +175,7 @@ int main()
         if (!ctx.db.execute_command(command_name, params, ctx.cmd, console_mutex))
         {
             std::lock_guard<std::mutex> lock(console_mutex);
-            adam::stream_log(adam::log::warning, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::unknown_command, ctx.cmd.get_language()), std::cout);
+            adam::stream_log(adam::log::warning, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::unknown_command, ctx.cmd.get_language()), std::cout);
         }
         
         {

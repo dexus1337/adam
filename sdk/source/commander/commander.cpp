@@ -10,6 +10,7 @@
 #include "data/port/port.hpp"
 #include "module/module.hpp"
 #include "data/connection.hpp"
+#include "memory/buffer/buffer-manager.hpp"
 #include <mutex>
 
 
@@ -25,7 +26,17 @@ namespace adam
         m_registry_view(),
         m_module_view()
     {
+        m_command_buffer.reserve(queue_command_size);
+        for (size_t i = 0; i < 256; i++)
+        {
+            m_command_buffer.emplace_back();
+        }
 
+        m_response_buffer.reserve(queue_command_size);
+        for (size_t i = 0; i < 256; i++)
+        {
+            m_response_buffer.emplace_back();
+        }
     }
 
     commander::~commander() 
@@ -42,7 +53,7 @@ namespace adam
 
         m_queue_command.set_name(string_hashed(controller::queue_command_prefix + std::to_string(os::get_current_thread_id())));
 
-        if (!m_queue_command.create(1000))
+        if (!m_queue_command.create(queue_command_size))
             return false;
 
         controller::status resp = controller::request_master_queue(controller::request_command);
@@ -61,7 +72,7 @@ namespace adam
 
         m_queue_event.set_name(string_hashed(controller::queue_event_prefix + std::to_string(os::get_current_thread_id())));
 
-        if (!m_queue_event.create(1000))
+        if (!m_queue_event.create(queue_event_size))
         {
             destroy();
             return false;
@@ -219,10 +230,13 @@ namespace adam
             auto* port_info = resp[current_idx].data_as<port::basic_info>();
             
             auto pview = std::make_unique<port_view>();
-            pview->name = string_hashed(&port_info->name[0]);
-            pview->direction = port_info->direction;
-            pview->is_active = port_info->is_active;
-            pview->is_unavailable = port_info->is_unavailable;
+            pview->name             = string_hashed(&port_info->name[0]);
+            pview->direction        = port_info->dir;
+            pview->is_active        = port_info->is_active;
+            pview->is_unavailable   = port_info->is_unavailable;
+            
+            if (!pview->is_unavailable)
+                pview->statistic_buffer = buffer_manager::get().resolve_handle(port_info->statistic_buffer_handle);
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
             m_module_view.extract_datatype_and_module(port_info->format, port_info->format_module, pview->datatype, pview->datatype_module);
@@ -425,6 +439,16 @@ namespace adam
         return send_command(cmd);
     }
 
+    response_status commander::request_connection_port_remove(string_hash conn_hash, string_hash port_hash, bool is_input)
+    {
+        command cmd(command_type::connection_port_remove);
+        auto* data = cmd.data_as<messages::connection_port_add_data>();
+        data->connection = conn_hash;
+        data->port = port_hash;
+        data->is_input = is_input;
+        return send_command(cmd);
+    }
+
     response_status commander::request_connection_sorting_index_change(string_hash hash, uint32_t sorting_index)
     {
         command cmd(command_type::connection_sorting_index_change);
@@ -506,6 +530,55 @@ namespace adam
         return response_status::inspector_not_found;
     }
 
+    response_status commander::request_port_inject_data(string_hash port_hash, const void* data, size_t size, data_direction dir)
+    {
+        const uint8_t* ptr = static_cast<const uint8_t*>(data);
+        size_t remaining = size;
+        
+        size_t cmd_idx = 0;
+
+        do
+        {
+            if (cmd_idx >= m_command_buffer.size())
+            {
+                m_command_buffer.emplace_back();
+            }
+            
+            command& cmd = m_command_buffer[cmd_idx];
+            cmd = command(command_type::port_inject_data);
+            
+            auto* cmd_data = cmd.data_as<messages::port_inject_data>();
+            cmd_data->port = port_hash;
+            cmd_data->total_size = static_cast<uint32_t>(size);
+            cmd_data->direction = dir;
+            
+            size_t copy_size = remaining;
+            if (copy_size > sizeof(cmd_data->data))
+            {
+                copy_size = sizeof(cmd_data->data);
+            }
+                
+            cmd_data->size = static_cast<uint32_t>(copy_size);
+            
+            if (copy_size > 0 && ptr)
+            {
+                std::memcpy(cmd_data->data, ptr, copy_size);
+                ptr += copy_size;
+            }
+                
+            remaining -= copy_size;
+            
+            if (remaining > 0)
+            {
+                cmd.set_extended(true);
+            }
+                
+            cmd_idx++;
+        } while (remaining > 0);
+
+        return send_command(m_command_buffer.data(), cmd_idx);
+    }
+
     response_status commander::request_language_change(language lang)
     {
         command cmd(command_type::set_language);
@@ -516,39 +589,52 @@ namespace adam
 
     response_status commander::send_command(const command& cmd, response** resp)
     {
-        static ADAM_CONSTEXPR int response_buffer_size = 256; // should be enough for most responses and their extensions, if not it will just resize automatically, no big deal
-        thread_local std::vector<response> response_buffer = []() 
-        {
-            std::vector<response> buf;
-            buf.reserve(response_buffer_size);
-            for (size_t i = 0; i < response_buffer_size; i++)
-                buf.emplace_back();
-            return buf;
-        }();
+        return send_command(&cmd, 1, resp);
+    }
 
-        if (!m_queue_command.request_queue().push(cmd))
+    response_status commander::send_command(const command* cmds, size_t count, response** resp)
+    {
+        if (!cmds || count == 0)
+        {
             return response_status::command_send_failed;
+        }
+
+        for (size_t i = 0; i < count; i++)
+        {
+            if (!m_queue_command.request_queue().push(cmds[i]))
+            {
+                return response_status::command_send_failed;
+            }
+        }
 
         size_t resp_idx = 0;
 
-        if (!m_queue_command.response_queue().pop(response_buffer[resp_idx], 100))
+        if (!m_queue_command.response_queue().pop(m_response_buffer[resp_idx], 100))
+        {
             return response_status::response_receive_failed;
+        }
 
-        while (response_buffer[resp_idx].is_extended())
+        while (m_response_buffer[resp_idx].is_extended())
         {
             resp_idx++;
 
-            if (resp_idx >= response_buffer.size())
-                response_buffer.emplace_back();
+            if (resp_idx >= m_response_buffer.size())
+            {
+                m_response_buffer.emplace_back();
+            }
             
-            if (!m_queue_command.response_queue().pop(response_buffer[resp_idx], 100))
+            if (!m_queue_command.response_queue().pop(m_response_buffer[resp_idx], 100))
+            {
                 return response_status::response_receive_failed; // if we fail to receive an expected extended response, we consider the whole command failed, as the sender should always send all responses together
+            }
         }
 
         if (resp)
-            *resp = response_buffer.data();
+        {
+            *resp = m_response_buffer.data();
+        }
 
-        return response_buffer.front().get_type();
+        return m_response_buffer.front().get_type();
     }
 
     void commander::run_event_loop()

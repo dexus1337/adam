@@ -89,7 +89,7 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     EXPECT_EQ(buf->get_ref_count(), 1u);
     
     // Actually push the data into the port
-    test_port->handle_data(buf);
+    test_port->handle_data(buf, adam::data_direction_in);
 
     // Wait for the inspector thread to pop and invoke the callback (it will block)
     std::this_thread::sleep_for(std::chrono::milliseconds(50));

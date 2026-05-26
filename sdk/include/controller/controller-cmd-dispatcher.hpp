@@ -90,10 +90,14 @@ namespace adam
             connection_rename_failed,
             connection_port_added,
             connection_port_add_failed,
+        connection_port_removed,
+        connection_port_remove_failed,
             connection_sorting_index_changed,
             connection_sorting_index_change_failed,
             connection_color_changed,
-            connection_color_change_failed
+            connection_color_change_failed,
+            port_data_injected,
+            port_data_inject_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

@@ -412,7 +412,7 @@ TEST_F(commander_test, sync_unavailable_port)
     adam::event evt(adam::event_type::port_available);
     auto* evt_data = evt.data_as<adam::port::basic_info>();
     evt_data->setup(adam::string_hashed("cmd_unavail_port"), adam::string_hashed("some_type").get_hash(), adam::string_hashed("missing_mod").get_hash(), 0, 0, false);
-    evt_data->direction = adam::port_direction::in_out;
+    evt_data->dir = adam::port::direction_inout;
     evt_data->is_active = false;
     ctrl.broadcast_event(evt);
 
@@ -422,7 +422,7 @@ TEST_F(commander_test, sync_unavailable_port)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     EXPECT_FALSE(ports.at(port_hash)->is_unavailable);
-    EXPECT_EQ(ports.at(port_hash)->direction, adam::port_direction::in_out);
+    EXPECT_EQ(ports.at(port_hash)->direction, adam::port::direction_inout);
 
     EXPECT_TRUE(cmdr.destroy());
 }

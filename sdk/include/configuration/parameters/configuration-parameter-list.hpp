@@ -3,7 +3,7 @@
 /**
  * @file    configuration-parameter-list.hpp
  * @author  dexus1337
- * @brief   Defines a a list of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+ * @brief   Defines a a list of configuration parameters.
  * @version 1.0
  * @date    05.05.2026
  */
@@ -20,7 +20,7 @@ namespace adam
 {
     /**
      * @class configuration_parameter_list
-     * @brief Defines a a list of configuration parameters, used for defining multiple related configuration parameters in a structured way.
+     * @brief Defines a list of configuration parameters.
      */
     class ADAM_SDK_API configuration_parameter_list : public configuration_parameter
     {

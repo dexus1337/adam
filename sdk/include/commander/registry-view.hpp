@@ -11,6 +11,7 @@
 #include "api/api-sdk.hpp"
 #include "types/string-hashed.hpp"
 #include "data/port/port.hpp"
+#include "memory/buffer/buffer.hpp"
 #include <vector>
 #include <unordered_map>
 #include <memory>
@@ -33,7 +34,10 @@ namespace adam
         string_hashed datatype_module;
         bool is_active              = false;
         bool is_unavailable         = false;
-        port_direction direction    = port_direction::none;
+        port::direction direction    = port::direction_invalid;
+        buffer* statistic_buffer    = nullptr;
+
+        ~port_view() { if (statistic_buffer) statistic_buffer->release(); }
     };
 
     /** @struct filter_view */

@@ -23,8 +23,16 @@ namespace adam
     static ADAM_CONSTEXPR size_t max_port_type_length = 64;
     static ADAM_CONSTEXPR size_t max_path_length = 384;
 
+    enum data_direction : uint8_t
+    {
+        data_direction_in   = 1,
+        data_direction_out  = 0,
+    };
+
     namespace messages
     {
+        #pragma pack(push, 1)
+
         struct initial_data_header
         {
             language_info lang_info;
@@ -89,6 +97,16 @@ namespace adam
         };
         static_assert(sizeof(port_action_data) <= command::get_max_data_length(), "port_action_data exceeds maximum command data size");
 
+        struct port_inject_data
+        {
+            string_hash     port;
+            uint32_t        total_size;
+            uint16_t        size;
+            data_direction  direction;
+            uint8_t         data[command::get_max_data_length() - sizeof(string_hash) - sizeof(uint32_t) - sizeof(uint16_t) - sizeof(data_direction)];
+        };
+        static_assert(sizeof(port_inject_data) <= command::get_max_data_length(), "port_inject_data exceeds maximum command data size");
+
         struct port_rename_data
         {
             string_hash port;
@@ -152,5 +170,7 @@ namespace adam
             uint64_t edited;
         };
         static_assert(sizeof(connection_property_change_data ) <= command::get_max_data_length(), "connection_property_change_data  exceeds maximum command data size");
+
+        #pragma pack(pop)
     }
 }

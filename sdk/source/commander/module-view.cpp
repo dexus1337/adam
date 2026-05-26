@@ -85,7 +85,7 @@ namespace adam
                         
                     for (const auto& [port_name, port_factory] : mod_ptr->get_port_factories())
                     {
-                        port_direction dir = port_direction::none;
+                        port::direction dir = port::direction_invalid;
                         std::string type_name_str;
                         if (port_factory)
                         {

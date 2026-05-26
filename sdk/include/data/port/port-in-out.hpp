@@ -11,6 +11,7 @@
  
 #include "api/api-sdk.hpp"
 #include "data/port/port-input.hpp"
+#include "data/port/port-output.hpp"
 
 
 namespace adam 
@@ -24,13 +25,13 @@ namespace adam
     class ADAM_SDK_API port_in_out : public port_input
     {
     public:
-        static ADAM_CONSTEXPR port_direction direction = port_direction::in_out;
+        static ADAM_CONSTEXPR port::direction direction = port::direction_inout;
 
         /** @brief Destroys the in_out port object and cleans up resources. */
         ~port_in_out();
 
         /** @brief Gets the supported data flow direction capabilities of this port. */
-        port_direction get_direction() const override { return direction; }
+        port::direction get_direction() const override { return direction; }
 
     protected:
 

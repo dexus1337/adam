@@ -88,7 +88,7 @@ TEST_F(module_view_test, extract_port_type_and_module)
     port_info p_info;
     p_info.name_hash = port_name.get_hash();
     p_info.type_name_str = "video";
-    p_info.direction = port_direction::input;
+    p_info.direction = port::direction_in;
     info.ports.push_back(p_info);
 
     view.database()[mod_name] = info;

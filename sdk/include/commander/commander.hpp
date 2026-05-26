@@ -21,6 +21,7 @@
 #include <atomic>
 #include <thread>
 #include <functional>
+#include <vector>
 
 
 namespace adam 
@@ -38,6 +39,9 @@ namespace adam
         friend class commander_event_dispatcher;
 
     public:
+
+        static ADAM_CONSTEXPR uint32_t queue_command_size   = 0x1000;
+        static ADAM_CONSTEXPR uint32_t queue_event_size     = 0x100;
 
         /** @brief Constructs a new commander object.*/
         commander();
@@ -107,6 +111,9 @@ namespace adam
         /** @brief Requests to attach a port to a connection. */
         response_status request_connection_port_add(string_hash conn_hash, string_hash port_hash, bool is_input);
 
+        /** @brief Requests to remove a port from a connection. */
+        response_status request_connection_port_remove(string_hash conn_hash, string_hash port_hash, bool is_input);
+
         /** @brief Requests to change the sorting index of a connection. */
         response_status request_connection_sorting_index_change(string_hash hash, uint32_t sorting_index);
 
@@ -118,6 +125,9 @@ namespace adam
 
         /** @brief Requests the destruction of a data inspector on a specific port. */
         response_status request_inspector_destroy(data_inspector* inspector);
+
+        /** @brief Requests to inject data into a port. */
+        response_status request_port_inject_data(string_hash port_hash, const void* data, size_t size, data_direction dir);
 
         /** @brief Requests a language change. */
         response_status request_language_change(language lang);
@@ -144,6 +154,9 @@ namespace adam
         /** @brief Sends a command. Can have multiple (extended) responses. */
         response_status send_command(const command& cmd, response** resp = nullptr);
 
+        /** @brief Sends multiple commands. Can have multiple (extended) responses. */
+        response_status send_command(const command* cmds, size_t count, response** resp = nullptr);
+
         void run_event_loop();
 
         controller::queue_command   m_queue_command;
@@ -160,5 +173,8 @@ namespace adam
 
         registry_view m_registry_view; /**< Local view of the controller's registry components */
         module_view   m_module_view;   /**< Local view of the controller's modules */
+        
+        std::vector<command>  m_command_buffer;  /**< Reusable buffer for building commands */
+        std::vector<response> m_response_buffer; /**< Reusable buffer for receiving responses */
     };
 }

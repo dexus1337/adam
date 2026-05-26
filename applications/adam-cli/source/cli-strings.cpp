@@ -1,11 +1,11 @@
-#include "cmd-strings.hpp"
+#include "cli-strings.hpp"
 
 #include <unordered_map>
 #include <array>
 
 namespace adam::cmd
 {
-    const char* get_cmd_string(cmd_string_id id, adam::language lang)
+    const char* get_cli_string(cmd_string_id id, adam::language lang)
     {
         static const std::unordered_map<cmd_string_id, std::array<const char*, adam::languages_count>> translations =
         {

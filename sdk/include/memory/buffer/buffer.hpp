@@ -41,6 +41,9 @@ namespace adam
 
         bool is_valid() const { return capacity != 0; }
         void set_invalid() { capacity = 0; }
+
+        buffer_handle() : capacity(0) {}
+        buffer_handle(uint32_t size, uint32_t capacity, uint32_t memory_index, uint32_t offset, string_hash data_format_hash, os::thread_id thread_id) : size(size), capacity(capacity), memory_index(memory_index), offset(offset), data_format_hash(data_format_hash), thread_id(thread_id) { }
     };
 
     /**

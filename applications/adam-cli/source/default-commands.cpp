@@ -1,5 +1,5 @@
 #include "default-commands.hpp"
-#include "cmd-strings.hpp"
+#include "cli-strings.hpp"
 
 #include <iostream>
 #include <iomanip>
@@ -16,12 +16,12 @@ namespace adam::cmd
             [p_db](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
         {
             std::lock_guard<std::mutex> lock(console_mutex);
-            std::cout << "\r\033[2K\n" << get_cmd_string(cmd_string_id::available_commands, c.get_language()) << "\n";
+            std::cout << "\r\033[2K\n" << get_cli_string(cmd_string_id::available_commands, c.get_language()) << "\n";
             
             std::vector<std::pair<std::string, std::string>> cmds;
             for (const auto& [name, info] : p_db->get_commands())
             {
-                cmds.push_back({name, get_cmd_string(info.desc_id, c.get_language())});
+                cmds.push_back({name, get_cli_string(info.desc_id, c.get_language())});
             }
             std::sort(cmds.begin(), cmds.end());
 
@@ -46,7 +46,7 @@ namespace adam::cmd
             else
             {
                 std::lock_guard<std::mutex> lock(console_mutex);
-                adam::stream_log(adam::log::warning, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::usage_setlang, c.get_language()), std::cout);
+                adam::stream_log(adam::log::warning, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::usage_setlang, c.get_language()), std::cout);
             }
         });
 
@@ -71,14 +71,14 @@ namespace adam::cmd
                     {
                         p_lgsnk->queue().metadata()->store(new_level, std::memory_order_relaxed);
                         std::lock_guard<std::mutex> lock(console_mutex);
-                        adam::stream_log(adam::log::info, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::log_level_updated, c.get_language()), std::cout);
+                        adam::stream_log(adam::log::info, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::log_level_updated, c.get_language()), std::cout);
                     }
                     return;
                 }
             }
             
             std::lock_guard<std::mutex> lock(console_mutex);
-            adam::stream_log(adam::log::warning, adam::cmd::get_cmd_string(adam::cmd::cmd_string_id::usage_loglvl, c.get_language()), std::cout);
+            adam::stream_log(adam::log::warning, adam::cmd::get_cli_string(adam::cmd::cmd_string_id::usage_loglvl, c.get_language()), std::cout);
         });
         
         // Register exit and quit so they appear in the help listing (actual logic is handled natively in the loop)

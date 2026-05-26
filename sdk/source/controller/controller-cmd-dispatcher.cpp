@@ -13,6 +13,8 @@
 #include "data/port/port-output.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "memory/buffer/buffer.hpp"
+#include "memory/buffer/buffer-manager.hpp"
 
 #include <array>
 #include <format>
@@ -157,10 +159,15 @@ namespace adam
                     else
                         port_info->type_module = 0;
                         
-                    port_info->format = 0;
-                    port_info->format_module = 0;
+                    if (prt->get_data_format())
+                        port_info->format = prt->get_data_format()->get_name().get_hash();
+                    else
+                        port_info->format = 0;
+                    if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("data_format_module"_ct)))
+                        port_info->format_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
+                    port_info->statistic_buffer_handle = prt->get_statistic_buffer()->get_handle();
                     
-                    port_info->direction = prt->get_direction();
+                    port_info->dir = prt->get_direction();
                     port_info->is_unavailable = false;
                     port_info->is_active = prt->is_active();
 
@@ -322,121 +329,6 @@ namespace adam
                 ctx.set_single_response_status(response_status::failed);
         });
 
-        register_handler(command_type::port_create, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<port::basic_info>();
-            string_hashed name(params->name);
-            
-            if (ctx.reg.ports().find(name.get_hash()) != ctx.reg.ports().end() || 
-                ctx.reg.get_unavailable_ports().find(name.get_hash()) != ctx.reg.get_unavailable_ports().end())
-            {
-                auto name_view = name.c_str();
-                auto status_text = registry::get_status_text(registry::status_error_port_already_exists, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            port* new_port = nullptr;
-            registry::status res = ctx.reg.create_port(name, params->type, params->type_module, params->format, params->format_module, &new_port);
-
-            if (res != registry::status_success)
-            {
-                auto name_view = name.c_str();
-                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            event evt(event_type::port_created);
-            auto* evt_data = evt.data_as<port::basic_info>();
-            *evt_data = *params;
-            if (new_port)
-                evt_data->direction = new_port->get_direction();
-            ctx.ctrl.broadcast_event(evt);
-
-            auto name_view = name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, new_port->get_type_name().c_str()));
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::port_destroy, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::port_destroy_data>();
-
-            // Get port string if it exists for success logging
-            std::string port_str;
-            auto it = ctx.reg.ports().find(params->port);
-            if (it != ctx.reg.ports().end())
-                port_str = it->second->get_name().c_str();
-
-            registry::status res = ctx.reg.destroy_port(params->port);
-
-            if (res != registry::status_success)
-            {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroy_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            event evt(event_type::port_destroyed);
-            evt.data_as<messages::port_destroy_data>()->port = params->port;
-            ctx.ctrl.broadcast_event(evt);
-
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str));
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::port_rename, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::port_rename_data>();
-            string_hashed new_name(params->new_name);
-
-            std::string old_port_str;
-            auto it = ctx.reg.ports().find(params->port);
-            if (it != ctx.reg.ports().end())
-                old_port_str = it->second->get_name().c_str();
-
-            registry::status res = ctx.reg.rename_port(params->port, new_name);
-
-            if (res != registry::status_success)
-            {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_rename_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
-            auto renamed_it = ctx.reg.ports().find(new_name.get_hash());
-            if (renamed_it != ctx.reg.ports().end())
-            {
-                renamed_it->second->connections().iterate([&](const auto& conns) 
-                {
-                    for (auto* conn : conns)
-                    {
-                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_edited"_ct)))
-                            param->set_value(static_cast<int64_t>(current_time));
-                    }
-                });
-            }
-
-            event evt(event_type::port_renamed);
-            auto* evt_data = evt.data_as<messages::port_rename_data>();
-            evt_data->port = params->port;
-            std::strncpy(evt_data->new_name, params->new_name, sizeof(evt_data->new_name) - 1);
-            evt_data->new_name[sizeof(evt_data->new_name) - 1] = '\0';
-            evt_data->edited = current_time;
-            ctx.ctrl.broadcast_event(evt);
-
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.tid, old_port_str.c_str(), new_name.c_str()));
-            ctx.set_single_response_status(response_status::success);
-        });
-
         register_handler(command_type::connection_create, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<connection::basic_info>();
@@ -500,58 +392,6 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str));
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::port_start, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::port_action_data>();
-            auto it = ctx.reg.ports().find(params->port);
-
-            if (it == ctx.reg.ports().end() || !it->second->start())
-            {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            event evt(event_type::port_started);
-            auto* info = evt.data_as<port::status_event_info>();
-            info->port_hash = params->port;
-            if (it->second->get_statistic_buffer())
-                info->statistic_buffer_handle = it->second->get_statistic_buffer()->get_handle();
-            else
-                info->statistic_buffer_handle.set_invalid();
-            ctx.ctrl.broadcast_event(evt);
-
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::port_stop, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::port_action_data>();
-            auto it = ctx.reg.ports().find(params->port);
-
-            if (it == ctx.reg.ports().end() || !it->second->stop())
-            {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            event evt(event_type::port_stopped);
-            auto* info = evt.data_as<port::status_event_info>();
-            info->port_hash = params->port;
-            if (it->second->get_statistic_buffer())
-                info->statistic_buffer_handle = it->second->get_statistic_buffer()->get_handle();
-            else
-                info->statistic_buffer_handle.set_invalid();
-            ctx.ctrl.broadcast_event(evt);
-
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -679,6 +519,58 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+    register_handler(command_type::connection_port_remove, [](const command* cmds, size_t, command_context& ctx) 
+    {
+        auto params = cmds->get_data_as<messages::connection_port_add_data>();
+
+        std::string conn_str;
+        auto it_conn = ctx.reg.connections().find(params->connection);
+        if (it_conn != ctx.reg.connections().end())
+            conn_str = it_conn->second->get_name().c_str();
+
+        std::string port_str;
+        auto it_port = ctx.reg.ports().find(params->port);
+        if (it_port != ctx.reg.ports().end())
+            port_str = it_port->second->get_name().c_str();
+
+        registry::status res = ctx.reg.connection_remove_port(params->connection, params->port, params->is_input);
+
+        if (res != registry::status_success)
+        {
+            uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+            uint64_t port_hash = static_cast<uint64_t>(params->port);
+            auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_remove_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text));
+            ctx.set_single_response_status(response_status::failed);
+            return;
+        }
+
+        uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+
+        event evt(event_type::connection_port_removed);
+        auto* evt_data = evt.data_as<messages::connection_port_add_data>();
+        *evt_data = *params;
+        evt_data->edited = current_time;
+        ctx.ctrl.broadcast_event(evt);
+
+        debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str()));
+        
+        if (it_port != ctx.reg.ports().end())
+        {
+            it_port->second->connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+            if (it_port->second->connections().empty())
+            {
+                ctx.reg.destroy_port(params->port);
+                event evt_del(event_type::port_destroyed);
+                evt_del.data_as<messages::port_destroy_data>()->port = params->port;
+                ctx.ctrl.broadcast_event(evt_del);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str()));
+            }
+        }
+
+        ctx.set_single_response_status(response_status::success);
+    });
+
         register_handler(command_type::connection_sorting_index_change, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_property_change_data>();
@@ -757,6 +649,229 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(command_type::port_create, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<port::basic_info>();
+            string_hashed name(params->name);
+            
+            if (ctx.reg.ports().find(name.get_hash()) != ctx.reg.ports().end() || 
+                ctx.reg.get_unavailable_ports().find(name.get_hash()) != ctx.reg.get_unavailable_ports().end())
+            {
+                auto name_view = name.c_str();
+                auto status_text = registry::get_status_text(registry::status_error_port_already_exists, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            port* new_port = nullptr;
+            registry::status res = ctx.reg.create_port(name, params->type, params->type_module, params->format, params->format_module, &new_port);
+
+            if (res != registry::status_success)
+            {
+                auto name_view = name.c_str();
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::port_created);
+            auto* evt_data = evt.data_as<port::basic_info>();
+            if (new_port)
+            {
+                evt_data->setup(new_port->get_name(), new_port->get_type_name().get_hash(), 0, 0, 0, false, new_port->get_statistic_buffer()->get_handle());
+
+                if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("type_origin_module"_ct)))
+                    evt_data->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
+                if (new_port->get_data_format())
+                    evt_data->format = new_port->get_data_format()->get_name().get_hash();
+                if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("data_format_module"_ct)))
+                    evt_data->format_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
+
+                evt_data->dir       = new_port->get_direction();
+                evt_data->is_active = new_port->is_active();
+            }
+            else
+                *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            auto name_view = name.c_str();
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, new_port->get_type_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::port_destroy, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_destroy_data>();
+
+            // Get port string if it exists for success logging
+            std::string port_str;
+            auto it = ctx.reg.ports().find(params->port);
+            if (it != ctx.reg.ports().end())
+                port_str = it->second->get_name().c_str();
+
+            registry::status res = ctx.reg.destroy_port(params->port);
+
+            if (res != registry::status_success)
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroy_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::port_destroyed);
+            evt.data_as<messages::port_destroy_data>()->port = params->port;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::port_rename, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_rename_data>();
+            string_hashed new_name(params->new_name);
+
+            std::string old_port_str;
+            auto it = ctx.reg.ports().find(params->port);
+            if (it != ctx.reg.ports().end())
+                old_port_str = it->second->get_name().c_str();
+
+            registry::status res = ctx.reg.rename_port(params->port, new_name);
+
+            if (res != registry::status_success)
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_rename_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            auto renamed_it = ctx.reg.ports().find(new_name.get_hash());
+            if (renamed_it != ctx.reg.ports().end())
+            {
+                renamed_it->second->connections().iterate([&](const auto& conns) 
+                {
+                    for (auto* conn : conns)
+                    {
+                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_edited"_ct)))
+                            param->set_value(static_cast<int64_t>(current_time));
+                    }
+                });
+            }
+
+            event evt(event_type::port_renamed);
+            auto* evt_data = evt.data_as<messages::port_rename_data>();
+            evt_data->port = params->port;
+            std::strncpy(evt_data->new_name, params->new_name, sizeof(evt_data->new_name) - 1);
+            evt_data->new_name[sizeof(evt_data->new_name) - 1] = '\0';
+            evt_data->edited = current_time;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.tid, old_port_str.c_str(), new_name.c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::port_start, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_action_data>();
+            auto it = ctx.reg.ports().find(params->port);
+
+            if (it == ctx.reg.ports().end() || !it->second->start())
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::port_started);
+            auto* info = evt.data_as<port::status_event_info>();
+            evt.data_as<port::status_event_info>()->port_hash = params->port;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::port_stop, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_action_data>();
+            auto it = ctx.reg.ports().find(params->port);
+
+            if (it == ctx.reg.ports().end() || !it->second->stop())
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::port_stopped);
+            auto* info = evt.data_as<port::status_event_info>();
+            evt.data_as<port::status_event_info>()->port_hash = params->port;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::port_inject_data, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::port_inject_data>();
+            auto it = ctx.reg.ports().find(params->port);
+
+            if (it == ctx.reg.ports().end())
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            if (params->size < 0)
+            {
+                ctx.set_single_response_status(response_status::invalid_argument);
+                return;
+            }
+
+            buffer* buf = buffer_manager::get().request_buffer(params->total_size);
+            uint32_t off = 0;
+
+            while (cmds)
+            {
+                std::memcpy(buf->data_as<uint8_t>() + off, params->data, params->size);
+
+                off += params->size;
+
+                if (off >= params->total_size)
+                    break;
+
+                if (!cmds->is_extended())
+                    break;
+
+                cmds++;
+                params = cmds->get_data_as<messages::port_inject_data>();
+            }
+
+            if (it->second->handle_data(buf, params->direction))
+            {
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_injected, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+                ctx.set_single_response_status(response_status::success);
+            }
+            else
+            {
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.set_single_response_status(response_status::failed);
+            }
+        });
+        
         register_handler(command_type::inspector_create, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::inspector_create_data>();
@@ -813,6 +928,7 @@ namespace adam
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str));
             ctx.set_single_response_status(response_status::success);
         });
+
     }
 
     std::string_view controller_cmd_dispatcher::get_log_event_text(log_event event, language lang)
@@ -954,6 +1070,14 @@ namespace adam
             {
                 log_event::connection_port_add_failed,
                 { "Thread {:d} failed to add port {:d} to connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
+    },
+    {
+        log_event::connection_port_removed,
+        { "Thread {:d} successfully removed port \"{}\" from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich von Verbindung \"{}\" entfernt." }
+    },
+    {
+        log_event::connection_port_remove_failed,
+        { "Thread {:d} failed to remove port {:d} from connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht von Verbindung {:d} entfernen: {}" }
             },
             {
                 log_event::connection_sorting_index_changed,
@@ -970,6 +1094,14 @@ namespace adam
             {
                 log_event::connection_color_change_failed,
                 { "Thread {:d} failed to change color of connection {:d}.", "Thread {:d} konnte die Farbe von Verbindung {:d} nicht ändern." }
+            },
+            {
+                log_event::port_data_injected,
+                { "Thread {:d} successfully injected data into port \"{}\".", "Thread {:d} hat erfolgreich Daten in Port \"{}\" injiziert." }
+            },
+            {
+                log_event::port_data_inject_failed,
+                { "Thread {:d} failed to inject data into port {:d}.", "Thread {:d} konnte keine Daten in Port {:d} injizieren." }
             }
         };
 
