@@ -16,6 +16,7 @@
 #include "commander-event-dispatcher.hpp"
 #include "registry-view.hpp"
 #include "module-view.hpp"
+#include "os/os.hpp"
 
 #include <unordered_map>
 #include <atomic>
@@ -148,6 +149,9 @@ namespace adam
 
         commander_event_dispatcher& dispatcher() { return m_dispatcher; }
         const commander_event_dispatcher& get_dispatcher() const { return m_dispatcher; }
+
+        std::unordered_map<string_hash, data_inspector*>& inspectors() { return m_inspectors; }
+        const std::unordered_map<string_hash, data_inspector*>& get_inspectors() const { return m_inspectors; }
 
     protected:
 

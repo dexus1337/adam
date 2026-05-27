@@ -1,10 +1,28 @@
 #include <gtest/gtest.h>
 #include <logger/logger.hpp>
 #include <controller/controller.hpp>
+#include <memory/buffer/buffer-manager.hpp>
 #include <thread>
 
+class logger_test : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        adam::buffer_manager::get().initialize();
+        adam::controller::get().get_registry().clear();
+    }
+
+    void TearDown() override
+    {
+        adam::controller::get().get_registry().clear();
+        adam::controller::get().destroy();
+        adam::buffer_manager::get().destroy();
+    }
+};
+
 /** @brief Tests logger command queue lifecycle */
-TEST(logger, command_queue_lifecycle)
+TEST_F(logger_test, command_queue_lifecycle)
 {
     // Ensure the controller is running asynchronously so the master queue can respond
     adam::controller& ctrl = adam::controller::get();
@@ -21,13 +39,10 @@ TEST(logger, command_queue_lifecycle)
     // Disconnect and clean up
     EXPECT_TRUE(logg.destroy());
     EXPECT_FALSE(logg.is_active());
-
-    // Clean up controller for subsequent tests
-    EXPECT_TRUE(ctrl.destroy());
 }
 
 /** @brief Tests logger is_active when master queue request fails */
-TEST(logger, is_active_on_failure)
+TEST_F(logger_test, is_active_on_failure)
 {
     // Ensure the controller is NOT running
     adam::controller& ctrl = adam::controller::get();

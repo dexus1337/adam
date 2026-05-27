@@ -27,14 +27,11 @@ namespace adam
         m_module_view()
     {
         m_command_buffer.reserve(queue_command_size);
-        for (size_t i = 0; i < 256; i++)
+        m_response_buffer.reserve(queue_command_size);
+        
+        for (size_t i = 0; i < queue_command_size; i++)
         {
             m_command_buffer.emplace_back();
-        }
-
-        m_response_buffer.reserve(queue_command_size);
-        for (size_t i = 0; i < 256; i++)
-        {
             m_response_buffer.emplace_back();
         }
     }

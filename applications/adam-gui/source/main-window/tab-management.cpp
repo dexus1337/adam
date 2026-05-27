@@ -8,6 +8,8 @@
 #include <string>
 #include <map>
 #include <functional>
+#include <chrono>
+
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 
@@ -1017,13 +1019,45 @@ namespace adam::gui
                     auto exp_it = std::find(g_expanded_nodes.begin(), g_expanded_nodes.end(), unique_node_id);
                     is_expanded = (exp_it != g_expanded_nodes.end());
 
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
                     {
                         if (is_expanded)
                             g_expanded_nodes.erase(exp_it);
                         else
                             g_expanded_nodes.push_back(unique_node_id);
                         is_expanded = !is_expanded;
+                    }
+
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                    {
+                        if (!is_drag_preview && ctrl.is_commander_active())
+                        {
+                            g_deferred_actions.push_back([&ctrl, port_hash]() 
+                            {
+                                auto& cmdr = ctrl.commander();
+                                auto it = cmdr.inspectors().find(port_hash);
+                                if (it == cmdr.inspectors().end())
+                                {
+                                    adam::data_inspector* new_inspector = nullptr;
+                                    cmdr.request_inspector_create(port_hash, [port_hash](adam::buffer* buf) 
+                                    {
+                                        if (!buf) return;
+                                        adam::gui::inspected_buffer ib;
+                                        ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                                        if (buf->get_size() > 0 && buf->get_data()) 
+                                        {
+                                            ib.data.assign(buf->get_data_as<uint8_t>(), buf->get_data_as<uint8_t>() + buf->get_size());
+                                        }
+                                        std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
+                                        adam::gui::g_inspection_data.buffers[port_hash].push_back(std::move(ib));
+                                    }, new_inspector);
+                                }
+                                else
+                                {
+                                    cmdr.request_inspector_destroy(it->second);
+                                }
+                            });
+                        }
                     }
                 }
                 ImGui::PopID();
@@ -1164,7 +1198,8 @@ namespace adam::gui
                             }
 
                             float avail_w = ImGui::GetContentRegionAvail().x;
-                            ImGui::InputTextMultiline("##inject_data", inject_state.text_buffer.data(), inject_state.text_buffer.size(), ImVec2(avail_w, 100.0f * dpi_scale));
+                            
+                            ImGui::InputTextMultiline("##inject_data", inject_state.text_buffer.data(), inject_state.text_buffer.size(), ImVec2(avail_w, 100.0f * dpi_scale), ImGuiInputTextFlags_WordWrap);
                             
                             if (has_invalid_input)
                             {

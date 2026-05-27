@@ -11,19 +11,18 @@
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 #include "data/connection.hpp"
+#include "memory/buffer/buffer-manager.hpp"
 
 #include <filesystem>
 #include <fstream>
 
 namespace adam::test
 {
-    /** @brief A test wrapper to instantiate registry and access its protected members. */
-    class testable_registry : public adam::registry
+    /** @brief A local controller instance to isolate tests from the global singleton. */
+    class local_controller : public adam::controller
     {
     public:
-        testable_registry() : adam::registry(adam::controller::get()) {}
-        
-        adam::configuration_parameter_list& get_general() { return m_parameters; }
+        local_controller() : adam::controller() {}
     };
 }
 
@@ -35,6 +34,7 @@ protected:
 
     void SetUp() override
     {
+        adam::buffer_manager::get().initialize();
         if (std::filesystem::exists(test_filepath))
             std::filesystem::remove(test_filepath);
         if (std::filesystem::exists(adam_config_filepath))
@@ -47,13 +47,15 @@ protected:
             std::filesystem::remove(test_filepath);
         if (std::filesystem::exists(adam_config_filepath))
             std::filesystem::remove(adam_config_filepath);
+        adam::buffer_manager::get().destroy();
     }
 };
 
 /** @brief Tests saving and loading a completely empty registry. */
 TEST_F(registry_test, empty_save_load)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
     
     EXPECT_TRUE(reg.save(test_filepath));
     EXPECT_TRUE(std::filesystem::exists(test_filepath));
@@ -64,10 +66,11 @@ TEST_F(registry_test, empty_save_load)
 /** @brief Tests fully populating the registry, modifying values, and verifying original values are restored upon reload. */
 TEST_F(registry_test, save_modify_reload_verify)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
     
     // 1. Modify the existing default 'language' parameter
-    auto* lang_param = static_cast<adam::configuration_parameter_integer*>(reg.get_general().get(adam::string_hashed("language")));
+    auto* lang_param = static_cast<adam::configuration_parameter_integer*>(reg.get_parameters().get(adam::string_hashed("language")));
     ASSERT_NE(lang_param, nullptr);
     lang_param->set_value(adam::language_german);
     
@@ -91,11 +94,12 @@ TEST_F(registry_test, save_modify_reload_verify)
     df_param->set_value(adam::string_hashed_ct("xml"));
 
     // 4. Reload from the binary file into a fresh registry to verify persistence
-    adam::test::testable_registry loaded_reg;
+    adam::test::local_controller loaded_ctrl;
+    adam::registry& loaded_reg = loaded_ctrl.get_registry();
     EXPECT_TRUE(loaded_reg.load(test_filepath));
     
     // 5. Verify the values are restored correctly
-    auto* loaded_lang_param = loaded_reg.get_general().get(adam::string_hashed("language"));
+    auto* loaded_lang_param = loaded_reg.get_parameters().get(adam::string_hashed("language"));
     ASSERT_NE(loaded_lang_param, nullptr);
     EXPECT_EQ(loaded_lang_param->get_type(), adam::configuration_parameter::integer);
     EXPECT_EQ(static_cast<adam::configuration_parameter_integer*>(loaded_lang_param)->get_value(), adam::language_german);
@@ -116,7 +120,8 @@ TEST_F(registry_test, save_modify_reload_verify)
 /** @brief Tests that file I/O operations fail gracefully with bad paths or invalid file formats. */
 TEST_F(registry_test, invalid_file_io)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
     
     // Saving to an invalid path should fail gracefully
     EXPECT_FALSE(reg.save("/invalid_path_1337/registry.bin"));
@@ -138,7 +143,8 @@ TEST_F(registry_test, invalid_file_io)
 /** @brief Tests creating and removing ports via the registry. */
 TEST_F(registry_test, create_and_remove_port)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
 
     adam::string_hashed port_name("test_port_1");
 
@@ -172,7 +178,8 @@ TEST_F(registry_test, create_and_remove_port)
 /** @brief Tests clearing the registry and verifying state reset. */
 TEST_F(registry_test, clear_registry)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
     adam::string_hashed port_name("test_port_clear");
     
     EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, 0, 0), adam::registry::status_success);
@@ -189,7 +196,8 @@ TEST_F(registry_test, clear_registry)
 /** @brief Tests that port properties like type and module_name are persisted. */
 TEST_F(registry_test, port_type_and_module_persistence)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
     adam::string_hashed port_name("type_test_port");
 
     adam::port* created_port = nullptr;
@@ -203,7 +211,8 @@ TEST_F(registry_test, port_type_and_module_persistence)
 
     EXPECT_TRUE(reg.save(test_filepath));
 
-    adam::test::testable_registry loaded_reg;
+    adam::test::local_controller loaded_ctrl;
+    adam::registry& loaded_reg = loaded_ctrl.get_registry();
     EXPECT_TRUE(loaded_reg.load(test_filepath));
 
     // Verify the port was correctly recreated from the saved type
@@ -219,7 +228,8 @@ TEST_F(registry_test, port_type_and_module_persistence)
 /** @brief Tests adding and removing module paths in the registry. */
 TEST_F(registry_test, add_and_remove_module_paths)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
     adam::string_hashed new_path("/custom/registry/path");
 
     // Add the path
@@ -266,7 +276,8 @@ TEST_F(registry_test, add_and_remove_module_paths)
 /** @brief Tests restoring and syncing of unavailable ports. */
 TEST_F(registry_test, unavailable_port_retry)
 {
-    adam::test::testable_registry reg;
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
     
     // 1. Manually add an unavailable port to the configuration
     auto upi = std::make_unique<adam::port::unavailable_info>(adam::string_hashed("my_unavail_port"));
@@ -298,7 +309,8 @@ TEST_F(registry_test, unavailable_port_retry)
     // 3. Save and reload to ensure it persists
     EXPECT_TRUE(reg.save(test_filepath));
     
-    adam::test::testable_registry loaded_reg;
+    adam::test::local_controller loaded_ctrl;
+    adam::registry& loaded_reg = loaded_ctrl.get_registry();
     EXPECT_TRUE(loaded_reg.load(test_filepath));
     
     EXPECT_TRUE(loaded_reg.get_unavailable_ports().contains(adam::string_hashed("my_unavail_port").get_hash()));

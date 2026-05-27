@@ -1113,7 +1113,12 @@ namespace adam
         auto it = translations.find(event);
 
         if (it != translations.end())
-            return it->second[lang];
+        {
+            size_t lang_idx = static_cast<size_t>(lang);
+            if (lang_idx < languages_count)
+                return it->second[lang_idx];
+            return it->second[0];
+        }
         
         return language_strings::unknown_type_message("controller_cmd_dispatcher::log_event", event, lang);
     }

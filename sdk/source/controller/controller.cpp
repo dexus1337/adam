@@ -96,6 +96,7 @@ namespace adam
         m_dispatcher(),
         m_registry(*this)
     {
+        m_lang_param = static_cast<configuration_parameter_integer*>(m_registry.get_parameters().get("language"_ct));
         cleanup_zombie_shared_memory();
     }
 
@@ -114,15 +115,29 @@ namespace adam
     bool controller::run(bool async)
     {
         if (!buffer_manager::get().initialize())
+        {
+            destroy();
             return false;
+        }
         
         if (!m_master_queue.create(0x100))
+        {
+            destroy();
             return false;
+        }
 
         m_registry.resume_active_items();
 
         if (async)
         {
+            if (m_master_queue_thread.joinable())
+            {
+                if (m_master_queue_thread.get_id() == std::this_thread::get_id())
+                    m_master_queue_thread.detach();
+                else
+                    m_master_queue_thread.join();
+            }
+
             m_master_queue_thread = std::thread(&controller::run_master_queue, this);
 
             return m_master_queue_thread.joinable();
@@ -140,9 +155,60 @@ namespace adam
         m_master_queue.disable();
 
         if (m_master_queue_thread.joinable())
-            m_master_queue_thread.join();
+        {
+            if (m_master_queue_thread.get_id() == std::this_thread::get_id())
+                m_master_queue_thread.detach();
+            else
+                m_master_queue_thread.join();
+        }
 
         m_master_queue.destroy();
+
+        for (auto& [tid, q] : m_queues_command)
+        {
+            q->queue.disable();
+            if (q->queue_thread.joinable())
+            {
+                if (q->queue_thread.get_id() == std::this_thread::get_id())
+                    q->queue_thread.detach();
+                else
+                    q->queue_thread.join();
+            }
+            q->queue.destroy();
+            delete q;
+        }
+        m_queues_command.clear();
+
+        for (auto& [tid, q] : m_queues_log)
+        {
+            q->queue.disable();
+            if (q->queue_thread.joinable())
+            {
+                if (q->queue_thread.get_id() == std::this_thread::get_id())
+                    q->queue_thread.detach();
+                else
+                    q->queue_thread.join();
+            }
+            q->queue.destroy();
+            delete q;
+        }
+        m_queues_log.clear();
+
+        for (auto& [tid, q] : m_queues_log_sink)
+        {
+            q->disable();
+            q->destroy();
+            delete q;
+        }
+        m_queues_log_sink.clear();
+
+        for (auto& [tid, q] : m_queues_event)
+        {
+            q->disable();
+            q->destroy();
+            delete q;
+        }
+        m_queues_event.clear();
 
         buffer_manager::get().destroy();
         
@@ -598,7 +664,12 @@ namespace adam
         auto it     = translations.find(val);
 
         if (it != translations.end())
-            return it->second[static_cast<int>(lang)];
+        {
+            size_t lang_idx = static_cast<size_t>(lang);
+            if (lang_idx < languages_count)
+                return it->second[lang_idx];
+            return it->second[0];
+        }
         
         return language_strings::unknown_type_message("controller::log_event", val, lang);
     }

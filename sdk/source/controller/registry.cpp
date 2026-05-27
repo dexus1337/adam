@@ -79,8 +79,6 @@ namespace adam
     {
         add_parameters(get_default_parameters());
 
-        m_controller.m_lang_param = static_cast<configuration_parameter_integer*>(m_parameters.get("language"_ct));
-
         m_default_port_factory.emplace
         (
             port_internal::type_name(), 

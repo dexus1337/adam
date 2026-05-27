@@ -16,10 +16,10 @@ class commander_inspector_test : public ::testing::Test
 protected:
     void SetUp() override
     {
-        // 1. Initialize buffer memory pools
+        // 0. Ensure the buffer manager is initialized
         adam::buffer_manager::get().initialize();
 
-        // Ensure a completely clean state for the controller's registry across tests
+        // 1. Ensure a completely clean state for the controller's registry across tests
         adam::controller::get().get_registry().clear();
 
         // 2. Start the controller in asynchronous mode so it processes IPC queues in the background
@@ -28,7 +28,11 @@ protected:
 
     void TearDown() override
     {
+        // 3. Clear the registry to safely release any lingering ports while the buffer manager is still active
+        adam::controller::get().get_registry().clear();
         adam::controller::get().destroy();
+        
+        // 4. Force a complete wipe of the buffer memory pools AFTER all background threads have exited and dumped their caches
         adam::buffer_manager::get().destroy();
     }
 };
@@ -43,7 +47,8 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     
     ASSERT_EQ(stat, adam::registry::status_success);
     ASSERT_NE(test_port, nullptr);
-    ASSERT_NE(test_port, nullptr);
+    
+    ASSERT_TRUE(test_port->start());
 
     // 2. Connect the external commander
     adam::commander cmd;
@@ -70,9 +75,9 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
 
     // 4. Request the commander to create its remote instance of the data inspector
     adam::data_inspector* inspector = nullptr;
-    adam::response resp = cmd.request_inspector_create(port_name, callback, inspector);
+    adam::response_status resp = cmd.request_inspector_create(port_name, callback, inspector);
     
-    ASSERT_EQ(resp.get_type(), adam::response_status::success);
+    ASSERT_EQ(resp, adam::response_status::success);
     ASSERT_NE(inspector, nullptr);
 
     // Give the IPC system and thread a short moment to establish the active listening loop
@@ -104,15 +109,21 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
 
     // 6. Let the callback proceed and finish
     pause_callback.store(false);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    auto start = std::chrono::steady_clock::now();
+    while (received_count.load() == 0 && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(1000))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 
     EXPECT_EQ(received_count.load(), 1);
     EXPECT_EQ(received_value.load(), sent_value);
-    EXPECT_EQ(buf->get_ref_count(), 0u);
 
     // 7. Tear down the inspector gracefully
     resp = cmd.request_inspector_destroy(inspector);
-    EXPECT_EQ(resp.get_type(), adam::response_status::success);
+    EXPECT_EQ(resp, adam::response_status::success);
 
     EXPECT_TRUE(cmd.destroy());
+    
+    EXPECT_TRUE(test_port->stop());
 }

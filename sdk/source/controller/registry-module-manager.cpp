@@ -63,7 +63,12 @@ namespace adam
         auto it = translations.find(event);
 
         if (it != translations.end())
-            return it->second[static_cast<int>(lang)];
+        {
+            size_t lang_idx = static_cast<size_t>(lang);
+            if (lang_idx < languages_count)
+                return it->second[lang_idx];
+            return it->second[0];
+        }
         
         return language_strings::unknown_type_message("registry_module_manager::log_event", event, lang);
     }

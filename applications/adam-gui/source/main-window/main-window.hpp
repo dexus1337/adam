@@ -5,6 +5,9 @@
 
 struct SDL_Window;
 struct ImVec4;
+#include <vector>
+#include <map>
+#include <mutex>
 
 namespace adam::gui 
 {
@@ -33,6 +36,7 @@ namespace adam::gui
         menu_view,
         menu_show_log,
         menu_show_performance,
+        menu_show_inspector,
         menu_settings,
         menu_gui_mode,
         gui_mode_default,
@@ -137,10 +141,27 @@ namespace adam::gui
         lbl_stat_handled,
         lbl_stat_discarded,
         lbl_stat_unavailable,
-        btn_remove_port
+        btn_remove_port,
+        lbl_data_inspector,
+        lbl_active_inspectors
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);
+
+    struct inspected_buffer
+    {
+        uint64_t timestamp;
+        std::vector<uint8_t> data;
+    };
+
+    struct inspection_data
+    {
+        std::mutex mtx;
+        std::map<adam::string_hash, std::vector<inspected_buffer>> buffers;
+        adam::string_hash selected_port = 0;
+    };
+
+    extern inspection_data g_inspection_data;
 
     class main_window 
     {
@@ -156,6 +177,7 @@ namespace adam::gui
         void render_menu_bar(adam::language lang);
         void render_log_window(adam::language lang, float& log_height_val, float max_height, float status_bar_height);
         void render_performance_overlay(adam::language lang);
+        void render_inspector_window(adam::language lang);
 
         gui_controller& m_ctrl;
         SDL_Window* m_window;
@@ -177,6 +199,7 @@ namespace adam::gui
         bool           m_modules_was_empty;
         bool           m_log_was_empty;
         bool           m_module_paths_was_empty;
+        bool           m_show_inspector = false;
         int            m_modules_table_id;
         int            m_log_table_id;
         int            m_module_paths_table_id;

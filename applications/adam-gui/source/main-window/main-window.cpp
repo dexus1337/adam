@@ -15,6 +15,8 @@
 
 namespace adam::gui 
 {
+    inspection_data g_inspection_data;
+
     namespace
     {
         void apply_theme(bool dark)
@@ -147,6 +149,7 @@ namespace adam::gui
             { gui_string_id::menu_view,                   { "View", "Ansicht" } },
             { gui_string_id::menu_show_log,               { "Show Log", "Protokoll anzeigen" } },
             { gui_string_id::menu_show_performance,       { "Show Performance Overlay", "Leistungsübersicht anzeigen" } },
+            { gui_string_id::menu_show_inspector,         { "Show Data Inspector", "Dateninspektor anzeigen" } },
             { gui_string_id::menu_settings,               { "Settings", "Einstellungen" } },
             { gui_string_id::menu_gui_mode,               { "GUI Mode", "GUI-Modus" } },
             { gui_string_id::gui_mode_default,            { "Default", "Standard" } },
@@ -251,7 +254,9 @@ namespace adam::gui
             { gui_string_id::lbl_stat_handled,            { "Handled: %llu msgs (%s)", "Verarbeitet: %llu Nachr. (%s)" } },
             { gui_string_id::lbl_stat_discarded,          { "Discarded: %llu msgs (%s)", "Verworfen: %llu Nachr. (%s)" } },
             { gui_string_id::lbl_stat_unavailable,        { "Statistics unavailable", "Statistiken nicht verfügbar" } },
-            { gui_string_id::btn_remove_port,             { "Remove Port", "Port entfernen" } }
+            { gui_string_id::btn_remove_port,             { "Remove Port", "Port entfernen" } },
+            { gui_string_id::lbl_data_inspector,          { "Data Inspector", "Dateninspektor" } },
+            { gui_string_id::lbl_active_inspectors,       { "Active Inspectors", "Aktive Inspektoren" } }
         };
 
         auto it = translations.find(id);
@@ -419,7 +424,13 @@ namespace adam::gui
             content_avail_y -= log_height_val + ImGui::GetStyle().ItemSpacing.y * 2.0f + 4.0f;
         }
 
-        if (ImGui::BeginChild("MainContent", ImVec2(0, content_avail_y), false))
+        float main_content_width = 0.0f;
+        if (m_show_inspector)
+        {
+            main_content_width = ImGui::GetContentRegionAvail().x * 0.666f;
+        }
+
+        if (ImGui::BeginChild("MainContent", ImVec2(main_content_width, content_avail_y), false))
         {
             if (ImGui::BeginTabBar("MainTabs"))
             {
@@ -472,6 +483,16 @@ namespace adam::gui
         }
         ImGui::EndChild();
 
+        if (m_show_inspector)
+        {
+            ImGui::SameLine();
+            if (ImGui::BeginChild("InspectorContent", ImVec2(0, content_avail_y), true))
+            {
+                render_inspector_window(lang);
+            }
+            ImGui::EndChild();
+        }
+
         if (m_p_show_log->get_value())
         {
             render_log_window(lang, log_height_val, max_height, status_bar_height);
@@ -514,6 +535,7 @@ namespace adam::gui
         {
             ImGui::MenuItem(get_gui_string(gui_string_id::menu_show_log, lang), nullptr, &m_p_show_log->value());
             ImGui::MenuItem(get_gui_string(gui_string_id::menu_show_performance, lang), nullptr, &m_p_show_performance->value());
+            ImGui::MenuItem(get_gui_string(gui_string_id::menu_show_inspector, lang), nullptr, &m_show_inspector);
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(get_gui_string(gui_string_id::menu_settings, lang)))
@@ -596,6 +618,117 @@ namespace adam::gui
                 ImGui::EndCombo();
             }
             ImGui::EndMenu();
+        }
+    }
+
+    void main_window::render_inspector_window(adam::language lang)
+    {
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_data_inspector, lang));
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_active_inspectors, lang));
+        ImGui::Separator();
+
+        if (!m_ctrl.is_commander_active())
+        {
+            return;
+        }
+
+        auto& reg = m_ctrl.commander().registry();
+        std::lock_guard<const adam::registry_view> lock(reg);
+
+        auto& inspectors = m_ctrl.commander().get_inspectors();
+        for (const auto& [port_hash, inspector] : inspectors)
+        {
+            auto p_it = reg.get_ports().find(port_hash);
+            if (p_it != reg.get_ports().end())
+            {
+                bool is_selected = (g_inspection_data.selected_port == port_hash);
+                if (ImGui::Selectable(p_it->second->name.c_str(), is_selected))
+                {
+                    g_inspection_data.selected_port = port_hash;
+                }
+            }
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (g_inspection_data.selected_port != 0 && inspectors.find(g_inspection_data.selected_port) != inspectors.end())
+        {
+            auto p_it = reg.get_ports().find(g_inspection_data.selected_port);
+            if (p_it != reg.get_ports().end())
+            {
+                ImGui::Text("Inspected Data for %s", p_it->second->name.c_str());
+            }
+
+            std::lock_guard<std::mutex> buffer_lock(g_inspection_data.mtx);
+            auto& buffers = g_inspection_data.buffers[g_inspection_data.selected_port];
+            
+            if (ImGui::Button("Clear Data"))
+            {
+                buffers.clear();
+            }
+
+            ImGui::Spacing();
+
+            if (ImGui::BeginTable("InspectorTable", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
+            {
+                ImGui::TableSetupScrollFreeze(0, 1);
+                ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("Timestamp", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableHeadersRow();
+
+                for (size_t i = 0; i < buffers.size(); ++i)
+                {
+                    const auto& ib = buffers[i];
+                    ImGui::TableNextRow();
+                    
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("%zu", i);
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text("%zu B", ib.data.size());
+
+                    ImGui::TableSetColumnIndex(3);
+                    
+                    std::string preview;
+                    size_t preview_len = std::min(ib.data.size(), (size_t)16);
+                    for (size_t j = 0; j < preview_len; ++j) {
+                        char hex[4];
+                        snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
+                        preview += hex;
+                    }
+                    if (ib.data.size() > 16) preview += "...";
+
+                    if (ImGui::TreeNode((void*)(intptr_t)i, "%s", preview.c_str()))
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(3);
+                        std::string full_hex;
+                        for (size_t j = 0; j < ib.data.size(); ++j) {
+                            char hex[4];
+                            snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
+                            full_hex += hex;
+                            if ((j + 1) % 16 == 0) full_hex += "\n";
+                        }
+                        ImGui::TextWrapped("%s", full_hex.c_str());
+                        ImGui::TreePop();
+                    }
+                }
+                ImGui::EndTable();
+            }
+        }
+        else if (g_inspection_data.selected_port != 0)
+        {
+            g_inspection_data.selected_port = 0;
         }
     }
 

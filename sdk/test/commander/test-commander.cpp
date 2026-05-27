@@ -8,6 +8,7 @@
 #include <module/module.hpp>
 #include <data/connection.hpp>
 #include <data/port/port.hpp>
+#include <memory/buffer/buffer-manager.hpp>
 #include <algorithm>
 
 using namespace adam::string_hashed_ct_literals;
@@ -17,6 +18,7 @@ class commander_test : public ::testing::Test
 protected:
     void SetUp() override
     {
+        adam::buffer_manager::get().initialize();
         // Ensure a completely clean state for the controller's registry across tests
         adam::controller::get().get_registry().clear();
         // Boot the controller asynchronously before each test
@@ -25,8 +27,11 @@ protected:
 
     void TearDown() override
     {
+        adam::controller::get().get_registry().clear();
         // Tear down the master queue and clean up shared memory
         adam::controller::get().destroy();
+        // Force a complete wipe of the buffer memory pools AFTER all background threads have exited and dumped their caches
+        adam::buffer_manager::get().destroy();
     }
 };
 

@@ -3,9 +3,43 @@
 #include <commander/commander.hpp>
 #include <commander/messages/command.hpp>
 #include <commander/messages/response.hpp>
+#include <memory/buffer/buffer-manager.hpp>
+#include <thread>
+#include <chrono>
+
+class testable_controller : public adam::controller
+{
+public:
+    static adam::controller::status req_mq(adam::controller::master_queue_request mqr)
+    {
+        return request_master_queue(mqr);
+    }
+
+    using master_queue = adam::controller::master_queue;
+    using queue_master_request_data = adam::controller::queue_master_request_data;
+
+    static const char* get_master_queue_name() { return master_queue_name; }
+};
+
+class controller_test : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        adam::buffer_manager::get().initialize();
+        adam::controller::get().get_registry().clear();
+    }
+
+    void TearDown() override
+    {
+        adam::controller::get().get_registry().clear();
+        adam::controller::get().destroy();
+        adam::buffer_manager::get().destroy();
+    }
+};
 
 /** @brief Tests controller's ability to process and send initial data. */
-TEST(controller, acquire_initial_data)
+TEST_F(controller_test, acquire_initial_data)
 {
     adam::controller& ctrl = adam::controller::get();
     ctrl.set_language(adam::language_german);
@@ -21,19 +55,16 @@ TEST(controller, acquire_initial_data)
     ctrl.set_language(adam::language_english);
     EXPECT_EQ(cmd.request_initial_data(), adam::response_status::success);
     EXPECT_EQ(cmd.get_language(), adam::language_english);
-
-    cmd.destroy();
-    ctrl.destroy();
 }
 
 /** @brief Tests controller's ability to receive extended commands */
-TEST(controller, receive_extended_commands)
+TEST_F(controller_test, receive_extended_commands)
 {
     adam::controller& ctrl = adam::controller::get();
     ASSERT_TRUE(ctrl.run(true));
 
     bool handler_called = false;
-    int received_commands = 0;
+    size_t received_commands = 0;
 
     const adam::command_type custom_cmd_type = static_cast<adam::command_type>(9998);
 
@@ -71,13 +102,10 @@ TEST(controller, receive_extended_commands)
     EXPECT_TRUE(test_queue.response_queue().pop(resp, 1000));
     EXPECT_TRUE(handler_called);
     EXPECT_EQ(received_commands, 3);
-
-    cmd.destroy();
-    ctrl.destroy();
 }
 
 /** @brief Tests controller's ability to send out extended responses over the queue */
-TEST(controller, receive_extended_responses)
+TEST_F(controller_test, receive_extended_responses)
 {
     adam::controller& ctrl = adam::controller::get();
     ASSERT_TRUE(ctrl.run(true));
@@ -118,7 +146,72 @@ TEST(controller, receive_extended_responses)
     EXPECT_TRUE(resp1.is_extended());
     EXPECT_TRUE(resp2.is_extended());
     EXPECT_FALSE(resp3.is_extended());
+}
 
-    cmd.destroy();
-    ctrl.destroy();
+/** @brief Tests creating duplicate slave queues */
+TEST_F(controller_test, duplicate_slave_queue_creation)
+{
+    adam::controller& ctrl = adam::controller::get();
+    ASSERT_TRUE(ctrl.run(true));
+
+    adam::commander cmd;
+    ASSERT_TRUE(cmd.connect());
+
+    // Try to request the same queue again
+    EXPECT_EQ(testable_controller::req_mq(adam::controller::request_command), adam::controller::status_queue_existing);
+    EXPECT_EQ(testable_controller::req_mq(adam::controller::request_event), adam::controller::status_queue_existing);
+}
+
+/** @brief Tests destroying nonexistent slave queue */
+TEST_F(controller_test, destroy_nonexistent_slave_queue)
+{
+    adam::controller& ctrl = adam::controller::get();
+    ASSERT_TRUE(ctrl.run(true));
+
+    EXPECT_EQ(testable_controller::req_mq(adam::controller::request_command_destroy), adam::controller::status_queue_not_existing);
+    EXPECT_EQ(testable_controller::req_mq(adam::controller::request_event_destroy), adam::controller::status_queue_not_existing);
+}
+
+/** @brief Tests unauthorized request to master queue */
+TEST_F(controller_test, unauthorized_master_queue_request)
+{
+    adam::controller& ctrl = adam::controller::get();
+    ASSERT_TRUE(ctrl.run(true));
+
+    testable_controller::master_queue mq{adam::string_hashed(testable_controller::get_master_queue_name())};
+    ASSERT_TRUE(mq.open());
+
+    testable_controller::queue_master_request_data data;
+    data.tid = adam::os::get_current_thread_id();
+    data.queue = adam::controller::request_command;
+    data.code = 0xDEADBEEF; // Invalid secret
+
+    adam::controller::status resp = adam::controller::status_unavailable;
+    EXPECT_TRUE(mq.post_request(data, resp, 300));
+    EXPECT_EQ(resp, adam::controller::status_unauthorized);
+
+    mq.destroy();
+}
+
+/** @brief Tests unknown master queue request */
+TEST_F(controller_test, unknown_master_queue_request)
+{
+    adam::controller& ctrl = adam::controller::get();
+    ASSERT_TRUE(ctrl.run(true));
+
+    EXPECT_EQ(testable_controller::req_mq(static_cast<adam::controller::master_queue_request>(999)), adam::controller::status_unknown_master_request);
+}
+
+/** @brief Tests context management */
+TEST_F(controller_test, context_management)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    std::vector<adam::response> dummy_responses;
+    adam::command_context ctx { adam::os::get_current_thread_id(), ctrl.get_registry(), ctrl, dummy_responses, {} };
+    
+    ctrl.set_context(&ctx);
+    EXPECT_EQ(ctrl.get_context(), &ctx);
+    ctrl.set_context(nullptr);
+    EXPECT_EQ(ctrl.get_context(), nullptr);
 }
