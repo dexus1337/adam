@@ -86,7 +86,7 @@ TEST_F(commander_inspector_test, lifecycle_and_data_transfer)
     // 5. Request a buffer, write test data, and pass it through the controller's port
     adam::buffer* buf = adam::buffer_manager::get().request_buffer(sizeof(int));
     ASSERT_NE(buf, nullptr);
-    buf->set_timestamp(static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()));
+    buf->set_timestamp();
     
     int sent_value = 1337;
     *static_cast<int*>(buf->data()) = sent_value;

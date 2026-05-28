@@ -12,8 +12,7 @@ namespace adam::cmd
         command_database* p_db = &db;
         adam::logger_sink* p_lgsnk = &lgsnk;
 
-        db.register_command("help", cmd_string_id::desc_help, 
-            [p_db](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
+        db.register_command("help", cmd_string_id::desc_help, [p_db](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
         {
             std::lock_guard<std::mutex> lock(console_mutex);
             std::cout << "\r\033[2K\n" << get_cli_string(cmd_string_id::available_commands, c.get_language()) << "\n";
@@ -32,8 +31,7 @@ namespace adam::cmd
             std::cout << std::endl;
         });
 
-        db.register_command("setlang", cmd_string_id::desc_setlang, 
-            [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        db.register_command("setlang", cmd_string_id::desc_setlang, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
             if (params.size() == 1 && params[0] == "de")
             {
@@ -50,8 +48,7 @@ namespace adam::cmd
             }
         });
 
-        db.register_command("loglvl", cmd_string_id::desc_loglvl, 
-            [p_lgsnk](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        db.register_command("loglvl", cmd_string_id::desc_loglvl, [p_lgsnk](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
             if (params.size() == 1)
             {

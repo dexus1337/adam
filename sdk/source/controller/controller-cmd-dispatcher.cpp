@@ -846,7 +846,7 @@ namespace adam
 
             buffer* buf = buffer_manager::get().request_buffer(params->total_size);
             uint32_t off = 0;
-            buf->set_timestamp(static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()));
+            buf->set_timestamp();
 
             while (cmds)
             {

@@ -15,6 +15,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <chrono>
 
 #include "types/string-hashed.hpp"
 #include "data/format.hpp"
@@ -69,7 +70,7 @@ namespace adam
         const data_format* get_data_format()    const { return m_data_format; }
 
         uint64_t get_timestamp()                const { return m_timestamp; }
-        void set_timestamp(uint64_t ts)         { m_timestamp = ts; }
+        void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { m_timestamp = ts; }
 
         /** @brief Returns the current reference count. Useful for debugging and testing. */
         uint32_t get_ref_count() const { return m_ref_count ? m_ref_count->load(std::memory_order_relaxed) : 0; }

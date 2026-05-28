@@ -33,6 +33,9 @@ namespace adam::gui
         
         std::vector<uint64_t> g_expanded_inject_nodes;
         
+        bool g_request_open_inspector = false;
+        adam::string_hash g_port_to_expand_in_inspector = 0;
+
         struct inject_buffer_state
         {
             std::string text_buffer;
@@ -1042,6 +1045,13 @@ namespace adam::gui
                     {
                         if (!is_drag_preview && ctrl.is_commander_active())
                         {
+                            auto it = ctrl.commander().get_inspectors().find(port_hash);
+                            if (it == ctrl.commander().get_inspectors().end())
+                            {
+                                g_request_open_inspector = true;
+                                g_port_to_expand_in_inspector = port_hash;
+                            }
+
                             ctrl.enqueue_commander_action([&ctrl, port_hash]() 
                             {
                                 auto& cmdr = ctrl.commander();
@@ -1673,6 +1683,7 @@ namespace adam::gui
                 {
                     if (inspect_val)
                     {
+                        g_port_to_expand_in_inspector = port_hash;
                         ctrl.enqueue_commander_action([&ctrl, port_hash]() 
                         {
                             auto& cmdr = ctrl.commander();
@@ -1714,6 +1725,11 @@ namespace adam::gui
                     ImGui::SameLine();
                     ImGui::PushID(static_cast<int>(port_hash ^ 0x9999));
                     ImGui::SetNextItemWidth(ImGui::GetFrameHeight());
+                    if (g_port_to_expand_in_inspector == port_hash)
+                    {
+                        ImGui::SetNextItemOpen(true);
+                        g_port_to_expand_in_inspector = 0;
+                    }
                     node_open = ImGui::TreeNodeEx("##node", ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_OpenOnArrow);
                     ImGui::PopID();
                 }
@@ -1909,6 +1925,11 @@ namespace adam::gui
     {
         
         static bool show_inspector = false;
+        if (g_request_open_inspector)
+        {
+            show_inspector = true;
+            g_request_open_inspector = false;
+        }
         bool commander_active   = ctrl.is_commander_active();
 
         render_delete_connection_modal(ctrl, lang);

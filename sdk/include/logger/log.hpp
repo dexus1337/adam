@@ -47,16 +47,11 @@ namespace adam
 
         /** @brief Constructs a new log object using a format string. */
         template<typename... args_type>
-        log(level t, std::format_string<args_type...> fmt, args_type&&... args)
-            : log(t, std::format(fmt, std::forward<args_type>(args)...))
-        { }
+        log(level t, std::format_string<args_type...> fmt, args_type&&... args) : log(t, std::format(fmt, std::forward<args_type>(args)...)) { }
 
         /** @brief Constructs a new log object using a runtime format string (e.g. from a dictionary). */
-        template<typename... args_type>
-        requires (sizeof...(args_type) > 0)
-        log(level t, std::string_view runtime_fmt, args_type&&... args)
-            : log(t, std::vformat(runtime_fmt, std::make_format_args(args...)))
-        { }
+        template<typename... args_type> requires (sizeof...(args_type) > 0)
+        log(level t, std::string_view runtime_fmt, args_type&&... args) : log(t, std::vformat(runtime_fmt, std::make_format_args(args...))) { }
 
         /** @brief Constructs a new log object.*/
         log();
