@@ -3,6 +3,8 @@
 #include <controller/registry-module-manager.hpp>
 #include <controller/registry.hpp>
 
+using namespace adam::string_hashed_ct_literals;
+
 class registry_module_manager_test : public ::testing::Test
 {
 protected:
@@ -15,7 +17,7 @@ TEST_F(registry_module_manager_test, scan_for_modules_invalid_dir)
 {
     adam::controller& ctrl = adam::controller::get();
     
-    ctrl.get_registry().add_module_path(adam::string_hashed("/invalid_adam_directory_that_does_not_exist_1337"));
+    ctrl.get_registry().add_module_path("/invalid_adam_directory_that_does_not_exist_1337"_ct);
 
     // Should handle non-existent directories gracefully and return false since no changes were made to the module cache
     EXPECT_FALSE(ctrl.get_registry().modules().scan_for_modules());
@@ -26,7 +28,7 @@ TEST_F(registry_module_manager_test, load_module_invalid)
 {
     adam::controller& ctrl = adam::controller::get();
     
-    adam::string_hashed invalid_mod_name("invalid_module");
+    auto invalid_mod_name = "invalid_module"_ct;
     EXPECT_FALSE(ctrl.get_registry().modules().load_module(invalid_mod_name));
     EXPECT_EQ(ctrl.get_registry().modules().get_loaded_module(invalid_mod_name), nullptr);
 }

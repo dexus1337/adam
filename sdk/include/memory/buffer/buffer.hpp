@@ -38,12 +38,13 @@ namespace adam
         uint32_t offset;                /**< The offset within the shared memory segment. */
         string_hash data_format_hash;   /**< The hash of the name of the data format. */
         os::thread_id thread_id;        /**< The ID of the thread that created the memory block. */
+        uint64_t timestamp;             /**< The timestamp when the buffer was populated. */
 
         bool is_valid() const { return capacity != 0; }
         void set_invalid() { capacity = 0; }
 
         buffer_handle() : capacity(0) {}
-        buffer_handle(uint32_t size, uint32_t capacity, uint32_t memory_index, uint32_t offset, string_hash data_format_hash, os::thread_id thread_id) : size(size), capacity(capacity), memory_index(memory_index), offset(offset), data_format_hash(data_format_hash), thread_id(thread_id) { }
+        buffer_handle(uint32_t size, uint32_t capacity, uint32_t memory_index, uint32_t offset, string_hash data_format_hash, os::thread_id thread_id, uint64_t timestamp) : size(size), capacity(capacity), memory_index(memory_index), offset(offset), data_format_hash(data_format_hash), thread_id(thread_id), timestamp(timestamp) { }
     };
 
     /**
@@ -66,6 +67,9 @@ namespace adam
         uint32_t get_capacity()                 const { return m_capacity; }
         uint32_t get_size()                     const { return m_size; }
         const data_format* get_data_format()    const { return m_data_format; }
+
+        uint64_t get_timestamp()                const { return m_timestamp; }
+        void set_timestamp(uint64_t ts)         { m_timestamp = ts; }
 
         /** @brief Returns the current reference count. Useful for debugging and testing. */
         uint32_t get_ref_count() const { return m_ref_count ? m_ref_count->load(std::memory_order_relaxed) : 0; }
@@ -106,6 +110,7 @@ namespace adam
         uint32_t m_memory_index;            /**< The unique index of the shared memory instance hosting this buffer. */
         os::thread_id m_thread_id;          /**< The thread id that created the shared memory instance hosting this buffer. */
         uint32_t m_offset;                  /**< The offset inside the shared memory instance. */
+        uint64_t m_timestamp;               /**< The timestamp of the buffer. */
         bool m_is_resolved;                 /**< Indicates whether this buffer has been resolved from a handle. */
     };
 }

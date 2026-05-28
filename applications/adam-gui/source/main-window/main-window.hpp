@@ -36,7 +36,6 @@ namespace adam::gui
         menu_view,
         menu_show_log,
         menu_show_performance,
-        menu_show_inspector,
         menu_settings,
         menu_gui_mode,
         gui_mode_default,
@@ -177,7 +176,6 @@ namespace adam::gui
         void render_menu_bar(adam::language lang);
         void render_log_window(adam::language lang, float& log_height_val, float max_height, float status_bar_height);
         void render_performance_overlay(adam::language lang);
-        void render_inspector_window(adam::language lang);
 
         gui_controller& m_ctrl;
         SDL_Window* m_window;
@@ -199,7 +197,6 @@ namespace adam::gui
         bool           m_modules_was_empty;
         bool           m_log_was_empty;
         bool           m_module_paths_was_empty;
-        bool           m_show_inspector = false;
         int            m_modules_table_id;
         int            m_log_table_id;
         int            m_module_paths_table_id;

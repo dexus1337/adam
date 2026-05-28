@@ -92,6 +92,12 @@ namespace adam::gui
         m_redraw_callback = std::move(cb);
     }
 
+    void gui_controller::enqueue_commander_action(std::function<void()> action)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_deferred_commander_actions.push_back(std::move(action));
+    }
+
     void gui_controller::update_loop()
     {
         auto last_reconnect_attempt = std::chrono::steady_clock::now() - std::chrono::seconds(5);
@@ -144,6 +150,26 @@ namespace adam::gui
             if (commander_active != m_commander_active.load(std::memory_order_relaxed))
             {
                 request_redraw();
+            }
+
+            // Process any pending commander actions queued by the UI
+            if (commander_active)
+            {
+                std::vector<std::function<void()>> actions_to_run;
+                {
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    actions_to_run = std::move(m_deferred_commander_actions);
+                }
+                for (auto& action : actions_to_run)
+                {
+                    action();
+                }
+            }
+            else
+            {
+                // If disconnected, clear pending actions to avoid executing stale operations upon reconnect
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_deferred_commander_actions.clear();
             }
 
             m_commander_active.store(commander_active, std::memory_order_relaxed);

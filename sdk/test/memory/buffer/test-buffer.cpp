@@ -42,6 +42,8 @@ TEST_F(buffer_test, get_handle)
     ASSERT_NE(buf, nullptr);
 
     buf->set_size(256);
+    uint64_t ts = 123456789;
+    buf->set_timestamp(ts);
     adam::buffer_handle handle = buf->get_handle();
     
     EXPECT_NE(handle.thread_id, 0u);
@@ -49,6 +51,7 @@ TEST_F(buffer_test, get_handle)
     EXPECT_EQ(handle.capacity, buf->get_capacity());
     EXPECT_EQ(handle.size, buf->get_size());
     EXPECT_GE(handle.offset, 0u);
+    EXPECT_EQ(handle.timestamp, ts);
 
     buf->release();
 }

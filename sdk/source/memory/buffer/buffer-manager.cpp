@@ -216,6 +216,7 @@ namespace adam
         raw_buf->m_size = handle.size;
         raw_buf->m_ref_count = reinterpret_cast<std::atomic<uint32_t>*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
         raw_buf->m_data = static_cast<uint8_t*>(target_mem->get()) + handle.offset + 8;
+        raw_buf->m_timestamp = handle.timestamp;
         raw_buf->m_is_resolved = true;
         raw_buf->m_data_format = &data_format_transparent;
         
@@ -281,6 +282,7 @@ namespace adam
             buf->m_offset = static_cast<uint32_t>(i * actual_chunk_size);
             buf->m_memory_index = m_block_counter;
             buf->m_thread_id = tid;
+            buf->m_timestamp = 0;
             buf->m_is_resolved = false;
             buf->m_data_format = &data_format_transparent;
             

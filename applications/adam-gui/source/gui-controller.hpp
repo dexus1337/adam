@@ -48,6 +48,9 @@ namespace adam::gui
         adam::logger_sink&  log_sink()  { return m_log_sink; }
         adam::commander&    commander() { return m_commander; }
 
+        /** @brief Enqueues a commander action to be executed safely on the controller's worker thread. */
+        void enqueue_commander_action(std::function<void()> action);
+
     private:
         void update_loop();
 
@@ -58,6 +61,7 @@ namespace adam::gui
         
         mutable std::mutex      m_mutex;
         std::vector<log_entry>  m_log_history;
+        std::vector<std::function<void()>> m_deferred_commander_actions; /**< Actions queued by the UI to be executed on the worker thread. */
 
         std::function<void()>   m_redraw_callback;
         std::atomic<bool>       m_running;
