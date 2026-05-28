@@ -142,7 +142,18 @@ namespace adam::gui
         lbl_stat_unavailable,
         btn_remove_port,
         lbl_data_inspector,
-        lbl_active_inspectors
+        lbl_active_inspectors,
+        col_inspect,
+        col_port_name,
+        col_messages,
+        col_size,
+        col_last_received,
+        lbl_no_data,
+        btn_clear_data,
+        col_index,
+        col_timestamp,
+        col_preview_hex,
+        col_preview_ascii
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

@@ -255,7 +255,18 @@ namespace adam::gui
             { gui_string_id::lbl_stat_unavailable,        { "Statistics unavailable", "Statistiken nicht verfügbar" } },
             { gui_string_id::btn_remove_port,             { "Remove Port", "Port entfernen" } },
             { gui_string_id::lbl_data_inspector,          { "Data Inspector", "Dateninspektor" } },
-            { gui_string_id::lbl_active_inspectors,       { "Active Inspectors", "Aktive Inspektoren" } }
+            { gui_string_id::lbl_active_inspectors,       { "Active Inspectors", "Aktive Inspektoren" } },
+            { gui_string_id::col_inspect,                 { "Inspect", "Inspizieren" } },
+            { gui_string_id::col_port_name,               { "Port Name", "Portname" } },
+            { gui_string_id::col_messages,                { "Messages", "Nachrichten" } },
+            { gui_string_id::col_size,                    { "Size", "Größe" } },
+            { gui_string_id::col_last_received,           { "Last Received", "Zuletzt empfangen" } },
+            { gui_string_id::lbl_no_data,                 { "No data", "Keine Daten" } },
+            { gui_string_id::btn_clear_data,              { "Clear Data", "Daten löschen" } },
+            { gui_string_id::col_index,                   { "Index", "Index" } },
+            { gui_string_id::col_timestamp,               { "Timestamp", "Zeitstempel" } },
+            { gui_string_id::col_preview_hex,             { "Preview (Hex)", "Vorschau (Hex)" } },
+            { gui_string_id::col_preview_ascii,           { "Preview (ASCII)", "Vorschau (ASCII)" } }
         };
 
         auto it = translations.find(id);

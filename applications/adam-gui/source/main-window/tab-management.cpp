@@ -1617,10 +1617,6 @@ namespace adam::gui
 
     void render_inspector_view(gui_controller& ctrl, adam::language lang)
     {
-        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_data_inspector, lang));
-        ImGui::Separator();
-        ImGui::Spacing();
-
         if (!ctrl.is_commander_active())
         {
             return;
@@ -1633,15 +1629,20 @@ namespace adam::gui
         
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
-        if (ImGui::BeginTable("InspectorPortsTable", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
+        bool table_open = ImGui::BeginTable("InspectorPortsTable", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+        if (table_open)
         {
-            ImGui::TableSetupScrollFreeze(0, 1);
-            ImGui::TableSetupColumn("Inspect", ImGuiTableColumnFlags_WidthFixed, 50.0f * dpi_scale);
-            ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 40.0f * dpi_scale);
-            ImGui::TableSetupColumn("Port Name", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Messages", ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
-            ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
-            ImGui::TableSetupColumn("Last Received", ImGuiTableColumnFlags_WidthStretch);
+            auto setup_columns = [dpi_scale, lang]() 
+            {
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_inspect, lang), ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_status, lang), ImGuiTableColumnFlags_WidthFixed, 40.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_port_name, lang), ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang), ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_last_received, lang), ImGuiTableColumnFlags_WidthStretch);
+            };
+
+            setup_columns();
             ImGui::TableHeadersRow();
 
             std::vector<adam::string_hash> port_hashes;
@@ -1660,10 +1661,12 @@ namespace adam::gui
                 auto p_view = p_it->second.get();
 
                 bool has_inspector = inspectors.find(port_hash) != inspectors.end();
+                bool node_open = false;
 
                 ImGui::TableNextRow();
 
                 ImGui::TableSetColumnIndex(0);
+                
                 bool inspect_val = has_inspector;
                 ImGui::PushID(static_cast<int>(port_hash));
                 if (ImGui::Checkbox("##inspect", &inspect_val))
@@ -1706,6 +1709,15 @@ namespace adam::gui
                 }
                 ImGui::PopID();
 
+                if (has_inspector)
+                {
+                    ImGui::SameLine();
+                    ImGui::PushID(static_cast<int>(port_hash ^ 0x9999));
+                    ImGui::SetNextItemWidth(ImGui::GetFrameHeight());
+                    node_open = ImGui::TreeNodeEx("##node", ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_OpenOnArrow);
+                    ImGui::PopID();
+                }
+                
                 ImGui::TableSetColumnIndex(1);
                 auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
                 bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
@@ -1718,17 +1730,7 @@ namespace adam::gui
                 ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(cursor_pos.x + 10.0f * dpi_scale, cursor_pos.y + ImGui::GetFrameHeight() * 0.5f), dot_radius, pin_col);
                 
                 ImGui::TableSetColumnIndex(2);
-                bool node_open = false;
-                if (has_inspector)
-                {
-                    ImGui::PushID(static_cast<int>(port_hash ^ 0x9999));
-                    node_open = ImGui::TreeNodeEx(p_view->name.c_str(), ImGuiTreeNodeFlags_SpanFullWidth);
-                    ImGui::PopID();
-                }
-                else
-                {
-                    ImGui::TextUnformatted(p_view->name.c_str());
-                }
+                ImGui::TextUnformatted(p_view->name.c_str());
 
                 if (has_inspector)
                 {
@@ -1782,32 +1784,29 @@ namespace adam::gui
                     }
                     else
                     {
-                        ImGui::TextDisabled("No data");
+                        ImGui::TextDisabled("%s", get_gui_string(gui_string_id::lbl_no_data, lang));
                     }
                 }
 
                 if (node_open)
                 {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(2);
+                    ImGui::TreePop();
+                    ImGui::EndTable();
+
                     ImGui::Spacing();
                     
                     std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
                     auto& buffers = adam::gui::g_inspection_data.buffers[port_hash];
 
                     ImGui::PushID(static_cast<int>(port_hash ^ 0x8888));
-                    if (ImGui::Button("Clear Data"))
-                    {
-                        buffers.clear();
-                    }
-
-                    if (ImGui::BeginTable("InspectorTableInner", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, 300.0f * dpi_scale)))
+                    if (ImGui::BeginTable("InspectorTableInner", 5, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, 300.0f * dpi_scale)))
                     {
                         ImGui::TableSetupScrollFreeze(0, 1);
-                        ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn("Timestamp", ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_timestamp, lang), ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_hex, lang), ImGuiTableColumnFlags_WidthStretch, 0.6f);
+                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
                         ImGui::TableHeadersRow();
 
                         for (size_t i = 0; i < buffers.size(); ++i)
@@ -1826,40 +1825,83 @@ namespace adam::gui
 
                             ImGui::TableSetColumnIndex(3);
                             
-                            std::string preview;
+                            std::string preview_hex;
+                            std::string preview_ascii;
                             size_t preview_len = std::min(ib.data.size(), (size_t)16);
                             for (size_t j = 0; j < preview_len; ++j) {
                                 char hex[4];
                                 snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
-                                preview += hex;
-                            }
-                            if (ib.data.size() > 16) preview += "...";
+                                preview_hex += hex;
 
-                            if (ImGui::TreeNode((void*)(intptr_t)i, "%s", preview.c_str()))
+                                char c = ib.data[j];
+                                if (c >= 32 && c <= 126) preview_ascii += c;
+                                else preview_ascii += '.';
+                            }
+                            if (ib.data.size() > 16) {
+                                preview_hex += "...";
+                                preview_ascii += "...";
+                            }
+
+                            bool is_expanded = ImGui::TreeNode((void*)(intptr_t)i, "%s", preview_hex.c_str());
+
+                            ImGui::TableSetColumnIndex(4);
+                            ImGui::TextUnformatted(preview_ascii.c_str());
+
+                            if (is_expanded)
                             {
                                 ImGui::TableNextRow();
                                 ImGui::TableSetColumnIndex(3);
                                 std::string full_hex;
+                                std::string full_ascii;
                                 for (size_t j = 0; j < ib.data.size(); ++j) {
                                     char hex[4];
                                     snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
                                     full_hex += hex;
-                                    if ((j + 1) % 16 == 0) full_hex += "\n";
+
+                                    char c = ib.data[j];
+                                    if (c >= 32 && c <= 126) full_ascii += c;
+                                    else full_ascii += '.';
+
+                                    if ((j + 1) % 16 == 0 && j != ib.data.size() - 1) {
+                                        full_hex += "\n";
+                                        full_ascii += "\n";
+                                    }
                                 }
-                                ImGui::TextWrapped("%s", full_hex.c_str());
+                                ImGui::TextUnformatted(full_hex.c_str());
+                                
+                                ImGui::TableSetColumnIndex(4);
+                                ImGui::TextUnformatted(full_ascii.c_str());
+                                
                                 ImGui::TreePop();
                             }
                         }
                         ImGui::EndTable();
                     }
+                    
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_clear_data, lang), ImVec2(-1.0f, 0.0f)))
+                    {
+                        buffers.clear();
+                    }
+                    
                     ImGui::Spacing();
                     ImGui::PopID();
 
-                    ImGui::TreePop();
+                    table_open = ImGui::BeginTable("InspectorPortsTable", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+                    if (table_open)
+                    {
+                        setup_columns();
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
 
-            ImGui::EndTable();
+            if (table_open)
+            {
+                ImGui::EndTable();
+            }
         }
     }
 
