@@ -489,7 +489,7 @@ namespace adam::gui
                             ImGui::TextUnformatted(pdi.port_name.c_str());
 
                             ImGui::TableSetColumnIndex(3);
-                            ImGui::PushID(static_cast<int>(pdi.port_hash));
+                            ImGui::PushID((const void*)(intptr_t)pdi.port_hash);
                             if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang)))
                             {
                                 adam::string_hash conn_hash = g_target_connection.get_hash();
@@ -570,7 +570,7 @@ namespace adam::gui
                             }
 
                             ImGui::TableSetColumnIndex(2);
-                            ImGui::PushID(static_cast<int>(pdi.port_hash));
+                            ImGui::PushID((const void*)(intptr_t)pdi.port_hash);
                             auto& name_buffer = new_port_names[pdi.port_hash];
                             ImGui::SetNextItemWidth(-1.0f);
                             ImGui::InputText("##NewName", name_buffer.data(), name_buffer.size());
@@ -685,7 +685,7 @@ namespace adam::gui
         auto& stage_pins_in = is_drag_preview ? g_stage_pins_in_preview : g_stage_pins_in_normal;
         auto& stage_pins_out = is_drag_preview ? g_stage_pins_out_preview : g_stage_pins_out_normal;
 
-        ImGui::PushID(is_drag_preview ? static_cast<int>(hash) + 0x1000000 : static_cast<int>(hash));
+        ImGui::PushID((const void*)(intptr_t)(is_drag_preview ? hash + 0x1000000 : hash));
             
         bool is_being_dragged = false;
         if (!is_drag_preview && sort_mode == 6) 
@@ -1021,7 +1021,7 @@ namespace adam::gui
                 draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
 
                 ImGui::SetCursorScreenPos(p_min);
-                ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16) ^ 0xABCD));
+                ImGui::PushID((const void*)(intptr_t)(port_hash ^ hash ^ (stage << 16) ^ 0xABCD));
                 ImGui::SetNextItemAllowOverlap();
                 ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
                 
@@ -1165,7 +1165,7 @@ namespace adam::gui
                         float btn_w = (ImGui::GetContentRegionAvail().x - exp_pad) * 0.5f;
 
                         // Start/Stop
-                        ImGui::PushID(static_cast<int>(port_hash ^ 0x1111));
+                        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x1111));
                         if (p_is_active) ImGui::BeginDisabled();
                         if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang), ImVec2(btn_w, 0)))
                             ctrl.enqueue_commander_action([&ctrl, port_hash]() { ctrl.commander().request_port_start(port_hash); });
@@ -1174,7 +1174,7 @@ namespace adam::gui
 
                         ImGui::SameLine(0.0f, exp_pad);
 
-                        ImGui::PushID(static_cast<int>(port_hash ^ 0x2222));
+                        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x2222));
                         if (!p_is_active) ImGui::BeginDisabled();
                         if (ImGui::Button(get_gui_string(gui_string_id::btn_stop, lang), ImVec2(btn_w, 0)))
                             ctrl.enqueue_commander_action([&ctrl, port_hash]() { ctrl.commander().request_port_stop(port_hash); });
@@ -1184,7 +1184,7 @@ namespace adam::gui
                         ImGui::Separator();
 
                         // Inject Data
-                        ImGui::PushID(static_cast<int>(unique_node_id ^ 0x3333));
+                        ImGui::PushID((const void*)(intptr_t)(unique_node_id ^ 0x3333));
                         bool inject_expanded = std::find(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), unique_node_id) != g_expanded_inject_nodes.end();
                         
                         bool tree_open = ImGui::TreeNodeEx(get_gui_string(gui_string_id::lbl_inject_data, lang), inject_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
@@ -1263,7 +1263,7 @@ namespace adam::gui
                         ImGui::Separator();
 
                         // Remove
-                        ImGui::PushID(static_cast<int>(port_hash ^ 0x4444));
+                        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x4444));
                         if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_port, lang), ImVec2(current_node_w - exp_pad * 2.0f, 0)))
                         {
                             bool is_input_port = (stage == 0);
@@ -1299,7 +1299,7 @@ namespace adam::gui
                     ImGui::SetCursorScreenPos(ImVec2(input_x, p_min.y + (node_h - input_h) * 0.5f));
                     ImGui::PushItemWidth(input_w);
                         
-                    ImGui::PushID(static_cast<int>(port_hash ^ hash ^ (stage << 16)));
+                    ImGui::PushID((const void*)(intptr_t)(port_hash ^ hash ^ (stage << 16)));
                     bool enter_pressed = ImGui::InputText("##port_edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
                     bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
                     ImGui::PopID();
@@ -1639,16 +1639,18 @@ namespace adam::gui
         
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
-        bool table_open = ImGui::BeginTable("InspectorPortsTable", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+        bool table_open = ImGui::BeginTable("InspectorPortsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
         if (table_open)
         {
             auto setup_columns = [dpi_scale, lang]() 
             {
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_inspect, lang), ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_status, lang), ImGuiTableColumnFlags_WidthFixed, 40.0f * dpi_scale);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_port_name, lang), ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang), ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
+                ImGui::TableSetupScrollFreeze(0, 3);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, 22.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_inspect, lang),       ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_port_name, lang),     ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang),      ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang),          ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_last_received, lang), ImGuiTableColumnFlags_WidthStretch);
             };
 
@@ -1675,10 +1677,43 @@ namespace adam::gui
 
                 ImGui::TableNextRow();
 
+                // ---- BEGIN Expandable  ----
                 ImGui::TableSetColumnIndex(0);
+                bool pushed_id = false;
+                if (has_inspector)
+                {
+                    ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x9999));
+                    pushed_id = true;
+                    ImGui::AlignTextToFramePadding();
+                    if (g_port_to_expand_in_inspector == port_hash)
+                    {
+                        ImGui::SetNextItemOpen(true);
+                        g_port_to_expand_in_inspector = 0;
+                    }
+                    
+                    ImGui::SetNextItemStorageID(static_cast<ImGuiID>(port_hash ^ (port_hash >> 32)));
+                    node_open = ImGui::TreeNodeEx("##node", ImGuiTreeNodeFlags_OpenOnArrow);
+                }
+                // ---- END Expandable  ----
+                
+                // ---- BEGIN Status Icon  ----
+                ImGui::TableSetColumnIndex(1);
+                auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
+                bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
+                ImColor pin_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
+                if (p_view->is_active)
+                    pin_col = get_gui_color(gui_color_id::node_pin_active);
+
+                ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+                float dot_radius = 6.0f * dpi_scale;
+                ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(cursor_pos.x + 10.0f * dpi_scale, cursor_pos.y + ImGui::GetFrameHeight() * 0.5f), dot_radius, pin_col);
+                // ---- END Status Icon  ----
+                
+                // ---- BEGIN Inspect  ----
+                ImGui::TableSetColumnIndex(2);
                 
                 bool inspect_val = has_inspector;
-                ImGui::PushID(static_cast<int>(port_hash));
+                ImGui::PushID((const void*)(intptr_t)port_hash);
                 if (ImGui::Checkbox("##inspect", &inspect_val))
                 {
                     if (inspect_val)
@@ -1719,34 +1754,12 @@ namespace adam::gui
                     }
                 }
                 ImGui::PopID();
+                // ---- END Expandable  ----
 
-                if (has_inspector)
-                {
-                    ImGui::SameLine();
-                    ImGui::PushID(static_cast<int>(port_hash ^ 0x9999));
-                    ImGui::SetNextItemWidth(ImGui::GetFrameHeight());
-                    if (g_port_to_expand_in_inspector == port_hash)
-                    {
-                        ImGui::SetNextItemOpen(true);
-                        g_port_to_expand_in_inspector = 0;
-                    }
-                    node_open = ImGui::TreeNodeEx("##node", ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_OpenOnArrow);
-                    ImGui::PopID();
-                }
-                
-                ImGui::TableSetColumnIndex(1);
-                auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-                bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
-                ImColor pin_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
-                if (p_view->is_active)
-                    pin_col = get_gui_color(gui_color_id::node_pin_active);
-
-                ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
-                float dot_radius = 6.0f * dpi_scale;
-                ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(cursor_pos.x + 10.0f * dpi_scale, cursor_pos.y + ImGui::GetFrameHeight() * 0.5f), dot_radius, pin_col);
-                
-                ImGui::TableSetColumnIndex(2);
+                // ---- BEGIN Name  ----
+                ImGui::TableSetColumnIndex(3);
                 ImGui::TextUnformatted(p_view->name.c_str());
+                // ---- END Name  ----
 
                 if (has_inspector)
                 {
@@ -1778,10 +1791,12 @@ namespace adam::gui
                         }
                     }
 
-                    ImGui::TableSetColumnIndex(3);
-                    ImGui::Text("%zu", msg_count);
-
+                    // ---- BEGIN Name  ----
                     ImGui::TableSetColumnIndex(4);
+                    ImGui::Text("%zu", msg_count);
+                    // ---- END Name  ----
+
+                    ImGui::TableSetColumnIndex(5);
                     auto format_bytes = [](uint64_t bytes) -> std::string 
                     {
                         char buf[64];
@@ -1793,7 +1808,7 @@ namespace adam::gui
                     };
                     ImGui::TextUnformatted(format_bytes(total_size).c_str());
 
-                    ImGui::TableSetColumnIndex(5);
+                    ImGui::TableSetColumnIndex(6);
                     if (msg_count > 0)
                     {
                         ImGui::Text("%s | %s", adam::get_log_time_string(last_ts).c_str(), preview_hex.c_str());
@@ -1807,14 +1822,22 @@ namespace adam::gui
                 if (node_open)
                 {
                     ImGui::TreePop();
-                    ImGui::EndTable();
+                }
 
+                if (pushed_id)
+                {
+                    ImGui::PopID();
+                }
+
+                if (node_open)
+                {
+                    ImGui::EndTable();
                     ImGui::Spacing();
                     
                     std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
                     auto& buffers = adam::gui::g_inspection_data.buffers[port_hash];
 
-                    ImGui::PushID(static_cast<int>(port_hash ^ 0x8888));
+                    ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x8888));
                     if (ImGui::BeginTable("InspectorTableInner", 5, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, 300.0f * dpi_scale)))
                     {
                         ImGui::TableSetupScrollFreeze(0, 1);
@@ -1902,7 +1925,7 @@ namespace adam::gui
                     ImGui::Spacing();
                     ImGui::PopID();
 
-                    table_open = ImGui::BeginTable("InspectorPortsTable", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+                    table_open = ImGui::BeginTable("InspectorPortsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                     if (table_open)
                     {
                         setup_columns();
@@ -1919,6 +1942,33 @@ namespace adam::gui
                 ImGui::EndTable();
             }
         }
+    }
+
+    void render_inspector_subwindow(gui_controller& ctrl, adam::language lang, float& left_w, float avail_w, float content_h)
+    {
+        ImGui::SameLine();
+
+        float splitter_w = 4.0f * ImGui::GetStyle()._MainScale;
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+        ImGui::Button("##vsplitter", ImVec2(splitter_w, content_h));
+        ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemActive())
+        {
+            left_w += ImGui::GetIO().MouseDelta.x;
+            if (left_w < 100.0f) left_w = 100.0f;
+            if (left_w > avail_w - 100.0f) left_w = avail_w - 100.0f;
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+
+        ImGui::SameLine();
+
+        ImGui::BeginChild("InspectorRegion", ImVec2(0, content_h), true);
+        render_inspector_view(ctrl, lang);
+        ImGui::EndChild();
     }
 
     void render_tab_management(gui_controller& ctrl, adam::language lang)
@@ -2100,30 +2150,7 @@ namespace adam::gui
         if (show_inspector)
         {
             ImGui::EndChild();
-
-            ImGui::SameLine();
-
-            float splitter_w = 4.0f * ImGui::GetStyle()._MainScale;
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
-            ImGui::Button("##vsplitter", ImVec2(splitter_w, content_h));
-            ImGui::PopStyleColor(3);
-
-            if (ImGui::IsItemActive())
-            {
-                left_w += ImGui::GetIO().MouseDelta.x;
-                if (left_w < 100.0f) left_w = 100.0f;
-                if (left_w > avail_w - 100.0f) left_w = avail_w - 100.0f;
-            }
-            if (ImGui::IsItemHovered())
-                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-
-            ImGui::SameLine();
-
-            ImGui::BeginChild("InspectorRegion", ImVec2(0, content_h), true);
-            render_inspector_view(ctrl, lang);
-            ImGui::EndChild();
+            render_inspector_subwindow(ctrl, lang, left_w, avail_w, content_h);
         }
     }
 }

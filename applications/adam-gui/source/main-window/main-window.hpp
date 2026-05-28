@@ -153,7 +153,12 @@ namespace adam::gui
         col_index,
         col_timestamp,
         col_preview_hex,
-        col_preview_ascii
+        col_preview_ascii,
+        col_type,
+        lbl_data_format,
+        lbl_input_port,
+        lbl_output_port,
+        lbl_inout_port
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

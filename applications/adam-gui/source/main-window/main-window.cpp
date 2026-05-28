@@ -266,7 +266,12 @@ namespace adam::gui
             { gui_string_id::col_index,                   { "Index", "Index" } },
             { gui_string_id::col_timestamp,               { "Timestamp", "Zeitstempel" } },
             { gui_string_id::col_preview_hex,             { "Preview (Hex)", "Vorschau (Hex)" } },
-            { gui_string_id::col_preview_ascii,           { "Preview (ASCII)", "Vorschau (ASCII)" } }
+            { gui_string_id::col_preview_ascii,           { "Preview (ASCII)", "Vorschau (ASCII)" } },
+            { gui_string_id::col_type,                    { "Type", "Typ" } },
+            { gui_string_id::lbl_data_format,             { "Data Format", "Datenformat" } },
+            { gui_string_id::lbl_input_port,              { "Input Port", "Eingangsport" } },
+            { gui_string_id::lbl_output_port,             { "Output Port", "Ausgangsport" } },
+            { gui_string_id::lbl_inout_port,              { "InOut Port", "Ein-/Ausgangsport" } }
         };
 
         auto it = translations.find(id);
