@@ -165,11 +165,12 @@ namespace adam
                         port_info->format = 0;
                     if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("data_format_module"_ct)))
                         port_info->format_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
-                    port_info->statistic_buffer_handle = prt->get_statistic_buffer()->get_handle();
                     
-                    port_info->dir = prt->get_direction();
-                    port_info->is_unavailable = false;
-                    port_info->is_active = prt->is_active();
+                        
+                    port_info->statistic_buffer_handle  = prt->get_statistic_buffer()->get_handle();
+                    port_info->dir                      = prt->get_direction();
+                    port_info->is_unavailable           = false;
+                    port_info->is_active                = prt->is_active();
 
                     resp_idx++;
 
@@ -519,58 +520,58 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-    register_handler(command_type::connection_port_remove, [](const command* cmds, size_t, command_context& ctx) 
-    {
-        auto params = cmds->get_data_as<messages::connection_port_add_data>();
-
-        std::string conn_str;
-        auto it_conn = ctx.reg.connections().find(params->connection);
-        if (it_conn != ctx.reg.connections().end())
-            conn_str = it_conn->second->get_name().c_str();
-
-        std::string port_str;
-        auto it_port = ctx.reg.ports().find(params->port);
-        if (it_port != ctx.reg.ports().end())
-            port_str = it_port->second->get_name().c_str();
-
-        registry::status res = ctx.reg.connection_remove_port(params->connection, params->port, params->is_input);
-
-        if (res != registry::status_success)
+        register_handler(command_type::connection_port_remove, [](const command* cmds, size_t, command_context& ctx) 
         {
-            uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-            uint64_t port_hash = static_cast<uint64_t>(params->port);
-            auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_remove_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text));
-            ctx.set_single_response_status(response_status::failed);
-            return;
-        }
+            auto params = cmds->get_data_as<messages::connection_port_add_data>();
 
-        uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            std::string conn_str;
+            auto it_conn = ctx.reg.connections().find(params->connection);
+            if (it_conn != ctx.reg.connections().end())
+                conn_str = it_conn->second->get_name().c_str();
 
-        event evt(event_type::connection_port_removed);
-        auto* evt_data = evt.data_as<messages::connection_port_add_data>();
-        *evt_data = *params;
-        evt_data->edited = current_time;
-        ctx.ctrl.broadcast_event(evt);
+            std::string port_str;
+            auto it_port = ctx.reg.ports().find(params->port);
+            if (it_port != ctx.reg.ports().end())
+                port_str = it_port->second->get_name().c_str();
 
-        debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str()));
-        
-        if (it_port != ctx.reg.ports().end())
-        {
-            it_port->second->in_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
-            it_port->second->out_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
-            if (it_port->second->in_connections().empty() && it_port->second->out_connections().empty())
+            registry::status res = ctx.reg.connection_remove_port(params->connection, params->port, params->is_input);
+
+            if (res != registry::status_success)
             {
-                ctx.reg.destroy_port(params->port);
-                event evt_del(event_type::port_destroyed);
-                evt_del.data_as<messages::port_destroy_data>()->port = params->port;
-                ctx.ctrl.broadcast_event(evt_del);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str()));
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                uint64_t port_hash = static_cast<uint64_t>(params->port);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_remove_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text));
+                ctx.set_single_response_status(response_status::failed);
+                return;
             }
-        }
 
-        ctx.set_single_response_status(response_status::success);
-    });
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+
+            event evt(event_type::connection_port_removed);
+            auto* evt_data = evt.data_as<messages::connection_port_add_data>();
+            *evt_data = *params;
+            evt_data->edited = current_time;
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str()));
+            
+            if (it_port != ctx.reg.ports().end())
+            {
+                it_port->second->in_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+                it_port->second->out_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+                if (it_port->second->in_connections().empty() && it_port->second->out_connections().empty())
+                {
+                    ctx.reg.destroy_port(params->port);
+                    event evt_del(event_type::port_destroyed);
+                    evt_del.data_as<messages::port_destroy_data>()->port = params->port;
+                    ctx.ctrl.broadcast_event(evt_del);
+                    debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str()));
+                }
+            }
+
+            ctx.set_single_response_status(response_status::success);
+        });
 
         register_handler(command_type::connection_sorting_index_change, [](const command* cmds, size_t, command_context& ctx) 
         {

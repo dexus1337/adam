@@ -5,6 +5,9 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
 #include <filesystem>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 
 namespace adam::gui 
 {
@@ -17,15 +20,47 @@ namespace adam::gui
 
     void update_dpi_scale(SDL_Window* window)
     {
-        // Calculate DPI scale (using standard 96 DPI as base)
+        float new_dpi_scale = 1.0f;
+
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        // Calculate DPI scale on Windows (using standard 96 DPI as base)
         float ddpi = 96.0f, hdpi = 96.0f, vdpi = 96.0f;
         int display_index = SDL_GetWindowDisplayIndex(window);
         if (display_index >= 0)
         {
-            if(SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi) != 0 )
-                ddpi = 96.f;
+            if(SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi) == 0 )
+                new_dpi_scale = ddpi / 96.0f;
         }
-        float new_dpi_scale = ddpi / 96.0f;
+        #elif defined(ADAM_PLATFORM_LINUX)
+        // On Linux, X11 fractional scaling heavily inflates the resolution (e.g., 6144x3456),
+        // so physical DPI from SDL_GetDisplayDPI is incorrect. We must read the logical DPI.
+        static float cached_linux_dpi = 0.0f;
+        if (cached_linux_dpi == 0.0f)
+        {
+            cached_linux_dpi = 96.0f;
+            
+            FILE* f = popen("xrdb -query 2>/dev/null | grep Xft.dpi", "r");
+            if (f) 
+            {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), f)) 
+                {
+                    const char* colon = std::strchr(buf, ':');
+                    if (colon)
+                    {
+                        float parsed_dpi = std::strtof(colon + 1, nullptr);
+                        if (parsed_dpi > 0.0f)
+                        {
+                            cached_linux_dpi = parsed_dpi;
+                            break;
+                        }
+                    }
+                }
+                pclose(f);
+            }
+        }
+        new_dpi_scale = cached_linux_dpi / 96.0f;
+        #endif
 
         if (new_dpi_scale == g_current_dpi_scale) 
             return; // No DPI change across monitors, skip rebuilding

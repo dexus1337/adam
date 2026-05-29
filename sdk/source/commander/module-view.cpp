@@ -11,10 +11,10 @@ namespace adam
 {
     void module_view::extract_port_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const
     {
-        if (type_hash == string_hashed("internal").get_hash())
+        if (type_hash == "internal"_ct.get_hash())
         {
-            out_type = string_hashed("internal");
-            out_module = string_hashed("");
+            out_type = "internal"_ct;
+            out_module = ""_ct;
             return;
         }
 
@@ -36,10 +36,10 @@ namespace adam
 
     void module_view::extract_datatype_and_module(string_hash datatype_hash, string_hash module_hash, string_hashed& out_datatype, string_hashed& out_module) const
     {
-        if (datatype_hash == string_hashed("transparent").get_hash() || datatype_hash == 0)
+        if (datatype_hash == "transparent"_ct.get_hash() || datatype_hash == 0)
         {
-            out_datatype = string_hashed("transparent");
-            out_module = string_hashed("");
+            out_datatype = "transparent"_ct;
+            out_module = ""_ct;
             return;
         }
 
@@ -89,7 +89,7 @@ namespace adam
                         std::string type_name_str;
                         if (port_factory)
                         {
-                            if (port* tmp = port_factory->create(string_hashed("temp")))
+                            if (port* tmp = port_factory->create("temp"_ct))
                             {
                                 dir = tmp->get_direction();
                                 type_name_str = tmp->get_type_name().c_str();
@@ -102,7 +102,7 @@ namespace adam
                     for (const auto& [flt_name, flt_factory] : mod_ptr->get_filter_factories())
                     {
                         std::string name_str = "Unknown Filter";
-                        if (auto* tmp = flt_factory->create(string_hashed("temp_filter")))
+                        if (auto* tmp = flt_factory->create("temp_filter"_ct))
                         {
                             if (auto* param = dynamic_cast<configuration_parameter_string*>(tmp->get_parameters().get("type"_ct)))
                             {
@@ -116,7 +116,7 @@ namespace adam
                     for (const auto& [cnv_name, cnv_factory] : mod_ptr->get_converter_factories())
                     {
                         std::string name_str = "Unknown Converter";
-                        if (auto* tmp = cnv_factory->create(string_hashed("temp_converter")))
+                        if (auto* tmp = cnv_factory->create("temp_converter"_ct))
                         {
                             if (auto* param = dynamic_cast<configuration_parameter_string*>(tmp->get_parameters().get("type"_ct)))
                             {

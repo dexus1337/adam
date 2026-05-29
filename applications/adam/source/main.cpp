@@ -27,6 +27,8 @@ int main()
 {
     std::signal(SIGINT, signal_handler);
 
+    adam::controller::cleanup_zombie_shared_memory();
+
     auto& controller = adam::controller::get();
 
     if (controller.run(true))

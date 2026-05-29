@@ -97,7 +97,6 @@ namespace adam
         m_registry(*this)
     {
         m_lang_param = static_cast<configuration_parameter_integer*>(m_registry.get_parameters().get("language"_ct));
-        cleanup_zombie_shared_memory();
     }
 
     controller::~controller() {}

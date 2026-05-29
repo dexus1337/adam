@@ -65,6 +65,9 @@ namespace adam
         controller(controller&&)                    = delete;
         controller& operator=(controller&&)         = delete;
 
+        /** @brief Cleans up orphaned shared memory files left by previous crashes (Linux mostly). */
+        static void cleanup_zombie_shared_memory();
+
         /** @brief Runs the command processing loop, which continuously checks for new command queue requests. */
         bool run(bool async = false);
         
@@ -149,9 +152,6 @@ namespace adam
         void set_context(command_context* ctx);
 
     protected:
-
-        /** @brief Cleans up orphaned shared memory files left by previous crashes (Linux mostly). */
-        static void cleanup_zombie_shared_memory();
 
         /** @brief Constructs a new controller object.*/
         controller();
