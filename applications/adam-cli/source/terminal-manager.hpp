@@ -22,6 +22,11 @@ class terminal_manager
 #endif
 
 public:
+    static constexpr int key_up = 1000;
+    static constexpr int key_down = 1001;
+    static constexpr int key_right = 1002;
+    static constexpr int key_left = 1003;
+
     terminal_manager();
     ~terminal_manager();
 

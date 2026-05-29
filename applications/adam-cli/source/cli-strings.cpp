@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <array>
 
-namespace adam::cmd
+namespace adam::cli
 {
     const char* get_cli_string(cmd_string_id id, adam::language lang)
     {
@@ -27,6 +27,36 @@ namespace adam::cmd
             { cmd_string_id::desc_help,                   { "Lists all available commands and their descriptions", "Listet alle verfügbaren Befehle und deren Beschreibungen auf" } },
             { cmd_string_id::desc_setlang,                { "Changes the application language (de, en)", "Ändert die Anwendungssprache (de, en)" } },
             { cmd_string_id::desc_loglvl,                 { "Sets the logging level (0=trace, 1=info, 2=warn, 3=error)", "Legt die Protokollierungsstufe fest (0=trace, 1=info, 2=warn, 3=error)" } },
+            { cmd_string_id::desc_mod_scan,               { "Scans for new modules in module paths", "Sucht nach neuen Modulen in den Modulpfaden" } },
+            { cmd_string_id::desc_mod_load,               { "Loads a module by name", "Lädt ein Modul nach Namen" } },
+            { cmd_string_id::usage_mod_load,              { "Usage: mod_load <name>", "Verwendung: mod_load <name>" } },
+            { cmd_string_id::desc_mod_unload,             { "Unloads a module by name", "Entlädt ein Modul nach Namen" } },
+            { cmd_string_id::usage_mod_unload,            { "Usage: mod_unload <name>", "Verwendung: mod_unload <name>" } },
+            { cmd_string_id::desc_mod_list,               { "Lists all modules", "Listet alle Module auf" } },
+            { cmd_string_id::desc_port_create,            { "Creates a new port", "Erstellt einen neuen Port" } },
+            { cmd_string_id::usage_port_create,           { "Usage: port_create <name> <type> [module]", "Verwendung: port_create <name> <type> [module]" } },
+            { cmd_string_id::desc_port_destroy,           { "Destroys a port by name", "Zerstört einen Port nach Namen" } },
+            { cmd_string_id::usage_port_destroy,          { "Usage: port_destroy <name>", "Verwendung: port_destroy <name>" } },
+            { cmd_string_id::desc_port_start,             { "Starts a port by name", "Startet einen Port nach Namen" } },
+            { cmd_string_id::usage_port_start,            { "Usage: port_start <name>", "Verwendung: port_start <name>" } },
+            { cmd_string_id::desc_port_stop,              { "Stops a port by name", "Stoppt einen Port nach Namen" } },
+            { cmd_string_id::usage_port_stop,             { "Usage: port_stop <name>", "Verwendung: port_stop <name>" } },
+            { cmd_string_id::desc_port_list,              { "Lists all ports", "Listet alle Ports auf" } },
+            { cmd_string_id::desc_conn_create,            { "Creates a new connection", "Erstellt eine neue Verbindung" } },
+            { cmd_string_id::usage_conn_create,           { "Usage: conn_create <name>", "Verwendung: conn_create <name>" } },
+            { cmd_string_id::desc_conn_destroy,           { "Destroys a connection by name", "Zerstört eine Verbindung nach Namen" } },
+            { cmd_string_id::usage_conn_destroy,          { "Usage: conn_destroy <name>", "Verwendung: conn_destroy <name>" } },
+            { cmd_string_id::desc_conn_start,             { "Starts a connection by name", "Startet eine Verbindung nach Namen" } },
+            { cmd_string_id::usage_conn_start,            { "Usage: conn_start <name>", "Verwendung: conn_start <name>" } },
+            { cmd_string_id::desc_conn_stop,              { "Stops a connection by name", "Stoppt eine Verbindung nach Namen" } },
+            { cmd_string_id::usage_conn_stop,             { "Usage: conn_stop <name>", "Verwendung: conn_stop <name>" } },
+            { cmd_string_id::desc_conn_add_port,          { "Adds a port to a connection", "Fügt einen Port zu einer Verbindung hinzu" } },
+            { cmd_string_id::usage_conn_add_port,         { "Usage: conn_add_port <conn_name> <port_name> <in|out>", "Verwendung: conn_add_port <conn_name> <port_name> <in|out>" } },
+            { cmd_string_id::desc_conn_rm_port,           { "Removes a port from a connection", "Entfernt einen Port aus einer Verbindung" } },
+            { cmd_string_id::usage_conn_rm_port,          { "Usage: conn_rm_port <conn_name> <port_name> <in|out>", "Verwendung: conn_rm_port <conn_name> <port_name> <in|out>" } },
+            { cmd_string_id::desc_conn_list,              { "Lists all connections", "Listet alle Verbindungen auf" } },
+            { cmd_string_id::desc_clean,                  { "Clears the terminal screen", "Leert den Terminalbildschirm" } },
+            { cmd_string_id::desc_clear,                  { "Clears the terminal screen", "Leert den Terminalbildschirm" } },
             { cmd_string_id::desc_exit,                   { "Exits the application cleanly", "Beendet die Anwendung sauber" } },
             { cmd_string_id::desc_quit,                   { "Exits the application cleanly", "Beendet die Anwendung sauber" } }
         };

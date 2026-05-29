@@ -8,7 +8,7 @@
 #include <mutex>
 #include "cli-strings.hpp"
 
-namespace adam::cmd
+namespace adam::cli
 {
     using command_handler = std::function<void(const std::vector<std::string>&, adam::commander&, std::mutex&)>;
 

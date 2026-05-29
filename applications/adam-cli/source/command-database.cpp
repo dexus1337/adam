@@ -1,6 +1,6 @@
 #include "command-database.hpp"
 
-namespace adam::cmd
+namespace adam::cli
 {
     void command_database::register_command(const std::string& name, cmd_string_id desc_id, command_handler handler)
     {

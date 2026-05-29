@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt for the udp module
+﻿# CMakeLists.txt for the network module
 
 include(../../cmake/gtest.cmake)
 enable_testing()
@@ -14,25 +14,25 @@ file( GLOB_RECURSE  test_source_files   "test/*cpp"    )
 
 
 # Create the shared library target for the sdk
-add_library(adam-module-udp SHARED ${module_source_files})
+add_library(adam-module-network SHARED ${module_source_files})
 
-# This tells other targets where to find headers when they link to 'adam-module-udp'
-target_include_directories(adam-module-udp 
+# This tells other targets where to find headers when they link to 'adam-module-network'
+target_include_directories(adam-module-network 
     PUBLIC  include/    # Shared with others
     PRIVATE source/     # Internal to this lib
 )
 
-target_link_libraries(adam-module-udp 
+target_link_libraries(adam-module-network 
     PRIVATE adam-sdk
 )
 
-target_compile_definitions(adam-module-udp
+target_compile_definitions(adam-module-network
     PRIVATE ADAM_USE_SHARED_SDK
-    PRIVATE ADAM_UDP_EXPORTS
+    PRIVATE ADAM_NETWORK_EXPORTS
 )
 
 # Set the output directory for the module shared library
-set_target_properties(adam-module-udp PROPERTIES
+set_target_properties(adam-module-network PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
@@ -40,25 +40,25 @@ set_target_properties(adam-module-udp PROPERTIES
 
 
 # Create the test application
-add_executable(adam-module-udp-test ${test_source_files})
+add_executable(adam-module-network-test ${test_source_files})
 
-target_include_directories(adam-module-udp-test 
+target_include_directories(adam-module-network-test 
     PRIVATE include/    # Test doesnt need to share headers with others
     PRIVATE source/     # Internal to this lib
 )
 
-target_link_libraries(adam-module-udp-test 
+target_link_libraries(adam-module-network-test 
     PRIVATE adam-sdk
-    PRIVATE adam-module-udp
+    PRIVATE adam-module-network
 )
 
 # Set the output directory for the executable
-set_target_properties(adam-module-udp-test PROPERTIES
+set_target_properties(adam-module-network-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
 )
 
-setup_gtest(adam-module-udp-test)
+setup_gtest(adam-module-network-test)
 
 # Discover tests for the VS Code Test Explorer
 include(GoogleTest)
-gtest_discover_tests(adam-module-udp-test)
+gtest_discover_tests(adam-module-network-test)

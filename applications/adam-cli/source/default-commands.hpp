@@ -2,7 +2,7 @@
 
 #include "command-database.hpp"
 
-namespace adam::cmd
+namespace adam::cli
 {
     /**
      * @brief Registers default application commands like help, setlang, and loglvl.
