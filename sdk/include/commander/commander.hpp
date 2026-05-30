@@ -94,6 +94,9 @@ namespace adam
         /** @brief Requests to rename a port. */
         response_status request_port_rename(string_hash old_hash, const string_hashed& new_name);
 
+        /** @brief Requests to change the data formats of a connection. */
+        response_status request_connection_set_data_format(string_hash conn_hash, string_hash input_format, string_hash input_format_module, string_hash output_format, string_hash output_format_module);
+
         /** @brief Requests the creation of a connection. */
         response_status request_connection_create(const string_hashed& name);
 

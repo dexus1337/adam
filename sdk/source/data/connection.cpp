@@ -2,6 +2,7 @@
 
 #include "data/port/port.hpp"
 #include "data/processor.hpp"
+#include "data/format.hpp"
 #include "controller/controller.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "commander/messages/command.hpp"
@@ -23,6 +24,11 @@ namespace adam
             p.add(std::make_unique<adam::configuration_parameter_integer>("date_edited"_ct));
             p.add(std::make_unique<adam::configuration_parameter_integer>("color_code"_ct));
             p.add(std::make_unique<adam::configuration_parameter_integer>("sorting_index"_ct));
+            // Input and output formats stored as string params for persistence
+            p.add(std::make_unique<adam::configuration_parameter_string>("input_format"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_string>("input_format_module"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_string>("output_format"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_string>("output_format_module"_ct));
             return p;
         }();
         return params;
@@ -35,32 +41,73 @@ namespace adam
         m_ports_output(),
         m_unavailable_inputs(),
         m_unavailable_outputs(),
+        m_input_format(&data_format_transparent),   // Default to transparent
+        m_output_format(&data_format_transparent),  // Default to transparent
         m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct)))
     {
 
     }
 
     connection::~connection() {}
-    
-    bool connection::handle_data(buffer* buffer)
+
+    bool connection::handle_data(buffer* buffer, port* input_port)
     {
         bool result = true;
 
-        // Chain processors: output of one = input of next
+        // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
         {
             for (auto* processor : processors) 
                 result &= processor->handle_data(buffer);
         });
 
-        // Send result to output ports
+        // Forward to all output ports
         m_ports_output.iterate([&](const auto& outputs) 
         {
             for (auto* output_port : outputs) 
                 result &= output_port->handle_data(buffer, data_direction_out);
         });
 
+        (void)input_port; // No per-port compatibility check needed
+
         return result;
+    }
+
+    bool connection::has_valid_chain()
+    {
+        // A valid chain simply requires at least one input and one output port
+        bool has_input = false;
+        bool has_output = false;
+
+        m_ports_input.iterate([&](const auto& inputs)
+        {
+            has_input = !inputs.empty();
+        });
+
+        m_ports_output.iterate([&](const auto& outputs)
+        {
+            has_output = !outputs.empty();
+        });
+
+        return has_input && has_output;
+    }
+
+    namespace
+    {
+        void dispatch_command_safe(const command& cmd)
+        {
+            auto* active_context = controller::get().get_context();
+            if (active_context)
+            {
+                controller::get().dispatcher().dispatch(&cmd, 1, *active_context);
+            }
+            else
+            {
+                std::vector<response> dummy_resps(1);
+                command_context dummy_ctx { os::get_current_thread_id(), controller::get().get_registry(), controller::get(), dummy_resps, {} };
+                controller::get().dispatcher().dispatch(&cmd, 1, dummy_ctx);
+            }
+        }
     }
 
     bool connection::start()
@@ -75,7 +122,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                    dispatch_command_safe(cmd);
                 }
             }
         });
@@ -88,7 +135,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                    dispatch_command_safe(cmd);
                 }
             }
         });
@@ -127,7 +174,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                    dispatch_command_safe(cmd);
                 }
             }
         });
@@ -140,7 +187,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    controller::get().dispatcher().dispatch(&cmd, 1, *controller::get().get_context());
+                    dispatch_command_safe(cmd);
                 }
             }
         });

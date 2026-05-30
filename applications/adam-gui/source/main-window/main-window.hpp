@@ -158,7 +158,11 @@ namespace adam::gui
         lbl_data_format,
         lbl_input_port,
         lbl_output_port,
-        lbl_inout_port
+        lbl_inout_port,
+        lbl_data_format_transparent_none,
+        lbl_handled,
+        lbl_discarded,
+        lbl_statistics
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

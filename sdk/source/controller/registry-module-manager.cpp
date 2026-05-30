@@ -293,6 +293,13 @@ namespace adam
         auto it = m_available_modules.find(name);
         if (it == m_available_modules.end()) 
         {
+            auto loaded_it = m_loaded_modules.find(name);
+            if (loaded_it != m_loaded_modules.end())
+            {
+                if (out_module)
+                    *out_module = loaded_it->second;
+                return true;
+            }
             m_controller.log(log::error, get_log_event_text(log_event::module_load_failed, m_controller.get_language()), name.c_str());
             return false;
         }

@@ -87,7 +87,7 @@ namespace adam
         registry_module_manager&            modules()               { return m_modules; }
         
         /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
-        status create_port(const string_hashed& name, string_hash type, string_hash type_module = 0, string_hash format = 0, string_hash format_module = 0, port** out_port = nullptr);
+        status create_port(const string_hashed& name, string_hash type, string_hash type_module = 0, port** out_port = nullptr);
 
         /** @brief Destroys a port from the registry by its hash, and cleans up its connections. */
         status destroy_port(string_hash hash);
@@ -159,5 +159,6 @@ namespace adam
 
         controller&             m_controller;           /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
         registry_module_manager m_modules;              /**< Manages external modules loaded into the registry. */
+        bool                    m_should_save_on_destruct = true;
     };
 }

@@ -141,7 +141,6 @@ namespace adam
             {
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
-                ctx.cmdr.get_modules().extract_datatype_and_module(info->format, info->format_module, view->datatype, view->datatype_module);
             }
             {
                 std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
@@ -183,7 +182,6 @@ namespace adam
                 {
                     std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                     ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
-                    ctx.cmdr.get_modules().extract_datatype_and_module(info->format, info->format_module, view->datatype, view->datatype_module);
                 }
                 
                 std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
@@ -268,6 +266,20 @@ namespace adam
             }
         });
 
+        register_handler(event_type::connection_data_format_changed, [](const event& e, event_context& ctx) 
+        {
+            // Update the connection view with new format information
+            auto* data = e.get_data_as<messages::connection_data_format_data>();
+            std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->input_format,  data->input_format_module,  it->second->input_format,  it->second->input_format_module);
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->output_format, data->output_format_module, it->second->output_format, it->second->output_format_module);
+            }
+        });
+
         register_handler(event_type::connection_created, [](const event& e, event_context& ctx) 
         {
             auto* info = e.get_data_as<connection::basic_info>();
@@ -277,6 +289,12 @@ namespace adam
             view->edited = info->edited;
             view->sorting_index = info->sorting_index;
             view->color = info->color;
+            {
+                // Populate format strings from name hashes
+                std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                ctx.cmdr.get_modules().extract_datatype_and_module(info->input_format,  info->input_format_module,  view->input_format,  view->input_format_module);
+                ctx.cmdr.get_modules().extract_datatype_and_module(info->output_format, info->output_format_module, view->output_format, view->output_format_module);
+            }
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             ctx.cmdr.registry().connections()[view->name.get_hash()] = std::move(view);
         });

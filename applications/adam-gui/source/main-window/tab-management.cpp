@@ -55,10 +55,32 @@ namespace adam::gui
         {
             ImVec2 pos;
             ImColor col;
+            std::string format_name;
         };
 
         std::vector<std::vector<connection_pin_data>> g_stage_pins_in_normal, g_stage_pins_out_normal;
         std::vector<std::vector<connection_pin_data>> g_stage_pins_in_preview, g_stage_pins_out_preview;
+
+        enum node_type : uint8_t
+        {
+            node_type_input,
+            node_type_output,
+            node_type_processor,
+            node_type_converter
+        };
+
+        struct expanded_port_render_info
+        {
+            node_type type;
+            int stage;
+            adam::string_hash port_hash;
+            uint64_t unique_node_id;
+            ImVec2 p_max;
+            float current_node_w;
+            ImColor captured_color;
+            float this_expanded_h;
+            adam::string_hash hash;
+        };
 
         std::pair<bool, std::vector<uint8_t>> parse_hex_bytes(const std::string& input)
         {
@@ -140,6 +162,298 @@ namespace adam::gui
             }
 
             return {is_valid, bytes};
+        }
+
+        void draw_expanded_port_node(
+            gui_controller& ctrl,
+            adam::language lang,
+            const std::unordered_map<adam::string_hash, std::unique_ptr<adam::port_view>>& ports,
+            float dpi_scale,
+            ImDrawList* draw_list,
+            const expanded_port_render_info& info)
+        {
+            float exp_pad = 8.0f * dpi_scale;
+            ImVec2 exp_min(info.p_max.x - info.current_node_w, info.p_max.y - 1.5f * dpi_scale);
+            ImVec2 exp_max(info.p_max.x, info.p_max.y + info.this_expanded_h);
+
+            ImVec4 bg_col = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
+            bg_col.w = 1.0f;
+            draw_list->AddRectFilled(exp_min, exp_max, ImColor(bg_col), 6.0f * dpi_scale, ImDrawFlags_RoundCornersBottom);
+            draw_list->AddRect(exp_min, exp_max, ImColor(info.captured_color.Value.x * 1.2f, info.captured_color.Value.y * 1.2f, info.captured_color.Value.z * 1.2f), 6.0f * dpi_scale, ImDrawFlags_RoundCornersBottom, 1.5f * dpi_scale);
+
+            // Draw type and module
+            bool p_is_active = false;
+            std::string p_type = "Unknown";
+            std::string p_module = "Unknown";
+            adam::port::statistic_info stats = {0, 0, 0, 0};
+            bool has_stats = false;
+            auto p_it = ports.find(info.port_hash);
+            if (p_it != ports.end())
+            {
+                p_is_active = p_it->second->is_active;
+                if (p_it->second->statistic_buffer)
+                {
+                    stats = *p_it->second->statistic_buffer->data_as<adam::port::statistic_info>();
+                    has_stats = true;
+                }
+                if (p_it->second->type.get_hash() == ("internal"_ct).get_hash())
+                {
+                    p_type = "internal";
+                    p_module = "Internal";
+                }
+                else
+                {
+                    p_type = p_it->second->type.c_str();
+                    if (p_it->second->type_module.get_hash() != 0)
+                        p_module = p_it->second->type_module.c_str();
+                    else
+                        p_module = "Unknown Module";
+                }
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(exp_min.x + exp_pad, exp_min.y + exp_pad));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+            ImGui::BeginChild(static_cast<ImGuiID>(info.unique_node_id), ImVec2(info.current_node_w - exp_pad * 2.0f, info.this_expanded_h - exp_pad * 2.0f), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+            ImGui::PopStyleColor();
+            
+            ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s [%s]", p_type.c_str(), p_module.c_str());
+            ImGui::Separator();
+
+            // Draw stats
+            if (has_stats)
+            {
+                auto format_bytes = [](uint64_t bytes) -> std::string 
+                {
+                    char buf[64];
+                    if (bytes < 1024) snprintf(buf, sizeof(buf), "%llu B", (unsigned long long)bytes);
+                    else if (bytes < 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f KB", bytes / 1024.0);
+                    else if (bytes < 1024 * 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f MB", bytes / (1024.0 * 1024.0));
+                    else snprintf(buf, sizeof(buf), "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+                    return buf;
+                };
+                
+                if (ImGui::BeginTable("PortStatsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg))
+                {
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_statistics, lang), ImGuiTableColumnFlags_WidthFixed, 100.0f * dpi_scale);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang), ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableHeadersRow();
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_handled, lang));
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%llu", (unsigned long long)stats.total_buffers_handled);
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(format_bytes(stats.total_bytes_handled).c_str());
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%llu", (unsigned long long)stats.total_buffers_discarded);
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(format_bytes(stats.total_bytes_discarded).c_str());
+
+                    ImGui::EndTable();
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("%s", get_gui_string(gui_string_id::lbl_stat_unavailable, lang));
+            }
+            ImGui::Separator();
+
+            float btn_w = (ImGui::GetContentRegionAvail().x - exp_pad) * 0.5f;
+
+            // Start/Stop
+            ImGui::PushID((const void*)(intptr_t)(info.port_hash ^ 0x1111));
+            if (p_is_active) ImGui::BeginDisabled();
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang), ImVec2(btn_w, 0)))
+                ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash]() { ctrl.commander().request_port_start(port_hash); });
+            if (p_is_active) ImGui::EndDisabled();
+            ImGui::PopID();
+
+            ImGui::SameLine(0.0f, exp_pad);
+
+            ImGui::PushID((const void*)(intptr_t)(info.port_hash ^ 0x2222));
+            if (!p_is_active) ImGui::BeginDisabled();
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_stop, lang), ImVec2(btn_w, 0)))
+                ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash]() { ctrl.commander().request_port_stop(port_hash); });
+            if (!p_is_active) ImGui::EndDisabled();
+            ImGui::PopID();
+            
+            ImGui::Separator();
+
+            // Data Format Dropdown
+            if (p_it != ports.end())
+            {
+                ImGui::AlignTextToFramePadding();
+                ImGui::Text("%s:", get_gui_string(gui_string_id::lbl_data_format, lang));
+                ImGui::SameLine();
+                
+                std::string current_format_str;
+                if (p_it->second->datatype.empty() || p_it->second->datatype == "transparent"_ct || p_it->second->datatype == "dataformat_transparent"_ct)
+                {
+                    current_format_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                }
+                else
+                {
+                    current_format_str = p_it->second->datatype.c_str();
+                }
+                
+                if (p_it->second->datatype_module.c_str()[0] != '\0')
+                {
+                    current_format_str += " [";
+                    current_format_str += p_it->second->datatype_module.c_str();
+                    current_format_str += "]";
+                }
+                
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::BeginCombo("##DataFormatComboExpanded", current_format_str.c_str()))
+                {
+                    std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
+                    available_formats.push_back({ "transparent"_ct, ""_ct });
+                    {
+                        std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
+                        for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
+                        {
+                            for (const auto& fmt : mod_info.data_formats)
+                            {
+                                available_formats.push_back({ fmt, mod_name });
+                            }
+                        }
+                    }
+
+                    for (const auto& [fmt, mod] : available_formats)
+                    {
+                        std::string item_str;
+                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
+                        {
+                            item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                        }
+                        else
+                        {
+                            item_str = fmt.c_str();
+                        }
+                        if (mod.c_str()[0] != '\0')
+                        {
+                            item_str += " [";
+                            item_str += mod.c_str();
+                            item_str += "]";
+                        }
+                        
+                        bool is_selected = (fmt == p_it->second->datatype && mod == p_it->second->datatype_module);
+                        if (ImGui::Selectable(item_str.c_str(), is_selected))
+                        {
+                            if (!is_selected)
+                            {
+                                ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash, fmt, mod]()
+                                {
+                                    ctrl.commander().request_port_set_data_format(port_hash, fmt.get_hash(), mod.get_hash());
+                                });
+                            }
+                        }
+                        if (is_selected)
+                        {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::Separator();
+            }
+
+            // Inject Data
+            ImGui::PushID((const void*)(intptr_t)(info.unique_node_id ^ 0x3333));
+            bool inject_expanded = std::find(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), info.unique_node_id) != g_expanded_inject_nodes.end();
+            
+            bool tree_open = ImGui::TreeNodeEx(get_gui_string(gui_string_id::lbl_inject_data, lang), inject_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+            if (tree_open != inject_expanded)
+            {
+                if (tree_open)
+                    g_expanded_inject_nodes.push_back(info.unique_node_id);
+                else
+                    g_expanded_inject_nodes.erase(std::remove(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), info.unique_node_id), g_expanded_inject_nodes.end());
+            }
+
+            if (tree_open)
+            {
+                ImGui::Unindent();
+
+                auto& inject_state = g_inject_data_buffers[info.unique_node_id];
+                if (inject_state.text_buffer.size() < 1024) inject_state.text_buffer.resize(1024, '\0');
+                
+                std::string current_input = inject_state.text_buffer.c_str();
+                if (current_input != inject_state.last_parsed_text)
+                {
+                    auto parse_result = parse_hex_bytes(current_input);
+                    inject_state.is_valid = parse_result.first;
+                    inject_state.parsed_bytes = parse_result.second;
+                    inject_state.last_parsed_text = current_input;
+                }
+
+                bool has_invalid_input = !inject_state.is_valid && !current_input.empty();
+
+                if (has_invalid_input)
+                {
+                    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f * dpi_scale);
+                    ImGui::PushStyleColor(ImGuiCol_Border, get_gui_color(gui_color_id::log_error));
+                }
+
+                float avail_w = ImGui::GetContentRegionAvail().x;
+                
+                ImGui::InputTextMultiline("##inject_data", inject_state.text_buffer.data(), inject_state.text_buffer.size(), ImVec2(avail_w, 100.0f * dpi_scale), ImGuiInputTextFlags_WordWrap);
+                
+                if (has_invalid_input)
+                {
+                    ImGui::PopStyleColor();
+                    ImGui::PopStyleVar();
+                }
+
+                bool disable_inject = !p_is_active || !inject_state.is_valid;
+                if (disable_inject) ImGui::BeginDisabled();
+
+                if (ImGui::Button(get_gui_string(gui_string_id::btn_inject, lang), ImVec2(avail_w, 0)))
+                {
+                    if (inject_state.is_valid && !inject_state.parsed_bytes.empty())
+                    {
+                        std::vector<uint8_t> data_to_inject = inject_state.parsed_bytes;
+                        ctrl.enqueue_commander_action([&ctrl, type = info.type, port_hash = info.port_hash, data_to_inject]() 
+                        { 
+                            switch(type)
+                            {
+                                case node_type_input:
+                                    ctrl.commander().request_port_inject_data(port_hash, data_to_inject.data(), data_to_inject.size(), data_direction_in); 
+                                    break;
+                                case node_type_output:
+                                    ctrl.commander().request_port_inject_data(port_hash, data_to_inject.data(), data_to_inject.size(), data_direction_out); 
+                                    break;
+                                default:
+                                    break;
+                            }
+                        });
+                    }
+                }
+
+                if (disable_inject) ImGui::EndDisabled();
+
+                ImGui::Indent();
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+
+            ImGui::Separator();
+
+            // Remove
+            ImGui::PushID((const void*)(intptr_t)(info.port_hash ^ 0x4444));
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_port, lang), ImVec2(info.current_node_w - exp_pad * 2.0f, 0)))
+            {
+                ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash]() { ctrl.commander().request_port_destroy(port_hash); });
+            }
+            ImGui::PopID();
+
+            ImGui::EndChild();
         }
     }
 
@@ -671,12 +985,387 @@ namespace adam::gui
         ImGui::Checkbox(inspector_lbl, &show_inspector);
     }
 
-    void render_connection_card(gui_controller& ctrl, adam::language lang, int sort_mode, adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w)
+    /**
+     * @brief Renders the header section of a connection card, including rename inputs, 
+     *        color picker, state action buttons, and drag-and-drop handles.
+     */
+    void draw_connection_card_header(
+        gui_controller& ctrl,
+        adam::language lang,
+        int sort_mode,
+        adam::string_hash hash,
+        adam::connection_view* conn,
+        bool is_drag_preview,
+        float dpi_scale,
+        float port_w)
     {
         bool commander_active = ctrl.is_commander_active();
+        const auto& connections = ctrl.commander().registry().get_connections();
+
+        ImGui::AlignTextToFramePadding();
+
+        char name_buf[max_name_length];
+        std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
+        name_buf[sizeof(name_buf) - 1] = '\0';
+
+        // Direct editing of the connection name via InputText
+        ImGui::PushID("conn_name_edit");
+        bool enter_pressed = false;
+        bool deactivated = false;
+        if (!is_drag_preview)
+        {
+            ImGui::SetNextItemWidth(port_w);
+            enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+            deactivated = ImGui::IsItemDeactivatedAfterEdit();
+        }
+        else
+        {
+            ImGui::TextUnformatted(name_buf);
+        }
+        ImGui::PopID();
+
+        // Enqueue rename request on edit commit
+        if (enter_pressed || deactivated)
+        {
+            if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
+            {
+                adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
+                if (connections.find(proposed_hash) == connections.end())
+                {
+                    adam::string_hash old_hash = conn->name.get_hash();
+                    adam::string_hashed new_name(&name_buf[0]);
+                    ctrl.enqueue_commander_action([&ctrl, old_hash, new_name]() { ctrl.commander().request_connection_rename(old_hash, new_name); });
+                }
+            }
+        }
+
+        ImGui::SameLine();
+
+        // Custom card coloring button and picker dialog
+        ImVec4 conn_color_vec;
+        if (conn->color == 0)
+        {
+            conn_color_vec = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+        }
+        else
+        {
+            conn_color_vec.x = ((conn->color >> 16) & 0xFF) / 255.0f;
+            conn_color_vec.y = ((conn->color >> 8) & 0xFF) / 255.0f;
+            conn_color_vec.z = (conn->color & 0xFF) / 255.0f;
+            conn_color_vec.w = 1.0f;
+        }
+
+        if (!is_drag_preview)
+        {
+            ImGui::PushID("conn_color_edit");
+                
+            if (ImGui::ColorButton("##color_btn", conn_color_vec, ImGuiColorEditFlags_NoTooltip))
+            {
+                ImGui::OpenPopup("ColorPickerPopup");
+            }
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+            {
+                conn->color = 0;
+                if (commander_active)
+                {
+                    adam::string_hash h = conn->name.get_hash();
+                    ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_color_change(h, 0); });
+                }
+            }
+                
+            if (ImGui::BeginPopup("ColorPickerPopup"))
+            {
+                float picker_col[3] = { conn_color_vec.x, conn_color_vec.y, conn_color_vec.z };
+                    
+                if (conn->color == 0) 
+                {
+                    picker_col[0] = 1.0f; picker_col[1] = 1.0f; picker_col[2] = 1.0f;
+                }
+
+                if (ImGui::ColorPicker3("##picker", picker_col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview))
+                {
+                    uint32_t new_color = (static_cast<uint32_t>(picker_col[0] * 255.0f + 0.5f) << 16) |
+                                         (static_cast<uint32_t>(picker_col[1] * 255.0f + 0.5f) << 8) |
+                                         (static_cast<uint32_t>(picker_col[2] * 255.0f + 0.5f));
+                    if (new_color == 0) new_color = 0x000001; 
+                    conn->color = new_color;
+                }
+                    
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                {
+                    if (commander_active)
+                    {
+                        adam::string_hash h = conn->name.get_hash();
+                        uint32_t c = conn->color;
+                        ctrl.enqueue_commander_action([&ctrl, h, c]() { ctrl.commander().request_connection_color_change(h, c); });
+                    }
+                }
+                    
+                ImGui::EndPopup();
+            }
+            ImGui::PopID();
+        }
+        else
+        {
+            ImGui::ColorButton("##color_preview", conn_color_vec, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+        }
+
+        const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
+        const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
+            
+        ImGui::SameLine();
+
+        // Start/Stop execution controls for the entire connection chain
+        bool is_active = conn->is_active;
+        if (is_active) ImGui::BeginDisabled();
+        if (ImGui::Button(btn_start_str) && !is_drag_preview)
+        {
+            adam::string_hash h = conn->name.get_hash();
+            ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_start(h); });
+        }
+        if (is_active) ImGui::EndDisabled();
+            
+        ImGui::SameLine();
+        if (!is_active) ImGui::BeginDisabled();
+        if (ImGui::Button(btn_stop_str) && !is_drag_preview)
+        {
+            adam::string_hash h = conn->name.get_hash();
+            ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_stop(h); });
+        }
+        if (!is_active) ImGui::EndDisabled();
+
+        const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
+        float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            
+        ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
+            
+        // Delete button (prompts modal if populated, destroys directly if empty)
+        if (ImGui::Button(btn_delete_str) && !is_drag_preview)
+        {
+            if (conn->inputs.empty() && conn->outputs.empty() && conn->filters.empty())
+            {
+                adam::string_hash h = conn->name.get_hash();
+                ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_destroy(h); });
+            }
+            else
+            {
+                g_connection_to_delete = conn->name;
+                g_request_delete_popup = true;
+            }
+        }
+
+        // Drag handle for custom manual re-ordering (sort mode = 6)
+        if (sort_mode == 6 && !is_drag_preview)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+            ImGui::Button("##drag_handle", ImVec2(-1.0f, 4.0f * dpi_scale));
+            ImGui::PopStyleColor(3);
+
+            if (ImGui::IsItemActivated())
+            {
+                ImVec2 mouse_pos = ImGui::GetMousePos();
+                ImVec2 win_pos = ImGui::GetWindowPos();
+                g_connection_drag_offset = ImVec2(mouse_pos.x - win_pos.x, mouse_pos.y - win_pos.y);
+            }
+
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID | ImGuiDragDropFlags_SourceNoPreviewTooltip))
+            {
+                ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hash));
+                ImGui::EndDragDropSource();
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            }
+        }
+        else
+        {
+            ImGui::Separator();
+        }
+    }
+
+    /**
+     * @brief Draws the bezier curve lines and pin connection dots between the different port nodes.
+     */
+    void draw_connection_lines(
+        ImDrawList* draw_list,
+        float dpi_scale,
+        bool is_light_theme,
+        int total_stages,
+        size_t max_rows,
+        float row_height,
+        float avail_x,
+        const ImVec2& cur_pos,
+        const std::vector<std::vector<connection_pin_data>>& stage_pins_in,
+        const std::vector<std::vector<connection_pin_data>>& stage_pins_out,
+        adam::connection_view* conn)
+    {
+        ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
+        ImColor grey_col = is_light_theme ? ImColor(210, 210, 210, 80) : ImColor(70, 70, 70, 80);
+        float line_thickness = 5.f * dpi_scale;
+        size_t num_processors = conn->filters.size() + conn->converters.size();
+
+        auto formats_match_gui = [](const std::string& fmt1, const std::string& fmt2) -> bool
+        {
+            if (fmt1.empty() || fmt2.empty())
+                return true;
+            if (fmt1 == "transparent" || fmt2 == "transparent" || fmt1 == "transparent (none)" || fmt2 == "transparent (none)" || fmt1 == "dataformat_transparent" || fmt2 == "dataformat_transparent")
+                return true;
+            return fmt1 == fmt2;
+        };
+
+        // Special layout case: straight bypass through center when no processor nodes are present
+        if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
+        {
+            float center_y = cur_pos.y + static_cast<float>(max_rows) * row_height * 0.5f;
+            float mid_x = cur_pos.x + avail_x * 0.5f;
+                
+            ImVec2 p_mid(mid_x, center_y);
+                
+            for (const auto& pin_out_data : stage_pins_out[0])
+            {
+                ImVec2 pin_out = pin_out_data.pos;
+                float b_strength = (mid_x - pin_out.x) * 0.5f;
+                
+                bool matches_any_output = false;
+                for (const auto& out_pin : stage_pins_in[1])
+                {
+                    if (formats_match_gui(pin_out_data.format_name, out_pin.format_name))
+                    {
+                        matches_any_output = true;
+                        break;
+                    }
+                }
+                ImColor cur_line_col = matches_any_output ? line_col : grey_col;
+
+                draw_list->AddBezierCubic(
+                    pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(mid_x - b_strength, center_y), p_mid,
+                    cur_line_col, line_thickness);
+            }
+                
+            for (const auto& pin_in_data : stage_pins_in[1])
+            {
+                ImVec2 pin_in = pin_in_data.pos;
+                float b_strength = (pin_in.x - mid_x) * 0.5f;
+
+                bool matches_any_input = false;
+                for (const auto& in_pin : stage_pins_out[0])
+                {
+                    if (formats_match_gui(in_pin.format_name, pin_in_data.format_name))
+                    {
+                        matches_any_input = true;
+                        break;
+                    }
+                }
+                ImColor cur_line_col = matches_any_input ? line_col : grey_col;
+
+                draw_list->AddBezierCubic(
+                    p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
+                    cur_line_col, line_thickness);
+            }
+                
+            draw_list->AddCircleFilled(p_mid, line_thickness * 0.6f, line_col);
+        }
+        else
+        {
+            // Standard multi-stage bezier wiring
+            for (int s = 0; s < total_stages - 1; ++s)
+            {
+                for (const auto& pin_out_data : stage_pins_out[s])
+                {
+                    ImVec2 pin_out = pin_out_data.pos;
+                    for (const auto& pin_in_data : stage_pins_in[s + 1])
+                    {
+                        ImVec2 pin_in = pin_in_data.pos;
+                        float b_strength = (pin_in.x - pin_out.x) * 0.5f;
+
+                        ImColor cur_line_col = formats_match_gui(pin_out_data.format_name, pin_in_data.format_name) ? line_col : grey_col;
+
+                        draw_list->AddBezierCubic(
+                            pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
+                            cur_line_col, line_thickness);
+                    }
+                }
+            }
+        }
+
+        // Draw circular connection dots (pins) on active nodes
+        auto draw_pin_dot = [&](const connection_pin_data& pin)
+        {
+            draw_list->AddCircleFilled(pin.pos, 6.0f * dpi_scale, pin.col);
+        };
+
+        for (int s = 0; s < total_stages; ++s)
+        {
+            if (s > 0)
+            {
+                for (const auto& pin_in : stage_pins_in[s]) draw_pin_dot(pin_in);
+            }
+            if (s < total_stages - 1)
+            {
+                for (const auto& pin_out : stage_pins_out[s]) draw_pin_dot(pin_out);
+            }
+        }
+    }
+
+    /**
+     * @brief Renders the node addition buttons ("Add Input", "Add Output", "Add Processor") 
+     *        at the bottom of a connection card.
+     */
+    void draw_connection_card_footer(
+        gui_controller& ctrl,
+        adam::language lang,
+        adam::connection_view* conn,
+        bool is_drag_preview,
+        float port_w,
+        float current_y,
+        float start_x,
+        float avail_x,
+        float avail_w)
+    {
+        (void)ctrl;
+        const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
+        const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
+        const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
+
+        float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
+        ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
+        if (ImGui::Button(btn_add_input_str) && !is_drag_preview)
+        {
+            g_target_connection = conn->name;
+            g_target_direction = adam::port::direction_in;
+            g_request_port_popup = true;
+        }
+
+        if (!conn->inputs.empty())
+        {
+            float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
+            ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
+            if (ImGui::Button(btn_add_output_str) && !is_drag_preview)
+            {
+                g_target_connection = conn->name;
+                g_target_direction = adam::port::direction_out;
+                g_request_port_popup = true;
+            }
+
+            if (!conn->outputs.empty())
+            {
+                float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                float center_x = (avail_w - add_proc_w) * 0.5f;
+                ImGui::SetCursorPos(ImVec2(center_x, current_y));
+                ImGui::Button(btn_add_processor_str);
+            }
+        }
+    }
+
+    void render_connection_card(gui_controller& ctrl, adam::language lang, int sort_mode, adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w)
+    {
         float dpi_scale = ImGui::GetStyle()._MainScale;
         auto& reg_view = ctrl.commander().registry();
-        const auto& connections = reg_view.get_connections();
         const auto& ports = reg_view.get_ports();
 
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
@@ -713,7 +1402,7 @@ namespace adam::gui
             
         if (is_being_dragged)
         {
-            bg.w *= 0.4f; // Ghost transparency
+            bg.w *= 0.4f;
         }
             
         ImGui::PushStyleColor(ImGuiCol_ChildBg, bg);
@@ -739,7 +1428,33 @@ namespace adam::gui
             float padding_y = ImGui::GetStyle().WindowPadding.y;
             float exp_pad = 8.0f * dpi_scale;
 
-            float h = (text_h * 3.0f) + (frame_h * 3.0f) + (4.0f * dpi_scale) + (spacing_y * 5.0f) + (padding_y * 2.0f) + (exp_pad * 2.0f);
+            uint64_t p_hash_in = uid ^ hash ^ (0 << 16);
+            uint64_t p_hash_out = uid ^ hash ^ ((total_stages - 1) << 16);
+            bool has_stats = false;
+
+            if (ctrl.is_commander_active())
+            {
+                const auto& ports_map = ctrl.commander().registry().ports();
+                auto it = ports_map.find(p_hash_in);
+                if (it == ports_map.end())
+                {
+                    it = ports_map.find(p_hash_out);
+                }
+                if (it != ports_map.end() && it->second->statistic_buffer)
+                {
+                    has_stats = true;
+                }
+            }
+
+            float h = 0.0f;
+            if (has_stats)
+            {
+                h = (text_h * 5.0f) + (frame_h * 3.0f) + (spacing_y * 10.0f) + (padding_y * 2.0f) + (exp_pad * 2.0f) + (8.0f * dpi_scale);
+            }
+            else
+            {
+                h = (text_h * 3.0f) + (frame_h * 3.0f) + (spacing_y * 7.0f) + (padding_y * 2.0f) + (exp_pad * 2.0f) + (4.0f * dpi_scale);
+            }
 
             if (std::find(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), uid) != g_expanded_inject_nodes.end())
             {
@@ -774,7 +1489,7 @@ namespace adam::gui
 
         if (!is_drag_preview) ImGui::BeginGroup();
 
-        std::vector<std::function<void()>> deferred_expansions;
+        std::vector<expanded_port_render_info> deferred_expansions;
 
         if (is_being_dragged) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.4f);
 
@@ -812,195 +1527,12 @@ namespace adam::gui
                 }
             }
 
-            ImGui::AlignTextToFramePadding();
-
-            char name_buf[max_name_length];
-            std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
-            name_buf[sizeof(name_buf) - 1] = '\0';
-
-            ImGui::PushID("conn_name_edit");
-            bool enter_pressed = false;
-            bool deactivated = false;
-            if (!is_drag_preview)
-            {
-                ImGui::SetNextItemWidth(port_w);
-                enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
-                deactivated = ImGui::IsItemDeactivatedAfterEdit();
-            }
-            else
-            {
-                ImGui::TextUnformatted(name_buf);
-            }
-            ImGui::PopID();
-
-            if (enter_pressed || deactivated)
-            {
-                if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
-                {
-                    adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
-                    if (connections.find(proposed_hash) == connections.end())
-                    {
-                        adam::string_hash old_hash = conn->name.get_hash();
-                        adam::string_hashed new_name(&name_buf[0]);
-                        ctrl.enqueue_commander_action([&ctrl, old_hash, new_name]() { ctrl.commander().request_connection_rename(old_hash, new_name); });
-                    }
-                }
-            }
-
-            ImGui::SameLine();
-
-            ImVec4 conn_color_vec;
-            if (conn->color == 0)
-            {
-                conn_color_vec = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
-            }
-            else
-            {
-                conn_color_vec.x = ((conn->color >> 16) & 0xFF) / 255.0f;
-                conn_color_vec.y = ((conn->color >> 8) & 0xFF) / 255.0f;
-                conn_color_vec.z = (conn->color & 0xFF) / 255.0f;
-                conn_color_vec.w = 1.0f;
-            }
-
-            if (!is_drag_preview)
-            {
-                ImGui::PushID("conn_color_edit");
-                    
-                if (ImGui::ColorButton("##color_btn", conn_color_vec, ImGuiColorEditFlags_NoTooltip))
-                {
-                    ImGui::OpenPopup("ColorPickerPopup");
-                }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-                {
-                    conn->color = 0;
-                    if (commander_active)
-                    {
-                        adam::string_hash h = conn->name.get_hash();
-                        ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_color_change(h, 0); });
-                    }
-                }
-                    
-                if (ImGui::BeginPopup("ColorPickerPopup"))
-                {
-                    float picker_col[3] = { conn_color_vec.x, conn_color_vec.y, conn_color_vec.z };
-                        
-                    if (conn->color == 0) 
-                    {
-                        picker_col[0] = 1.0f; picker_col[1] = 1.0f; picker_col[2] = 1.0f;
-                    }
-
-                    if (ImGui::ColorPicker3("##picker", picker_col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview))
-                    {
-                        uint32_t new_color = (static_cast<uint32_t>(picker_col[0] * 255.0f + 0.5f) << 16) |
-                                             (static_cast<uint32_t>(picker_col[1] * 255.0f + 0.5f) << 8) |
-                                             (static_cast<uint32_t>(picker_col[2] * 255.0f + 0.5f));
-                        if (new_color == 0) new_color = 0x000001; 
-                        conn->color = new_color;
-                    }
-                        
-                    if (ImGui::IsItemDeactivatedAfterEdit())
-                    {
-                        if (commander_active)
-                        {
-                            adam::string_hash h = conn->name.get_hash();
-                            uint32_t c = conn->color;
-                            ctrl.enqueue_commander_action([&ctrl, h, c]() { ctrl.commander().request_connection_color_change(h, c); });
-                        }
-                    }
-                        
-                    ImGui::EndPopup();
-                }
-                ImGui::PopID();
-            }
-            else
-            {
-                ImGui::ColorButton("##color_preview", conn_color_vec, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
-            }
-
-            const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
-            const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
-                
-            ImGui::SameLine();
-
-            bool is_active = conn->is_active;
-            if (is_active) ImGui::BeginDisabled();
-            if (ImGui::Button(btn_start_str) && !is_drag_preview)
-            {
-                adam::string_hash h = conn->name.get_hash();
-                ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_start(h); });
-            }
-            if (is_active) ImGui::EndDisabled();
-                
-            ImGui::SameLine();
-            if (!is_active) ImGui::BeginDisabled();
-            if (ImGui::Button(btn_stop_str) && !is_drag_preview)
-            {
-                adam::string_hash h = conn->name.get_hash();
-                ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_stop(h); });
-            }
-            if (!is_active) ImGui::EndDisabled();
-
-            const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
-            float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                
-            ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
-                
-            if (ImGui::Button(btn_delete_str) && !is_drag_preview)
-            {
-                if (conn->inputs.empty() && conn->outputs.empty() && conn->filters.empty())
-                {
-                    adam::string_hash h = conn->name.get_hash();
-                    ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_destroy(h); });
-                }
-                else
-                {
-                    g_connection_to_delete = conn->name;
-                    g_request_delete_popup = true;
-                }
-            }
-
-            if (sort_mode == 6 && !is_drag_preview)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
-                ImGui::Button("##drag_handle", ImVec2(-1.0f, 4.0f * dpi_scale));
-                ImGui::PopStyleColor(3);
-
-                if (ImGui::IsItemActivated())
-                {
-                    ImVec2 mouse_pos = ImGui::GetMousePos();
-                    ImVec2 win_pos = ImGui::GetWindowPos(); // The top-left of the card child
-                    g_connection_drag_offset = ImVec2(mouse_pos.x - win_pos.x, mouse_pos.y - win_pos.y);
-                }
-
-                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID | ImGuiDragDropFlags_SourceNoPreviewTooltip))
-                {
-                    ImGui::SetDragDropPayload("DND_CONNECTION", &hash, sizeof(adam::string_hash));
-                    ImGui::EndDragDropSource();
-                }
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                }
-            }
-            else
-            {
-                ImGui::Separator();
-            }
+            draw_connection_card_header(ctrl, lang, sort_mode, hash, conn, is_drag_preview, dpi_scale, port_w);
 
             ImVec2 cur_pos = ImGui::GetCursorScreenPos();
                 
             float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
             float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
-
-            enum node_type : uint8_t
-            {
-                node_type_input,
-                node_type_output,
-                node_type_processor,
-                node_type_converter
-            };
                 
             // --- START: Node Renderer ---
             auto draw_node = [&](const char* name, node_type type, int stage, float row, ImColor color, connection_pin_data& out_pin_in, connection_pin_data& out_pin_out, bool is_unavail = false, const char* unavail_module = nullptr, adam::string_hash port_hash = 0, float extra_y = 0.0f)
@@ -1090,192 +1622,19 @@ namespace adam::gui
                     ImColor captured_color = color;
                     uint64_t unique_node_id = static_cast<uint64_t>(port_hash ^ hash ^ (stage << 16));
                     float this_expanded_h = get_expanded_h(unique_node_id);
-                    deferred_expansions.push_back([&ctrl, type, lang, hash, stage, port_hash, unique_node_id, p_max, current_node_w, captured_color, &ports, dpi_scale, draw_list, this_expanded_h]() 
-                    {
-                        float exp_pad = 8.0f * dpi_scale;
-                        ImVec2 exp_min(p_max.x - current_node_w, p_max.y - 1.5f * dpi_scale);
-                        ImVec2 exp_max(p_max.x, p_max.y + this_expanded_h);
-
-                        ImVec4 bg_col = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
-                        bg_col.w = 1.0f;
-                        draw_list->AddRectFilled(exp_min, exp_max, ImColor(bg_col), 6.0f * dpi_scale, ImDrawFlags_RoundCornersBottom);
-                        draw_list->AddRect(exp_min, exp_max, ImColor(captured_color.Value.x * 1.2f, captured_color.Value.y * 1.2f, captured_color.Value.z * 1.2f), 6.0f * dpi_scale, ImDrawFlags_RoundCornersBottom, 1.5f * dpi_scale);
-
-                        // Draw type and module
-                        bool p_is_active = false;
-                        std::string p_type = "Unknown";
-                        std::string p_module = "Unknown";
-                        adam::port::statistic_info stats = {0, 0, 0, 0};
-                        bool has_stats = false;
-                        auto p_it = ports.find(port_hash);
-                        if (p_it != ports.end())
-                        {
-                            p_is_active = p_it->second->is_active;
-                            if (p_it->second->statistic_buffer)
-                            {
-                                stats = *p_it->second->statistic_buffer->data_as<adam::port::statistic_info>();
-                                has_stats = true;
-                            }
-                            if (p_it->second->type.get_hash() == ("internal"_ct).get_hash())
-                            {
-                                p_type = "internal";
-                                p_module = "Internal";
-                            }
-                            else
-                            {
-                                p_type = p_it->second->type.c_str();
-                                if (p_it->second->type_module.get_hash() != 0)
-                                    p_module = p_it->second->type_module.c_str();
-                                else
-                                    p_module = "Unknown Module";
-                            }
-                        }
-
-                        ImGui::SetCursorScreenPos(ImVec2(exp_min.x + exp_pad, exp_min.y + exp_pad));
-                        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
-                        ImGui::BeginChild(static_cast<ImGuiID>(unique_node_id), ImVec2(current_node_w - exp_pad * 2.0f, this_expanded_h - exp_pad * 2.0f), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-                        ImGui::PopStyleColor();
-                        
-                        ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s [%s]", p_type.c_str(), p_module.c_str());
-                        ImGui::Separator();
-
-                        // Draw stats
-                        if (has_stats)
-                        {
-                            auto format_bytes = [](uint64_t bytes) -> std::string 
-                            {
-                                char buf[64];
-                                if (bytes < 1024) snprintf(buf, sizeof(buf), "%llu B", (unsigned long long)bytes);
-                                else if (bytes < 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f KB", bytes / 1024.0);
-                                else if (bytes < 1024 * 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f MB", bytes / (1024.0 * 1024.0));
-                                else snprintf(buf, sizeof(buf), "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
-                                return buf;
-                            };
-                            
-                            ImGui::TextDisabled(get_gui_string(gui_string_id::lbl_stat_handled, lang), (unsigned long long)stats.total_buffers_handled, format_bytes(stats.total_bytes_handled).c_str());
-                            ImGui::TextDisabled(get_gui_string(gui_string_id::lbl_stat_discarded, lang), (unsigned long long)stats.total_buffers_discarded, format_bytes(stats.total_bytes_discarded).c_str());
-                        }
-                        else
-                        {
-                            ImGui::TextDisabled("%s", get_gui_string(gui_string_id::lbl_stat_unavailable, lang));
-                            ImGui::TextDisabled("");
-                        }
-                        ImGui::Separator();
-
-                        float btn_w = (ImGui::GetContentRegionAvail().x - exp_pad) * 0.5f;
-
-                        // Start/Stop
-                        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x1111));
-                        if (p_is_active) ImGui::BeginDisabled();
-                        if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang), ImVec2(btn_w, 0)))
-                            ctrl.enqueue_commander_action([&ctrl, port_hash]() { ctrl.commander().request_port_start(port_hash); });
-                        if (p_is_active) ImGui::EndDisabled();
-                        ImGui::PopID();
-
-                        ImGui::SameLine(0.0f, exp_pad);
-
-                        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x2222));
-                        if (!p_is_active) ImGui::BeginDisabled();
-                        if (ImGui::Button(get_gui_string(gui_string_id::btn_stop, lang), ImVec2(btn_w, 0)))
-                            ctrl.enqueue_commander_action([&ctrl, port_hash]() { ctrl.commander().request_port_stop(port_hash); });
-                        if (!p_is_active) ImGui::EndDisabled();
-                        ImGui::PopID();
-                        
-                        ImGui::Separator();
-
-                        // Inject Data
-                        ImGui::PushID((const void*)(intptr_t)(unique_node_id ^ 0x3333));
-                        bool inject_expanded = std::find(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), unique_node_id) != g_expanded_inject_nodes.end();
-                        
-                        bool tree_open = ImGui::TreeNodeEx(get_gui_string(gui_string_id::lbl_inject_data, lang), inject_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
-                        if (tree_open != inject_expanded)
-                        {
-                            if (tree_open)
-                                g_expanded_inject_nodes.push_back(unique_node_id);
-                            else
-                                g_expanded_inject_nodes.erase(std::remove(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), unique_node_id), g_expanded_inject_nodes.end());
-                        }
-
-                        if (tree_open)
-                        {
-                            ImGui::Unindent();
-
-                            auto& inject_state = g_inject_data_buffers[unique_node_id];
-                            if (inject_state.text_buffer.size() < 1024) inject_state.text_buffer.resize(1024, '\0');
-                            
-                            std::string current_input = inject_state.text_buffer.c_str();
-                            if (current_input != inject_state.last_parsed_text)
-                            {
-                                auto parse_result = parse_hex_bytes(current_input);
-                                inject_state.is_valid = parse_result.first;
-                                inject_state.parsed_bytes = parse_result.second;
-                                inject_state.last_parsed_text = current_input;
-                            }
-
-                            bool has_invalid_input = !inject_state.is_valid && !current_input.empty();
-
-                            if (has_invalid_input)
-                            {
-                                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f * dpi_scale);
-                                ImGui::PushStyleColor(ImGuiCol_Border, get_gui_color(gui_color_id::log_error));
-                            }
-
-                            float avail_w = ImGui::GetContentRegionAvail().x;
-                            
-                            ImGui::InputTextMultiline("##inject_data", inject_state.text_buffer.data(), inject_state.text_buffer.size(), ImVec2(avail_w, 100.0f * dpi_scale), ImGuiInputTextFlags_WordWrap);
-                            
-                            if (has_invalid_input)
-                            {
-                                ImGui::PopStyleColor();
-                                ImGui::PopStyleVar();
-                            }
-
-                            bool disable_inject = !p_is_active || !inject_state.is_valid;
-                            if (disable_inject) ImGui::BeginDisabled();
-
-                            if (ImGui::Button(get_gui_string(gui_string_id::btn_inject, lang), ImVec2(avail_w, 0)))
-                            {
-                                if (inject_state.is_valid && !inject_state.parsed_bytes.empty())
-                                {
-                                    std::vector<uint8_t> data_to_inject = inject_state.parsed_bytes;
-                                    ctrl.enqueue_commander_action([&ctrl, type, port_hash, data_to_inject]() 
-                                    { 
-                                        switch(type)
-                                        {
-                                            case node_type_input:
-                                                ctrl.commander().request_port_inject_data(port_hash, data_to_inject.data(), data_to_inject.size(), data_direction_in); 
-                                                break;
-                                            case node_type_output:
-                                                ctrl.commander().request_port_inject_data(port_hash, data_to_inject.data(), data_to_inject.size(), data_direction_out); 
-                                                break;
-                                        }
-                                    });
-                                }
-                            }
-
-                            if (disable_inject) ImGui::EndDisabled();
-
-                            ImGui::Indent();
-                            ImGui::TreePop();
-                        }
-                        ImGui::PopID();
-
-                        ImGui::Separator();
-
-                        // Remove
-                        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x4444));
-                        if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_port, lang), ImVec2(current_node_w - exp_pad * 2.0f, 0)))
-                        {
-                            bool is_input_port = (stage == 0);
-                            ctrl.enqueue_commander_action([&ctrl, hash, port_hash, is_input_port]() { ctrl.commander().request_connection_port_remove(hash, port_hash, is_input_port); });
-                        }
-                        ImGui::PopID();
-
-                        ImGui::EndChild();
+                    deferred_expansions.push_back({
+                        type,
+                        stage,
+                        port_hash,
+                        unique_node_id,
+                        p_max,
+                        current_node_w,
+                        captured_color,
+                        this_expanded_h,
+                        hash
                     });
                 }
                     
-                // --- START: Node Name Editor ---
                 if (port_hash != 0 && !is_drag_preview)
                 {
                     char name_buf[max_name_length];
@@ -1317,7 +1676,6 @@ namespace adam::gui
                         }
                     }
                 }
-                // --- END: Node Name Editor ---
                 else
                 {
                     float text_width = ImGui::CalcTextSize(name).x;
@@ -1356,7 +1714,6 @@ namespace adam::gui
                     ImGui::EndTooltip();
                 }
             };
-            // --- END: Node Renderer ---
 
             if (stage_pins_in.size() < static_cast<size_t>(total_stages))
             {
@@ -1387,6 +1744,10 @@ namespace adam::gui
                     mod_name = it->second->type_module.c_str();
 
                 draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", node_type_input, 0, 0.0f, col, p_in, p_out, is_unavail, mod_name, pid, current_in_y);
+                if (it != ports.end())
+                    p_out.format_name = it->second->datatype.c_str();
+                else
+                    p_out.format_name = "transparent";
                 stage_pins_out[0].push_back(p_out);
                 current_in_y += row_height;
 
@@ -1401,7 +1762,7 @@ namespace adam::gui
             float proc_extra_y = proc_offset * row_height;
             for (auto fid : conn->filters)
             {
-                (void)fid; // Unused
+                (void)fid;
                 connection_pin_data p_in, p_out;
                 if (compact_processors)
                 {
@@ -1413,6 +1774,8 @@ namespace adam::gui
                 {
                     draw_node("Filter", node_type_processor, current_stage, 0.0f, proc_col, p_in, p_out, false, nullptr, 0, proc_extra_y);
                 }
+                p_in.format_name = "transparent";
+                p_out.format_name = "transparent";
                 stage_pins_in[current_stage].push_back(p_in);
                 stage_pins_out[current_stage].push_back(p_out);
                 current_stage++;
@@ -1420,7 +1783,7 @@ namespace adam::gui
             }
             for (auto cid : conn->converters)
             {
-                (void)cid; // Unused
+                (void)cid;
                 connection_pin_data p_in, p_out;
                 if (compact_processors)
                 {
@@ -1432,6 +1795,8 @@ namespace adam::gui
                 {
                     draw_node("Converter", node_type_converter, current_stage, 0.0f, proc_col, p_in, p_out, false, nullptr, 0, proc_extra_y);
                 }
+                p_in.format_name = "transparent";
+                p_out.format_name = "transparent";
                 stage_pins_in[current_stage].push_back(p_in);
                 stage_pins_out[current_stage].push_back(p_out);
                 current_stage++;
@@ -1452,6 +1817,10 @@ namespace adam::gui
                     mod_name = it->second->type_module.c_str();
 
                 draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", node_type_output, total_stages - 1, 0.0f, col, p_in, p_out, is_unavail, mod_name, pid, current_out_y);
+                if (it != ports.end())
+                    p_in.format_name = it->second->datatype.c_str();
+                else
+                    p_in.format_name = "transparent";
                 stage_pins_in[total_stages - 1].push_back(p_in);
                 current_out_y += row_height;
 
@@ -1460,75 +1829,12 @@ namespace adam::gui
                     current_out_y += get_expanded_h(uid);
             }
 
-            ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
-            float line_thickness = 5.f * dpi_scale;
-                
-            if (num_processors == 0 && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
-            {
-                float center_y = cur_pos.y + static_cast<float>(max_rows) * row_height * 0.5f;
-                float mid_x = cur_pos.x + avail_x * 0.5f;
-                    
-                ImVec2 p_mid(mid_x, center_y);
-                    
-                for (const auto& pin_out_data : stage_pins_out[0])
-                {
-                    ImVec2 pin_out = pin_out_data.pos;
-                    float b_strength = (mid_x - pin_out.x) * 0.5f;
-                    draw_list->AddBezierCubic(
-                        pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(mid_x - b_strength, center_y), p_mid,
-                        line_col, line_thickness);
-                }
-                    
-                for (const auto& pin_in_data : stage_pins_in[1])
-                {
-                    ImVec2 pin_in = pin_in_data.pos;
-                    float b_strength = (pin_in.x - mid_x) * 0.5f;
-                    draw_list->AddBezierCubic(
-                        p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
-                        line_col, line_thickness);
-                }
-                    
-                draw_list->AddCircleFilled(p_mid, line_thickness * 0.6f, line_col);
-            }
-            else
-            {
-                for (int s = 0; s < total_stages - 1; ++s)
-                {
-                    for (const auto& pin_out_data : stage_pins_out[s])
-                    {
-                        ImVec2 pin_out = pin_out_data.pos;
-                        for (const auto& pin_in_data : stage_pins_in[s + 1])
-                        {
-                            ImVec2 pin_in = pin_in_data.pos;
-                            float b_strength = (pin_in.x - pin_out.x) * 0.5f;
-                            draw_list->AddBezierCubic(
-                                pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
-                                line_col, line_thickness);
-                        }
-                    }
-                }
-            }
+            // Draw connection bezier cables
+            draw_connection_lines(draw_list, dpi_scale, is_light_theme, total_stages, max_rows, row_height, avail_x, cur_pos, stage_pins_in, stage_pins_out, conn);
 
-        auto draw_pin_dot = [&](const connection_pin_data& pin)
-        {
-                draw_list->AddCircleFilled(pin.pos, 6.0f * dpi_scale, pin.col);
-            };
-
-            for (int s = 0; s < total_stages; ++s)
+            for (const auto& info : deferred_expansions)
             {
-                if (s > 0)
-                {
-                    for (const auto& pin_in : stage_pins_in[s]) draw_pin_dot(pin_in);
-                }
-                if (s < total_stages - 1)
-                {
-                    for (const auto& pin_out : stage_pins_out[s]) draw_pin_dot(pin_out);
-                }
-            }
-
-            for (auto& fn : deferred_expansions)
-            {
-                fn();
+                draw_expanded_port_node(ctrl, lang, ports, dpi_scale, draw_list, info);
             }
 
             ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + max_col_h));
@@ -1544,42 +1850,8 @@ namespace adam::gui
             float current_y = ImGui::GetCursorPosY();
             float start_x = ImGui::GetStyle().WindowPadding.x;
 
-            // --- START: Add Node Buttons ---
-            const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
-            const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
-            const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
-
-            float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-            float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
-            ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
-            if (ImGui::Button(btn_add_input_str) && !is_drag_preview)
-            {
-                g_target_connection = conn->name;
-                g_target_direction = adam::port::direction_in;
-                g_request_port_popup = true;
-            }
-
-            if (!conn->inputs.empty())
-            {
-                float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
-                ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
-                if (ImGui::Button(btn_add_output_str) && !is_drag_preview)
-                {
-                    g_target_connection = conn->name;
-                    g_target_direction = adam::port::direction_out;
-                    g_request_port_popup = true;
-                }
-
-                if (!conn->outputs.empty())
-                {
-                    float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                    float center_x = (avail_w - add_proc_w) * 0.5f;
-                    ImGui::SetCursorPos(ImVec2(center_x, current_y));
-                    ImGui::Button(btn_add_processor_str);
-                }
-            }
-            // --- END: Add Node Buttons ---
+            // Draw card footer node-adding buttons
+            draw_connection_card_footer(ctrl, lang, conn, is_drag_preview, port_w, current_y, start_x, avail_x, avail_w);
         }
         ImGui::EndChild();
 
@@ -1639,7 +1911,17 @@ namespace adam::gui
         
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
-        bool table_open = ImGui::BeginTable("InspectorPortsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+        auto format_bytes = [](uint64_t bytes) -> std::string 
+        {
+            char buf[64];
+            if (bytes < 1024) snprintf(buf, sizeof(buf), "%llu B", (unsigned long long)bytes);
+            else if (bytes < 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f KB", bytes / 1024.0);
+            else if (bytes < 1024 * 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f MB", bytes / (1024.0 * 1024.0));
+            else snprintf(buf, sizeof(buf), "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+            return buf;
+        };
+
+        bool table_open = ImGui::BeginTable("InspectorPortsTable", 8, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
         if (table_open)
         {
             auto setup_columns = [dpi_scale, lang]() 
@@ -1649,6 +1931,7 @@ namespace adam::gui
                 ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, 22.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_inspect, lang),       ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_port_name, lang),     ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_data_format, lang),   ImGuiTableColumnFlags_WidthStretch);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang),      ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang),          ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_last_received, lang), ImGuiTableColumnFlags_WidthStretch);
@@ -1761,6 +2044,82 @@ namespace adam::gui
                 ImGui::TextUnformatted(p_view->name.c_str());
                 // ---- END Name  ----
 
+                // ---- BEGIN Data Format Combo ----
+                ImGui::TableSetColumnIndex(4);
+                ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x5555));
+                
+                std::string current_format_str;
+                if (p_view->datatype.empty() || p_view->datatype == "transparent"_ct || p_view->datatype == "dataformat_transparent"_ct)
+                {
+                    current_format_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                }
+                else
+                {
+                    current_format_str = p_view->datatype.c_str();
+                }
+                
+                if (p_view->datatype_module.c_str()[0] != '\0')
+                {
+                    current_format_str += " [";
+                    current_format_str += p_view->datatype_module.c_str();
+                    current_format_str += "]";
+                }
+                
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::BeginCombo("##DataFormatComboRegistry", current_format_str.c_str()))
+                {
+                    std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
+                    available_formats.push_back({ "transparent"_ct, ""_ct });
+                    {
+                        std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
+                        for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
+                        {
+                            for (const auto& fmt : mod_info.data_formats)
+                            {
+                                available_formats.push_back({ fmt, mod_name });
+                            }
+                        }
+                    }
+
+                    for (const auto& [fmt, mod] : available_formats)
+                    {
+                        std::string item_str;
+                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
+                        {
+                            item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                        }
+                        else
+                        {
+                            item_str = fmt.c_str();
+                        }
+                        if (mod.c_str()[0] != '\0')
+                        {
+                            item_str += " [";
+                            item_str += mod.c_str();
+                            item_str += "]";
+                        }
+                        
+                        bool is_selected = (fmt == p_view->datatype && mod == p_view->datatype_module);
+                        if (ImGui::Selectable(item_str.c_str(), is_selected))
+                        {
+                            if (!is_selected)
+                            {
+                                ctrl.enqueue_commander_action([&ctrl, port_hash, fmt, mod]()
+                                {
+                                    ctrl.commander().request_port_set_data_format(port_hash, fmt.get_hash(), mod.get_hash());
+                                });
+                            }
+                        }
+                        if (is_selected)
+                        {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopID();
+                // ---- END Data Format Combo ----
+
                 if (has_inspector)
                 {
                     size_t msg_count = 0;
@@ -1791,24 +2150,15 @@ namespace adam::gui
                         }
                     }
 
-                    // ---- BEGIN Name  ----
-                    ImGui::TableSetColumnIndex(4);
-                    ImGui::Text("%zu", msg_count);
-                    // ---- END Name  ----
-
+                    // ---- BEGIN Messages  ----
                     ImGui::TableSetColumnIndex(5);
-                    auto format_bytes = [](uint64_t bytes) -> std::string 
-                    {
-                        char buf[64];
-                        if (bytes < 1024) snprintf(buf, sizeof(buf), "%llu B", (unsigned long long)bytes);
-                        else if (bytes < 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f KB", bytes / 1024.0);
-                        else if (bytes < 1024 * 1024 * 1024) snprintf(buf, sizeof(buf), "%.2f MB", bytes / (1024.0 * 1024.0));
-                        else snprintf(buf, sizeof(buf), "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
-                        return buf;
-                    };
-                    ImGui::TextUnformatted(format_bytes(total_size).c_str());
+                    ImGui::Text("%zu", msg_count);
+                    // ---- END Messages  ----
 
                     ImGui::TableSetColumnIndex(6);
+                    ImGui::TextUnformatted(format_bytes(total_size).c_str());
+
+                    ImGui::TableSetColumnIndex(7);
                     if (msg_count > 0)
                     {
                         ImGui::Text("%s | %s", adam::get_log_time_string(last_ts).c_str(), preview_hex.c_str());
@@ -1925,7 +2275,7 @@ namespace adam::gui
                     ImGui::Spacing();
                     ImGui::PopID();
 
-                    table_open = ImGui::BeginTable("InspectorPortsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+                    table_open = ImGui::BeginTable("InspectorPortsTable", 8, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                     if (table_open)
                     {
                         setup_columns();

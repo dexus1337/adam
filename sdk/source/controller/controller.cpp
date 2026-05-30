@@ -209,6 +209,9 @@ namespace adam
         }
         m_queues_event.clear();
 
+        m_registry.save("adam-config.bin");
+        m_registry.clear();
+
         buffer_manager::get().destroy();
         
         return true;

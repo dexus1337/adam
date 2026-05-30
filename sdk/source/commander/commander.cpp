@@ -236,7 +236,6 @@ namespace adam
                 pview->statistic_buffer = buffer_manager::get().resolve_handle(port_info->statistic_buffer_handle);
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
-            m_module_view.extract_datatype_and_module(port_info->format, port_info->format_module, pview->datatype, pview->datatype_module);
             
             m_registry_view.ports().emplace(pview->name.get_hash(), std::move(pview));
             current_idx++;
@@ -257,6 +256,10 @@ namespace adam
             conn->sorting_index = conn_info->sorting_index;
             conn->is_active = conn_info->is_active;
             conn->color = conn_info->color;
+
+            // Populate connection format fields
+            m_module_view.extract_datatype_and_module(conn_info->input_format,  conn_info->input_format_module,  conn->input_format,  conn->input_format_module);
+            m_module_view.extract_datatype_and_module(conn_info->output_format, conn_info->output_format_module, conn->output_format, conn->output_format_module);
             
             for (size_t j = 0; j < conn_info->input_count; j++)
                 conn->inputs.push_back(conn_info->inputs[j]);
@@ -368,6 +371,18 @@ namespace adam
         data->port = old_hash;
         std::strncpy(data->new_name, new_name.c_str(), sizeof(data->new_name) - 1);
         data->new_name[sizeof(data->new_name) - 1] = '\0';
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_set_data_format(string_hash conn_hash, string_hash input_format, string_hash input_format_module, string_hash output_format, string_hash output_format_module)
+    {
+        command cmd(command_type::connection_set_data_format);
+        auto* data = cmd.data_as<messages::connection_data_format_data>();
+        data->connection = conn_hash;
+        data->input_format = input_format;
+        data->input_format_module = input_format_module;
+        data->output_format = output_format;
+        data->output_format_module = output_format_module;
         return send_command(cmd);
     }
 

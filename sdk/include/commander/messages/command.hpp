@@ -45,6 +45,7 @@ namespace adam
         port_stop,
         port_rename,
         port_inject_data,
+        connection_set_data_format,
 
         connection_create,
         connection_destroy,

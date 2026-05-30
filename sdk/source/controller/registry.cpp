@@ -75,7 +75,8 @@ namespace adam
         m_connections(),
         m_default_port_factory(),
         m_controller(ctrl),
-        m_modules(ctrl)
+        m_modules(ctrl),
+        m_should_save_on_destruct(true)
     {
         add_parameters(get_default_parameters());
 
@@ -91,11 +92,15 @@ namespace adam
 
     registry::~registry() 
     {
-        save("adam-config.bin");
+        if (m_should_save_on_destruct)
+        {
+            save("adam-config.bin");
+        }
     }
 
     void registry::clear()
     {
+        m_should_save_on_destruct = false;
         m_ports.clear();
         m_filters.clear();
         m_converters.clear();
@@ -103,7 +108,7 @@ namespace adam
         m_unavailable_ports.clear();
     }
 
-    registry::status registry::create_port(const string_hashed& name, string_hash type, string_hash type_module, string_hash format, string_hash format_module, port** out_port)
+    registry::status registry::create_port(const string_hashed& name, string_hash type, string_hash type_module, port** out_port)
     {
         if (out_port) 
             *out_port = nullptr;
@@ -144,40 +149,7 @@ namespace adam
         if (!port_factory)
             return status_error_factory_not_found; // Unknown port type
 
-        // 3. Resolve the data format
-        string_hashed resolved_format_module_name;
-        if (format == 0)
-            format = string_hashed("dataformat_transparent").get_hash();
-
-        const data_format* port_format = nullptr;
-
-        if (format_module != 0)
-        {
-            auto it = m_modules.get_loaded_modules().find(format_module);
-            if (it != m_modules.get_loaded_modules().end())
-            {
-                const module* mod = it->second;
-                resolved_format_module_name = it->first;
-                auto format_it = mod->get_data_formats().find(format);
-                if (format_it != mod->get_data_formats().end())
-                    port_format = format_it->second;
-            }
-        }
-        else
-        {
-            for (const auto& [mod_name, mod] : m_modules.get_loaded_modules())
-            {
-                auto format_it = mod->get_data_formats().find(format);
-                if (format_it != mod->get_data_formats().end())
-                {
-                    port_format = format_it->second;
-                    resolved_format_module_name = mod_name;
-                    break;
-                }
-            }
-        }
-
-        // 4. Create the port and immediately take ownership in the registry
+        // 3. Create the port and immediately take ownership in the registry
         port* new_port = port_factory->create(name);
         if (!new_port)
             return status_error_creation_failed;
@@ -186,15 +158,6 @@ namespace adam
         {
             if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("type_origin_module"_ct)))
                 mod_param->set_value(resolved_module_name);
-        }
-
-        if (port_format) 
-        {
-            new_port->set_data_format(port_format);
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("data_format"_ct)))
-                param->set_value(port_format->get_name());
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("data_format_module"_ct)))
-                param->set_value(resolved_format_module_name);
         }
 
         m_ports.emplace(name, std::unique_ptr<port>(new_port));
@@ -624,6 +587,7 @@ namespace adam
 
         // Clear the existing state
         clear();
+        m_should_save_on_destruct = true;
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
 
@@ -676,7 +640,7 @@ namespace adam
                             }
 
                             port* new_port = nullptr;
-                            status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), 0, 0, &new_port);
+                            status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), &new_port);
                             if (status == status_success && new_port)
                             {
                                 copy_parameters(&new_port->get_parameters(), port_params);
@@ -807,7 +771,7 @@ namespace adam
             if (it->second->type_module == module_hash || it->second->type_module == 0)
             {
                 port* new_port = nullptr;
-                status stat = create_port(it->second->get_name(), it->second->type, it->second->type_module, it->second->format, it->second->format_module, &new_port);
+                status stat = create_port(it->second->get_name(), it->second->type, it->second->type_module, &new_port);
                 
                 if (stat == status_success && new_port)
                 {
@@ -844,13 +808,7 @@ namespace adam
                     
                     event evt(event_type::port_available);
                     auto* evt_data = evt.data_as<port::basic_info>();
-                    evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, 0, 0, false, new_port->get_statistic_buffer()->get_handle());
-
-                    if (new_port->get_data_format())
-                        evt_data->format = new_port->get_data_format()->get_name().get_hash();
-
-                    if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("data_format_module"_ct)))
-                        evt_data->format_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
+                    evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, false, new_port->get_statistic_buffer()->get_handle());
 
                     evt_data->dir       = new_port->get_direction();
                     evt_data->is_active = new_port->is_active();
@@ -879,17 +837,13 @@ namespace adam
                 auto port_hash = it->first;
                 auto port_name = it->second->get_name();
 
-                string_hashed orig_type, orig_format;
+                string_hashed orig_type;
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type"_ct)))
                     orig_type = param->get_value();
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("data_format"_ct)))
-                    orig_format = param->get_value();
 
                 auto upi = std::make_unique<port::unavailable_info>(port_name);
                 upi->type = orig_type.get_hash();
                 upi->type_module = module_hash;
-                upi->format = orig_format.get_hash();
-                upi->format_module = 0;
                 
                 copy_parameters(&upi->get_parameters(), &it->second->get_parameters());
 

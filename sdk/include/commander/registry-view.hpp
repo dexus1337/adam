@@ -30,8 +30,6 @@ namespace adam
         string_hashed name;
         string_hashed type;
         string_hashed type_module;
-        string_hashed datatype;
-        string_hashed datatype_module;
         bool is_active              = false;
         bool is_unavailable         = false;
         port::direction direction    = port::direction_invalid;
@@ -70,6 +68,12 @@ namespace adam
         uint64_t edited = 0;
         uint32_t sorting_index = 0;
         uint32_t color = 0;
+
+        /** @brief Input and output data formats of this connection. */
+        string_hashed input_format;
+        string_hashed input_format_module;
+        string_hashed output_format;
+        string_hashed output_format_module;
     };
 
     /**

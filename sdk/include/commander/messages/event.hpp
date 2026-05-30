@@ -38,6 +38,7 @@ namespace adam
         port_started,
         port_stopped,
         port_renamed,
+        connection_data_format_changed,
 
         port_available,
         port_unavailable,

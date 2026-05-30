@@ -29,7 +29,7 @@ namespace adam
                 m_in_connections.iterate([&](const auto& connections) 
                 {
                     for (const auto& conn : connections) 
-                        result &= conn->handle_data(buffer);
+                        result &= conn->handle_data(buffer, this);
                 });
 
                 auto* stat_data = m_statistic_buffer->data_as<statistic_info>();

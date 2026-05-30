@@ -18,11 +18,11 @@
 
 #include <memory>
 #include <cstring>
+#include <thread>
 
 namespace adam 
 {
     class buffer;
-    class data_format;
     class connection;
     class data_inspector;
 
@@ -30,9 +30,8 @@ namespace adam
      * @class port
      * @brief A base class for ports, providing a common interface for handling data flow in the ADAM system.
      * 
-     *        Provides the following configuraton parameter:
-     *        - type:           The type of the port, used for identification and lookup in the ADAM system. Each port implementation should have a unique type string.
-     *        - data_format:    The name of the data format associated with this port
+     *        Provides the following configuration parameters:
+     *        - type:           The type of the port, used for identification and lookup in the ADAM system.
      * 
      */
     class ADAM_SDK_API port : public configuration_item
@@ -53,19 +52,15 @@ namespace adam
             string_hash     type;
             string_hash     type_module;
             direction       dir;
-            string_hash     format;
-            string_hash     format_module;
             buffer_handle   statistic_buffer_handle;
             bool            is_active;
             bool            is_unavailable;
 
-            void setup(const string_hashed& n, string_hash t, string_hash tm, string_hash f = 0, string_hash fm = 0, bool unavail = false, buffer_handle bh = buffer_handle())
+            void setup(const string_hashed& n, string_hash t, string_hash tm, bool unavail = false, buffer_handle bh = buffer_handle())
             {
                 type = t;
                 type_module = tm;
                 dir = direction_invalid;
-                format = f;
-                format_module = fm;
                 statistic_buffer_handle = bh;
                 is_unavailable = unavail;
                 is_active = false;
@@ -85,10 +80,8 @@ namespace adam
         {
             string_hash type;
             string_hash type_module;
-            string_hash format;
-            string_hash format_module;
 
-            unavailable_info(const string_hashed& item_name) : configuration_item(item_name), type(0), type_module(0), format(0), format_module(0) { }
+            unavailable_info(const string_hashed& item_name) : configuration_item(item_name), type(0), type_module(0) { }
         };
 
         struct statistic_info
@@ -113,12 +106,11 @@ namespace adam
         /** @brief Gets the supported data flow direction capabilities of this port. */
         virtual direction get_direction() const = 0;
 
-        const data_format* get_data_format() const { return m_data_format; }
-        void set_data_format(const data_format* format) { m_data_format = format; }
+        // Data format is now owned by the connection, not the port.
 
-        vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors()    { return m_inspectors; }
-        vector_double_buffer<connection*>&                      in_connections()   { return m_in_connections; }
-        vector_double_buffer<connection*>&                      out_connections()  { return m_out_connections; }
+        vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors()        { return m_inspectors; }
+        vector_double_buffer<connection*>&                      in_connections()    { return m_in_connections; }
+        vector_double_buffer<connection*>&                      out_connections()   { return m_out_connections; }
 
         buffer* get_statistic_buffer() const { return m_statistic_buffer; }
 
@@ -133,20 +125,30 @@ namespace adam
         /** @brief Stops the port. */
         virtual bool stop();
 
+        /** @brief Protoype function for data input */
+        virtual bool read(buffer*& buff) { (void)buff; return false;}
+
+        /** @brief Protoype function for data output. */
+        virtual bool write(buffer* buff) { (void)buff; return false;}
+
     protected:
+
+        /** @brief Worker function for threaded ports. */
+        virtual void worker();
 
         /** @brief Constructs a new port object. */
         port(const string_hashed& item_name);
 
-        const data_format* m_data_format;                                       /**< The data format associated with this port, used for parsing/serializing data. */
+        bool m_b_threaded;                                                          /**< Indicates whether this port runs in its own Thread or not */
+        std::thread m_thread;                                                       /**< The thread object for threaded ports */
 
-        vector_double_buffer<connection*>                       m_in_connections;  /**< Connections where this port acts as an input. */
-        vector_double_buffer<connection*>                       m_out_connections; /**< Connections where this port acts as an output. */
-        vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;   /**< Zero or many data inspectors. All incoming data will be forwarded to them */
+        vector_double_buffer<connection*>                       m_in_connections;   /**< Connections where this port acts as an input. */
+        vector_double_buffer<connection*>                       m_out_connections;  /**< Connections where this port acts as an output. */
+        vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;       /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
-        buffer* m_statistic_buffer;                                             /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::statistic_info. */
+        buffer* m_statistic_buffer;                                                 /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::statistic_info. */
 
-        configuration_parameter_boolean* m_is_active;                           /**< Cached pointer to the is active parameter as it will be frequently accessed. */
+        configuration_parameter_boolean* m_is_active;                               /**< Cached pointer to the is active parameter as it will be frequently accessed. */
 
     };
 }
