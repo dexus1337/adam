@@ -106,6 +106,7 @@ namespace adam
         m_converters.clear();
         m_connections.clear();
         m_unavailable_ports.clear();
+        m_unavailable_connections.clear();
     }
 
     registry::status registry::create_port(const string_hashed& name, string_hash type, string_hash type_module, port** out_port)
@@ -224,7 +225,7 @@ namespace adam
             }
         }
             
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("edited"_ct)))
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
             param->set_value(static_cast<int64_t>(std::time(nullptr)));
             
         return status_success;
@@ -307,21 +308,17 @@ namespace adam
         auto new_connection = std::make_unique<connection>(name);
         auto timestamp      = std::time(nullptr);
 
-        auto created_param = std::make_unique<configuration_parameter_integer>("created"_ct);
-        created_param->set_value(static_cast<int64_t>(timestamp));
-        new_connection->get_parameters().add(std::move(created_param));
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("date_created"_ct)))
+            param->set_value(static_cast<int64_t>(timestamp));
 
-        auto edited_param = std::make_unique<configuration_parameter_integer>("edited"_ct);
-        edited_param->set_value(static_cast<int64_t>(timestamp));
-        new_connection->get_parameters().add(std::move(edited_param));
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("date_edited"_ct)))
+            param->set_value(static_cast<int64_t>(timestamp));
 
-        auto sorting_param = std::make_unique<configuration_parameter_integer>("sorting_index"_ct);
-        sorting_param->set_value(static_cast<int64_t>(m_connections.size()));
-        new_connection->get_parameters().add(std::move(sorting_param));
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("sorting_index"_ct)))
+            param->set_value(static_cast<int64_t>(m_connections.size()));
 
-        auto color_param = std::make_unique<configuration_parameter_integer>("color"_ct);
-        color_param->set_value(0xFFFFFF);
-        new_connection->get_parameters().add(std::move(color_param));
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("color_code"_ct)))
+            param->set_value(0);
 
         if (out_connection) 
             *out_connection = new_connection.get();
@@ -355,7 +352,7 @@ namespace adam
 
         conn->set_name(new_name);
         
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("edited"_ct)))
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_edited"_ct)))
             param->set_value(static_cast<int64_t>(std::time(nullptr)));
             
         m_connections.emplace(new_name.get_hash(), std::move(conn));
@@ -372,7 +369,7 @@ namespace adam
         if (port_it == m_ports.end())
             return status_error_port_not_found;
             
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("edited"_ct)))
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
             param->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         if (is_input)
@@ -544,7 +541,20 @@ namespace adam
         // 3-5. Save grouped configuration items
         serialize_group("filters", m_filters);
         serialize_group("converters", m_converters);
-        serialize_group("connections", m_connections);
+        
+        {
+            configuration_parameter::write_binary(ofs, configuration_parameter::list);
+            configuration_parameter::write_string(ofs, "connections");
+            
+            uint32_t count = static_cast<uint32_t>(m_connections.size() + m_unavailable_connections.size());
+            configuration_parameter::write_binary(ofs, count);
+
+            for (const auto& [name, item] : m_connections)
+                if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
+                
+            for (const auto& [name, item] : m_unavailable_connections)
+                if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
+        }
 
         // 6. Save loaded modules
         configuration_parameter::write_binary(ofs, configuration_parameter::list);
@@ -670,12 +680,89 @@ namespace adam
                     if (conn_param && conn_param->get_type() == configuration_parameter::list)
                     {
                         auto* conn_params = static_cast<configuration_parameter_list*>(conn_param.get());
+                        
+                        string_hashed in_fmt, in_mod, out_fmt, out_mod;
+                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("input_format"_ct)))
+                            in_fmt = param->get_value();
+                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("input_format_module"_ct)))
+                            in_mod = param->get_value();
+                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("output_format"_ct)))
+                            out_fmt = param->get_value();
+                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("output_format_module"_ct)))
+                            out_mod = param->get_value();
+
+                        auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format, bool& missing_module)
+                        {
+                            missing_module = false;
+                            if (fmt_name.empty() || fmt_name == "transparent"_ct || fmt_name == "dataformat_transparent"_ct)
+                            {
+                                out_format = &data_format_transparent;
+                                return;
+                            }
+
+                            if (!mod_name.empty() && mod_name.get_hash() != 0)
+                            {
+                                auto mod_it = m_modules.get_loaded_modules().find(mod_name.get_hash());
+                                if (mod_it != m_modules.get_loaded_modules().end())
+                                {
+                                    auto fmt_it = mod_it->second->get_data_formats().find(fmt_name.get_hash());
+                                    if (fmt_it != mod_it->second->get_data_formats().end())
+                                    {
+                                        out_format = fmt_it->second;
+                                        return;
+                                    }
+                                }
+                                else
+                                    missing_module = true;
+                            }
+                            else
+                            {
+                                for (const auto& [name, mod] : m_modules.get_loaded_modules())
+                                {
+                                    auto fmt_it = mod->get_data_formats().find(fmt_name.get_hash());
+                                    if (fmt_it != mod->get_data_formats().end())
+                                    {
+                                        out_format = fmt_it->second;
+                                        return;
+                                    }
+                                }
+                            }
+                            out_format = &data_format_transparent;
+                        };
+
+                        const data_format* resolved_in_fmt = &data_format_transparent;
+                        const data_format* resolved_out_fmt = &data_format_transparent;
+                        bool missing_in = false;
+                        bool missing_out = false;
+                        
+                        resolve_format(in_fmt, in_mod, resolved_in_fmt, missing_in);
+                        resolve_format(out_fmt, out_mod, resolved_out_fmt, missing_out);
+
+                        if (missing_in || missing_out)
+                        {
+                            auto uci = std::make_unique<connection::unavailable_info>(conn_name);
+                            copy_parameters(&uci->get_parameters(), conn_params);
+                            
+                            if (auto* param = dynamic_cast<configuration_parameter_integer*>(uci->get_parameters().get("color_code"_ct)))
+                            {
+                                if (param->get_value() == 0xFFFFFF) param->set_value(0);
+                            }
+
+                            m_unavailable_connections[conn_name.get_hash()] = std::move(uci);
+                            continue;
+                        }
+
                         connection* new_conn = nullptr;
                         status status = create_connection(conn_name, &new_conn);
                         if (status == status_success && new_conn)
                         {
                             copy_parameters(&new_conn->get_parameters(), conn_params);
-
+                            
+                            if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("color_code"_ct)))
+                            {
+                                if (param->get_value() == 0xFFFFFF) param->set_value(0);
+                            }
+                            
                             if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("inputs"_ct)))
                             {
                                 for (size_t i = 0; i < inputs_list->get_children().size(); ++i)
@@ -717,6 +804,10 @@ namespace adam
                                     }
                                 }
                             }
+
+                            // these will also perform the chain checks
+                            new_conn->set_input_format(resolved_in_fmt);
+                            new_conn->set_output_format(resolved_out_fmt);
                         }
                     }
                 }
@@ -886,6 +977,247 @@ namespace adam
 
                 m_unavailable_ports[port_hash] = std::move(upi);
                 it = m_ports.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    void registry::retry_unavailable_connections(string_hash module_hash)
+    {
+        for (auto it = m_unavailable_connections.begin(); it != m_unavailable_connections.end();)
+        {
+            string_hashed in_mod, out_mod;
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format_module"_ct)))
+                in_mod = param->get_value();
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format_module"_ct)))
+                out_mod = param->get_value();
+
+            string_hashed in_fmt, out_fmt;
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format"_ct)))
+                in_fmt = param->get_value();
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format"_ct)))
+                out_fmt = param->get_value();
+                
+            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct || in_fmt == "dataformat_transparent"_ct;
+            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct || out_fmt == "dataformat_transparent"_ct;
+
+            bool in_matches = !is_in_transparent && in_mod.get_hash() == module_hash;
+            bool out_matches = !is_out_transparent && out_mod.get_hash() == module_hash;
+
+            if (in_matches || out_matches || module_hash == 0)
+            {
+                bool in_missing = false;
+                bool out_missing = false;
+
+                if (!is_in_transparent && in_mod.get_hash() != 0)
+                {
+                    if (m_modules.get_loaded_modules().find(in_mod.get_hash()) == m_modules.get_loaded_modules().end())
+                        in_missing = true;
+                }
+                if (!is_out_transparent && out_mod.get_hash() != 0)
+                {
+                    if (m_modules.get_loaded_modules().find(out_mod.get_hash()) == m_modules.get_loaded_modules().end())
+                        out_missing = true;
+                }
+
+                if (!in_missing && !out_missing)
+                {
+                    connection* new_conn = nullptr;
+                    status stat = create_connection(it->second->get_name(), &new_conn);
+                    
+                    if (stat == status_success && new_conn)
+                    {
+                        copy_parameters(&new_conn->get_parameters(), &it->second->get_parameters());
+                        
+                        auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format)
+                        {
+                            if (fmt_name.empty() || fmt_name == "transparent"_ct || fmt_name == "dataformat_transparent"_ct)
+                            {
+                                out_format = &data_format_transparent;
+                                return;
+                            }
+
+                            if (!mod_name.empty() && mod_name.get_hash() != 0)
+                            {
+                                auto mod_it = m_modules.get_loaded_modules().find(mod_name.get_hash());
+                                if (mod_it != m_modules.get_loaded_modules().end())
+                                {
+                                    auto fmt_it = mod_it->second->get_data_formats().find(fmt_name.get_hash());
+                                    if (fmt_it != mod_it->second->get_data_formats().end())
+                                    {
+                                        out_format = fmt_it->second;
+                                        return;
+                                    }
+                                }
+                            }
+                            out_format = &data_format_transparent;
+                        };
+
+                        const data_format* resolved_in_fmt = &data_format_transparent;
+                        const data_format* resolved_out_fmt = &data_format_transparent;
+                        resolve_format(in_fmt, in_mod, resolved_in_fmt);
+                        resolve_format(out_fmt, out_mod, resolved_out_fmt);
+
+                        new_conn->set_input_format(resolved_in_fmt);
+                        new_conn->set_output_format(resolved_out_fmt);
+
+                        if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("inputs"_ct)))
+                        {
+                            for (size_t i = 0; i < inputs_list->get_children().size(); ++i)
+                            {
+                                if (auto* param = dynamic_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i)))))
+                                {
+                                    auto port_hash = param->get_target().get_hash();
+                                    auto port_it = m_ports.find(port_hash);
+                                    if (port_it != m_ports.end())
+                                    {
+                                        new_conn->ports_input().push_back(port_it->second.get());
+                                        port_it->second->in_connections().push_back(new_conn);
+                                    }
+                                    else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
+                                    {
+                                        new_conn->unavailable_inputs().push_back(param->get_target());
+                                    }
+                                }
+                            }
+                        }
+
+                        if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("outputs"_ct)))
+                        {
+                            for (size_t i = 0; i < outputs_list->get_children().size(); ++i)
+                            {
+                                if (auto* param = dynamic_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i)))))
+                                {
+                                    auto port_hash = param->get_target().get_hash();
+                                    auto port_it = m_ports.find(port_hash);
+                                    if (port_it != m_ports.end())
+                                    {
+                                        new_conn->ports_output().push_back(port_it->second.get());
+                                        port_it->second->out_connections().push_back(new_conn);
+                                    }
+                                    else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
+                                    {
+                                        new_conn->unavailable_outputs().push_back(param->get_target());
+                                    }
+                                }
+                            }
+                        }
+
+                        event evt(event_type::connection_available);
+                        auto* evt_data = evt.data_as<connection::basic_info>();
+                        evt_data->setup(new_conn->get_name());
+
+                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_created"_ct)))
+                            evt_data->created = static_cast<uint64_t>(param->get_value());
+                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_edited"_ct)))
+                            evt_data->edited = static_cast<uint64_t>(param->get_value());
+                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("sorting_index"_ct)))
+                            evt_data->sorting_index = static_cast<uint32_t>(param->get_value());
+                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("color_code"_ct)))
+                            evt_data->color = static_cast<uint32_t>(param->get_value());
+
+                        evt_data->is_active = new_conn->is_active();
+                        evt_data->valid_chain = new_conn->is_valid_chain();
+                        evt_data->is_unavailable = false;
+
+                        evt_data->input_format = resolved_in_fmt->get_name().get_hash();
+                        evt_data->input_format_module = in_mod.get_hash();
+                        evt_data->output_format = resolved_out_fmt->get_name().get_hash();
+                        evt_data->output_format_module = out_mod.get_hash();
+
+                        evt_data->input_count = 0;
+                        evt_data->processor_count = 0;
+                        evt_data->output_count = 0;
+
+                        new_conn->ports_input().iterate([&](const auto& inputs) 
+                        {
+                            for (size_t i = 0; i < inputs.size() && evt_data->input_count < connection::basic_info::default_type_count; ++i)
+                                evt_data->inputs[evt_data->input_count++] = inputs[i]->get_name().get_hash();
+                        });
+                        
+                        for (size_t i = 0; i < new_conn->unavailable_inputs().size() && evt_data->input_count < connection::basic_info::default_type_count; ++i)
+                            evt_data->inputs[evt_data->input_count++] = new_conn->unavailable_inputs()[i].get_hash();
+
+                        new_conn->processors().iterate([&](const auto& procs) 
+                        {
+                            evt_data->processor_count = static_cast<uint16_t>(std::min(procs.size(), static_cast<size_t>(connection::basic_info::default_type_count)));
+                            for (size_t i = 0; i < evt_data->processor_count; ++i)
+                                evt_data->processors[i] = procs[i]->get_name().get_hash();
+                        });
+
+                        new_conn->ports_output().iterate([&](const auto& outputs) 
+                        {
+                            for (size_t i = 0; i < outputs.size() && evt_data->output_count < connection::basic_info::default_type_count; ++i)
+                                evt_data->outputs[evt_data->output_count++] = outputs[i]->get_name().get_hash();
+                        });
+
+                        for (size_t i = 0; i < new_conn->unavailable_outputs().size() && evt_data->output_count < connection::basic_info::default_type_count; ++i)
+                            evt_data->outputs[evt_data->output_count++] = new_conn->unavailable_outputs()[i].get_hash();
+
+                        m_controller.broadcast_event(evt);
+
+                        it = m_unavailable_connections.erase(it);
+                        continue;
+                    }
+                }
+            }
+            ++it;
+        }
+    }
+
+    void registry::mark_connections_unavailable(string_hash module_hash)
+    {
+        if (module_hash == 0) return;
+
+        for (auto it = m_connections.begin(); it != m_connections.end();)
+        {
+            string_hashed in_mod, out_mod;
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format_module"_ct)))
+                in_mod = param->get_value();
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format_module"_ct)))
+                out_mod = param->get_value();
+
+            string_hashed in_fmt, out_fmt;
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format"_ct)))
+                in_fmt = param->get_value();
+            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format"_ct)))
+                out_fmt = param->get_value();
+                
+            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct || in_fmt == "dataformat_transparent"_ct;
+            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct || out_fmt == "dataformat_transparent"_ct;
+
+            bool in_matches = !is_in_transparent && in_mod.get_hash() == module_hash;
+            bool out_matches = !is_out_transparent && out_mod.get_hash() == module_hash;
+
+            if (in_matches || out_matches)
+            {
+                auto conn_hash = it->first;
+                auto conn_name = it->second->get_name();
+
+                auto uci = std::make_unique<connection::unavailable_info>(conn_name);
+                copy_parameters(&uci->get_parameters(), &it->second->get_parameters());
+
+                it->second->ports_input().iterate([&](const auto& inputs)
+                {
+                    for (auto* p : inputs)
+                        p->in_connections().remove(it->second.get());
+                });
+
+                it->second->ports_output().iterate([&](const auto& outputs)
+                {
+                    for (auto* p : outputs)
+                        p->out_connections().remove(it->second.get());
+                });
+
+                event evt(event_type::connection_unavailable);
+                evt.data_as<messages::connection_action_data>()->connection = conn_hash;
+                m_controller.broadcast_event(evt);
+
+                m_unavailable_connections[conn_hash] = std::move(uci);
+                it = m_connections.erase(it);
             }
             else
             {

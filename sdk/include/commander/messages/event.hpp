@@ -38,8 +38,6 @@ namespace adam
         port_started,
         port_stopped,
         port_renamed,
-        connection_data_format_changed,
-
         port_available,
         port_unavailable,
         port_removed,
@@ -53,6 +51,10 @@ namespace adam
         connection_port_removed,
         connection_sorting_index_changed,
         connection_color_changed,
+        connection_input_data_format_changed,
+        connection_output_data_format_changed,
+        connection_available,
+        connection_unavailable,
 
         shutdown
     };

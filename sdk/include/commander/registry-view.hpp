@@ -30,10 +30,10 @@ namespace adam
         string_hashed name;
         string_hashed type;
         string_hashed type_module;
-        bool is_active              = false;
-        bool is_unavailable         = false;
-        port::direction direction    = port::direction_invalid;
-        buffer* statistic_buffer    = nullptr;
+        bool is_active;
+        bool is_unavailable;
+        port::direction direction;
+        buffer* statistic_buffer;
 
         ~port_view() { if (statistic_buffer) statistic_buffer->release(); }
     };
@@ -62,12 +62,14 @@ namespace adam
         std::vector<string_hash> outputs;
         std::vector<string_hash> filters;
         std::vector<string_hash> converters;
-        bool is_active = false;
+        bool is_active;
+        bool valid_chain;
+        bool is_unavailable;
 
-        uint64_t created = 0;
-        uint64_t edited = 0;
-        uint32_t sorting_index = 0;
-        uint32_t color = 0;
+        uint64_t created;
+        uint64_t edited;
+        uint32_t sorting_index;
+        uint32_t color;
 
         /** @brief Input and output data formats of this connection. */
         string_hashed input_format;

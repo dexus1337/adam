@@ -255,6 +255,7 @@ namespace adam
             conn->edited = conn_info->edited;
             conn->sorting_index = conn_info->sorting_index;
             conn->is_active = conn_info->is_active;
+            conn->valid_chain = conn_info->valid_chain;
             conn->color = conn_info->color;
 
             // Populate connection format fields
@@ -374,15 +375,25 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_connection_set_data_format(string_hash conn_hash, string_hash input_format, string_hash input_format_module, string_hash output_format, string_hash output_format_module)
+    response_status commander::request_connection_set_input_data_format(string_hash conn_hash, string_hash format, string_hash format_module)
     {
-        command cmd(command_type::connection_set_data_format);
+        command cmd(command_type::connection_set_input_data_format);
         auto* data = cmd.data_as<messages::connection_data_format_data>();
         data->connection = conn_hash;
-        data->input_format = input_format;
-        data->input_format_module = input_format_module;
-        data->output_format = output_format;
-        data->output_format_module = output_format_module;
+        data->format = format;
+        data->format_module = format_module;
+        data->valid_chain = false;
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_set_output_data_format(string_hash conn_hash, string_hash format, string_hash format_module)
+    {
+        command cmd(command_type::connection_set_output_data_format);
+        auto* data = cmd.data_as<messages::connection_data_format_data>();
+        data->connection = conn_hash;
+        data->format = format;
+        data->format_module = format_module;
+        data->valid_chain = false;
         return send_command(cmd);
     }
 

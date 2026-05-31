@@ -131,32 +131,33 @@ TEST_F(commander_test, initial_data_module_sync)
         ctx.responses[4].set_extended(true);
         ctx.responses.emplace_back();
         auto* conn_info = ctx.responses[5].data_as<adam::connection::basic_info>();
-        conn_info->setup(adam::string_hashed("mock_connection"));
+        conn_info->setup("mock_connection"_ct);
         conn_info->input_count = 0;
         conn_info->processor_count = 0;
         conn_info->output_count = 0;
         conn_info->is_active = false;
+        conn_info->valid_chain = false;
     });
 
     adam::commander cmdr;
     ASSERT_TRUE(cmdr.connect()); // Implicitly requests initial data and populates caches
 
     EXPECT_EQ(cmdr.get_modules().get_paths().size(), 1u);
-    EXPECT_EQ(cmdr.get_modules().get_paths()[0], adam::string_hashed("/mock/registry/path"));
+    EXPECT_EQ(cmdr.get_modules().get_paths()[0], "/mock/registry/path"_ct);
 
     EXPECT_EQ(cmdr.get_modules().get_available().size(), 1u);
-    EXPECT_TRUE(cmdr.get_modules().get_available().contains(adam::string_hashed("mock_avail")));
-    EXPECT_EQ(cmdr.get_modules().get_available().at(adam::string_hashed("mock_avail")).first, adam::make_version(1, 0, 0));
-    EXPECT_EQ(cmdr.get_modules().get_available().at(adam::string_hashed("mock_avail")).second, adam::string_hashed("/mock/path/avail.so"));
+    EXPECT_TRUE(cmdr.get_modules().get_available().contains("mock_avail"_ct.get_hash()));
+    EXPECT_EQ(cmdr.get_modules().get_available().at("mock_avail"_ct).first, adam::make_version(1, 0, 0));
+    EXPECT_EQ(cmdr.get_modules().get_available().at("mock_avail"_ct).second, "/mock/path/avail.so"_ct);
 
     EXPECT_EQ(cmdr.get_modules().get_unavailable().size(), 1u);
-    EXPECT_TRUE(cmdr.get_modules().get_unavailable().contains(adam::string_hashed("mock_unavail")));
+    EXPECT_TRUE(cmdr.get_modules().get_unavailable().contains("mock_unavail"_ct.get_hash()));
 
     EXPECT_EQ(cmdr.get_modules().get_loaded().size(), 1u);
-    EXPECT_TRUE(cmdr.get_modules().get_loaded().contains(adam::string_hashed("mock_loaded")));
+    EXPECT_TRUE(cmdr.get_modules().get_loaded().contains("mock_loaded"_ct.get_hash()));
 
     EXPECT_EQ(cmdr.get_registry().get_connections().size(), 1u);
-    EXPECT_TRUE(cmdr.get_registry().get_connections().contains(adam::string_hashed("mock_connection").get_hash()));
+    EXPECT_TRUE(cmdr.get_registry().get_connections().contains(("mock_connection"_ct).get_hash()));
 
     // Restore default handler to not break other tests on the shared controller singleton
     ctrl.dispatcher().register_default_handlers();
@@ -209,14 +210,14 @@ TEST_F(commander_test, module_events_sync)
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     EXPECT_EQ(cmdr.get_modules().get_available().size(), initial_available + 1);
-    EXPECT_TRUE(cmdr.get_modules().get_available().contains(adam::string_hashed("evt_mock_avail")));
+    EXPECT_TRUE(cmdr.get_modules().get_available().contains("evt_mock_avail"_ct.get_hash()));
     
     EXPECT_EQ(cmdr.get_modules().get_unavailable().size(), initial_unavailable + 1);
-    EXPECT_TRUE(cmdr.get_modules().get_unavailable().contains(adam::string_hashed("evt_mock_unavail")));
+    EXPECT_TRUE(cmdr.get_modules().get_unavailable().contains("evt_mock_unavail"_ct.get_hash()));
 
     EXPECT_EQ(cmdr.get_modules().get_loaded().size(), initial_loaded + 1);
-    EXPECT_TRUE(cmdr.get_modules().get_loaded().contains(adam::string_hashed("evt_mock_to_load")));
-    EXPECT_FALSE(cmdr.get_modules().get_available().contains(adam::string_hashed("evt_mock_to_load")));
+    EXPECT_TRUE(cmdr.get_modules().get_loaded().contains("evt_mock_to_load"_ct.get_hash()));
+    EXPECT_FALSE(cmdr.get_modules().get_available().contains("evt_mock_to_load"_ct.get_hash()));
 
     EXPECT_TRUE(cmdr.destroy());
 }
@@ -336,7 +337,7 @@ TEST_F(commander_test, request_module_load_unload_flow)
     adam::string_hashed_ct test_module = "mock_module";
 
     // Inject a fake available module into the commander view
-    cmdr.modules().available().emplace(test_module, std::make_pair(adam::make_version(1, 0, 0), adam::string_hashed("/mock/path/module.so")));
+    cmdr.modules().available().emplace(test_module, std::make_pair(adam::make_version(1, 0, 0), "/mock/path/module.so"_ct));
 
     size_t initial_loaded = cmdr.get_modules().get_loaded().size();
 
@@ -388,14 +389,14 @@ TEST_F(commander_test, sync_unavailable_port)
     adam::controller& ctrl = adam::controller::get();
     
     // Setup an unavailable port in the controller's registry
-    auto upi = std::make_unique<adam::port::unavailable_info>(adam::string_hashed("cmd_unavail_port"));
-    upi->type = adam::string_hashed("some_type").get_hash();
-    upi->type_module = adam::string_hashed("missing_mod").get_hash();
-    ctrl.get_registry().unavailable_ports()[adam::string_hashed("cmd_unavail_port").get_hash()] = std::move(upi);
+    auto upi = std::make_unique<adam::port::unavailable_info>("cmd_unavail_port"_ct);
+    upi->type = ("some_type"_ct).get_hash();
+    upi->type_module = ("missing_mod"_ct).get_hash();
+    ctrl.get_registry().unavailable_ports()[("cmd_unavail_port"_ct).get_hash()] = std::move(upi);
     
     adam::connection* conn = nullptr;
-    ctrl.get_registry().create_connection(adam::string_hashed("cmd_conn"), &conn);
-    conn->unavailable_inputs().push_back(adam::string_hashed("cmd_unavail_port"));
+    ctrl.get_registry().create_connection("cmd_conn"_ct, &conn);
+    conn->unavailable_inputs().push_back("cmd_unavail_port"_ct);
 
     adam::commander cmdr;
     ASSERT_TRUE(cmdr.connect());
@@ -404,19 +405,19 @@ TEST_F(commander_test, sync_unavailable_port)
     const auto& ports = cmdr.get_registry().get_ports();
     EXPECT_EQ(ports.size(), 1u);
     
-    auto port_hash = adam::string_hashed("cmd_unavail_port").get_hash();
+    auto port_hash = ("cmd_unavail_port"_ct).get_hash();
     EXPECT_TRUE(ports.contains(port_hash));
     EXPECT_TRUE(ports.at(port_hash)->is_unavailable);
     
     const auto& conns = cmdr.get_registry().get_connections();
     EXPECT_EQ(conns.size(), 1u);
-    EXPECT_EQ(conns.at(adam::string_hashed("cmd_conn").get_hash())->inputs.size(), 1u);
-    EXPECT_EQ(conns.at(adam::string_hashed("cmd_conn").get_hash())->inputs[0], port_hash);
+    EXPECT_EQ(conns.at(("cmd_conn"_ct).get_hash())->inputs.size(), 1u);
+    EXPECT_EQ(conns.at(("cmd_conn"_ct).get_hash())->inputs[0], port_hash);
 
     // Trigger retry by broadcasting a port_available event
     adam::event evt(adam::event_type::port_available);
     auto* evt_data = evt.data_as<adam::port::basic_info>();
-    evt_data->setup(adam::string_hashed("cmd_unavail_port"), adam::string_hashed("some_type").get_hash(), adam::string_hashed("missing_mod").get_hash(), false);
+    evt_data->setup("cmd_unavail_port"_ct, ("some_type"_ct).get_hash(), ("missing_mod"_ct).get_hash(), false);
     evt_data->dir = adam::port::direction_inout;
     evt_data->is_active = false;
     ctrl.broadcast_event(evt);
@@ -457,7 +458,7 @@ TEST_F(commander_test, connection_create)
     auto conn_hash = test_connection.get_hash();
     const auto& conn_view = cmdr.get_registry().get_connections().at(conn_hash);
     EXPECT_EQ(conn_view->name.get_hash(), conn_hash);
-    EXPECT_NE(conn_view->created, 0);
+    EXPECT_NE(conn_view->created, 0ull);
 
     // 2. Request to destroy the connection
     status = cmdr.request_connection_destroy(conn_hash);
@@ -471,6 +472,89 @@ TEST_F(commander_test, connection_create)
     // Verify the connection was destroyed
     EXPECT_EQ(cmdr.get_registry().get_connections().size(), initial_conn_count);
     EXPECT_FALSE(cmdr.get_registry().get_connections().contains(conn_hash));
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests synchronization of an unavailable connection changing its state after module load. */
+TEST_F(commander_test, sync_unavailable_connection)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    // Setup an available connection in the controller's registry
+    adam::connection* conn = nullptr;
+    ctrl.get_registry().create_connection("cmd_unavail_conn"_ct, &conn);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("cmd_unavail_conn"_ct).get_hash();
+    const auto& conns = cmdr.get_registry().get_connections();
+    
+    EXPECT_TRUE(conns.contains(conn_hash));
+    EXPECT_FALSE(conns.at(conn_hash)->is_unavailable);
+
+    // Broadcast unavailable event
+    adam::event evt_unavail(adam::event_type::connection_unavailable);
+    evt_unavail.data_as<adam::messages::connection_action_data>()->connection = conn_hash;
+    ctrl.broadcast_event(evt_unavail);
+
+    auto start = std::chrono::steady_clock::now();
+    while (!conns.at(conn_hash)->is_unavailable && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_TRUE(conns.at(conn_hash)->is_unavailable);
+
+    // Trigger retry by broadcasting a connection_available event
+    adam::event evt(adam::event_type::connection_available);
+    auto* evt_data = evt.data_as<adam::connection::basic_info>();
+    evt_data->setup("cmd_unavail_conn"_ct);
+    evt_data->input_format = ("some_missing_fmt"_ct).get_hash();
+    evt_data->input_format_module = ("missing_mod"_ct).get_hash();
+    evt_data->is_unavailable = false;
+    evt_data->valid_chain = true;
+    ctrl.broadcast_event(evt);
+
+    start = std::chrono::steady_clock::now();
+    while (conns.at(conn_hash)->is_unavailable && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_FALSE(conns.at(conn_hash)->is_unavailable);
+    EXPECT_TRUE(conns.at(conn_hash)->valid_chain);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests synchronization of connection data format changes including valid_chain state. */
+TEST_F(commander_test, connection_data_format_changed_sync)
+{
+    adam::controller& ctrl = adam::controller::get();
+    adam::connection* conn = nullptr;
+    ctrl.get_registry().create_connection("fmt_conn"_ct, &conn);
+    
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("fmt_conn"_ct).get_hash();
+    EXPECT_TRUE(cmdr.get_registry().get_connections().contains(conn_hash));
+
+    // Trigger input format change event
+    adam::event evt(adam::event_type::connection_input_data_format_changed);
+    auto* evt_data = evt.data_as<adam::messages::connection_data_format_data>();
+    evt_data->connection = conn_hash;
+    evt_data->format = ("new_fmt"_ct).get_hash();
+    evt_data->format_module = ("new_mod"_ct).get_hash();
+    evt_data->valid_chain = true;
+    ctrl.broadcast_event(evt);
+
+    auto start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_connections().at(conn_hash)->input_format.get_hash() != ("new_fmt"_ct).get_hash() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    const auto& conn_view = cmdr.get_registry().get_connections().at(conn_hash);
+    EXPECT_EQ(conn_view->input_format.get_hash(), ("new_fmt"_ct).get_hash());
+    EXPECT_EQ(conn_view->input_format_module.get_hash(), ("new_mod"_ct).get_hash());
+    EXPECT_TRUE(conn_view->valid_chain);
 
     EXPECT_TRUE(cmdr.destroy());
 }

@@ -266,7 +266,7 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_data_format_changed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_input_data_format_changed, [](const event& e, event_context& ctx) 
         {
             // Update the connection view with new format information
             auto* data = e.get_data_as<messages::connection_data_format_data>();
@@ -275,8 +275,22 @@ namespace adam
             if (it != ctx.cmdr.registry().connections().end())
             {
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
-                ctx.cmdr.get_modules().extract_datatype_and_module(data->input_format,  data->input_format_module,  it->second->input_format,  it->second->input_format_module);
-                ctx.cmdr.get_modules().extract_datatype_and_module(data->output_format, data->output_format_module, it->second->output_format, it->second->output_format_module);
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->format, data->format_module, it->second->input_format, it->second->input_format_module);
+                it->second->valid_chain = data->valid_chain;
+            }
+        });
+
+        register_handler(event_type::connection_output_data_format_changed, [](const event& e, event_context& ctx) 
+        {
+            // Update the connection view with new format information
+            auto* data = e.get_data_as<messages::connection_data_format_data>();
+            std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->format, data->format_module, it->second->output_format, it->second->output_format_module);
+                it->second->valid_chain = data->valid_chain;
             }
         });
 
@@ -289,6 +303,9 @@ namespace adam
             view->edited = info->edited;
             view->sorting_index = info->sorting_index;
             view->color = info->color;
+            view->is_active = info->is_active;
+            view->is_unavailable = info->is_unavailable;
+            view->valid_chain = info->valid_chain;
             {
                 // Populate format strings from name hashes
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
@@ -354,24 +371,24 @@ namespace adam
             }
         });
 
-    register_handler(event_type::connection_port_removed, [](const event& e, event_context& ctx) 
-    {
-        auto* data = e.get_data_as<messages::connection_port_add_data>();
-        std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
-        auto it = ctx.cmdr.registry().connections().find(data->connection);
-        if (it != ctx.cmdr.registry().connections().end())
+        register_handler(event_type::connection_port_removed, [](const event& e, event_context& ctx) 
         {
-            if (data->is_input)
+            auto* data = e.get_data_as<messages::connection_port_add_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
             {
-                it->second->inputs.erase(std::remove(it->second->inputs.begin(), it->second->inputs.end(), data->port), it->second->inputs.end());
+                if (data->is_input)
+                {
+                    it->second->inputs.erase(std::remove(it->second->inputs.begin(), it->second->inputs.end(), data->port), it->second->inputs.end());
+                }
+                else
+                {
+                    it->second->outputs.erase(std::remove(it->second->outputs.begin(), it->second->outputs.end(), data->port), it->second->outputs.end());
+                }
+                it->second->edited = data->edited;
             }
-            else
-            {
-                it->second->outputs.erase(std::remove(it->second->outputs.begin(), it->second->outputs.end(), data->port), it->second->outputs.end());
-            }
-            it->second->edited = data->edited;
-        }
-    });
+        });
 
         register_handler(event_type::connection_sorting_index_changed, [](const event& e, event_context& ctx) 
         {
@@ -394,6 +411,80 @@ namespace adam
             {
                 it->second->color = data->value;
                 it->second->edited = data->edited;
+            }
+        });
+
+        register_handler(event_type::connection_available, [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<connection::basic_info>();
+            string_hashed name(data->name);
+
+            std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+            
+            auto it = ctx.cmdr.registry().connections().find(name.get_hash());
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                it->second->is_unavailable = data->is_unavailable;
+                it->second->valid_chain = data->valid_chain;
+                it->second->is_active = data->is_active;
+
+                std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->input_format, data->input_format_module, it->second->input_format, it->second->input_format_module);
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->output_format, data->output_format_module, it->second->output_format, it->second->output_format_module);
+
+                it->second->inputs.clear();
+                for (size_t i = 0; i < data->input_count; ++i)
+                    it->second->inputs.push_back(data->inputs[i]);
+
+                it->second->filters.clear();
+                for (size_t i = 0; i < data->processor_count; ++i)
+                    it->second->filters.push_back(data->processors[i]);
+
+                it->second->outputs.clear();
+                for (size_t i = 0; i < data->output_count; ++i)
+                    it->second->outputs.push_back(data->outputs[i]);
+            }
+            else
+            {
+                auto new_conn = std::make_unique<connection_view>();
+                new_conn->name = name;
+                new_conn->created = data->created;
+                new_conn->edited = data->edited;
+                new_conn->sorting_index = data->sorting_index;
+                new_conn->color = data->color;
+                
+                new_conn->is_active = data->is_active;
+                new_conn->valid_chain = data->valid_chain;
+                new_conn->is_unavailable = data->is_unavailable;
+
+                std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->input_format, data->input_format_module, new_conn->input_format, new_conn->input_format_module);
+                ctx.cmdr.get_modules().extract_datatype_and_module(data->output_format, data->output_format_module, new_conn->output_format, new_conn->output_format_module);
+
+                for (size_t i = 0; i < data->input_count; ++i)
+                    new_conn->inputs.push_back(data->inputs[i]);
+
+                for (size_t i = 0; i < data->processor_count; ++i)
+                    new_conn->filters.push_back(data->processors[i]);
+
+                for (size_t i = 0; i < data->output_count; ++i)
+                    new_conn->outputs.push_back(data->outputs[i]);
+
+                ctx.cmdr.registry().connections().emplace(name.get_hash(), std::move(new_conn));
+            }
+        });
+
+        register_handler(event_type::connection_unavailable, [](const event& e, event_context& ctx) 
+        {
+            auto* data = e.get_data_as<messages::connection_action_data>();
+
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                it->second->is_unavailable = true;
+                it->second->valid_chain = false;
+                it->second->is_active = false;
             }
         });
     }

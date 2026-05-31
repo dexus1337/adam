@@ -36,17 +36,13 @@ namespace adam
     {
     public:
 
+        #pragma pack(push, 1)
         struct basic_info
         {
-            char name[max_name_length];
-
             uint64_t created;
             uint64_t edited;
             uint32_t sorting_index;
             uint32_t color;
-            bool is_active;
-
-            /** @brief Input and output formats of this connection (name hashes). */
             string_hash input_format;
             string_hash input_format_module;
             string_hash output_format;
@@ -62,23 +58,36 @@ namespace adam
                 sorting_index = 0;
                 color = 0;
                 is_active = false;
+                valid_chain = false;
+                is_unavailable = false;
                 input_format = 0;
                 input_format_module = 0;
                 output_format = 0;
                 output_format_module = 0;
             }
 
+            char name[max_name_length];
+            bool is_active;
+            bool valid_chain;
+            bool is_unavailable;
+
             uint16_t input_count;
             uint16_t processor_count;
             uint16_t output_count;
 
-            static ADAM_CONSTEXPR size_t default_type_count = ((command::get_max_data_length() - sizeof(name) - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2 - sizeof(string_hash) * 4 - sizeof(uint16_t) * 3) / 3) / sizeof(string_hash);
+            static ADAM_CONSTEXPR size_t default_type_count = ((command::get_max_data_length() - sizeof(name) - sizeof(bool) * 3 - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2 - sizeof(string_hash) * 4 - sizeof(uint16_t) * 3) / 3) / sizeof(string_hash);
 
             string_hash inputs[default_type_count];
             string_hash processors[default_type_count];
             string_hash outputs[default_type_count];
         };
+        #pragma pack(pop)
         static_assert(sizeof(connection::basic_info) <= command::get_max_data_length(), "connection::basic_info exceeds maximum command data size");
+
+        struct unavailable_info : public configuration_item
+        {
+            unavailable_info(const string_hashed& item_name) : configuration_item(item_name, connection::get_default_parameters()) {}
+        };
 
         /** @brief Retrieves the default configuration parameters for connections. */
         static const configuration_parameter_list& get_default_parameters();
@@ -89,11 +98,11 @@ namespace adam
         /** @brief Destroys the connection object and cleans up resources. */
         ~connection();
 
-        vector_double_buffer<port*>&            ports_input()       { return m_ports_input; }
-        vector_double_buffer<data_processor*>&  processors()        { return m_processors; }
-        vector_double_buffer<port*>&            ports_output()      { return m_ports_output; }
-        std::vector<string_hashed>&             unavailable_inputs()  { return m_unavailable_inputs; }
-        std::vector<string_hashed>&             unavailable_outputs() { return m_unavailable_outputs; }
+        vector_double_buffer<port*>&            ports_input()           { return m_ports_input; }
+        vector_double_buffer<data_processor*>&  processors()            { return m_processors; }
+        vector_double_buffer<port*>&            ports_output()          { return m_ports_output; }
+        std::vector<string_hashed>&             unavailable_inputs()    { return m_unavailable_inputs; }
+        std::vector<string_hashed>&             unavailable_outputs()   { return m_unavailable_outputs; }
 
         /** @brief Returns the data format expected on all input ports. */
         const data_format* get_input_format() const  { return m_input_format; }
@@ -101,17 +110,20 @@ namespace adam
         /** @brief Returns the data format expected on all output ports. */
         const data_format* get_output_format() const { return m_output_format; }
 
+        /** @brief Returns the last calculated validation state. */
+        bool is_valid_chain() const { return m_b_valid_data_chain; }
+
         /** @brief Sets the input data format for this connection. */
-        void set_input_format(const data_format* fmt)  { m_input_format = fmt; }
+        void set_input_format(const data_format* fmt)  { m_input_format = fmt; check_valid_chain(); }
 
         /** @brief Sets the output data format for this connection. */
-        void set_output_format(const data_format* fmt) { m_output_format = fmt; }
+        void set_output_format(const data_format* fmt) { m_output_format = fmt; check_valid_chain(); }
 
         /** @brief Data input routine. Data arrives here, gets passed through processors and then to output ports */
-        bool handle_data(buffer* buffer, port* input_port = nullptr);
+        bool handle_data(buffer* buffer);
 
-        /** @brief Returns true if the connection has at least one input port and one output port. */
-        bool has_valid_chain();
+        /** @brief Returns true if the connection has a valid data chain. */
+        bool check_valid_chain();
 
         /** @brief Starts the connection. */
         bool start();
@@ -126,13 +138,16 @@ namespace adam
         vector_double_buffer<port*>             m_ports_input;
         vector_double_buffer<data_processor*>   m_processors;
         vector_double_buffer<port*>             m_ports_output;
+
         std::vector<string_hashed>              m_unavailable_inputs;
         std::vector<string_hashed>              m_unavailable_outputs;
 
-        const data_format*                      m_input_format;   /**< Format expected from all input ports (defaults to transparent). */
-        const data_format*                      m_output_format;  /**< Format expected for all output ports (defaults to transparent). */
+        const data_format*                      m_input_format;         /**< Format expected from all input ports (defaults to transparent). */
+        const data_format*                      m_output_format;        /**< Format expected for all output ports (defaults to transparent). */
+
+        bool                                    m_b_valid_data_chain;
         
-        configuration_parameter_boolean*        m_is_active;      /**< Cached pointer to the is_active parameter as it will be frequently accessed. */
+        configuration_parameter_boolean*        m_is_active;            /**< Cached pointer to the is_active parameter as it will be frequently accessed. */
 
     };
 }

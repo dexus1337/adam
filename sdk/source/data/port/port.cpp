@@ -86,7 +86,11 @@ namespace adam
                 m_in_connections.iterate([&](const auto& connections) 
                 {
                     for (const auto& conn : connections) 
-                        result &= conn->handle_data(buffer, this);
+                    {
+                        if (!conn->is_valid_chain()) continue;
+
+                        result &= conn->handle_data(buffer);
+                    }
                 });
 
                 break;

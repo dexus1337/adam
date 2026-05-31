@@ -202,19 +202,29 @@ namespace adam
                     conn_info->color = static_cast<uint32_t>(param->get_value());
                 
                 conn_info->is_active = conn->is_active();
+                conn_info->valid_chain = conn->is_valid_chain();
+                conn_info->is_unavailable = false;
 
                 // Include connection format data
                 if (conn->get_input_format())
                     conn_info->input_format = conn->get_input_format()->get_name().get_hash();
                 else
-                    conn_info->input_format = string_hashed("transparent").get_hash();
-                conn_info->input_format_module  = 0; // Module hash resolved by commander on receive
+                    conn_info->input_format = ("transparent"_ct).get_hash();
+                
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("input_format_module"_ct)))
+                    conn_info->input_format_module = param->get_value().get_hash();
+                else
+                    conn_info->input_format_module = 0;
 
                 if (conn->get_output_format())
                     conn_info->output_format = conn->get_output_format()->get_name().get_hash();
                 else
-                    conn_info->output_format = string_hashed("transparent").get_hash();
-                conn_info->output_format_module = 0;
+                    conn_info->output_format = ("transparent"_ct).get_hash();
+                
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("output_format_module"_ct)))
+                    conn_info->output_format_module = param->get_value().get_hash();
+                else
+                    conn_info->output_format_module = 0;
 
                 conn_info->input_count = 0;
                 conn_info->processor_count = 0;
@@ -244,6 +254,80 @@ namespace adam
 
                 for (size_t i = 0; i < conn->unavailable_outputs().size() && conn_info->output_count < connection::basic_info::default_type_count; ++i)
                     conn_info->outputs[conn_info->output_count++] = conn->unavailable_outputs()[i].get_hash();
+
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
+            
+            for (const auto& [hash, uconn] : ctx.reg.get_unavailable_connections())
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* conn_info = ctx.responses[resp_idx].data_as<connection::basic_info>();
+                conn_info->setup(uconn->get_name());
+                
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(uconn->get_parameters().get("date_created"_ct)))
+                    conn_info->created = static_cast<uint64_t>(param->get_value());
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(uconn->get_parameters().get("date_edited"_ct)))
+                    conn_info->edited = static_cast<uint64_t>(param->get_value());
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(uconn->get_parameters().get("sorting_index"_ct)))
+                    conn_info->sorting_index = static_cast<uint32_t>(param->get_value());
+                if (auto* param = dynamic_cast<configuration_parameter_integer*>(uconn->get_parameters().get("color_code"_ct)))
+                    conn_info->color = static_cast<uint32_t>(param->get_value());
+                
+                conn_info->is_active = false;
+                conn_info->valid_chain = false;
+                conn_info->is_unavailable = true;
+
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct)))
+                    conn_info->input_format = param->get_value().get_hash();
+                else
+                    conn_info->input_format = ("transparent"_ct).get_hash();
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format_module"_ct)))
+                    conn_info->input_format_module = param->get_value().get_hash();
+                else
+                    conn_info->input_format_module = 0;
+
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format"_ct)))
+                    conn_info->output_format = param->get_value().get_hash();
+                else
+                    conn_info->output_format = ("transparent"_ct).get_hash();
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format_module"_ct)))
+                    conn_info->output_format_module = param->get_value().get_hash();
+                else
+                    conn_info->output_format_module = 0;
+
+                conn_info->input_count = 0;
+                conn_info->processor_count = 0;
+                conn_info->output_count = 0;
+                
+                if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(uconn->get_parameters().get("inputs"_ct)))
+                {
+                    for (size_t i = 0; i < inputs_list->get_children().size() && conn_info->input_count < connection::basic_info::default_type_count; ++i)
+                    {
+                        if (auto* param = dynamic_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i)))))
+                            conn_info->inputs[conn_info->input_count++] = param->get_target().get_hash();
+                    }
+                }
+                
+                if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(uconn->get_parameters().get("processors"_ct)))
+                {
+                    for (size_t i = 0; i < procs_list->get_children().size() && conn_info->processor_count < connection::basic_info::default_type_count; ++i)
+                    {
+                        if (auto* param = dynamic_cast<configuration_parameter_reference*>(procs_list->get(string_hashed(std::to_string(i)))))
+                            conn_info->processors[conn_info->processor_count++] = param->get_target().get_hash();
+                    }
+                }
+
+                if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(uconn->get_parameters().get("outputs"_ct)))
+                {
+                    for (size_t i = 0; i < outputs_list->get_children().size() && conn_info->output_count < connection::basic_info::default_type_count; ++i)
+                    {
+                        if (auto* param = dynamic_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i)))))
+                            conn_info->outputs[conn_info->output_count++] = param->get_target().get_hash();
+                    }
+                }
 
                 resp_idx++;
 
@@ -784,7 +868,7 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
-        register_handler(command_type::connection_set_data_format, [](const command* cmds, size_t, command_context& ctx) 
+        register_handler(command_type::connection_set_input_data_format, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_data_format_data>();
 
@@ -792,22 +876,19 @@ namespace adam
             if (conn_it == ctx.reg.connections().end())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
 
             connection* conn = conn_it->second.get();
 
-            // Resolve input format
             const data_format* in_fmt  = &data_format_transparent;
-            const data_format* out_fmt = &data_format_transparent;
             string_hashed resolved_in_module;
-            string_hashed resolved_out_module;
 
             auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
             {
-                if (fmt_hash == 0 || fmt_hash == string_hashed("transparent").get_hash())
+                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
                     return; // stays transparent
 
                 if (mod_hash != 0)
@@ -838,14 +919,10 @@ namespace adam
                 }
             };
 
-            resolve_format(params->input_format,  params->input_format_module,  in_fmt,  resolved_in_module);
-            resolve_format(params->output_format, params->output_format_module, out_fmt, resolved_out_module);
+            resolve_format(params->format, params->format_module, in_fmt, resolved_in_module);
 
-            // Apply to the connection object
             conn->set_input_format(in_fmt);
-            conn->set_output_format(out_fmt);
 
-            // Persist to configuration params
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
             {
                 if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
@@ -854,20 +931,92 @@ namespace adam
 
             set_str_param("input_format"_ct,        in_fmt  == &data_format_transparent ? "transparent"_ct : in_fmt->get_name());
             set_str_param("input_format_module"_ct,  resolved_in_module);
+
+            event evt(event_type::connection_input_data_format_changed);
+            auto* evt_data = evt.data_as<messages::connection_data_format_data>();
+            evt_data->connection            = params->connection;
+            evt_data->format                = in_fmt->get_name().get_hash();
+            evt_data->format_module         = resolved_in_module.get_hash();
+            evt_data->valid_chain           = conn->is_valid_chain();
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_set_output_data_format, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_data_format_data>();
+
+            auto conn_it = ctx.reg.connections().find(params->connection);
+            if (conn_it == ctx.reg.connections().end())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            connection* conn = conn_it->second.get();
+
+            const data_format* out_fmt = &data_format_transparent;
+            string_hashed resolved_out_module;
+
+            auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
+            {
+                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
+                    return; // stays transparent
+
+                if (mod_hash != 0)
+                {
+                    auto mod_it = ctx.reg.modules().get_loaded_modules().find(mod_hash);
+                    if (mod_it != ctx.reg.modules().get_loaded_modules().end())
+                    {
+                        auto fmt_it = mod_it->second->get_data_formats().find(fmt_hash);
+                        if (fmt_it != mod_it->second->get_data_formats().end())
+                        {
+                            out_format = fmt_it->second;
+                            out_module = mod_it->first;
+                        }
+                    }
+                }
+                else
+                {
+                    for (const auto& [mod_name, mod] : ctx.reg.modules().get_loaded_modules())
+                    {
+                        auto fmt_it = mod->get_data_formats().find(fmt_hash);
+                        if (fmt_it != mod->get_data_formats().end())
+                        {
+                            out_format = fmt_it->second;
+                            out_module = mod_name;
+                            break;
+                        }
+                    }
+                }
+            };
+
+            resolve_format(params->format, params->format_module, out_fmt, resolved_out_module);
+
+            conn->set_output_format(out_fmt);
+
+            auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
+            {
+                if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
+                    p->set_value(value);
+            };
+
             set_str_param("output_format"_ct,        out_fmt == &data_format_transparent ? "transparent"_ct : out_fmt->get_name());
             set_str_param("output_format_module"_ct, resolved_out_module);
 
-            // Broadcast event with resolved hashes
-            event evt(event_type::connection_data_format_changed);
+            event evt(event_type::connection_output_data_format_changed);
             auto* evt_data = evt.data_as<messages::connection_data_format_data>();
-            evt_data->connection          = params->connection;
-            evt_data->input_format        = in_fmt->get_name().get_hash();
-            evt_data->input_format_module  = resolved_in_module.get_hash();
-            evt_data->output_format       = out_fmt->get_name().get_hash();
-            evt_data->output_format_module = resolved_out_module.get_hash();
+            evt_data->connection            = params->connection;
+            evt_data->format                = out_fmt->get_name().get_hash();
+            evt_data->format_module         = resolved_out_module.get_hash();
+            evt_data->valid_chain           = conn->is_valid_chain();
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1106,12 +1255,20 @@ namespace adam
                 { "Thread {:d} failed to rename port {:d}: {}", "Thread {:d} konnte Port {:d} nicht umbenennen: {}" }
             },
             {
-                log_event::connection_data_format_changed,
-                { "Thread {:d} successfully changed data format of connection \"{}\".", "Thread {:d} hat das Datenformat von Verbindung \"{}\" erfolgreich geändert." }
+                log_event::connection_input_data_format_changed,
+                { "Thread {:d} successfully changed input data format of connection \"{}\".", "Thread {:d} hat das Eingangsdatenformat von Verbindung \"{}\" erfolgreich geändert." }
             },
             {
-                log_event::connection_data_format_change_failed,
-                { "Thread {:d} failed to change data format of connection {:d}.", "Thread {:d} konnte das Datenformat von Verbindung {:d} nicht ändern." }
+                log_event::connection_input_data_format_change_failed,
+                { "Thread {:d} failed to change input data format of connection {:d}.", "Thread {:d} konnte das Eingangsdatenformat von Verbindung {:d} nicht ändern." }
+            },
+            {
+                log_event::connection_output_data_format_changed,
+                { "Thread {:d} successfully changed output data format of connection \"{}\".", "Thread {:d} hat das Ausgangsdatenformat von Verbindung \"{}\" erfolgreich geändert." }
+            },
+            {
+                log_event::connection_output_data_format_change_failed,
+                { "Thread {:d} failed to change output data format of connection {:d}.", "Thread {:d} konnte das Ausgangsdatenformat von Verbindung {:d} nicht ändern." }
             },
             {
                 log_event::connection_created,
@@ -1176,14 +1333,14 @@ namespace adam
             {
                 log_event::connection_port_add_failed,
                 { "Thread {:d} failed to add port {:d} to connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
-    },
-    {
-        log_event::connection_port_removed,
-        { "Thread {:d} successfully removed port \"{}\" from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich von Verbindung \"{}\" entfernt." }
-    },
-    {
-        log_event::connection_port_remove_failed,
-        { "Thread {:d} failed to remove port {:d} from connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht von Verbindung {:d} entfernen: {}" }
+            },
+            {
+                log_event::connection_port_removed,
+                { "Thread {:d} successfully removed port \"{}\" from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich von Verbindung \"{}\" entfernt." }
+            },
+            {
+                log_event::connection_port_remove_failed,
+                { "Thread {:d} failed to remove port {:d} from connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht von Verbindung {:d} entfernen: {}" }
             },
             {
                 log_event::connection_sorting_index_changed,

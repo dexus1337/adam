@@ -118,10 +118,9 @@ namespace adam
         struct connection_data_format_data
         {
             string_hash connection;
-            string_hash input_format;
-            string_hash input_format_module;
-            string_hash output_format;
-            string_hash output_format_module;
+            string_hash format;
+            string_hash format_module;
+            bool        valid_chain;
         };
         static_assert(sizeof(connection_data_format_data) <= command::get_max_data_length(), "connection_data_format_data exceeds maximum command data size");
 

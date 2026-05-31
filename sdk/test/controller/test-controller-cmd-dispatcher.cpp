@@ -97,8 +97,8 @@ TEST_F(controller_cmd_dispatcher_test, default_handlers)
     SUCCEED();
 }
 
-/** @brief Tests that the connection_set_data_format command correctly changes a connection's data format. */
-TEST_F(controller_cmd_dispatcher_test, connection_set_data_format_dispatch)
+/** @brief Tests that the connection_set_input_data_format command correctly changes a connection's data format. */
+TEST_F(controller_cmd_dispatcher_test, connection_set_input_data_format_dispatch)
 {
     adam::controller& ctrl = adam::controller::get();
     adam::registry& reg = ctrl.get_registry();
@@ -115,13 +115,11 @@ TEST_F(controller_cmd_dispatcher_test, connection_set_data_format_dispatch)
     EXPECT_EQ(conn->get_output_format()->get_name(), "transparent"_ct);
 
     // Prepare set data format command
-    adam::command cmd(adam::command_type::connection_set_data_format);
+    adam::command cmd(adam::command_type::connection_set_input_data_format);
     auto* data = cmd.data_as<adam::messages::connection_data_format_data>();
     data->connection = conn_name.get_hash();
-    data->input_format = adam::string_hashed("transparent").get_hash();
-    data->input_format_module = 0;
-    data->output_format = adam::string_hashed("transparent").get_hash();
-    data->output_format_module = 0;
+    data->format = "transparent"_ct.get_hash();
+    data->format_module = 0;
 
     std::vector<adam::response> resps;
     resps.emplace_back();

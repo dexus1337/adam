@@ -101,7 +101,7 @@ TEST_F(controller_test, receive_extended_commands)
     adam::response resp;
     EXPECT_TRUE(test_queue.response_queue().pop(resp, 1000));
     EXPECT_TRUE(handler_called);
-    EXPECT_EQ(received_commands, 3);
+    EXPECT_EQ(received_commands, 3ull);
 }
 
 /** @brief Tests controller's ability to send out extended responses over the queue */

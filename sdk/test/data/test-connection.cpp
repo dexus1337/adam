@@ -20,8 +20,17 @@ namespace adam::test
     public:
         test_port(const adam::string_hashed& name) : adam::port(name) {}
         
-        const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "test"_ct; return type; }
+        const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "test"; return type; }
         direction get_direction() const override { return direction_inout; }
+
+
+        void worker() override
+        {
+            while (is_active())
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+        }
     };
 
     class test_processor : public adam::data_processor
@@ -91,12 +100,12 @@ TEST_F(connection_test, connection_data_forwarding_multiple_outputs)
     conn.ports_output().push_back(&out_port_1);
     conn.ports_output().push_back(&out_port_2);
 
-    EXPECT_TRUE(conn.has_valid_chain());
+    EXPECT_TRUE(conn.check_valid_chain());
 
     adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
     buf->set_size(10);
 
-    EXPECT_TRUE(conn.handle_data(buf, &in_port));
+    EXPECT_TRUE(conn.handle_data(buf));
 
     auto* stats_1 = out_port_1.get_statistic_buffer()->data_as<adam::port::statistic_info>();
     auto* stats_2 = out_port_2.get_statistic_buffer()->data_as<adam::port::statistic_info>();
@@ -128,12 +137,12 @@ TEST_F(connection_test, connection_data_forwarding_with_processor)
     conn.processors().push_back(&proc);
     conn.ports_output().push_back(&out_port);
 
-    EXPECT_TRUE(conn.has_valid_chain());
+    EXPECT_TRUE(conn.check_valid_chain());
 
     adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
     buf->set_size(10);
 
-    EXPECT_TRUE(conn.handle_data(buf, &in_port));
+    EXPECT_TRUE(conn.handle_data(buf));
 
     auto* stats = out_port.get_statistic_buffer()->data_as<adam::port::statistic_info>();
     EXPECT_EQ(stats->total_buffers_handled, 1u);

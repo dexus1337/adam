@@ -24,7 +24,6 @@ namespace adam
             p.add(std::make_unique<adam::configuration_parameter_integer>("date_edited"_ct));
             p.add(std::make_unique<adam::configuration_parameter_integer>("color_code"_ct));
             p.add(std::make_unique<adam::configuration_parameter_integer>("sorting_index"_ct));
-            // Input and output formats stored as string params for persistence
             p.add(std::make_unique<adam::configuration_parameter_string>("input_format"_ct));
             p.add(std::make_unique<adam::configuration_parameter_string>("input_format_module"_ct));
             p.add(std::make_unique<adam::configuration_parameter_string>("output_format"_ct));
@@ -43,14 +42,15 @@ namespace adam
         m_unavailable_outputs(),
         m_input_format(&data_format_transparent),   // Default to transparent
         m_output_format(&data_format_transparent),  // Default to transparent
-        m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct)))
+        m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct))),
+        m_b_valid_data_chain(false)
     {
 
     }
 
     connection::~connection() {}
 
-    bool connection::handle_data(buffer* buffer, port* input_port)
+    bool connection::handle_data(buffer* buffer)
     {
         bool result = true;
 
@@ -68,14 +68,13 @@ namespace adam
                 result &= output_port->handle_data(buffer, data_direction_out);
         });
 
-        (void)input_port; // No per-port compatibility check needed
-
         return result;
     }
 
-    bool connection::has_valid_chain()
+    bool connection::check_valid_chain()
     {
-        // A valid chain simply requires at least one input and one output port
+        m_b_valid_data_chain = false;
+
         bool has_input = false;
         bool has_output = false;
 
@@ -89,7 +88,45 @@ namespace adam
             has_output = !outputs.empty();
         });
 
-        return has_input && has_output;
+        if (!has_input || !has_output)
+            return false;
+
+        bool format_mismatch = false;
+        const data_format* current_format = m_input_format ? m_input_format : &data_format_transparent;
+
+        m_processors.iterate([&](const auto& processors)
+        {
+            for (auto* proc : processors)
+            {
+                const data_format* proc_in = proc->get_input_data_format();
+                if (!proc_in) proc_in = &data_format_transparent;
+
+                const data_format* proc_out = proc->get_output_data_format();
+                if (!proc_out) proc_out = &data_format_transparent;
+
+                if (*current_format != *proc_in)
+                {
+                    format_mismatch = true;
+                    break;
+                }
+
+                current_format = proc_out;
+            }
+        });
+
+        if (format_mismatch)
+            return false;
+
+        const data_format* expected_out = m_output_format ? m_output_format : &data_format_transparent;
+
+        if (*current_format != *expected_out)
+        {
+            return false;
+        }
+
+        m_b_valid_data_chain = true;
+
+        return true;
     }
 
     namespace

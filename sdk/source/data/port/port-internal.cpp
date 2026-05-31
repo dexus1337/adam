@@ -2,12 +2,14 @@
 
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/connection.hpp"
+#include "data/inspector.hpp"
 
 namespace adam 
 {
     port_internal::port_internal(const string_hashed& item_name) 
      :  port_in_out(item_name)
     {
+        port::m_b_threaded = false;
         get_parameter<configuration_parameter_string>("type"_ct)->set_value(type_name());
     }
 
@@ -25,11 +27,17 @@ namespace adam
             }
             case data_direction_out:
             {
+                m_inspectors.iterate([&](const auto& active_inspectors) 
+                {
+                    for (const auto& data_inspector : active_inspectors) 
+                        data_inspector->handle_data(buffer);
+                });
+
                 // Send data to connections as input
                 m_in_connections.iterate([&](const auto& connections) 
                 {
                     for (const auto& conn : connections) 
-                        result &= conn->handle_data(buffer, this);
+                        result &= conn->handle_data(buffer);
                 });
 
                 auto* stat_data = m_statistic_buffer->data_as<statistic_info>();

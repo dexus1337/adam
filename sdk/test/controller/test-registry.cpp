@@ -11,6 +11,7 @@
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 #include "data/connection.hpp"
+#include "data/format.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 
 #include <filesystem>
@@ -352,4 +353,77 @@ TEST_F(registry_test, unavailable_port_retry)
             EXPECT_EQ(inputs[0]->get_name(), "test_retry_port"_ct);
         }
     });
+}
+
+/** @brief Tests valid_chain calculation on connections based on formats and ports. */
+TEST_F(registry_test, connection_valid_chain)
+{
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+    
+    adam::port* in_port = nullptr;
+    adam::port* out_port = nullptr;
+    reg.create_port("in_port"_ct, adam::port_internal::type_name(), 0, &in_port);
+    reg.create_port("out_port"_ct, adam::port_internal::type_name(), 0, &out_port);
+    
+    adam::connection* conn = nullptr;
+    reg.create_connection("test_valid_conn"_ct, &conn);
+    
+    // Empty connection -> invalid
+    EXPECT_FALSE(conn->is_valid_chain());
+    
+    reg.connection_add_port("test_valid_conn"_ct.get_hash(), "in_port"_ct.get_hash(), true);
+    reg.connection_add_port("test_valid_conn"_ct.get_hash(), "out_port"_ct.get_hash(), false);
+    conn->check_valid_chain();
+    
+    // Transparent to transparent -> valid
+    EXPECT_TRUE(conn->is_valid_chain());
+    
+    // Dummy formats
+    adam::data_format dummy_fmt1("fmt1"_ct);
+    adam::data_format dummy_fmt2("fmt2"_ct);
+    
+    conn->set_input_format(&dummy_fmt1);
+    EXPECT_FALSE(conn->is_valid_chain()); // fmt1 != transparent
+    
+    conn->set_output_format(&dummy_fmt1);
+    EXPECT_TRUE(conn->is_valid_chain()); // fmt1 == fmt1
+    
+    conn->set_output_format(&dummy_fmt2);
+    EXPECT_FALSE(conn->is_valid_chain()); // fmt1 != fmt2
+}
+
+/** @brief Tests marking and retrying unavailable connections. */
+TEST_F(registry_test, unavailable_connections)
+{
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+    
+    adam::connection* conn = nullptr;
+    reg.create_connection("unavail_conn"_ct, &conn);
+    
+    // Set dummy module parameter to trigger unavailability when module is marked missing
+    if (auto* mod_param = dynamic_cast<adam::configuration_parameter_string*>(conn->get_parameters().get("input_format_module"_ct)))
+        mod_param->set_value("my_mod"_ct);
+    
+    if (auto* in_fmt_param = dynamic_cast<adam::configuration_parameter_string*>(conn->get_parameters().get("input_format"_ct)))
+        in_fmt_param->set_value("my_fmt"_ct);
+
+    EXPECT_EQ(reg.connections().size(), 1u);
+    EXPECT_EQ(reg.get_unavailable_connections().size(), 0u);
+
+    reg.mark_connections_unavailable("my_mod"_ct.get_hash());
+
+    EXPECT_EQ(reg.connections().size(), 0u);
+    EXPECT_EQ(reg.get_unavailable_connections().size(), 1u);
+    
+    // Simulate removing the module dependency by falling back to transparent format to safely test retry behavior natively
+    auto* uconn = reg.get_unavailable_connections().at("unavail_conn"_ct.get_hash()).get();
+    auto* fmt_p = dynamic_cast<adam::configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct));
+    fmt_p->set_value("transparent"_ct);
+    
+    reg.retry_unavailable_connections("my_mod"_ct.get_hash());
+    
+    EXPECT_EQ(reg.connections().size(), 1u);
+    EXPECT_EQ(reg.get_unavailable_connections().size(), 0u);
 }
