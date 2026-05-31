@@ -2,8 +2,7 @@
 #include <controller/controller.hpp>
 #include <controller/controller-cmd-dispatcher.hpp>
 #include <commander/messages/command.hpp>
-#include <controller/registry.hpp>
-#include <data/port/port-internal.hpp>
+#include <data/connection.hpp>
 
 using namespace adam::string_hashed_ct_literals;
 
@@ -98,28 +97,31 @@ TEST_F(controller_cmd_dispatcher_test, default_handlers)
     SUCCEED();
 }
 
-/** @brief Tests that the port_set_data_format command correctly changes a port's data format. */
-TEST_F(controller_cmd_dispatcher_test, port_set_data_format_dispatch)
+/** @brief Tests that the connection_set_data_format command correctly changes a connection's data format. */
+TEST_F(controller_cmd_dispatcher_test, connection_set_data_format_dispatch)
 {
     adam::controller& ctrl = adam::controller::get();
     adam::registry& reg = ctrl.get_registry();
     adam::controller_cmd_dispatcher dispatcher;
     dispatcher.register_default_handlers();
 
-    auto port_name = "test_format_port"_ct;
-    adam::port* prt = nullptr;
-    ASSERT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, 0, 0, &prt), adam::registry::status_success);
-    ASSERT_NE(prt, nullptr);
+    auto conn_name = "test_format_conn"_ct;
+    adam::connection* conn = nullptr;
+    ASSERT_EQ(reg.create_connection(conn_name, &conn), adam::registry::status_success);
+    ASSERT_NE(conn, nullptr);
 
-    // Initial format is expected to be transparent
-    EXPECT_EQ(prt->get_data_format()->get_name(), "transparent"_ct);
+    // Initial formats are expected to be transparent
+    EXPECT_EQ(conn->get_input_format()->get_name(), "transparent"_ct);
+    EXPECT_EQ(conn->get_output_format()->get_name(), "transparent"_ct);
 
     // Prepare set data format command
-    adam::command cmd(adam::command_type::port_set_data_format);
-    auto* data = cmd.data_as<adam::messages::port_data_format_data>();
-    data->port = port_name.get_hash();
-    data->format = adam::string_hashed("transparent").get_hash();
-    data->format_module = 0;
+    adam::command cmd(adam::command_type::connection_set_data_format);
+    auto* data = cmd.data_as<adam::messages::connection_data_format_data>();
+    data->connection = conn_name.get_hash();
+    data->input_format = adam::string_hashed("transparent").get_hash();
+    data->input_format_module = 0;
+    data->output_format = adam::string_hashed("transparent").get_hash();
+    data->output_format_module = 0;
 
     std::vector<adam::response> resps;
     resps.emplace_back();
@@ -127,8 +129,9 @@ TEST_F(controller_cmd_dispatcher_test, port_set_data_format_dispatch)
     dispatcher.dispatch(&cmd, 1, ctx);
 
     EXPECT_EQ(resps[0].get_type(), adam::response_status::success);
-    EXPECT_EQ(prt->get_data_format()->get_name(), "transparent"_ct);
+    EXPECT_EQ(conn->get_input_format()->get_name(), "transparent"_ct);
+    EXPECT_EQ(conn->get_output_format()->get_name(), "transparent"_ct);
 
     // Clean up
-    reg.destroy_port(port_name.get_hash());
+    reg.destroy_connection(conn_name.get_hash());
 }

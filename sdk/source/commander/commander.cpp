@@ -319,7 +319,7 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_port_create(const string_hashed& name, string_hash type, string_hash type_module, string_hash format, string_hash format_module)
+    response_status commander::request_port_create(const string_hashed& name, string_hash type, string_hash type_module)
     {
         {
             std::lock_guard<const registry_view> lg(m_registry_view);
@@ -328,7 +328,7 @@ namespace adam
         }
 
         command cmd(command_type::port_create);
-        cmd.data_as<port::basic_info>()->setup(name, type, type_module, format, format_module);
+        cmd.data_as<port::basic_info>()->setup(name, type, type_module);
 
         return send_command(cmd);
     }

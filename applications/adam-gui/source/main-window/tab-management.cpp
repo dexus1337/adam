@@ -285,85 +285,6 @@ namespace adam::gui
             
             ImGui::Separator();
 
-            // Data Format Dropdown
-            if (p_it != ports.end())
-            {
-                ImGui::AlignTextToFramePadding();
-                ImGui::Text("%s:", get_gui_string(gui_string_id::lbl_data_format, lang));
-                ImGui::SameLine();
-                
-                std::string current_format_str;
-                if (p_it->second->datatype.empty() || p_it->second->datatype == "transparent"_ct || p_it->second->datatype == "dataformat_transparent"_ct)
-                {
-                    current_format_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
-                }
-                else
-                {
-                    current_format_str = p_it->second->datatype.c_str();
-                }
-                
-                if (p_it->second->datatype_module.c_str()[0] != '\0')
-                {
-                    current_format_str += " [";
-                    current_format_str += p_it->second->datatype_module.c_str();
-                    current_format_str += "]";
-                }
-                
-                ImGui::SetNextItemWidth(-1.0f);
-                if (ImGui::BeginCombo("##DataFormatComboExpanded", current_format_str.c_str()))
-                {
-                    std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
-                    available_formats.push_back({ "transparent"_ct, ""_ct });
-                    {
-                        std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
-                        for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
-                        {
-                            for (const auto& fmt : mod_info.data_formats)
-                            {
-                                available_formats.push_back({ fmt, mod_name });
-                            }
-                        }
-                    }
-
-                    for (const auto& [fmt, mod] : available_formats)
-                    {
-                        std::string item_str;
-                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
-                        {
-                            item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
-                        }
-                        else
-                        {
-                            item_str = fmt.c_str();
-                        }
-                        if (mod.c_str()[0] != '\0')
-                        {
-                            item_str += " [";
-                            item_str += mod.c_str();
-                            item_str += "]";
-                        }
-                        
-                        bool is_selected = (fmt == p_it->second->datatype && mod == p_it->second->datatype_module);
-                        if (ImGui::Selectable(item_str.c_str(), is_selected))
-                        {
-                            if (!is_selected)
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash, fmt, mod]()
-                                {
-                                    ctrl.commander().request_port_set_data_format(port_hash, fmt.get_hash(), mod.get_hash());
-                                });
-                            }
-                        }
-                        if (is_selected)
-                        {
-                            ImGui::SetItemDefaultFocus();
-                        }
-                    }
-                    ImGui::EndCombo();
-                }
-                ImGui::Separator();
-            }
-
             // Inject Data
             ImGui::PushID((const void*)(intptr_t)(info.unique_node_id ^ 0x3333));
             bool inject_expanded = std::find(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), info.unique_node_id) != g_expanded_inject_nodes.end();
@@ -1417,6 +1338,10 @@ namespace adam::gui
         float base_height = ImGui::GetFrameHeight() * 2.0f + ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f + ImGui::GetStyle().WindowPadding.y * 2.0f;
         if (max_rows == 0)
             base_height -= ImGui::GetTextLineHeight();
+        if (!is_drag_preview)
+        {
+            base_height += ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y;
+        }
 
         int total_stages = 2 + static_cast<int>(num_processors);
 
@@ -1530,6 +1455,134 @@ namespace adam::gui
             draw_connection_card_header(ctrl, lang, sort_mode, hash, conn, is_drag_preview, dpi_scale, port_w);
 
             ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+
+            if (!is_drag_preview)
+            {
+                // Available formats
+                std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
+                available_formats.push_back({ "transparent"_ct, ""_ct });
+                {
+                    std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
+                    for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
+                    {
+                        for (const auto& fmt : mod_info.data_formats)
+                        {
+                            available_formats.push_back({ fmt, mod_name });
+                        }
+                    }
+                }
+
+                // 1. Input Format Dropdown above the first column (input ports)
+                ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y));
+                std::string in_fmt_str;
+                if (conn->input_format.empty() || conn->input_format == "transparent"_ct || conn->input_format == "dataformat_transparent"_ct)
+                {
+                    in_fmt_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                }
+                else
+                {
+                    in_fmt_str = conn->input_format.c_str();
+                }
+                if (conn->input_format_module.c_str()[0] != '\0')
+                {
+                    in_fmt_str += " [";
+                    in_fmt_str += conn->input_format_module.c_str();
+                    in_fmt_str += "]";
+                }
+
+                ImGui::SetNextItemWidth(port_w);
+                ImGui::PushID("conn_input_format_combo");
+                if (ImGui::BeginCombo("##InputFormatCombo", in_fmt_str.c_str()))
+                {
+                    for (const auto& [fmt, mod] : available_formats)
+                    {
+                        std::string item_str;
+                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
+                            item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                        else
+                            item_str = fmt.c_str();
+                        if (mod.c_str()[0] != '\0')
+                        {
+                            item_str += " [";
+                            item_str += mod.c_str();
+                            item_str += "]";
+                        }
+                        
+                        bool is_selected = (fmt == conn->input_format && mod == conn->input_format_module);
+                        if (ImGui::Selectable(item_str.c_str(), is_selected))
+                        {
+                            if (!is_selected)
+                            {
+                                ctrl.enqueue_commander_action([&ctrl, hash, fmt, mod, out_fmt = conn->output_format, out_mod = conn->output_format_module]()
+                                {
+                                    ctrl.commander().request_connection_set_data_format(hash, fmt.get_hash(), mod.get_hash(), out_fmt.get_hash(), out_mod.get_hash());
+                                });
+                            }
+                        }
+                        if (is_selected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopID();
+
+                // 2. Output Format Dropdown above the last column (output ports)
+                ImGui::SetCursorScreenPos(ImVec2(cur_pos.x + avail_x - port_w, cur_pos.y));
+                std::string out_fmt_str;
+                if (conn->output_format.empty() || conn->output_format == "transparent"_ct || conn->output_format == "dataformat_transparent"_ct)
+                {
+                    out_fmt_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                }
+                else
+                {
+                    out_fmt_str = conn->output_format.c_str();
+                }
+                if (conn->output_format_module.c_str()[0] != '\0')
+                {
+                    out_fmt_str += " [";
+                    out_fmt_str += conn->output_format_module.c_str();
+                    out_fmt_str += "]";
+                }
+
+                ImGui::SetNextItemWidth(port_w);
+                ImGui::PushID("conn_output_format_combo");
+                if (ImGui::BeginCombo("##OutputFormatCombo", out_fmt_str.c_str()))
+                {
+                    for (const auto& [fmt, mod] : available_formats)
+                    {
+                        std::string item_str;
+                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
+                            item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
+                        else
+                            item_str = fmt.c_str();
+                        if (mod.c_str()[0] != '\0')
+                        {
+                            item_str += " [";
+                            item_str += mod.c_str();
+                            item_str += "]";
+                        }
+                        
+                        bool is_selected = (fmt == conn->output_format && mod == conn->output_format_module);
+                        if (ImGui::Selectable(item_str.c_str(), is_selected))
+                        {
+                            if (!is_selected)
+                            {
+                                ctrl.enqueue_commander_action([&ctrl, hash, in_fmt = conn->input_format, in_mod = conn->input_format_module, fmt, mod]()
+                                {
+                                    ctrl.commander().request_connection_set_data_format(hash, in_fmt.get_hash(), in_mod.get_hash(), fmt.get_hash(), mod.get_hash());
+                                });
+                            }
+                        }
+                        if (is_selected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopID();
+
+                // Shift everything down for ports
+                cur_pos.y += ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y;
+            }
                 
             float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
             float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
@@ -1744,8 +1797,8 @@ namespace adam::gui
                     mod_name = it->second->type_module.c_str();
 
                 draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Input", node_type_input, 0, 0.0f, col, p_in, p_out, is_unavail, mod_name, pid, current_in_y);
-                if (it != ports.end())
-                    p_out.format_name = it->second->datatype.c_str();
+                if (!conn->input_format.empty())
+                    p_out.format_name = conn->input_format.c_str();
                 else
                     p_out.format_name = "transparent";
                 stage_pins_out[0].push_back(p_out);
@@ -1817,8 +1870,8 @@ namespace adam::gui
                     mod_name = it->second->type_module.c_str();
 
                 draw_node(it != ports.end() ? it->second->name.c_str() : "Unknown Output", node_type_output, total_stages - 1, 0.0f, col, p_in, p_out, is_unavail, mod_name, pid, current_out_y);
-                if (it != ports.end())
-                    p_in.format_name = it->second->datatype.c_str();
+                if (!conn->output_format.empty())
+                    p_in.format_name = conn->output_format.c_str();
                 else
                     p_in.format_name = "transparent";
                 stage_pins_in[total_stages - 1].push_back(p_in);
@@ -1921,7 +1974,7 @@ namespace adam::gui
             return buf;
         };
 
-        bool table_open = ImGui::BeginTable("InspectorPortsTable", 8, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+        bool table_open = ImGui::BeginTable("InspectorPortsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
         if (table_open)
         {
             auto setup_columns = [dpi_scale, lang]() 
@@ -1931,7 +1984,6 @@ namespace adam::gui
                 ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, 22.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_inspect, lang),       ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_port_name, lang),     ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_data_format, lang),   ImGuiTableColumnFlags_WidthStretch);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang),      ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang),          ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_last_received, lang), ImGuiTableColumnFlags_WidthStretch);
@@ -2044,82 +2096,6 @@ namespace adam::gui
                 ImGui::TextUnformatted(p_view->name.c_str());
                 // ---- END Name  ----
 
-                // ---- BEGIN Data Format Combo ----
-                ImGui::TableSetColumnIndex(4);
-                ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x5555));
-                
-                std::string current_format_str;
-                if (p_view->datatype.empty() || p_view->datatype == "transparent"_ct || p_view->datatype == "dataformat_transparent"_ct)
-                {
-                    current_format_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
-                }
-                else
-                {
-                    current_format_str = p_view->datatype.c_str();
-                }
-                
-                if (p_view->datatype_module.c_str()[0] != '\0')
-                {
-                    current_format_str += " [";
-                    current_format_str += p_view->datatype_module.c_str();
-                    current_format_str += "]";
-                }
-                
-                ImGui::SetNextItemWidth(-1.0f);
-                if (ImGui::BeginCombo("##DataFormatComboRegistry", current_format_str.c_str()))
-                {
-                    std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
-                    available_formats.push_back({ "transparent"_ct, ""_ct });
-                    {
-                        std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
-                        for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
-                        {
-                            for (const auto& fmt : mod_info.data_formats)
-                            {
-                                available_formats.push_back({ fmt, mod_name });
-                            }
-                        }
-                    }
-
-                    for (const auto& [fmt, mod] : available_formats)
-                    {
-                        std::string item_str;
-                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
-                        {
-                            item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
-                        }
-                        else
-                        {
-                            item_str = fmt.c_str();
-                        }
-                        if (mod.c_str()[0] != '\0')
-                        {
-                            item_str += " [";
-                            item_str += mod.c_str();
-                            item_str += "]";
-                        }
-                        
-                        bool is_selected = (fmt == p_view->datatype && mod == p_view->datatype_module);
-                        if (ImGui::Selectable(item_str.c_str(), is_selected))
-                        {
-                            if (!is_selected)
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, port_hash, fmt, mod]()
-                                {
-                                    ctrl.commander().request_port_set_data_format(port_hash, fmt.get_hash(), mod.get_hash());
-                                });
-                            }
-                        }
-                        if (is_selected)
-                        {
-                            ImGui::SetItemDefaultFocus();
-                        }
-                    }
-                    ImGui::EndCombo();
-                }
-                ImGui::PopID();
-                // ---- END Data Format Combo ----
-
                 if (has_inspector)
                 {
                     size_t msg_count = 0;
@@ -2151,14 +2127,14 @@ namespace adam::gui
                     }
 
                     // ---- BEGIN Messages  ----
-                    ImGui::TableSetColumnIndex(5);
+                    ImGui::TableSetColumnIndex(4);
                     ImGui::Text("%zu", msg_count);
                     // ---- END Messages  ----
 
-                    ImGui::TableSetColumnIndex(6);
+                    ImGui::TableSetColumnIndex(5);
                     ImGui::TextUnformatted(format_bytes(total_size).c_str());
 
-                    ImGui::TableSetColumnIndex(7);
+                    ImGui::TableSetColumnIndex(6);
                     if (msg_count > 0)
                     {
                         ImGui::Text("%s | %s", adam::get_log_time_string(last_ts).c_str(), preview_hex.c_str());
@@ -2275,7 +2251,7 @@ namespace adam::gui
                     ImGui::Spacing();
                     ImGui::PopID();
 
-                    table_open = ImGui::BeginTable("InspectorPortsTable", 8, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+                    table_open = ImGui::BeginTable("InspectorPortsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                     if (table_open)
                     {
                         setup_columns();

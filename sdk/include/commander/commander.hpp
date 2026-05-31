@@ -80,7 +80,7 @@ namespace adam
         response_status request_module_unload(const string_hashed& name);
 
         /** @brief Requests the creation of a port. */
-        response_status request_port_create(const string_hashed& name, string_hash type, string_hash type_module = 0, string_hash format = 0, string_hash format_module = 0);
+        response_status request_port_create(const string_hashed& name, string_hash type, string_hash type_module = 0);
 
         /** @brief Requests the destruction of a port. */
         response_status request_port_destroy(string_hash port_hash);

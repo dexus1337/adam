@@ -416,7 +416,7 @@ TEST_F(commander_test, sync_unavailable_port)
     // Trigger retry by broadcasting a port_available event
     adam::event evt(adam::event_type::port_available);
     auto* evt_data = evt.data_as<adam::port::basic_info>();
-    evt_data->setup(adam::string_hashed("cmd_unavail_port"), adam::string_hashed("some_type").get_hash(), adam::string_hashed("missing_mod").get_hash(), 0, 0, false);
+    evt_data->setup(adam::string_hashed("cmd_unavail_port"), adam::string_hashed("some_type").get_hash(), adam::string_hashed("missing_mod").get_hash(), false);
     evt_data->dir = adam::port::direction_inout;
     evt_data->is_active = false;
     ctrl.broadcast_event(evt);

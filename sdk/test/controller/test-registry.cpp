@@ -79,13 +79,13 @@ TEST_F(registry_test, save_modify_reload_verify)
     // 2. Create a port
     auto port_name = "my_input_port"_ct;
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, 0, 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Change a parameter in the port to verify it restores correctly
-    auto* df_param = static_cast<adam::configuration_parameter_string*>(created_port->get_parameters().get("data_format"_ct));
-    ASSERT_NE(df_param, nullptr);
-    df_param->set_value("json"_ct);
+    auto* active_param = static_cast<adam::configuration_parameter_boolean*>(created_port->get_parameters().get("is_active"_ct));
+    ASSERT_NE(active_param, nullptr);
+    active_param->set_value(true);
 
     // Save the populated registry
     EXPECT_TRUE(reg.save(test_filepath));
@@ -93,7 +93,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     
     // 3. Modify existing parameters to ensure we load fresh values from file
     lang_param->set_value(adam::language_english);
-    df_param->set_value("xml"_ct);
+    active_param->set_value(false);
 
     // 4. Reload from the binary file into a fresh registry to verify persistence
     adam::test::local_controller loaded_ctrl;
@@ -114,9 +114,9 @@ TEST_F(registry_test, save_modify_reload_verify)
     ASSERT_NE(loaded_port, nullptr);
     EXPECT_EQ(loaded_port->get_type_name(), adam::port_internal::type_name());
     
-    auto* loaded_df_param = static_cast<adam::configuration_parameter_string*>(loaded_port->get_parameters().get("data_format"_ct));
-    ASSERT_NE(loaded_df_param, nullptr);
-    EXPECT_EQ(loaded_df_param->get_value(), "json"_ct);
+    auto* loaded_active_param = static_cast<adam::configuration_parameter_boolean*>(loaded_port->get_parameters().get("is_active"_ct));
+    ASSERT_NE(loaded_active_param, nullptr);
+    EXPECT_EQ(loaded_active_param->get_value(), true);
 }
 
 /** @brief Tests that file I/O operations fail gracefully with bad paths or invalid file formats. */
@@ -152,19 +152,19 @@ TEST_F(registry_test, create_and_remove_port)
 
     // Attempt to create a port with an invalid type should gracefully fail
     adam::port* invalid_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, "non_existent_type"_ct, 0, 0, 0, &invalid_port), adam::registry::status_error_factory_not_found);
+    EXPECT_EQ(reg.create_port(port_name, "non_existent_type"_ct, 0, &invalid_port), adam::registry::status_error_factory_not_found);
     EXPECT_EQ(invalid_port, nullptr);
 
     // Create the port using the internal factory
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, 0, 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
     EXPECT_TRUE(reg.ports().contains(port_name));
 
     // Attempt to create a duplicate port should gracefully fail
     adam::port* duplicate_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, 0, 0, &duplicate_port), adam::registry::status_error_port_already_exists);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &duplicate_port), adam::registry::status_error_port_already_exists);
     EXPECT_EQ(duplicate_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
 
@@ -184,7 +184,7 @@ TEST_F(registry_test, clear_registry)
     adam::registry& reg = ctrl.get_registry();
     auto port_name = "test_port_clear"_ct;
     
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, 0, 0), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0), adam::registry::status_success);
     EXPECT_EQ(reg.ports().size(), 1u);
     
     reg.clear();
@@ -203,7 +203,7 @@ TEST_F(registry_test, port_type_and_module_persistence)
     auto port_name = "type_test_port"_ct;
 
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, 0, 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Verify type was populated correctly in the constructor
