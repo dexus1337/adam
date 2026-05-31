@@ -107,14 +107,17 @@ namespace adam::modules::serial
 
     bool port_serial::start()
     {
-        auto path = get_parameter<adam::configuration_parameter_string>("path"_ct)->get_value();
+        auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
+
+        auto path = user_params->get<adam::configuration_parameter_string>("path"_ct)->get_value();
+        
         if (path.empty()) return false;
 
-        int baud_rate = static_cast<int>(get_parameter<adam::configuration_parameter_integer>("baud_rate"_ct)->get_value());
-        int data_bits = static_cast<int>(get_parameter<adam::configuration_parameter_integer>("data_bits"_ct)->get_value());
-        int stop_bits = static_cast<int>(get_parameter<adam::configuration_parameter_integer>("stop_bits"_ct)->get_value());
-        const auto& parity = get_parameter<adam::configuration_parameter_string>("parity"_ct)->get_value();
-        const auto& flow_ctrl = get_parameter<adam::configuration_parameter_string>("flow_ctrl"_ct)->get_value();
+        int baud_rate = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("baud_rate"_ct)->get_value());
+        int data_bits = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("data_bits"_ct)->get_value());
+        int stop_bits = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("stop_bits"_ct)->get_value());
+        const auto& parity = user_params->get<adam::configuration_parameter_string>("parity"_ct)->get_value();
+        const auto& flow_ctrl = user_params->get<adam::configuration_parameter_string>("flow_ctrl"_ct)->get_value();
 
         #if defined(ADAM_PLATFORM_WINDOWS)
         m_handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
@@ -126,7 +129,7 @@ namespace adam::modules::serial
         if (GetCommState(m_handle, &dcbSerialParams)) 
         {
             dcbSerialParams.BaudRate = baud_rate;
-            dcbSerialParams.ByteSize = data_bits;
+            dcbSerialParams.ByteSize = static_cast<BYTE>(data_bits);
             dcbSerialParams.StopBits = stop_bits == 2 ? TWOSTOPBITS : ONESTOPBIT;
             
             if (parity == "odd"_ct) dcbSerialParams.Parity = ODDPARITY;

@@ -170,7 +170,7 @@ namespace adam
 
                     if (user_param)
                     {
-                        port_info->user_parameters = user_param->get_children().size();
+                        port_info->user_parameters = static_cast<uint16_t>(user_param->get_children().size());
                         
                         auto unused_off     = sizeof(port::basic_info);
                         auto unused_size    = response::get_max_data_length() - unused_off;
@@ -181,20 +181,119 @@ namespace adam
                         {
                             switch (params_it->second->get_type())
                             {
-                            case configuration_parameter::type::type_string:
-                                break;
-                            
-                            case configuration_parameter::type::type_integer:
-                                break;
-                            
-                            case configuration_parameter::type::type_boolean:
-                                break;
-                            
-                            case configuration_parameter::type::type_double:
-                                break;
-                            
-                            default:
-                                break;
+                                case configuration_parameter::type::type_string:
+                                {
+                                    configuration_parameter_string::view* param = nullptr;
+
+                                    if (unused_size >= sizeof(configuration_parameter_string::view))
+                                        param = reinterpret_cast<configuration_parameter_string::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    else
+                                    {
+                                        ctx.responses[resp_idx].set_extended(true);
+                                        resp_idx++;
+                                        unused_off = 0;
+                                        unused_size = response::get_max_data_length();
+                                        
+                                        param = reinterpret_cast<configuration_parameter_string::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    }
+
+                                    const auto& val = dynamic_cast<configuration_parameter_string*>(params_it->second.get())->get_value();
+
+                                    param->name = params_it->first.get_hash();
+                                    param->length = static_cast<uint16_t>(val.size());
+                                    unused_size -= sizeof(configuration_parameter_string::view);
+                                    unused_off += sizeof(configuration_parameter_string::view);
+
+                                    if (unused_size >= param->length)
+                                    {
+                                        std::strncpy(reinterpret_cast<char*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off), val.c_str(), param->length);
+                                        unused_size -= param->length;
+                                        unused_off += param->length;
+                                    }
+                                    else
+                                    {
+                                        ctx.responses[resp_idx].set_extended(true);
+                                        resp_idx++;
+                                    }
+
+                                    params_it++;
+
+                                    break;
+                                }
+                                case configuration_parameter::type::type_integer:
+                                {
+                                    configuration_parameter_integer::view* param = nullptr;
+
+                                    if (unused_size >= sizeof(configuration_parameter_integer::view))
+                                        param = reinterpret_cast<configuration_parameter_integer::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    else
+                                    {
+                                        ctx.responses[resp_idx].set_extended(true);
+                                        resp_idx++;
+                                        unused_off = 0;
+                                        unused_size = response::get_max_data_length();
+                                        
+                                        param = reinterpret_cast<configuration_parameter_integer::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    }
+
+                                    param->name = params_it->first.get_hash();
+                                    param->value = dynamic_cast<configuration_parameter_integer*>(params_it->second.get())->get_value();
+                                    unused_size -= sizeof(configuration_parameter_integer::view);
+                                    unused_off += sizeof(configuration_parameter_integer::view);
+                                    params_it++;
+
+                                    break;
+                                }
+                                case configuration_parameter::type::type_boolean:
+                                {
+                                    configuration_parameter_boolean::view* param = nullptr;
+
+                                    if (unused_size >= sizeof(configuration_parameter_boolean::view))
+                                        param = reinterpret_cast<configuration_parameter_boolean::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    else
+                                    {
+                                        ctx.responses[resp_idx].set_extended(true);
+                                        resp_idx++;
+                                        unused_off = 0;
+                                        unused_size = response::get_max_data_length();
+                                        
+                                        param = reinterpret_cast<configuration_parameter_boolean::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    }
+
+                                    param->name = params_it->first.get_hash();
+                                    param->value = dynamic_cast<configuration_parameter_boolean*>(params_it->second.get())->get_value();
+                                    unused_size -= sizeof(configuration_parameter_boolean::view);
+                                    unused_off += sizeof(configuration_parameter_boolean::view);
+                                    params_it++;
+
+                                    break;
+                                }
+                                case configuration_parameter::type::type_double:
+                                {
+                                    configuration_parameter_double::view* param = nullptr;
+
+                                    if (unused_size >= sizeof(configuration_parameter_double::view))
+                                        param = reinterpret_cast<configuration_parameter_double::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    else
+                                    {
+                                        ctx.responses[resp_idx].set_extended(true);
+                                        resp_idx++;
+                                        unused_off = 0;
+                                        unused_size = response::get_max_data_length();
+                                        
+                                        param = reinterpret_cast<configuration_parameter_double::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
+                                    }
+
+                                    param->name = params_it->first.get_hash();
+                                    param->value = dynamic_cast<configuration_parameter_double*>(params_it->second.get())->get_value();
+                                    unused_size -= sizeof(configuration_parameter_double::view);
+                                    unused_off += sizeof(configuration_parameter_double::view);
+                                    params_it++;
+
+                                    break;
+                                }
+                                default:
+                                    break;
                             }
                         }
                     }

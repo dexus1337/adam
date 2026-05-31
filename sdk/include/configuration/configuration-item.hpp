@@ -50,7 +50,10 @@ namespace adam
 
         void set_name(const string_hashed& new_name);
 
-        /** @brief Adds additional parameters to this configuration item. */
+        /** @brief Adds single additional parameter to this configuration item. */
+        void add_parameter(std::unique_ptr<configuration_parameter> param);
+
+        /** @brief Adds multiple additional parameters to this configuration item. */
         void add_parameters(const configuration_parameter_list& params);
 
     protected:

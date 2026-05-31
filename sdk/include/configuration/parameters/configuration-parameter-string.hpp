@@ -34,7 +34,7 @@ namespace adam
         #pragma pack(push, 1)
         struct view : configuration_parameter::view
         {
-            char value[1];
+            uint16_t length;
         };
         #pragma pack(pop)
 

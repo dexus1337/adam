@@ -76,11 +76,35 @@ namespace adam
         m_parameters.set_name(new_name);
     }
 
+    static void merge_parameter_lists(configuration_parameter_list* dest, const configuration_parameter_list* src)
+    {
+        if (!dest || !src) return;
+        for (const auto& [name, param] : src->get_children())
+        {
+            if (!param) continue;
+            auto* existing = dest->get(name);
+            if (!existing)
+            {
+                dest->add(param->clone());
+            }
+            else if (existing->get_type() == configuration_parameter::type_list && param->get_type() == configuration_parameter::type_list)
+            {
+                merge_parameter_lists(static_cast<configuration_parameter_list*>(existing), static_cast<const configuration_parameter_list*>(param.get()));
+            }
+        }
+    }
+
+    void configuration_item::add_parameter(std::unique_ptr<configuration_parameter> param)
+    {
+        if (!param) return;
+        auto* existing = m_parameters.get(param->get_name());
+        if (!existing) m_parameters.add(std::move(param));
+        else if (existing->get_type() == configuration_parameter::type_list && param->get_type() == configuration_parameter::type_list)
+            merge_parameter_lists(static_cast<configuration_parameter_list*>(existing), static_cast<const configuration_parameter_list*>(param.get()));
+    }
+
     void configuration_item::add_parameters(const configuration_parameter_list& params)
     {
-        for (const auto& [name, param] : params.get_children())
-        {
-            if (param && m_parameters.get(name) == nullptr) m_parameters.add(param->clone());
-        }
+        merge_parameter_lists(&m_parameters, &params);
     }
 }

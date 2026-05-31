@@ -71,6 +71,14 @@ namespace adam
         /** @brief Retrieves a child parameter by its name. Returns nullptr if not found. */
         configuration_parameter* get(const string_hashed_ct& name) const;
 
+        /** @brief Retrieves a child parameter by its name and casts it to the requested type. Returns nullptr if not found or if the cast fails. */
+        template<typename T>
+        T* get(const string_hashed& name) const { return dynamic_cast<T*>(get(name)); }
+
+        /** @brief Retrieves a child parameter by its name and casts it to the requested type. Returns nullptr if not found or if the cast fails. */
+        template<typename T>
+        T* get(const string_hashed_ct& name) const { return dynamic_cast<T*>(get(name)); }
+
         /** @brief Renames a child parameter and updates the internal map. */
         bool rename_child(const string_hashed& old_name, const string_hashed& new_name);
 

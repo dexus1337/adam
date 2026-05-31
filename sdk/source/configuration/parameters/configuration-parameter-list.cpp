@@ -36,7 +36,10 @@ namespace adam
     void configuration_parameter_list::add(std::unique_ptr<configuration_parameter> param)
     {
         if (param)
-            m_children.emplace(param->get_name(), std::move(param));
+        {
+            if (!m_children.contains(param->get_name()))
+                m_children.emplace(param->get_name(), std::move(param));
+        }
     }
 
     void configuration_parameter_list::clear()
