@@ -28,17 +28,17 @@
 
 namespace adam 
 {
+    class module;
+    
     struct port_info
     {
-        string_hash name_hash;
-        std::string type_name_str;
+        string_hashed name;
         port::direction direction;
     };
 
     struct processor_info
     {
-        string_hash hash;
-        std::string name_str;
+        string_hashed name;
     };
 
     struct module_info
@@ -62,7 +62,7 @@ namespace adam
     public:
         using map_available_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
         using map_unavailable_modules = std::unordered_map<string_hashed, std::tuple<uint32_t, string_hashed, uint8_t>>;
-        using map_loaded_modules      = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
+        using map_loaded_modules      = std::unordered_map<string_hashed, std::pair<uint32_t, module*>>;
 
         map_available_modules&              available()     { return m_available_modules; }
         map_unavailable_modules&            unavailable()   { return m_unavailable_modules; }
@@ -110,6 +110,7 @@ namespace adam
         map_available_modules       m_available_modules;
         map_unavailable_modules     m_unavailable_modules;
         map_loaded_modules          m_loaded_modules;
+        std::unordered_map<string_hashed, void*> m_handles;
         std::unordered_map<string_hashed, module_info> m_database;
         std::vector<string_hashed>  m_paths;
     };

@@ -30,12 +30,13 @@ namespace adam
     class ADAM_SDK_API configuration_item 
     {
     public:
+    
         /** @brief Retrieves the name of this configuration item. */
         const string_hashed& get_name() const { return m_parameters.get_name(); }
 
         /** @brief Retrieves the cloned configuration parameters specific to this instance. */
-        const configuration_parameter_list& get_parameters() const { return m_parameters; }
-        configuration_parameter_list&       get_parameters()       { return m_parameters; }
+        const configuration_parameter_list& get_parameters() const  { return m_parameters; }
+        configuration_parameter_list&       parameters()            { return m_parameters; }
 
         /** @brief Retrieves a specific configuration parameter by name. */
         template<typename T>

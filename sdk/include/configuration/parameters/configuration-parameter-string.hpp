@@ -11,6 +11,9 @@
  
 #include "api/api-sdk.hpp"
 
+#include <unordered_map>
+#include <memory>
+
 #include "configuration/parameters/configuration-parameter.hpp"
 #include "types/string-hashed.hpp"
 #include "types/string-hashed-ct.hpp"
@@ -25,8 +28,31 @@ namespace adam
     class ADAM_SDK_API configuration_parameter_string : public configuration_parameter
     {
     public:
-        /** @brief Constructs a new configuration_parameter_string object. */
+
+        using presets_container = std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter_string>>;
+
+        #pragma pack(push, 1)
+        struct view : configuration_parameter::view
+        {
+            char value[1];
+        };
+        #pragma pack(pop)
+
+        enum value_mode
+        {
+            value_mode_any,
+            value_mode_preset,
+            value_mode_regex
+        };
+
+        /** @brief Constructs a new configuration_parameter_string object for 'any' mode. */
         configuration_parameter_string(const string_hashed& name, const string_hashed_ct& default_value = string_hashed_ct(""));
+
+        /** @brief Constructs a new configuration_parameter_string object for 'preset' mode. */
+        configuration_parameter_string(const string_hashed& name, const string_hashed_ct& default_value, presets_container presets);
+
+        /** @brief Constructs a new configuration_parameter_string object for 'regex' mode. */
+        configuration_parameter_string(const string_hashed& name, const string_hashed_ct& default_value, std::unique_ptr<configuration_parameter_string> regex_param);
 
         /** @brief Constructs a new configuration_parameter_string from a string literal, enabling automatic compile-time hashing. */
         template<size_t N>
@@ -35,21 +61,34 @@ namespace adam
         /** @brief Destroys the configuration_parameter_string object and cleans up resources. */
         ~configuration_parameter_string();
 
-        type get_type() const override { return string; }
+        type get_type() const override { return type_string; }
  
         /** @brief Creates a deep copy of this configuration parameter. */
         std::unique_ptr<configuration_parameter> clone() const override;
 
         const string_hashed& get_value() const { return m_value; }
-        void set_value(const string_hashed& value) { m_value = value; }
+        bool set_value(const string_hashed& value);
         string_hashed& value() { return m_value; }
 
         const string_hashed_ct& get_default_value() const { return m_value_default; }
         void reset_to_default() { m_value = m_value_default; }
 
+        value_mode get_mode() const { return m_mode; }
+        void set_mode(value_mode mode) { m_mode = mode; }
+
+        const presets_container& get_presets() const { return m_presets; }
+        void add_preset(std::unique_ptr<configuration_parameter_string> preset);
+
+        const configuration_parameter_string* get_regex_parameter() const { return m_regex.get(); }
+        void set_regex(std::unique_ptr<configuration_parameter_string> regex_param);
+
     private:
 
-        string_hashed       m_value;
-        string_hashed_ct    m_value_default;
+        string_hashed                                   m_value;
+        string_hashed_ct                                m_value_default;
+
+        value_mode                                      m_mode;
+        presets_container                               m_presets;
+        std::unique_ptr<configuration_parameter_string> m_regex;
     };
 }

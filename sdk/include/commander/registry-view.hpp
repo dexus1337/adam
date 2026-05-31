@@ -24,6 +24,14 @@
 
 namespace adam 
 {
+    struct user_parameter_view
+    {
+        std::unordered_map<string_hash, int64_t> int_parameters;
+        std::unordered_map<string_hash, double> double_parameters;
+        std::unordered_map<string_hash, bool> bool_parameters;
+        std::unordered_map<string_hash, std::string> string_parameters;
+    };
+
     /** @struct port_view */
     struct port_view
     {
@@ -34,7 +42,8 @@ namespace adam
         bool is_unavailable;
         port::direction direction;
         buffer* statistic_buffer;
-
+        user_parameter_view user_params;
+        
         ~port_view() { if (statistic_buffer) statistic_buffer->release(); }
     };
 

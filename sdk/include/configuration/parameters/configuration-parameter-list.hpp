@@ -45,7 +45,7 @@ namespace adam
         /** @brief Destroys the configuration_parameter_list object and cleans up resources. */
         ~configuration_parameter_list();
 
-        type get_type() const override { return list; }
+        type get_type() const override { return type_list; }
 
         /** @brief Creates a deep copy of this configuration parameter list. */
         std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_list>(*this); }

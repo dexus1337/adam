@@ -104,7 +104,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     // 5. Verify the values are restored correctly
     auto* loaded_lang_param = loaded_reg.get_parameters().get("language"_ct);
     ASSERT_NE(loaded_lang_param, nullptr);
-    EXPECT_EQ(loaded_lang_param->get_type(), adam::configuration_parameter::integer);
+    EXPECT_EQ(loaded_lang_param->get_type(), adam::configuration_parameter::type_integer);
     EXPECT_EQ(static_cast<adam::configuration_parameter_integer*>(loaded_lang_param)->get_value(), adam::language_german);
 
     // Verify port was recreated and parameters are restored
@@ -289,11 +289,11 @@ TEST_F(registry_test, unavailable_port_retry)
     
     auto type_param = std::make_unique<adam::configuration_parameter_string>("type"_ct);
     type_param->set_value("some_missing_type"_ct);
-    upi->get_parameters().add(std::move(type_param));
+    upi->parameters().add(std::move(type_param));
     
     auto mod_param = std::make_unique<adam::configuration_parameter_string>("type_origin_module"_ct);
     mod_param->set_value("missing_module"_ct);
-    upi->get_parameters().add(std::move(mod_param));
+    upi->parameters().add(std::move(mod_param));
     
     reg.unavailable_ports()["my_unavail_port"_ct.get_hash()] = std::move(upi);
     
@@ -329,7 +329,7 @@ TEST_F(registry_test, unavailable_port_retry)
     
     auto type_param3 = std::make_unique<adam::configuration_parameter_string>("type"_ct);
     type_param3->set_value(adam::port_internal::type_name());
-    upi3->get_parameters().add(std::move(type_param3));
+    upi3->parameters().add(std::move(type_param3));
     
     loaded_reg.unavailable_ports()["test_retry_port"_ct.get_hash()] = std::move(upi3);
     

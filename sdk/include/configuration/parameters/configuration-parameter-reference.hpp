@@ -30,7 +30,7 @@ namespace adam
         /** @brief Destroys the configuration_parameter_reference object and cleans up resources. */
         ~configuration_parameter_reference();
 
-        type get_type() const override { return reference; }
+        type get_type() const override { return type_reference; }
  
         /** @brief Creates a deep copy of this configuration parameter. */
         std::unique_ptr<configuration_parameter> clone() const override;

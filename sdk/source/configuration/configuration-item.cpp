@@ -47,7 +47,7 @@ namespace adam
         if (get_major(loaded_version) > get_major(sdk_version)) return false;
 
         auto loaded_root = configuration_parameter::deserialize(ifs);
-        if (!loaded_root || loaded_root->get_type() != configuration_parameter::list) return false;
+        if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list) return false;
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
         for (auto& [name, param] : root_list->get_children())
@@ -80,7 +80,7 @@ namespace adam
     {
         for (const auto& [name, param] : params.get_children())
         {
-            if (param) m_parameters.add(param->clone());
+            if (param && m_parameters.get(name) == nullptr) m_parameters.add(param->clone());
         }
     }
 }

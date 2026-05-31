@@ -24,10 +24,9 @@ namespace adam
             out_module = it->first;
             for (const auto& port : it->second.ports)
             {
-                if (port.name_hash == type_hash)
+                if (port.name.get_hash() == type_hash)
                 {
-                    if (!port.type_name_str.empty())
-                        out_type = string_hashed(port.type_name_str.c_str());
+                    out_type = port.name;
                     return;
                 }
             }
@@ -84,48 +83,13 @@ namespace adam
                         info.data_formats.push_back(fmt_ptr->get_name());
                         
                     for (const auto& [port_name, port_factory] : mod_ptr->get_port_factories())
-                    {
-                        port::direction dir = port::direction_invalid;
-                        std::string type_name_str;
-                        if (port_factory)
-                        {
-                            if (port* tmp = port_factory->create("temp"_ct))
-                            {
-                                dir = tmp->get_direction();
-                                type_name_str = tmp->get_type_name().c_str();
-                                delete tmp;
-                            }
-                        }
-                        info.ports.push_back({port_name, type_name_str, dir});
-                    }
+                        info.ports.push_back({port_name, port_factory.direction});
                     
                     for (const auto& [flt_name, flt_factory] : mod_ptr->get_filter_factories())
-                    {
-                        std::string name_str = "Unknown Filter";
-                        if (auto* tmp = flt_factory->create("temp_filter"_ct))
-                        {
-                            if (auto* param = dynamic_cast<configuration_parameter_string*>(tmp->get_parameters().get("type"_ct)))
-                            {
-                                name_str = param->get_value().c_str();
-                            }
-                            delete tmp;
-                        }
-                        info.filters.push_back({flt_name, name_str});
-                    }
+                        info.filters.push_back({flt_name});
                         
                     for (const auto& [cnv_name, cnv_factory] : mod_ptr->get_converter_factories())
-                    {
-                        std::string name_str = "Unknown Converter";
-                        if (auto* tmp = cnv_factory->create("temp_converter"_ct))
-                        {
-                            if (auto* param = dynamic_cast<configuration_parameter_string*>(tmp->get_parameters().get("type"_ct)))
-                            {
-                                name_str = param->get_value().c_str();
-                            }
-                            delete tmp;
-                        }
-                        info.converters.push_back({cnv_name, name_str});
-                    }
+                        info.converters.push_back({cnv_name});
                         
                     m_database[name] = std::move(info);
                 }
@@ -137,17 +101,48 @@ namespace adam
     void module_view::load_module(const string_hashed& name, const string_hashed& path, uint32_t version)
     {
         update_module_database(name, path, version);
-        m_loaded_modules[name] = std::make_pair(version, path);
+
+        if (m_loaded_modules.find(name) != m_loaded_modules.end())
+            return;
+
+        void* handle = os::load_library(path.c_str());
+        if (handle)
+        {
+            auto get_mod = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::get_entry_point_name().c_str()));
+            if (get_mod)
+            {
+                if (module* mod_ptr = get_mod())
+                {
+                    m_loaded_modules[name] = std::make_pair(version, mod_ptr);
+                    m_handles[name] = handle;
+                    return;
+                }
+            }
+            os::unload_library(handle);
+        }
     }
 
     void module_view::unload_module(const string_hashed& name)
     {
         m_loaded_modules.erase(name);
+        auto it = m_handles.find(name);
+        if (it != m_handles.end())
+        {
+            os::unload_library(it->second);
+            m_handles.erase(it);
+        }
     }
 
     void module_view::clear()
     {
         std::lock_guard<const module_view> lg(*this);
+        for (const auto& [name, handle] : m_handles)
+        {
+            if (handle)
+                os::unload_library(handle);
+        }
+        m_handles.clear();
+
         m_available_modules.clear();
         m_unavailable_modules.clear();
         m_loaded_modules.clear();

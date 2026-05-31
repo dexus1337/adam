@@ -24,13 +24,21 @@ namespace adam
     class ADAM_SDK_API configuration_parameter_double : public configuration_parameter
     {
     public:
+    
+        #pragma pack(push, 1)
+        struct view : configuration_parameter::view
+        {
+            double value;
+        };
+        #pragma pack(pop)
+
         /** @brief Constructs a new configuration_parameter_double object. */
         configuration_parameter_double(const string_hashed& name, double value = 0.0);
 
         /** @brief Destroys the configuration_parameter_double object and cleans up resources. */
         ~configuration_parameter_double();
 
-        type get_type() const override { return double_; }
+        type get_type() const override { return type_double; }
  
         /** @brief Creates a deep copy of this configuration parameter. */
         std::unique_ptr<configuration_parameter> clone() const override;

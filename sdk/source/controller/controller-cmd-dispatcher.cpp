@@ -12,6 +12,7 @@
 #include "data/processor.hpp"
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
+#include "configuration/parameters/configuration-parameter.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "memory/buffer/buffer.hpp"
@@ -159,11 +160,44 @@ namespace adam
                         port_info->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
                     else
                         port_info->type_module = 0;
-                        
+
                     port_info->statistic_buffer_handle  = prt->get_statistic_buffer()->get_handle();
                     port_info->dir                      = prt->get_direction();
                     port_info->is_unavailable           = false;
                     port_info->is_active                = prt->is_active();
+
+                    auto* user_param = dynamic_cast<configuration_parameter_list*>(prt->get_parameters().get("user_parameters"_ct));
+
+                    if (user_param)
+                    {
+                        port_info->user_parameters = user_param->get_children().size();
+                        
+                        auto unused_off     = sizeof(port::basic_info);
+                        auto unused_size    = response::get_max_data_length() - unused_off;
+                        auto params_it      = user_param->get_children().begin();
+                        auto params_end     = user_param->get_children().end();
+
+                        while (unused_size > 0 && params_it != params_end)
+                        {
+                            switch (params_it->second->get_type())
+                            {
+                            case configuration_parameter::type::type_string:
+                                break;
+                            
+                            case configuration_parameter::type::type_integer:
+                                break;
+                            
+                            case configuration_parameter::type::type_boolean:
+                                break;
+                            
+                            case configuration_parameter::type::type_double:
+                                break;
+                            
+                            default:
+                                break;
+                            }
+                        }
+                    }
 
                     resp_idx++;
 
@@ -681,12 +715,6 @@ namespace adam
 
             if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("sorting_index"_ct)))
                 param->set_value(params->value);
-            else
-            {
-                auto new_param = std::make_unique<configuration_parameter_integer>("sorting_index"_ct);
-                new_param->set_value(params->value);
-                it->second->get_parameters().add(std::move(new_param));
-            }
 
             uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
             if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("date_edited"_ct)))
@@ -720,12 +748,6 @@ namespace adam
 
             if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("color_code"_ct)))
                 param->set_value(params->value);
-            else
-            {
-                auto new_param = std::make_unique<configuration_parameter_integer>("color_code"_ct);
-                new_param->set_value(params->value);
-                it->second->get_parameters().add(std::move(new_param));
-            }
 
             uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
             if (auto* param = dynamic_cast<configuration_parameter_integer*>(it->second->get_parameters().get("date_edited"_ct)))

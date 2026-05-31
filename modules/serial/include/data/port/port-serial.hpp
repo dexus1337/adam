@@ -35,5 +35,24 @@ namespace adam::modules::serial
         ~port_serial();
 
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
+        
+        /** @brief Starts the port. Initializes Serial Communication */
+        virtual bool start();
+
+        /** @brief Stops the port. Cleans up resources used by Serial Communication */
+        virtual bool stop();
+
+        /** @brief Protoype function for data input */
+        virtual bool read(buffer*& buff);
+
+        /** @brief Protoype function for data output. */
+        virtual bool write(buffer* buff);
+
+    private:
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        void* m_handle;
+        #else
+        int m_fd;
+        #endif
     };
 }

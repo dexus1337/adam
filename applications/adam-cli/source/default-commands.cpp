@@ -100,7 +100,7 @@ namespace adam::cli
         {
             std::lock_guard<std::mutex> lock(console_mutex);
             std::cout << "\r\033[2K\nLoaded Modules:\n";
-            for (const auto& [name, mod] : c.get_modules().get_loaded()) std::cout << "  " << name.c_str() << " (" << mod.second.c_str() << ")\n";
+            for (const auto& [name, mod] : c.get_modules().get_loaded()) std::cout << "  " << name.c_str() << " (" << mod.second->get_filepath().c_str() << ")\n";
             std::cout << "Available Modules:\n";
             for (const auto& [name, mod] : c.get_modules().get_available()) std::cout << "  " << name.c_str() << " (" << mod.second.c_str() << ")\n";
             std::cout << "Unavailable Modules:\n";

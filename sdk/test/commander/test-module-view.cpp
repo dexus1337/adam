@@ -36,11 +36,10 @@ TEST_F(module_view_test, initial_state)
 TEST_F(module_view_test, load_and_unload_module)
 {
     string_hashed mod_name("test_module");
-    string_hashed mod_path("/mock/path/to/module");
     uint32_t version = 1337;
 
-    // Load the module
-    view.load_module(mod_name, mod_path, version);
+    // Manually add to loaded map since a real load requires a valid OS shared library
+    view.loaded()[mod_name] = std::make_pair(version, nullptr);
 
     const auto& loaded = view.get_loaded();
     ASSERT_EQ(loaded.size(), 1u);
@@ -48,7 +47,7 @@ TEST_F(module_view_test, load_and_unload_module)
     auto it = loaded.find(mod_name);
     ASSERT_NE(it, loaded.end());
     EXPECT_EQ(it->second.first, version);
-    EXPECT_EQ(it->second.second, mod_path);
+    EXPECT_EQ(it->second.second, nullptr);
 
     // Unload the module
     view.unload_module(mod_name);
@@ -86,8 +85,7 @@ TEST_F(module_view_test, extract_port_type_and_module)
     info.name = mod_name;
     
     port_info p_info;
-    p_info.name_hash = port_name.get_hash();
-    p_info.type_name_str = "video";
+    p_info.name = port_name;
     p_info.direction = port::direction_in;
     info.ports.push_back(p_info);
 
@@ -99,7 +97,7 @@ TEST_F(module_view_test, extract_port_type_and_module)
     // Test extraction
     view.extract_port_type_and_module(port_name.get_hash(), mod_name.get_hash(), out_type, out_module);
 
-    EXPECT_EQ(out_type, string_hashed("video")); 
+    EXPECT_EQ(out_type, port_name); 
     EXPECT_EQ(out_module, mod_name);
 }
 
@@ -128,7 +126,7 @@ TEST_F(module_view_test, clear_removes_all_elements)
     // Manually populate all the collections
     view.available()[mod_name] = {100, mod_path};
     view.unavailable()[mod_name] = {100, mod_path, 1};
-    view.loaded()[mod_name] = {100, mod_path};
+    view.loaded()[mod_name] = {100, nullptr};
     view.paths().push_back(mod_path);
     view.database()[mod_name] = module_info{};
 

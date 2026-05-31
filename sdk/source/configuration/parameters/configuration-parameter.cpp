@@ -18,6 +18,21 @@ namespace adam
 
     configuration_parameter::~configuration_parameter() {}
 
+    const string_hashed& configuration_parameter::get_description(language lang) const 
+    {
+        auto it = m_descriptions.find(lang);
+        if (it != m_descriptions.end())
+            return it->second;
+
+        static const string_hashed empty_str("");
+        return empty_str;
+    }
+
+    void configuration_parameter::set_description(language lang, const string_hashed& description) 
+    {
+        m_descriptions[lang] = description;
+    }
+
     void configuration_parameter::write_string(std::ostream& os, const std::string& str) 
     {
         uint32_t len = static_cast<uint32_t>(str.length());
@@ -44,22 +59,22 @@ namespace adam
 
         switch (param->get_type()) 
         {
-            case configuration_parameter::integer:
+            case configuration_parameter::type_integer:
                 write_binary(os, static_cast<const configuration_parameter_integer*>(param)->get_value());
                 break;
-            case configuration_parameter::double_:
+            case configuration_parameter::type_double:
                 write_binary(os, static_cast<const configuration_parameter_double*>(param)->get_value());
                 break;
-            case configuration_parameter::boolean:
+            case configuration_parameter::type_boolean:
                 write_binary(os, static_cast<const configuration_parameter_boolean*>(param)->get_value());
                 break;
-            case configuration_parameter::string:
+            case configuration_parameter::type_string:
                 write_string(os, static_cast<const configuration_parameter_string*>(param)->get_value());
                 break;
-            case configuration_parameter::reference:
+            case configuration_parameter::type_reference:
                 write_string(os, std::string(static_cast<const configuration_parameter_reference*>(param)->get_target()));
                 break;
-            case configuration_parameter::list: 
+            case configuration_parameter::type_list: 
             {
                 const auto& children = static_cast<const configuration_parameter_list*>(param)->get_children();
                 uint32_t count = static_cast<uint32_t>(children.size());
@@ -83,39 +98,46 @@ namespace adam
         read_binary(is, type);
         string_hashed name = read_string(is);
 
+        std::unique_ptr<configuration_parameter> result = nullptr;
+
         switch (type) 
         {
-            case configuration_parameter::integer: 
+            case configuration_parameter::type_integer: 
             {
                 int64_t value;
                 read_binary(is, value);
-                return std::make_unique<configuration_parameter_integer>(name, value);
+                result = std::make_unique<configuration_parameter_integer>(name, value);
+                break;
             }
-            case configuration_parameter::double_: 
+            case configuration_parameter::type_double: 
             {
                 double value;
                 read_binary(is, value);
-                return std::make_unique<configuration_parameter_double>(name, value);
+                result = std::make_unique<configuration_parameter_double>(name, value);
+                break;
             }
-            case configuration_parameter::boolean: 
+            case configuration_parameter::type_boolean: 
             {
                 bool value;
                 read_binary(is, value);
-                return std::make_unique<configuration_parameter_boolean>(name, value);
+                result = std::make_unique<configuration_parameter_boolean>(name, value);
+                break;
             }
-            case configuration_parameter::string:
+            case configuration_parameter::type_string:
             {
                 auto res = std::make_unique<configuration_parameter_string>(name);
                 res->set_value(read_string(is));
-                return res;
+                result = std::move(res);
+                break;
             }
-            case configuration_parameter::reference: 
+            case configuration_parameter::type_reference: 
             {
                 auto res = std::make_unique<configuration_parameter_reference>(name);
                 res->set_target(read_string(is));
-                return res;
+                result = std::move(res);
+                break;
             }
-            case configuration_parameter::list: 
+            case configuration_parameter::type_list: 
             {
                 auto list_param = std::make_unique<configuration_parameter_list>(name);
                 uint32_t count;
@@ -124,10 +146,13 @@ namespace adam
                 for (uint32_t i = 0; i < count; ++i)
                     list_param->add(deserialize(is));
 
-                return list_param;
+                result = std::move(list_param);
+                break;
             }
             default:
                 return nullptr;
         }
+
+        return result;
     }
 }

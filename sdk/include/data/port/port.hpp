@@ -46,15 +46,17 @@ namespace adam
             direction_inout    = direction_in | direction_out
         };
 
+        #pragma pack(push, 1)
         struct basic_info
         {
             char            name[max_name_length];
-            string_hash     type;
-            string_hash     type_module;
             direction       dir;
-            buffer_handle   statistic_buffer_handle;
             bool            is_active;
             bool            is_unavailable;
+            string_hash     type;
+            string_hash     type_module;
+            buffer_handle   statistic_buffer_handle;
+            uint16_t        user_parameters;
 
             void setup(const string_hashed& n, string_hash t, string_hash tm, bool unavail = false, buffer_handle bh = buffer_handle())
             {
@@ -64,10 +66,13 @@ namespace adam
                 statistic_buffer_handle = bh;
                 is_unavailable = unavail;
                 is_active = false;
+                is_unavailable = false;
+                user_parameters = 0;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
             }
         };
+        #pragma pack(pop)
         static_assert(sizeof(port::basic_info) <= command::get_max_data_length(), "port::basic_info exceeds maximum command data size");
 
         struct status_event_info

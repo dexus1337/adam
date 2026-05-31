@@ -22,7 +22,7 @@ namespace adam::modules::serial
         m_port_factories.emplace
         (
             port_serial::type_name(), 
-            &global_port_serial_factory
+            registry::factory_data_port(&global_port_serial_factory, &port_serial::get_default_parameters(), port_serial::direction)
         );
 
     }

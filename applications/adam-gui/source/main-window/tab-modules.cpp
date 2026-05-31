@@ -244,13 +244,13 @@ namespace adam::gui
                                     ImGui::TextUnformatted(format_name.c_str());
                                 }
 
-                                for (const auto& p : mod_info_ptr->ports)
+                                for (const auto& [port_name, port_dir] : mod_info_ptr->ports)
                                 {
                                     ImGui::TableNextRow();
                                     ImGui::TableSetColumnIndex(0);
                                     
-                                    bool is_in = (p.direction & adam::port::direction_in) != adam::port::direction_invalid;
-                                    bool is_out = (p.direction & adam::port::direction_out) != adam::port::direction_invalid;
+                                    bool is_in = (port_dir & adam::port::direction_in) != adam::port::direction_invalid;
+                                    bool is_out = (port_dir & adam::port::direction_out) != adam::port::direction_invalid;
                                     
                                     if (is_in && is_out)
                                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_inout_port, lang));
@@ -262,28 +262,34 @@ namespace adam::gui
                                         ImGui::TextUnformatted("Port");
 
                                     ImGui::TableSetColumnIndex(1);
-                                    if (!p.type_name_str.empty())
-                                        ImGui::TextUnformatted(p.type_name_str.c_str());
+                                    if (!port_name.empty())
+                                        ImGui::TextUnformatted(port_name.c_str());
                                     else
-                                        ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(p.name_hash));
+                                        ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(port_name.get_hash()));
                                 }
 
-                                for (const auto& proc : mod_info_ptr->filters)
+                                for (const auto& [filter_name] : mod_info_ptr->filters)
                                 {
                                     ImGui::TableNextRow();
                                     ImGui::TableSetColumnIndex(0);
                                     ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_filter, lang));
                                     ImGui::TableSetColumnIndex(1);
-                                    ImGui::TextUnformatted(proc.name_str.c_str());
+                                    if (!filter_name.empty())
+                                        ImGui::TextUnformatted(filter_name.c_str());
+                                    else
+                                        ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(filter_name.get_hash()));
                                 }
 
-                                for (const auto& proc : mod_info_ptr->converters)
+                                for (const auto& [converter_name] : mod_info_ptr->converters)
                                 {
                                     ImGui::TableNextRow();
                                     ImGui::TableSetColumnIndex(0);
                                     ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_converter, lang));
                                     ImGui::TableSetColumnIndex(1);
-                                    ImGui::TextUnformatted(proc.name_str.c_str());
+                                    if (!converter_name.empty())
+                                        ImGui::TextUnformatted(converter_name.c_str());
+                                    else
+                                        ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(converter_name.get_hash()));
                                 }
                                 
                                 ImGui::EndTable();
@@ -338,7 +344,7 @@ namespace adam::gui
                 for (const auto& [name_hash, data] : loaded)
                 {
                     auto it = db.find(name_hash);
-                    sorted_modules.push_back({ 1, data.first, data.second.c_str(), 0, name_hash.c_str(), (it != db.end()) ? &it->second : nullptr });
+                    sorted_modules.push_back({ 1, data.first, data.second->get_filepath().c_str(), 0, name_hash.c_str(), (it != db.end()) ? &it->second : nullptr });
                 }
                     
                 for (const auto& [name_hash, data] : unavail)

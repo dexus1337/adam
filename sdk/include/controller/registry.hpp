@@ -66,9 +66,31 @@ namespace adam
         using unavailable_port_map          = std::unordered_map<string_hash, std::unique_ptr<port::unavailable_info>>;         /**< A map for storing unavailable port information. */
         using unavailable_connection_map    = std::unordered_map<string_hash, std::unique_ptr<connection::unavailable_info>>;   /**< A map for storing unavailable connection information. */
 
-        using port_factory_map              = std::unordered_map<string_hash, const factory<port>*>;                            /**< A map of factories for creating ports provided by a module. */
-        using filter_factory_map            = std::unordered_map<string_hash, const factory<filter>*>;                          /**< A map of factories for creating filters provided by a module. */
-        using converter_factory_map         = std::unordered_map<string_hash, const factory<converter>*>;                       /**< A map of factories for creating converters provided by a module. */
+        template<typename T>
+        struct factory_data
+        {
+            factory_data() = default;
+            factory_data(factory<T>* ptr) : factory_ptr(ptr), parameters(nullptr) {}
+            factory_data(factory<T>* ptr, const configuration_parameter_list* params) 
+                : factory_ptr(ptr), parameters(params) {}
+
+            factory<T>*                         factory_ptr = nullptr;
+            const configuration_parameter_list* parameters = nullptr;
+        };
+
+        struct factory_data_port : public factory_data<port>
+        {
+            factory_data_port() = default;
+            factory_data_port(factory<port>* ptr) : factory_data<port>(ptr), direction(port::direction_invalid) {}
+            factory_data_port(factory<port>* ptr, const configuration_parameter_list* params, port::direction dir) 
+                : factory_data<port>(ptr, params), direction(dir) {}
+
+            port::direction direction = port::direction_invalid;
+        }; 
+
+        using port_factory_map              = std::unordered_map<string_hashed, factory_data_port>;                             /**< A map of factories for creating ports provided by a module. */
+        using filter_factory_map            = std::unordered_map<string_hashed, factory_data<filter>>;                          /**< A map of factories for creating filters provided by a module. */
+        using converter_factory_map         = std::unordered_map<string_hashed, factory_data<converter>>;                       /**< A map of factories for creating converters provided by a module. */
 
         /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
         registry(const registry&) = delete;
