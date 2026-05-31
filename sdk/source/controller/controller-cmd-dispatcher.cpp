@@ -741,6 +741,178 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(command_type::connection_set_input_data_format, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_data_format_data>();
+
+            auto conn_it = ctx.reg.connections().find(params->connection);
+            if (conn_it == ctx.reg.connections().end())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            connection* conn = conn_it->second.get();
+
+            const data_format* in_fmt  = &data_format_transparent;
+            string_hashed resolved_in_module;
+
+            auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
+            {
+                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
+                    return; // stays transparent
+
+                if (mod_hash != 0)
+                {
+                    auto mod_it = ctx.reg.modules().get_loaded_modules().find(mod_hash);
+                    if (mod_it != ctx.reg.modules().get_loaded_modules().end())
+                    {
+                        auto fmt_it = mod_it->second->get_data_formats().find(fmt_hash);
+                        if (fmt_it != mod_it->second->get_data_formats().end())
+                        {
+                            out_format = fmt_it->second;
+                            out_module = mod_it->first;
+                        }
+                    }
+                }
+                else
+                {
+                    for (const auto& [mod_name, mod] : ctx.reg.modules().get_loaded_modules())
+                    {
+                        auto fmt_it = mod->get_data_formats().find(fmt_hash);
+                        if (fmt_it != mod->get_data_formats().end())
+                        {
+                            out_format = fmt_it->second;
+                            out_module = mod_name;
+                            break;
+                        }
+                    }
+                }
+            };
+
+            resolve_format(params->format, params->format_module, in_fmt, resolved_in_module);
+
+            bool was_active = conn->is_active();
+            conn->set_input_format(in_fmt);
+            
+            if (was_active && !conn->is_valid_chain())
+            {
+                conn->stop();
+                event evt_stop(event_type::connection_stopped);
+                evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
+                ctx.ctrl.broadcast_event(evt_stop);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            }
+
+            auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
+            {
+                if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
+                    p->set_value(value);
+            };
+
+            set_str_param("input_format"_ct,        in_fmt  == &data_format_transparent ? "transparent"_ct : in_fmt->get_name());
+            set_str_param("input_format_module"_ct, resolved_in_module);
+
+            event evt(event_type::connection_input_data_format_changed);
+            auto* evt_data = evt.data_as<messages::connection_data_format_data>();
+            evt_data->connection            = params->connection;
+            evt_data->format                = in_fmt->get_name().get_hash();
+            evt_data->format_module         = resolved_in_module.get_hash();
+            evt_data->valid_chain           = conn->is_valid_chain();
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_set_output_data_format, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_data_format_data>();
+
+            auto conn_it = ctx.reg.connections().find(params->connection);
+            if (conn_it == ctx.reg.connections().end())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            connection* conn = conn_it->second.get();
+
+            const data_format* out_fmt = &data_format_transparent;
+            string_hashed resolved_out_module;
+
+            auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
+            {
+                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
+                    return; // stays transparent
+
+                if (mod_hash != 0)
+                {
+                    auto mod_it = ctx.reg.modules().get_loaded_modules().find(mod_hash);
+                    if (mod_it != ctx.reg.modules().get_loaded_modules().end())
+                    {
+                        auto fmt_it = mod_it->second->get_data_formats().find(fmt_hash);
+                        if (fmt_it != mod_it->second->get_data_formats().end())
+                        {
+                            out_format = fmt_it->second;
+                            out_module = mod_it->first;
+                        }
+                    }
+                }
+                else
+                {
+                    for (const auto& [mod_name, mod] : ctx.reg.modules().get_loaded_modules())
+                    {
+                        auto fmt_it = mod->get_data_formats().find(fmt_hash);
+                        if (fmt_it != mod->get_data_formats().end())
+                        {
+                            out_format = fmt_it->second;
+                            out_module = mod_name;
+                            break;
+                        }
+                    }
+                }
+            };
+
+            resolve_format(params->format, params->format_module, out_fmt, resolved_out_module);
+
+            bool was_active = conn->is_active();
+            conn->set_output_format(out_fmt);
+            
+            if (was_active && !conn->is_valid_chain())
+            {
+                conn->stop();
+                event evt_stop(event_type::connection_stopped);
+                evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
+                ctx.ctrl.broadcast_event(evt_stop);
+                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            }
+
+            auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
+            {
+                if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
+                    p->set_value(value);
+            };
+
+            set_str_param("output_format"_ct,        out_fmt == &data_format_transparent ? "transparent"_ct : out_fmt->get_name());
+            set_str_param("output_format_module"_ct, resolved_out_module);
+
+            event evt(event_type::connection_output_data_format_changed);
+            auto* evt_data = evt.data_as<messages::connection_data_format_data>();
+            evt_data->connection            = params->connection;
+            evt_data->format                = out_fmt->get_name().get_hash();
+            evt_data->format_module         = resolved_out_module.get_hash();
+            evt_data->valid_chain           = conn->is_valid_chain();
+            ctx.ctrl.broadcast_event(evt);
+
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(command_type::port_create, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<port::basic_info>();
@@ -865,158 +1037,6 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.tid, old_port_str.c_str(), new_name.c_str()));
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::connection_set_input_data_format, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_data_format_data>();
-
-            auto conn_it = ctx.reg.connections().find(params->connection);
-            if (conn_it == ctx.reg.connections().end())
-            {
-                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            connection* conn = conn_it->second.get();
-
-            const data_format* in_fmt  = &data_format_transparent;
-            string_hashed resolved_in_module;
-
-            auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
-            {
-                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
-                    return; // stays transparent
-
-                if (mod_hash != 0)
-                {
-                    auto mod_it = ctx.reg.modules().get_loaded_modules().find(mod_hash);
-                    if (mod_it != ctx.reg.modules().get_loaded_modules().end())
-                    {
-                        auto fmt_it = mod_it->second->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod_it->second->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_it->first;
-                        }
-                    }
-                }
-                else
-                {
-                    for (const auto& [mod_name, mod] : ctx.reg.modules().get_loaded_modules())
-                    {
-                        auto fmt_it = mod->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_name;
-                            break;
-                        }
-                    }
-                }
-            };
-
-            resolve_format(params->format, params->format_module, in_fmt, resolved_in_module);
-
-            conn->set_input_format(in_fmt);
-
-            auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
-            {
-                if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
-                    p->set_value(value);
-            };
-
-            set_str_param("input_format"_ct,        in_fmt  == &data_format_transparent ? "transparent"_ct : in_fmt->get_name());
-            set_str_param("input_format_module"_ct,  resolved_in_module);
-
-            event evt(event_type::connection_input_data_format_changed);
-            auto* evt_data = evt.data_as<messages::connection_data_format_data>();
-            evt_data->connection            = params->connection;
-            evt_data->format                = in_fmt->get_name().get_hash();
-            evt_data->format_module         = resolved_in_module.get_hash();
-            evt_data->valid_chain           = conn->is_valid_chain();
-            ctx.ctrl.broadcast_event(evt);
-
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::connection_set_output_data_format, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_data_format_data>();
-
-            auto conn_it = ctx.reg.connections().find(params->connection);
-            if (conn_it == ctx.reg.connections().end())
-            {
-                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            connection* conn = conn_it->second.get();
-
-            const data_format* out_fmt = &data_format_transparent;
-            string_hashed resolved_out_module;
-
-            auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
-            {
-                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
-                    return; // stays transparent
-
-                if (mod_hash != 0)
-                {
-                    auto mod_it = ctx.reg.modules().get_loaded_modules().find(mod_hash);
-                    if (mod_it != ctx.reg.modules().get_loaded_modules().end())
-                    {
-                        auto fmt_it = mod_it->second->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod_it->second->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_it->first;
-                        }
-                    }
-                }
-                else
-                {
-                    for (const auto& [mod_name, mod] : ctx.reg.modules().get_loaded_modules())
-                    {
-                        auto fmt_it = mod->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_name;
-                            break;
-                        }
-                    }
-                }
-            };
-
-            resolve_format(params->format, params->format_module, out_fmt, resolved_out_module);
-
-            conn->set_output_format(out_fmt);
-
-            auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
-            {
-                if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
-                    p->set_value(value);
-            };
-
-            set_str_param("output_format"_ct,        out_fmt == &data_format_transparent ? "transparent"_ct : out_fmt->get_name());
-            set_str_param("output_format_module"_ct, resolved_out_module);
-
-            event evt(event_type::connection_output_data_format_changed);
-            auto* evt_data = evt.data_as<messages::connection_data_format_data>();
-            evt_data->connection            = params->connection;
-            evt_data->format                = out_fmt->get_name().get_hash();
-            evt_data->format_module         = resolved_out_module.get_hash();
-            evt_data->valid_chain           = conn->is_valid_chain();
-            ctx.ctrl.broadcast_event(evt);
-
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
             ctx.set_single_response_status(response_status::success);
         });
 
