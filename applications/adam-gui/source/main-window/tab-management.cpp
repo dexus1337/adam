@@ -2180,6 +2180,338 @@ namespace adam::gui
         ImGui::EndChild();
     }
 
+    static void render_inspector_hex_dump(const adam::gui::inspected_buffer& ib, int actual_index, float inspector_height, float dpi_scale)
+    {
+        size_t display_len = ib.data.size();
+        size_t num_rows = (display_len + 15) / 16;
+
+        // Add Copy Buttons
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f * dpi_scale, 2.0f * dpi_scale));
+
+        std::string btn_hex_id = "Copy Hex##" + std::to_string(actual_index);
+        if (ImGui::Button(btn_hex_id.c_str()))
+        {
+            std::string copy_str;
+            copy_str.reserve(ib.data.size() * 3);
+            for (size_t j = 0; j < ib.data.size(); ++j)
+            {
+                char hex[4];
+                snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
+                copy_str += hex;
+            }
+            if (!copy_str.empty()) copy_str.pop_back(); // Remove trailing space
+            ImGui::SetClipboardText(copy_str.c_str());
+        }
+        ImGui::SameLine();
+
+        std::string btn_ascii_id = "Copy ASCII##" + std::to_string(actual_index);
+        if (ImGui::Button(btn_ascii_id.c_str()))
+        {
+            std::string copy_str;
+            copy_str.reserve(ib.data.size());
+            for (size_t j = 0; j < ib.data.size(); ++j)
+            {
+                char c = ib.data[j];
+                if (c >= 32 && c <= 126) copy_str += c;
+                else copy_str += '.';
+            }
+            ImGui::SetClipboardText(copy_str.c_str());
+        }
+        ImGui::SameLine();
+
+        std::string btn_raw_id = "Copy Hex Dump##" + std::to_string(actual_index);
+        if (ImGui::Button(btn_raw_id.c_str()))
+        {
+            std::string copy_str;
+            copy_str.reserve(num_rows * 80);
+            for (size_t offset = 0; offset < display_len; offset += 16)
+            {
+                char line_buf[256];
+                int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
+                size_t chunk = std::min((size_t)16, display_len - offset);
+                for (size_t j = 0; j < 16; ++j)
+                {
+                    if (j == 8) line_buf[printed++] = ' ';
+                    if (j < chunk) printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", ib.data[offset + j]);
+                    else printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
+                }
+                line_buf[printed++] = ' ';
+                line_buf[printed++] = ' ';
+                line_buf[printed++] = '|';
+                for (size_t j = 0; j < chunk; ++j)
+                {
+                    char c = ib.data[offset + j];
+                    line_buf[printed++] = (c >= 32 && c <= 126) ? c : '.';
+                }
+                line_buf[printed++] = '|';
+                line_buf[printed++] = '\n';
+                line_buf[printed] = '\0';
+                copy_str += line_buf;
+            }
+            ImGui::SetClipboardText(copy_str.c_str());
+        }
+
+        ImGui::PopStyleVar();
+        ImGui::Spacing();
+
+        // Render Hex Dump Child with Clipper
+        float line_h = ImGui::GetTextLineHeight();
+        float calc_h = line_h * num_rows + ImGui::GetStyle().FramePadding.y * 2.0f;
+        float max_child_h = inspector_height - 100.0f * dpi_scale;
+        if (max_child_h < 120.0f * dpi_scale) max_child_h = 120.0f * dpi_scale;
+        float child_h = std::min(calc_h, max_child_h);
+
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0.15f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * dpi_scale, 4.0f * dpi_scale));
+
+        std::string child_id = "##hex_child_" + std::to_string(actual_index);
+        if (ImGui::BeginChild(child_id.c_str(), ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_HorizontalScrollbar))
+        {
+            if (g_mono_font) ImGui::PushFont(g_mono_font);
+
+            ImGuiListClipper hex_clipper;
+            hex_clipper.Begin(static_cast<int>(num_rows), line_h);
+            while (hex_clipper.Step())
+            {
+                for (int row = hex_clipper.DisplayStart; row < hex_clipper.DisplayEnd; ++row)
+                {
+                    size_t offset = row * 16;
+                    size_t chunk = std::min((size_t)16, display_len - offset);
+
+                    char line_buf[256];
+                    int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
+
+                    for (size_t j = 0; j < 16; ++j)
+                    {
+                        if (j == 8)
+                        {
+                            line_buf[printed++] = ' ';
+                        }
+                        if (j < chunk)
+                        {
+                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", ib.data[offset + j]);
+                        }
+                        else
+                        {
+                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
+                        }
+                    }
+
+                    line_buf[printed++] = ' ';
+                    line_buf[printed++] = ' ';
+                    line_buf[printed++] = '|';
+
+                    for (size_t j = 0; j < chunk; ++j)
+                    {
+                        char c = ib.data[offset + j];
+                        if (c >= 32 && c <= 126)
+                            line_buf[printed++] = c;
+                        else
+                            line_buf[printed++] = '.';
+                    }
+                    line_buf[printed++] = '|';
+                    line_buf[printed] = '\0';
+
+                    ImGui::TextUnformatted(line_buf);
+                }
+            }
+
+            if (g_mono_font) ImGui::PopFont();
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
+    }
+
+    static void render_inspector_frames_table(adam::string_hash port_hash, float inspector_height, float dpi_scale, adam::language lang)
+    {
+        std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
+        auto& buffers = adam::gui::g_inspection_data.buffers[port_hash];
+
+        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x8888));
+        
+        std::string child_outer_id = "##outer_child_" + std::to_string(port_hash);
+        ImGui::BeginChild(child_outer_id.c_str(), ImVec2(0, inspector_height), true);
+        
+        bool auto_scroll = ImGui::GetScrollY() >= ImGui::GetScrollMaxY();
+
+        bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+            
+        auto setup_inner_columns = [&]() 
+        {
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_timestamp, lang), ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_hex, lang), ImGuiTableColumnFlags_WidthStretch, 0.75f);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
+        };
+
+        int current_pushed_id = -1;
+
+        if (table_begun)
+        {
+            setup_inner_columns();
+            ImGui::TableHeadersRow();
+        }
+
+        float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
+
+        int i = 0;
+        while (i < (int)buffers.size())
+        {
+            int chunk_end = i;
+            while (chunk_end < (int)buffers.size())
+            {
+                ImGuiID node_id = ImGui::GetID((void*)(intptr_t)chunk_end);
+                if (ImGui::TreeNodeGetOpen(node_id))
+                {
+                    break;
+                }
+                chunk_end++;
+            }
+
+            int unexpanded_count = chunk_end - i;
+            if (unexpanded_count > 0 && table_begun)
+            {
+                ImGuiListClipper clipper;
+                clipper.Begin(unexpanded_count, row_height);
+                while (clipper.Step())
+                {
+                    for (int j = clipper.DisplayStart; j < clipper.DisplayEnd; ++j)
+                    {
+                        int actual_index = i + j;
+                        const auto& ib = buffers[actual_index];
+
+                        ImGui::TableNextRow();
+
+                        ImGui::TableSetColumnIndex(0);
+                        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow, "");
+
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%zu", actual_index);
+
+                        ImGui::TableSetColumnIndex(2);
+                        ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
+
+                        ImGui::TableSetColumnIndex(3);
+                        ImGui::Text("%zu B", ib.data.size());
+
+                        ImGui::TableSetColumnIndex(4);
+                        if (g_mono_font) ImGui::PushFont(g_mono_font);
+
+                        std::string preview_hex;
+                        std::string preview_ascii;
+                        size_t preview_len = std::min(ib.data.size(), (size_t)16);
+                        for (size_t k = 0; k < preview_len; ++k) 
+                        {
+                            char hex[4];
+                            snprintf(hex, sizeof(hex), "%02X ", ib.data[k]);
+                            preview_hex += hex;
+
+                            char c = ib.data[k];
+                            if (c >= 32 && c <= 126) preview_ascii += c;
+                            else preview_ascii += '.';
+                        }
+
+                        if (ib.data.size() > 16) 
+                        {
+                            preview_hex += "...";
+                            preview_ascii += "...";
+                        }
+
+                        ImGui::TextUnformatted(preview_hex.c_str());
+                        
+                        ImGui::TableSetColumnIndex(5);
+                        ImGui::TextUnformatted(preview_ascii.c_str());
+                        
+                        if (g_mono_font) ImGui::PopFont();
+
+                        if (node_open)
+                        {
+                            ImGui::TreePop();
+                        }
+                    }
+                }
+            }
+
+            if (chunk_end < (int)buffers.size())
+            {
+                int actual_index = chunk_end;
+                const auto& ib = buffers[actual_index];
+                
+                if (table_begun)
+                {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow, "");
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%zu", actual_index);
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
+
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("%zu B", ib.data.size());
+
+                    if (node_open)
+                    {
+                        ImGui::TreePop();
+                    }
+
+                    // Split the table to get access to full width
+                    ImGui::EndTable();
+                }
+
+                if (current_pushed_id != -1)
+                {
+                    ImGui::PopID();
+                    current_pushed_id = -1;
+                }
+
+                render_inspector_hex_dump(ib, actual_index, inspector_height, dpi_scale);
+
+                // Re-open the table for the remaining rows
+                current_pushed_id = actual_index;
+                ImGui::PushID(current_pushed_id);
+                table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+                if (table_begun)
+                {
+                    setup_inner_columns();
+                }
+            }
+            
+            i = chunk_end + 1;
+        }
+
+        if (table_begun)
+        {
+            ImGui::EndTable();
+        }
+        
+        if (current_pushed_id != -1)
+        {
+            ImGui::PopID();
+        }
+
+        if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
+        {
+            ImGui::SetScrollY(ImGui::GetScrollMaxY());
+        }
+        
+        ImGui::EndChild(); // End of outer_child
+        
+        if (ImGui::Button(get_gui_string(gui_string_id::btn_clear_data, lang), ImVec2(-1.0f, 0.0f)))
+        {
+            buffers.clear();
+        }
+        
+        ImGui::Spacing();
+        ImGui::PopID();
+    }
+
     void render_inspector_view(gui_controller& ctrl, adam::language lang)
     {
         if (!ctrl.is_commander_active())
@@ -2436,330 +2768,7 @@ namespace adam::gui
                     ImGui::EndTable();
                     ImGui::Spacing();
                     
-                    std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                    auto& buffers = adam::gui::g_inspection_data.buffers[port_hash];
-
-                    
-                    ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x8888));
-                    
-                    std::string child_outer_id = "##outer_child_" + std::to_string(port_hash);
-                    ImGui::BeginChild(child_outer_id.c_str(), ImVec2(0, inspector_height), true);
-                    
-                    bool auto_scroll = ImGui::GetScrollY() >= ImGui::GetScrollMaxY();
-
-                    bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
-                        
-                    auto setup_inner_columns = [&]() 
-                    {
-                        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
-                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_timestamp, lang), ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_hex, lang), ImGuiTableColumnFlags_WidthStretch, 0.75f);
-                        ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
-                    };
-
-                    int current_pushed_id = -1;
-
-                    if (table_begun)
-                    {
-                        setup_inner_columns();
-                        ImGui::TableHeadersRow();
-                    }
-
-                    float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
-
-                    int i = 0;
-                    while (i < (int)buffers.size())
-                    {
-                        int chunk_end = i;
-                        while (chunk_end < (int)buffers.size())
-                        {
-                            ImGuiID node_id = ImGui::GetID((void*)(intptr_t)chunk_end);
-                            if (ImGui::TreeNodeGetOpen(node_id))
-                            {
-                                break;
-                            }
-                            chunk_end++;
-                        }
-
-                        int unexpanded_count = chunk_end - i;
-                        if (unexpanded_count > 0 && table_begun)
-                        {
-                            ImGuiListClipper clipper;
-                            clipper.Begin(unexpanded_count, row_height);
-                            while (clipper.Step())
-                            {
-                                for (int j = clipper.DisplayStart; j < clipper.DisplayEnd; ++j)
-                                {
-                                    int actual_index = i + j;
-                                    const auto& ib = buffers[actual_index];
-
-                                    ImGui::TableNextRow();
-
-                                    ImGui::TableSetColumnIndex(0);
-                                    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow, "");
-
-                                    ImGui::TableSetColumnIndex(1);
-                                    ImGui::Text("%zu", actual_index);
-
-                                    ImGui::TableSetColumnIndex(2);
-                                    ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
-
-                                    ImGui::TableSetColumnIndex(3);
-                                    ImGui::Text("%zu B", ib.data.size());
-
-                                    ImGui::TableSetColumnIndex(4);
-                                    if (g_mono_font) ImGui::PushFont(g_mono_font);
-
-                                    std::string preview_hex;
-                                    std::string preview_ascii;
-                                    size_t preview_len = std::min(ib.data.size(), (size_t)16);
-                                    for (size_t k = 0; k < preview_len; ++k) 
-                                    {
-                                        char hex[4];
-                                        snprintf(hex, sizeof(hex), "%02X ", ib.data[k]);
-                                        preview_hex += hex;
-
-                                        char c = ib.data[k];
-                                        if (c >= 32 && c <= 126) preview_ascii += c;
-                                        else preview_ascii += '.';
-                                    }
-
-                                    if (ib.data.size() > 16) 
-                                    {
-                                        preview_hex += "...";
-                                        preview_ascii += "...";
-                                    }
-
-                                    ImGui::TextUnformatted(preview_hex.c_str());
-                                    
-                                    ImGui::TableSetColumnIndex(5);
-                                    ImGui::TextUnformatted(preview_ascii.c_str());
-                                    
-                                    if (g_mono_font) ImGui::PopFont();
-
-                                    if (node_open)
-                                    {
-                                        ImGui::TreePop();
-                                    }
-                                }
-                            }
-                        }
-
-                        if (chunk_end < (int)buffers.size())
-                        {
-                            int actual_index = chunk_end;
-                            const auto& ib = buffers[actual_index];
-                            
-                            if (table_begun)
-                            {
-                                ImGui::TableNextRow();
-
-                                ImGui::TableSetColumnIndex(0);
-                                bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow, "");
-
-                                ImGui::TableSetColumnIndex(1);
-                                ImGui::Text("%zu", actual_index);
-
-                                ImGui::TableSetColumnIndex(2);
-                                ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
-
-                                ImGui::TableSetColumnIndex(3);
-                                ImGui::Text("%zu B", ib.data.size());
-
-                                if (node_open)
-                                {
-                                    ImGui::TreePop();
-                                }
-
-                                // Split the table to get access to full width
-                                ImGui::EndTable();
-                            }
-
-                            if (current_pushed_id != -1)
-                            {
-                                ImGui::PopID();
-                                current_pushed_id = -1;
-                            }
-
-                            size_t display_len = ib.data.size();
-                            size_t num_rows = (display_len + 15) / 16;
-
-                            // Add Copy Buttons
-                            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f * dpi_scale, 2.0f * dpi_scale));
-
-                            std::string btn_hex_id = "Copy Hex##" + std::to_string(actual_index);
-                            if (ImGui::Button(btn_hex_id.c_str()))
-                            {
-                                std::string copy_str;
-                                copy_str.reserve(ib.data.size() * 3);
-                                for (size_t j = 0; j < ib.data.size(); ++j)
-                                {
-                                    char hex[4];
-                                    snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
-                                    copy_str += hex;
-                                }
-                                if (!copy_str.empty()) copy_str.pop_back(); // Remove trailing space
-                                ImGui::SetClipboardText(copy_str.c_str());
-                            }
-                            ImGui::SameLine();
-
-                            std::string btn_ascii_id = "Copy ASCII##" + std::to_string(actual_index);
-                            if (ImGui::Button(btn_ascii_id.c_str()))
-                            {
-                                std::string copy_str;
-                                copy_str.reserve(ib.data.size());
-                                for (size_t j = 0; j < ib.data.size(); ++j)
-                                {
-                                    char c = ib.data[j];
-                                    if (c >= 32 && c <= 126) copy_str += c;
-                                    else copy_str += '.';
-                                }
-                                ImGui::SetClipboardText(copy_str.c_str());
-                            }
-                            ImGui::SameLine();
-
-                            std::string btn_raw_id = "Copy Hex Dump##" + std::to_string(actual_index);
-                            if (ImGui::Button(btn_raw_id.c_str()))
-                            {
-                                std::string copy_str;
-                                copy_str.reserve(num_rows * 80);
-                                for (size_t offset = 0; offset < display_len; offset += 16)
-                                {
-                                    char line_buf[256];
-                                    int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
-                                    size_t chunk = std::min((size_t)16, display_len - offset);
-                                    for (size_t j = 0; j < 16; ++j)
-                                    {
-                                        if (j == 8) line_buf[printed++] = ' ';
-                                        if (j < chunk) printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", ib.data[offset + j]);
-                                        else printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
-                                    }
-                                    line_buf[printed++] = ' ';
-                                    line_buf[printed++] = ' ';
-                                    line_buf[printed++] = '|';
-                                    for (size_t j = 0; j < chunk; ++j)
-                                    {
-                                        char c = ib.data[offset + j];
-                                        line_buf[printed++] = (c >= 32 && c <= 126) ? c : '.';
-                                    }
-                                    line_buf[printed++] = '|';
-                                    line_buf[printed++] = '\n';
-                                    line_buf[printed] = '\0';
-                                    copy_str += line_buf;
-                                }
-                                ImGui::SetClipboardText(copy_str.c_str());
-                            }
-
-                            ImGui::PopStyleVar();
-                            ImGui::Spacing();
-
-                            // Render Hex Dump Child with Clipper
-                            float line_h = ImGui::GetTextLineHeight();
-                            float calc_h = line_h * num_rows + ImGui::GetStyle().FramePadding.y * 2.0f;
-                            float max_child_h = inspector_height - 100.0f * dpi_scale;
-                            if (max_child_h < 120.0f * dpi_scale) max_child_h = 120.0f * dpi_scale;
-                            float child_h = std::min(calc_h, max_child_h);
-
-                            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0.15f));
-                            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * dpi_scale, 4.0f * dpi_scale));
-
-                            std::string child_id = "##hex_child_" + std::to_string(actual_index);
-                            if (ImGui::BeginChild(child_id.c_str(), ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_HorizontalScrollbar))
-                            {
-                                if (g_mono_font) ImGui::PushFont(g_mono_font);
-
-                                ImGuiListClipper hex_clipper;
-                                hex_clipper.Begin(static_cast<int>(num_rows), line_h);
-                                while (hex_clipper.Step())
-                                {
-                                    for (int row = hex_clipper.DisplayStart; row < hex_clipper.DisplayEnd; ++row)
-                                    {
-                                        size_t offset = row * 16;
-                                        size_t chunk = std::min((size_t)16, display_len - offset);
-
-                                        char line_buf[256];
-                                        int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
-
-                                        for (size_t j = 0; j < 16; ++j)
-                                        {
-                                            if (j == 8)
-                                            {
-                                                line_buf[printed++] = ' ';
-                                            }
-                                            if (j < chunk)
-                                            {
-                                                printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", ib.data[offset + j]);
-                                            }
-                                            else
-                                            {
-                                                printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
-                                            }
-                                        }
-
-                                        line_buf[printed++] = ' ';
-                                        line_buf[printed++] = ' ';
-                                        line_buf[printed++] = '|';
-
-                                        for (size_t j = 0; j < chunk; ++j)
-                                        {
-                                            char c = ib.data[offset + j];
-                                            if (c >= 32 && c <= 126)
-                                                line_buf[printed++] = c;
-                                            else
-                                                line_buf[printed++] = '.';
-                                        }
-                                        line_buf[printed++] = '|';
-                                        line_buf[printed] = '\0';
-
-                                        ImGui::TextUnformatted(line_buf);
-                                    }
-                                }
-
-                                if (g_mono_font) ImGui::PopFont();
-                            }
-                            ImGui::EndChild();
-                            ImGui::PopStyleVar();
-                            ImGui::PopStyleColor();
-
-                            // Re-open the table for the remaining rows
-                            current_pushed_id = actual_index;
-                            ImGui::PushID(current_pushed_id);
-                            table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
-                            if (table_begun)
-                            {
-                                setup_inner_columns();
-                            }
-                        }
-                        
-                        i = chunk_end + 1;
-                    }
-
-                    if (table_begun)
-                    {
-                        ImGui::EndTable();
-                    }
-                    
-                    if (current_pushed_id != -1)
-                    {
-                        ImGui::PopID();
-                    }
-
-                    if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
-                    {
-                        ImGui::SetScrollY(ImGui::GetScrollMaxY());
-                    }
-                    
-                    ImGui::EndChild(); // End of outer_child
-                    
-                    if (ImGui::Button(get_gui_string(gui_string_id::btn_clear_data, lang), ImVec2(-1.0f, 0.0f)))
-                    {
-                        buffers.clear();
-                    }
-                    
-                    ImGui::Spacing();
-                    ImGui::PopID();
+                    render_inspector_frames_table(port_hash, inspector_height, dpi_scale, lang);
 
                     table_open = ImGui::BeginTable("InspectorPortsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                     if (table_open)
