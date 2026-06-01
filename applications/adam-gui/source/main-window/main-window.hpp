@@ -5,6 +5,8 @@
 
 struct SDL_Window;
 struct ImVec4;
+struct ImFont;
+
 #include <vector>
 #include <map>
 #include <mutex>
@@ -181,6 +183,7 @@ namespace adam::gui
     };
 
     extern inspection_data g_inspection_data;
+    extern ImFont* g_mono_font;
 
     class main_window 
     {

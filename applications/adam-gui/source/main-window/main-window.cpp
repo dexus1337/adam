@@ -16,6 +16,7 @@
 namespace adam::gui 
 {
     inspection_data g_inspection_data;
+    ImFont* g_mono_font = nullptr;
 
     namespace
     {

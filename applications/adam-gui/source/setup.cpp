@@ -1,6 +1,7 @@
 #include "setup.hpp"
 
 #include <SDL_opengl.h>
+#include "main-window/main-window.hpp"
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
@@ -152,25 +153,58 @@ namespace adam::gui
 
         io.Fonts->Clear();
 
+        ImFont* default_font = nullptr;
+
         // Load nicer system fonts instead of the default pixel font
         #if defined(ADAM_PLATFORM_WINDOWS)
         if (std::filesystem::exists("C:\\Windows\\Fonts\\tahoma.ttf"))
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f);
+            default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f);
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 16.0f);
+            default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 16.0f);
         #elif defined(ADAM_PLATFORM_LINUX)
         if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSans.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f);
+            default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f);
         else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f);
+            default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f);
         else if (std::filesystem::exists("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf", 16.0f);
+            default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf", 16.0f);
         else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
-            io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f);
+            default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f);
         #elif defined(__APPLE__)
         if (std::filesystem::exists("/System/Library/Fonts/Helvetica.ttc"))
-            io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
+            default_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
         #endif
+
+        if (!default_font)
+            default_font = io.Fonts->AddFontDefault();
+
+        ImFontConfig mono_config;
+        std::strncpy(mono_config.Name, "monospace", sizeof(mono_config.Name));
+        mono_config.Name[sizeof(mono_config.Name) - 1] = '\0';
+
+        // Load monospace fonts for hex viewer
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        if (std::filesystem::exists("C:\\Windows\\Fonts\\consola.ttf")) 
+            g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("C:\\Windows\\Fonts\\cour.ttf")) 
+            g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\cour.ttf", 16.0f, &mono_config);
+        #elif defined(ADAM_PLATFORM_LINUX)
+        if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSansMono.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationMono-Regular.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationMono-Regular.ttf", 16.0f, &mono_config);
+        #elif defined(__APPLE__)
+        if (std::filesystem::exists("/System/Library/Fonts/Menlo.ttc"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/System/Library/Fonts/Monaco.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Monaco.ttf", 16.0f, &mono_config);
+        #endif
+
+        io.FontDefault = default_font;
 
         ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
         ImGui_ImplOpenGL3_Init(glsl_version);
