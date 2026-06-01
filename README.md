@@ -12,14 +12,14 @@ ADAM splits functionality into a Core Service, a lightweight SDK for external ap
 
 ```mermaid
 graph TD
-    subgraph SDK [ADAM SDK]
+    subgraph SDK["ADAM SDK"]
         direction TB
         Core[Core Architecture]
         Types[Lock-free & CT Types]
         Mem[IPC Memory Gateway]
     end
 
-    subgraph CoreService [ADAM Service Daemon]
+    subgraph CoreService["ADAM Service Daemon"]
         direction TB
         Ctrl[Controller]
         Reg[Registry & Modules]
@@ -27,7 +27,7 @@ graph TD
         Loader[Dynamic Module Loader]
     end
 
-    subgraph Plugins [Dynamic Modules]
+    subgraph Plugins["Dynamic Modules"]
         direction LR
         recrep[Replay & Record]
         asterix[ASTERIX Parser]
@@ -36,10 +36,10 @@ graph TD
         serial[Serial Port]
     end
 
-    subgraph Clients [Client Applications]
+    subgraph Clients["Client Applications"]
         direction LR
         cli[adam-cli]
-        gui[adam-gui ImGui/SDL2]
+        gui["adam-gui (ImGui/SDL2)"]
     end
 
     %% Communications
@@ -85,16 +85,16 @@ To achieve zero-copy data routing across process boundaries, ADAM includes a cus
 
 ```mermaid
 graph TD
-    subgraph Producer Process
-        BufA[buffer] -->|Get Handle| H[buffer_handle POD]
+    subgraph ProducerProcess["Producer Process"]
+        BufA[buffer] -->|Get Handle| H["buffer_handle (POD)"]
     end
-    subgraph IPC Queue (Shared Memory)
+    subgraph IPCQueue["IPC Queue (Shared Memory)"]
         H -->|Push / Pop| H
     end
-    subgraph Consumer Process
+    subgraph ConsumerProcess["Consumer Process"]
         H -->|Resolve Handle| BufB[buffer]
     end
-    SharedMem[(Shared Memory Chunk)]
+    SharedMem[("Shared Memory Chunk")]
     BufA -.->|Points to| SharedMem
     BufB -.->|Points to| SharedMem
 ```
