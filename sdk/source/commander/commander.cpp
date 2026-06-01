@@ -11,11 +11,105 @@
 #include "module/module.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "configuration/parameters/configuration-parameter.hpp"
 #include <mutex>
 
 
 namespace adam 
 {
+    namespace {
+        template<typename MessageType>
+        struct message_deserializer
+        {
+            const MessageType* messages;
+            size_t max_messages;
+            size_t& msg_idx;
+            size_t& unused_off;
+            size_t& unused_size;
+
+            message_deserializer(const MessageType* msgs, size_t max_msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
+                : messages(msgs), max_messages(max_msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
+            {
+            }
+
+            void read_bytes(void* dest, size_t size) 
+            {
+                uint8_t* ptr = static_cast<uint8_t*>(dest);
+                size_t remaining = size;
+                while (remaining > 0) 
+                {
+                    if (unused_size == 0) 
+                    {
+                        msg_idx++;
+                        if (msg_idx >= max_messages) return;
+                        unused_off = 0;
+                        unused_size = MessageType::get_max_data_length();
+                    }
+                    size_t to_read = std::min(remaining, unused_size);
+                    std::memcpy(ptr, messages[msg_idx].template get_data_as<uint8_t>() + unused_off, to_read);
+                    unused_off += to_read;
+                    unused_size -= to_read;
+                    ptr += to_read;
+                    remaining -= to_read;
+                }
+            }
+            
+            template<typename ViewType>
+            ViewType read_view() 
+            {
+                ViewType view;
+                read_bytes(&view, sizeof(ViewType));
+                return view;
+            }
+        };
+
+        template<typename MessageType>
+        void deserialize_user_parameters(uint16_t count, message_deserializer<MessageType>& deserializer, user_parameter_view& user_params) 
+        {
+            for (uint16_t i = 0; i < count; ++i)
+            {
+                auto header = deserializer.template read_view<configuration_parameter::view>();
+                
+                switch (header.var_type)
+                {
+                    case configuration_parameter::type::type_boolean:
+                    {
+                        bool value;
+                        deserializer.read_bytes(&value, sizeof(bool));
+                        user_params.bool_parameters[header.name] = value;
+                        break;
+                    }
+                    case configuration_parameter::type::type_integer:
+                    {
+                        int64_t value;
+                        deserializer.read_bytes(&value, sizeof(int64_t));
+                        user_params.int_parameters[header.name] = value;
+                        break;
+                    }
+                    case configuration_parameter::type::type_double:
+                    {
+                        double value;
+                        deserializer.read_bytes(&value, sizeof(double));
+                        user_params.double_parameters[header.name] = value;
+                        break;
+                    }
+                    case configuration_parameter::type::type_string:
+                    {
+                        uint16_t length;
+                        deserializer.read_bytes(&length, sizeof(uint16_t));
+                        std::string value(length, '\0');
+                        if (length > 0)
+                            deserializer.read_bytes(value.data(), length);
+                        user_params.string_parameters[header.name] = value;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
     commander::commander() 
      :  m_queue_command(),
         m_queue_event(),
@@ -237,6 +331,11 @@ namespace adam
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
             
+            size_t unused_off = sizeof(port::basic_info);
+            size_t unused_size = response::get_max_data_length() - unused_off;
+            message_deserializer<response> deserializer(resp, m_response_buffer.size(), current_idx, unused_off, unused_size);
+            deserialize_user_parameters(port_info->user_parameters, deserializer, pview->user_params);
+
             m_registry_view.ports().emplace(pview->name.get_hash(), std::move(pview));
             current_idx++;
         }
@@ -664,13 +763,35 @@ namespace adam
     {
         event_context ctx { *this };
 
+        std::vector<event> event_buffer;
+        event_buffer.reserve(queue_event_size);
+        
+        for (size_t i = 0; i < queue_event_size; i++)
+        {
+            event_buffer.emplace_back();
+        }
+
         while (m_queue_event.is_active())
         {
-            event incoming_event;
-            if (m_queue_event.pop(incoming_event, 100))
+            size_t evt_idx = 0;
+
+            if (!m_queue_event.pop(event_buffer[evt_idx], 100))
+                continue;
+
+            while (event_buffer[evt_idx].is_extended())
             {
-                m_dispatcher.dispatch(incoming_event, ctx);
+                evt_idx++;
+                if (evt_idx >= event_buffer.size()) // Shouldn't happen, but just in case
+                    event_buffer.emplace_back();
+                
+                if (!m_queue_event.pop(event_buffer[evt_idx], 100))
+                {
+                    evt_idx--; // Backtrack the index since this fetch failed
+                    break;
+                }
             }
+
+            m_dispatcher.dispatch(event_buffer.data(), evt_idx + 1, ctx);
         }
     }
 }

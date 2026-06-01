@@ -420,7 +420,10 @@ TEST_F(registry_test, unavailable_connections)
     // Simulate removing the module dependency by falling back to transparent format to safely test retry behavior natively
     auto* uconn = reg.get_unavailable_connections().at("unavail_conn"_ct.get_hash()).get();
     auto* fmt_p = dynamic_cast<adam::configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct));
-    fmt_p->set_value("transparent"_ct);
+    fmt_p->set_value(""_ct);
+    
+    auto* fmt_p_mod = dynamic_cast<adam::configuration_parameter_string*>(uconn->get_parameters().get("input_format_module"_ct));
+    fmt_p_mod->set_value(""_ct);
     
     reg.retry_unavailable_connections("my_mod"_ct.get_hash());
     

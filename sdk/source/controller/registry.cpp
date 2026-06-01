@@ -694,7 +694,7 @@ namespace adam
                         auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format, bool& missing_module)
                         {
                             missing_module = false;
-                            if (fmt_name.empty() || fmt_name == "transparent"_ct || fmt_name == "dataformat_transparent"_ct)
+                            if (fmt_name.empty() || fmt_name == "transparent"_ct)
                             {
                                 out_format = &data_format_transparent;
                                 return;
@@ -1001,13 +1001,13 @@ namespace adam
             if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format"_ct)))
                 out_fmt = param->get_value();
                 
-            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct || in_fmt == "dataformat_transparent"_ct;
-            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct || out_fmt == "dataformat_transparent"_ct;
+            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct;
+            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct;
 
             bool in_matches = !is_in_transparent && in_mod.get_hash() == module_hash;
             bool out_matches = !is_out_transparent && out_mod.get_hash() == module_hash;
 
-            if (in_matches || out_matches || module_hash == 0)
+            if (in_matches || out_matches || module_hash == 0 || (is_in_transparent && is_out_transparent))
             {
                 bool in_missing = false;
                 bool out_missing = false;
@@ -1034,7 +1034,7 @@ namespace adam
                         
                         auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format)
                         {
-                            if (fmt_name.empty() || fmt_name == "transparent"_ct || fmt_name == "dataformat_transparent"_ct)
+                            if (fmt_name.empty() || fmt_name == "transparent"_ct)
                             {
                                 out_format = &data_format_transparent;
                                 return;
@@ -1186,8 +1186,8 @@ namespace adam
             if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format"_ct)))
                 out_fmt = param->get_value();
                 
-            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct || in_fmt == "dataformat_transparent"_ct;
-            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct || out_fmt == "dataformat_transparent"_ct;
+            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct;
+            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct;
 
             bool in_matches = !is_in_transparent && in_mod.get_hash() == module_hash;
             bool out_matches = !is_out_transparent && out_mod.get_hash() == module_hash;

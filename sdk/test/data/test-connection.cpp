@@ -13,16 +13,16 @@
 
 using namespace adam::string_hashed_ct_literals;
 
-namespace adam::test
+class connection_test : public ::testing::Test
 {
+protected:
     class test_port : public adam::port
     {
     public:
-        test_port(const adam::string_hashed& name) : adam::port(name) {}
+        test_port(const adam::string_hashed& name) : adam::port(name) { m_b_threaded = false; }
         
-        const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "test"; return type; }
+        const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "test"_ct; return type; }
         direction get_direction() const override { return direction_inout; }
-
 
         void worker() override
         {
@@ -49,11 +49,7 @@ namespace adam::test
             return true;
         }
     };
-}
 
-class connection_test : public ::testing::Test
-{
-protected:
     void SetUp() override
     {
         adam::buffer_manager::get().initialize();
@@ -86,13 +82,13 @@ TEST_F(connection_test, connection_set_formats)
 
 TEST_F(connection_test, connection_data_forwarding_multiple_outputs)
 {
-    adam::test::test_port in_port("in_port"_ct);
+    test_port in_port("in_port"_ct);
     in_port.start();
 
-    adam::test::test_port out_port_1("out_port_1"_ct);
+    test_port out_port_1("out_port_1"_ct);
     out_port_1.start();
 
-    adam::test::test_port out_port_2("out_port_2"_ct);
+    test_port out_port_2("out_port_2"_ct);
     out_port_2.start();
 
     adam::connection conn("conn"_ct);
@@ -124,18 +120,20 @@ TEST_F(connection_test, connection_data_forwarding_with_processor)
     adam::data_format formatA("formatA");
     adam::data_format formatB("formatB");
 
-    adam::test::test_port in_port("in_port"_ct);
+    test_port in_port("in_port"_ct);
     in_port.start();
 
-    adam::test::test_processor proc("proc"_ct, &formatA, &formatB);
+    test_processor proc("proc"_ct, &formatA, &formatB);
 
-    adam::test::test_port out_port("out_port"_ct);
+    test_port out_port("out_port"_ct);
     out_port.start();
 
     adam::connection conn("conn"_ct);
     conn.ports_input().push_back(&in_port);
     conn.processors().push_back(&proc);
     conn.ports_output().push_back(&out_port);
+    conn.set_input_format(&formatA);
+    conn.set_output_format(&formatB);
 
     EXPECT_TRUE(conn.check_valid_chain());
 

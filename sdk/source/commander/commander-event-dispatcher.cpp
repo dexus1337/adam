@@ -7,11 +7,105 @@
 #include "module/module.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "configuration/parameters/configuration-parameter.hpp"
 #include <mutex>
 #include <algorithm>
 
 namespace adam 
 {
+    namespace {
+        template<typename MessageType>
+        struct message_deserializer
+        {
+            const MessageType* messages;
+            size_t max_messages;
+            size_t& msg_idx;
+            size_t& unused_off;
+            size_t& unused_size;
+
+            message_deserializer(const MessageType* msgs, size_t max_msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
+                : messages(msgs), max_messages(max_msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
+            {
+            }
+
+            void read_bytes(void* dest, size_t size) 
+            {
+                uint8_t* ptr = static_cast<uint8_t*>(dest);
+                size_t remaining = size;
+                while (remaining > 0) 
+                {
+                    if (unused_size == 0) 
+                    {
+                        msg_idx++;
+                        if (msg_idx >= max_messages) return;
+                        unused_off = 0;
+                        unused_size = MessageType::get_max_data_length();
+                    }
+                    size_t to_read = std::min(remaining, unused_size);
+                    std::memcpy(ptr, messages[msg_idx].template get_data_as<uint8_t>() + unused_off, to_read);
+                    unused_off += to_read;
+                    unused_size -= to_read;
+                    ptr += to_read;
+                    remaining -= to_read;
+                }
+            }
+            
+            template<typename ViewType>
+            ViewType read_view() 
+            {
+                ViewType view;
+                read_bytes(&view, sizeof(ViewType));
+                return view;
+            }
+        };
+
+        template<typename MessageType>
+        void deserialize_user_parameters(uint16_t count, message_deserializer<MessageType>& deserializer, user_parameter_view& user_params) 
+        {
+            for (uint16_t i = 0; i < count; ++i)
+            {
+                auto header = deserializer.template read_view<configuration_parameter::view>();
+                
+                switch (header.var_type)
+                {
+                    case configuration_parameter::type::type_boolean:
+                    {
+                        bool value;
+                        deserializer.read_bytes(&value, sizeof(bool));
+                        user_params.bool_parameters[header.name] = value;
+                        break;
+                    }
+                    case configuration_parameter::type::type_integer:
+                    {
+                        int64_t value;
+                        deserializer.read_bytes(&value, sizeof(int64_t));
+                        user_params.int_parameters[header.name] = value;
+                        break;
+                    }
+                    case configuration_parameter::type::type_double:
+                    {
+                        double value;
+                        deserializer.read_bytes(&value, sizeof(double));
+                        user_params.double_parameters[header.name] = value;
+                        break;
+                    }
+                    case configuration_parameter::type::type_string:
+                    {
+                        uint16_t length;
+                        deserializer.read_bytes(&length, sizeof(uint16_t));
+                        std::string value(length, '\0');
+                        if (length > 0)
+                            deserializer.read_bytes(value.data(), length);
+                        user_params.string_parameters[header.name] = value;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
     commander_event_dispatcher::commander_event_dispatcher()
     {
         register_default_handlers();
@@ -24,28 +118,29 @@ namespace adam
         m_handlers[type] = std::move(handler);
     }
     
-    void commander_event_dispatcher::dispatch(const event& e, event_context& ctx) const
+    void commander_event_dispatcher::dispatch(const event* events, size_t count, event_context& ctx) const
     {
-        auto it = m_handlers.find(e.get_type());
+        if (count == 0 || !events) return;
+        auto it = m_handlers.find(events[0].get_type());
         if (it != m_handlers.end())
         {
             if (it->second)
             {
-                it->second(e, ctx);
+                it->second(events, count, ctx);
             }
         }
     }
 
     void commander_event_dispatcher::register_default_handlers()
     {
-        register_handler(event_type::language_changed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::language_changed, [](const event* events, size_t, event_context& ctx) 
         {
-            ctx.cmdr.m_lang.lang = e.get_data_as<messages::initial_data_header>()->lang_info.lang;
+            ctx.cmdr.m_lang.lang = events[0].get_data_as<messages::initial_data_header>()->lang_info.lang;
         });
 
-        register_handler(event_type::module_path_added, [](const event& e, event_context& ctx) 
+        register_handler(event_type::module_path_added, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::module_path_data>();
+            auto* data = events[0].get_data_as<messages::module_path_data>();
             std::lock_guard<const module_view> lg(ctx.cmdr.modules());
             auto& paths = ctx.cmdr.modules().paths();
             if (data->idx >= paths.size())
@@ -58,9 +153,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::module_path_removed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::module_path_removed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::module_path_remove_data>();
+            auto* data = events[0].get_data_as<messages::module_path_remove_data>();
             std::lock_guard<const module_view> lg(ctx.cmdr.modules());
             auto& paths = ctx.cmdr.modules().paths();
             if (data->idx < paths.size())
@@ -69,9 +164,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::module_loaded, [](const event& e, event_context& ctx) 
+        register_handler(event_type::module_loaded, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* mod_info = e.get_data_as<module::basic_info>();
+            auto* mod_info = events[0].get_data_as<module::basic_info>();
             string_hashed mod_name(mod_info->name);
             string_hashed mod_path(mod_info->path);
 
@@ -80,9 +175,9 @@ namespace adam
             ctx.cmdr.modules().available().erase(mod_name);
         });
 
-        register_handler(event_type::module_unloaded, [](const event& e, event_context& ctx) 
+        register_handler(event_type::module_unloaded, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* mod_info = e.get_data_as<module::basic_info>();
+            auto* mod_info = events[0].get_data_as<module::basic_info>();
             string_hashed mod_name(mod_info->name);
             string_hashed mod_path(mod_info->path);
 
@@ -91,9 +186,9 @@ namespace adam
             ctx.cmdr.modules().available().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
         });
 
-        register_handler(event_type::module_available, [](const event& e, event_context& ctx) 
+        register_handler(event_type::module_available, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* mod_info = e.get_data_as<module::basic_info>();
+            auto* mod_info = events[0].get_data_as<module::basic_info>();
             string_hashed mod_name(mod_info->name);
             string_hashed mod_path(mod_info->path);
 
@@ -102,9 +197,9 @@ namespace adam
             ctx.cmdr.modules().available().emplace(mod_name, std::make_pair(mod_info->version, mod_path));
         });
 
-        register_handler(event_type::module_unavailable, [](const event& e, event_context& ctx) 
+        register_handler(event_type::module_unavailable, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* mod_info = e.get_data_as<module::basic_info>();
+            auto* mod_info = events[0].get_data_as<module::basic_info>();
             string_hashed mod_name(mod_info->name);
             string_hashed mod_path(mod_info->path);
 
@@ -112,9 +207,9 @@ namespace adam
             ctx.cmdr.modules().unavailable().emplace(mod_name, std::make_tuple(mod_info->version, mod_path, mod_info->rsn));
         });
 
-        register_handler(event_type::module_removed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::module_removed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* mod_info = e.get_data_as<module::basic_info>();
+            auto* mod_info = events[0].get_data_as<module::basic_info>();
             string_hashed mod_name(mod_info->name);
 
             std::lock_guard<const module_view> lg(ctx.cmdr.modules());
@@ -123,14 +218,14 @@ namespace adam
             ctx.cmdr.modules().unavailable().erase(mod_name);
         });
 
-        register_handler(event_type::shutdown, [](const event&, event_context& ctx) 
+        register_handler(event_type::shutdown, [](const event*, size_t, event_context& ctx) 
         {
             ctx.cmdr.destroy();
         });
 
-        register_handler(event_type::port_created, [](const event& e, event_context& ctx) 
+        register_handler(event_type::port_created, [](const event* events, size_t count, event_context& ctx) 
         {
-            auto* info = e.get_data_as<port::basic_info>();
+            auto* info = events[0].get_data_as<port::basic_info>();
             auto view = std::make_unique<port_view>();
             view->name = string_hashed(info->name);
             view->direction = info->dir;
@@ -142,15 +237,22 @@ namespace adam
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
             }
+            
+            size_t evt_idx = 0;
+            size_t unused_off = sizeof(port::basic_info);
+            size_t unused_size = event::get_max_data_length() - unused_off;
+            message_deserializer<event> deserializer(events, count, evt_idx, unused_off, unused_size);
+            deserialize_user_parameters(info->user_parameters, deserializer, view->user_params);
+
             {
                 std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
                 ctx.cmdr.registry().ports()[view->name.get_hash()] = std::move(view);
             }
         });
 
-        register_handler(event_type::port_available, [](const event& e, event_context& ctx) 
+        register_handler(event_type::port_available, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* info = e.get_data_as<port::basic_info>();
+            auto* info = events[0].get_data_as<port::basic_info>();
             
             bool found = false;
             {
@@ -189,9 +291,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::port_unavailable, [](const event& e, event_context& ctx) 
+        register_handler(event_type::port_unavailable, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::port_action_data>();
+            auto* data = events[0].get_data_as<messages::port_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().ports().find(data->port);
             if (it != ctx.cmdr.registry().ports().end())
@@ -205,32 +307,32 @@ namespace adam
             }
         });
 
-        register_handler(event_type::port_destroyed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::port_destroyed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::port_destroy_data>();
+            auto* data = events[0].get_data_as<messages::port_destroy_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             ctx.cmdr.registry().ports().erase(data->port);
         });
 
-        register_handler(event_type::port_started, [](const event& e, event_context& ctx) 
+        register_handler(event_type::port_started, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::port_action_data>();
+            auto* data = events[0].get_data_as<messages::port_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().ports().find(data->port);
             if (it != ctx.cmdr.registry().ports().end()) it->second->is_active = true;
         });
 
-        register_handler(event_type::port_stopped, [](const event& e, event_context& ctx) 
+        register_handler(event_type::port_stopped, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::port_action_data>();
+            auto* data = events[0].get_data_as<messages::port_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().ports().find(data->port);
             if (it != ctx.cmdr.registry().ports().end()) it->second->is_active = false;
         });
 
-        register_handler(event_type::port_renamed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::port_renamed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::port_rename_data>();
+            auto* data = events[0].get_data_as<messages::port_rename_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().ports().find(data->port);
             if (it != ctx.cmdr.registry().ports().end())
@@ -266,10 +368,10 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_input_data_format_changed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_input_data_format_changed, [](const event* events, size_t, event_context& ctx) 
         {
             // Update the connection view with new format information
-            auto* data = e.get_data_as<messages::connection_data_format_data>();
+            auto* data = events[0].get_data_as<messages::connection_data_format_data>();
             std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end())
@@ -280,10 +382,10 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_output_data_format_changed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_output_data_format_changed, [](const event* events, size_t, event_context& ctx) 
         {
             // Update the connection view with new format information
-            auto* data = e.get_data_as<messages::connection_data_format_data>();
+            auto* data = events[0].get_data_as<messages::connection_data_format_data>();
             std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end())
@@ -294,9 +396,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_created, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_created, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* info = e.get_data_as<connection::basic_info>();
+            auto* info = events[0].get_data_as<connection::basic_info>();
             auto view = std::make_unique<connection_view>();
             view->name = string_hashed(info->name);
             view->created = info->created;
@@ -316,32 +418,32 @@ namespace adam
             ctx.cmdr.registry().connections()[view->name.get_hash()] = std::move(view);
         });
 
-        register_handler(event_type::connection_destroyed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_destroyed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_destroy_data>();
+            auto* data = events[0].get_data_as<messages::connection_destroy_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             ctx.cmdr.registry().connections().erase(data->connection);
         });
 
-        register_handler(event_type::connection_started, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_started, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_action_data>();
+            auto* data = events[0].get_data_as<messages::connection_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end()) it->second->is_active = true;
         });
 
-        register_handler(event_type::connection_stopped, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_stopped, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_action_data>();
+            auto* data = events[0].get_data_as<messages::connection_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end()) it->second->is_active = false;
         });
 
-        register_handler(event_type::connection_renamed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_renamed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_rename_data>();
+            auto* data = events[0].get_data_as<messages::connection_rename_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end())
@@ -356,9 +458,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_port_added, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_port_added, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_port_add_data>();
+            auto* data = events[0].get_data_as<messages::connection_port_add_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end())
@@ -371,9 +473,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_port_removed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_port_removed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_port_add_data>();
+            auto* data = events[0].get_data_as<messages::connection_port_add_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end())
@@ -390,9 +492,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_sorting_index_changed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_sorting_index_changed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_property_change_data>();
+            auto* data = events[0].get_data_as<messages::connection_property_change_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end())
@@ -402,9 +504,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_color_changed, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_color_changed, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_property_change_data>();
+            auto* data = events[0].get_data_as<messages::connection_property_change_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
             if (it != ctx.cmdr.registry().connections().end())
@@ -414,9 +516,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_available, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_available, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<connection::basic_info>();
+            auto* data = events[0].get_data_as<connection::basic_info>();
             string_hashed name(data->name);
 
             std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
@@ -474,9 +576,9 @@ namespace adam
             }
         });
 
-        register_handler(event_type::connection_unavailable, [](const event& e, event_context& ctx) 
+        register_handler(event_type::connection_unavailable, [](const event* events, size_t, event_context& ctx) 
         {
-            auto* data = e.get_data_as<messages::connection_action_data>();
+            auto* data = events[0].get_data_as<messages::connection_action_data>();
 
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);

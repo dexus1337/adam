@@ -42,7 +42,7 @@ namespace adam
     public:
 
         static ADAM_CONSTEXPR uint32_t queue_command_size   = 0x1000;
-        static ADAM_CONSTEXPR uint32_t queue_event_size     = 0x100;
+        static ADAM_CONSTEXPR uint32_t queue_event_size     = 0x1000;
 
         /** @brief Constructs a new commander object.*/
         commander();

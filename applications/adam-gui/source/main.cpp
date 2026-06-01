@@ -48,19 +48,30 @@ int main(int, char**)
         SDL_Event event;
         bool needs_redraw = p_immediate->get_value() || (frames_to_render > 0);
 
+        auto process_events = [&]()
+        { 
+            ImGui_ImplSDL2_ProcessEvent(&event);
+            if (event.type == SDL_QUIT)
+                done = true;
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+                done = true;
+            if (event.type == SDL_WINDOWEVENT && 
+            (
+                #if SDL_VERSION_ATLEAST(2, 0, 18)
+                event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED ||
+                #endif
+                event.window.event == SDL_WINDOWEVENT_MOVED
+            ))
+            {
+                adam::gui::update_dpi_scale(window);
+            }
+        };
+
         if (needs_redraw)
         {
             while (SDL_PollEvent(&event))
             {
-                ImGui_ImplSDL2_ProcessEvent(&event);
-                if (event.type == SDL_QUIT)
-                    done = true;
-                if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
-                    done = true;
-                if (event.type == SDL_WINDOWEVENT && (event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED || event.window.event == SDL_WINDOWEVENT_MOVED))
-                {
-                    adam::gui::update_dpi_scale(window);
-                }
+                process_events();
 
                 frames_to_render = event_redraw_count;
             }
@@ -79,16 +90,9 @@ int main(int, char**)
                 needs_redraw = true;
                 do
                 {
-                    ImGui_ImplSDL2_ProcessEvent(&event);
-                    if (event.type == SDL_QUIT)
-                        done = true;
-                    if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
-                        done = true;
-                    if (event.type == SDL_WINDOWEVENT && (event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED || event.window.event == SDL_WINDOWEVENT_MOVED))
-                    {
-                        adam::gui::update_dpi_scale(window);
-                    }
-                } while (SDL_PollEvent(&event));
+                    process_events();
+                } 
+                while (SDL_PollEvent(&event));
             }
             else if (p_show_perf->get_value())
             {

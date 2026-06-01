@@ -10,8 +10,9 @@
 
 using namespace adam::string_hashed_ct_literals;
 
-namespace adam::test
+class port_test : public ::testing::Test
 {
+protected:
     class test_port : public adam::port
     {
     public:
@@ -35,11 +36,7 @@ namespace adam::test
             }
         }
     };
-}
 
-class port_test : public ::testing::Test
-{
-protected:
     void SetUp() override
     {
         adam::buffer_manager::get().initialize();
@@ -54,7 +51,7 @@ protected:
 /** @brief Tests the base parameters and memory states directly after the port is constructed. */
 TEST_F(port_test, initial_state)
 {
-    adam::test::test_port p("test_port"_ct);
+    test_port p("test_port"_ct);
     
     EXPECT_FALSE(p.is_active());
     EXPECT_EQ(p.get_direction(), adam::port::direction_inout);
@@ -65,7 +62,7 @@ TEST_F(port_test, initial_state)
 /** @brief Tests starting and stopping the port without spinning up the dedicated worker thread. */
 TEST_F(port_test, start_stop_unthreaded)
 {
-    adam::test::test_port p("test_port"_ct);
+    test_port p("test_port"_ct);
     p.set_threaded(false);
     
     EXPECT_TRUE(p.start());
@@ -78,7 +75,7 @@ TEST_F(port_test, start_stop_unthreaded)
 /** @brief Tests starting and stopping the port along with its threaded worker loops. */
 TEST_F(port_test, start_stop_threaded)
 {
-    adam::test::test_port p("test_port"_ct);
+    test_port p("test_port"_ct);
     
     EXPECT_TRUE(p.start());
     EXPECT_TRUE(p.is_active());
@@ -95,7 +92,7 @@ TEST_F(port_test, start_stop_threaded)
 /** @brief Tests handling payload buffers when the port is active, and verifies updating base statistics. */
 TEST_F(port_test, handle_data_statistics)
 {
-    adam::test::test_port p("test_port"_ct);
+    test_port p("test_port"_ct);
     p.set_threaded(false);
     p.start();
     
@@ -115,7 +112,7 @@ TEST_F(port_test, handle_data_statistics)
 /** @brief Tests that inactive ports should automatically deny accepting payloads and prevent updates to stats. */
 TEST_F(port_test, inactive_drops_data)
 {
-    adam::test::test_port p("test_port"_ct);
+    test_port p("test_port"_ct);
     p.set_threaded(false);
     
     // Do not call start(), so is_active() remains false

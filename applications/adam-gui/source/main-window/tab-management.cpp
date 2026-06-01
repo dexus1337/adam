@@ -1653,13 +1653,13 @@ namespace adam::gui
 
                     if (is_unavailable)
                     {
-                        bool is_in_transparent = conn->input_format.empty() || conn->input_format.get_hash() == ("transparent"_ct).get_hash() || conn->input_format.get_hash() == ("dataformat_transparent"_ct).get_hash();
+                        bool is_in_transparent = conn->input_format.empty() || conn->input_format.get_hash() == ("transparent"_ct).get_hash();
                         if (!is_in_transparent && conn->input_format_module.get_hash() != 0 && loaded_modules.find(conn->input_format_module.get_hash()) == loaded_modules.end())
                         {
                             input_missing = true;
                         }
                         
-                        bool is_out_transparent = conn->output_format.empty() || conn->output_format.get_hash() == ("transparent"_ct).get_hash() || conn->output_format.get_hash() == ("dataformat_transparent"_ct).get_hash();
+                        bool is_out_transparent = conn->output_format.empty() || conn->output_format.get_hash() == ("transparent"_ct).get_hash();
                         if (!is_out_transparent && conn->output_format_module.get_hash() != 0 && loaded_modules.find(conn->output_format_module.get_hash()) == loaded_modules.end())
                         {
                             output_missing = true;
@@ -1670,7 +1670,7 @@ namespace adam::gui
                 // 1. Input Format Dropdown above the first column (input ports)
                 ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y));
                 std::string in_fmt_str;
-                if (conn->input_format.empty() || conn->input_format == "transparent"_ct || conn->input_format == "dataformat_transparent"_ct)
+                if (conn->input_format.empty() || conn->input_format == "transparent"_ct)
                 {
                     in_fmt_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
                 }
@@ -1710,7 +1710,7 @@ namespace adam::gui
                     for (const auto& [fmt, mod] : available_formats)
                     {
                         std::string item_str;
-                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
+                        if (fmt == "transparent"_ct)
                             item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
                         else
                             item_str = fmt.c_str();
@@ -1742,7 +1742,7 @@ namespace adam::gui
                 // 2. Output Format Dropdown above the last column (output ports)
                 ImGui::SetCursorScreenPos(ImVec2(cur_pos.x + avail_x - port_w, cur_pos.y));
                 std::string out_fmt_str;
-                if (conn->output_format.empty() || conn->output_format == "transparent"_ct || conn->output_format == "dataformat_transparent"_ct)
+                if (conn->output_format.empty() || conn->output_format == "transparent"_ct)
                 {
                     out_fmt_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
                 }
@@ -1782,7 +1782,7 @@ namespace adam::gui
                     for (const auto& [fmt, mod] : available_formats)
                     {
                         std::string item_str;
-                        if (fmt == "transparent"_ct || fmt == "dataformat_transparent"_ct)
+                        if (fmt == "transparent"_ct)
                             item_str = get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang);
                         else
                             item_str = fmt.c_str();

@@ -59,9 +59,9 @@ TEST_F(commander_test, event_broadcast_and_receive)
     std::atomic<bool> event_received{false};
     adam::event_type received_type = adam::event_type::invalid;
 
-    cmdr.dispatcher().register_handler(adam::event_type::language_changed, [&](const adam::event& e, adam::event_context&)
+    cmdr.dispatcher().register_handler(adam::event_type::language_changed, [&](const adam::event* events, size_t, adam::event_context&)
     {
-        received_type = e.get_type();
+        received_type = events[0].get_type();
         event_received = true;
     });
 
@@ -83,10 +83,49 @@ TEST_F(commander_test, event_broadcast_and_receive)
     EXPECT_TRUE(cmdr.destroy());
 }
 
+/** @brief Tests if a single commander can receive extended events correctly. */
+TEST_F(commander_test, receive_extended_events)
+{
+    adam::commander cmdr;
+    
+    std::atomic<bool> event_received{false};
+    size_t received_event_count = 0;
+
+    const adam::event_type custom_evt_type = static_cast<adam::event_type>(9999);
+
+    cmdr.dispatcher().register_handler(custom_evt_type, [&](const adam::event* events, size_t count, adam::event_context&)
+    {
+        (void)events;
+        received_event_count = count;
+        event_received = true;
+    });
+
+    ASSERT_TRUE(cmdr.connect());
+
+    adam::event e1(custom_evt_type); e1.set_extended(true);
+    adam::event e2(custom_evt_type); e2.set_extended(true);
+    adam::event e3(custom_evt_type); e3.set_extended(false);
+
+    adam::controller::get().broadcast_event(e1);
+    adam::controller::get().broadcast_event(e2);
+    adam::controller::get().broadcast_event(e3);
+
+    auto start = std::chrono::steady_clock::now();
+    while (!event_received && std::chrono::steady_clock::now() - start < std::chrono::seconds(2))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_TRUE(event_received.load());
+    EXPECT_EQ(received_event_count, 3ull);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
 /** @brief Tests initial data synchronization of modules between controller and commander. */
 TEST_F(commander_test, initial_data_module_sync)
 {
     adam::controller& ctrl = adam::controller::get();
+    
+    adam::commander cmdr;
     
     // Override the initial data handler to return some mock modules
     ctrl.dispatcher().register_handler(adam::command_type::acquire_initial_data, [](const adam::command*, size_t, adam::command_context& ctx)
@@ -98,7 +137,7 @@ TEST_F(commander_test, initial_data_module_sync)
         data->mod_info.module_paths = 1;
         data->mod_info.available_modules = 1;
         data->mod_info.unavailable_modules = 1;
-        data->mod_info.loaded_modules = 1;
+        data->mod_info.loaded_modules = 0;
         data->conn_info.ports = 0;
         data->conn_info.processors = 0;
         data->conn_info.connections = 1;
@@ -121,16 +160,10 @@ TEST_F(commander_test, initial_data_module_sync)
         auto* mod_info2 = ctx.responses[3].data_as<adam::module::basic_info>();
         mod_info2->setup(adam::module::basic_info::unavailable, "mock_unavail", "/mock/path/unavail.so", adam::make_version(2, 0, 0));
         
-        // loaded module
+        // connections
         ctx.responses[3].set_extended(true);
         ctx.responses.emplace_back();
-        auto* mod_info3 = ctx.responses[4].data_as<adam::module::basic_info>();
-        mod_info3->setup(adam::module::basic_info::loaded, "mock_loaded", "/mock/path/loaded.so", adam::make_version(3, 0, 0));
-
-        // connections
-        ctx.responses[4].set_extended(true);
-        ctx.responses.emplace_back();
-        auto* conn_info = ctx.responses[5].data_as<adam::connection::basic_info>();
+        auto* conn_info = ctx.responses[4].data_as<adam::connection::basic_info>();
         conn_info->setup("mock_connection"_ct);
         conn_info->input_count = 0;
         conn_info->processor_count = 0;
@@ -139,7 +172,6 @@ TEST_F(commander_test, initial_data_module_sync)
         conn_info->valid_chain = false;
     });
 
-    adam::commander cmdr;
     ASSERT_TRUE(cmdr.connect()); // Implicitly requests initial data and populates caches
 
     EXPECT_EQ(cmdr.get_modules().get_paths().size(), 1u);
@@ -152,9 +184,6 @@ TEST_F(commander_test, initial_data_module_sync)
 
     EXPECT_EQ(cmdr.get_modules().get_unavailable().size(), 1u);
     EXPECT_TRUE(cmdr.get_modules().get_unavailable().contains("mock_unavail"_ct.get_hash()));
-
-    EXPECT_EQ(cmdr.get_modules().get_loaded().size(), 1u);
-    EXPECT_TRUE(cmdr.get_modules().get_loaded().contains("mock_loaded"_ct.get_hash()));
 
     EXPECT_EQ(cmdr.get_registry().get_connections().size(), 1u);
     EXPECT_TRUE(cmdr.get_registry().get_connections().contains(("mock_connection"_ct).get_hash()));
@@ -173,7 +202,6 @@ TEST_F(commander_test, module_events_sync)
     // Initially caches are empty (assuming no modules loaded in the test environment)
     size_t initial_available = cmdr.get_modules().get_available().size();
     size_t initial_unavailable = cmdr.get_modules().get_unavailable().size();
-    size_t initial_loaded = cmdr.get_modules().get_loaded().size();
 
     // 1. Broadcast module_available event
     adam::event evt_avail(adam::event_type::module_available);
@@ -189,22 +217,9 @@ TEST_F(commander_test, module_events_sync)
 
     adam::controller::get().broadcast_event(evt_unavail);
 
-    // 3. Broadcast module_loaded event (this also tests that it dynamically moves from available to loaded cache)
-    adam::event evt_avail2(adam::event_type::module_available);
-    auto* mod_info_avail2 = evt_avail2.data_as<adam::module::basic_info>();
-    mod_info_avail2->setup(adam::module::basic_info::available, "evt_mock_to_load", "/mock/path/evt_to_load.so", adam::make_version(1, 0, 0));
-
-    adam::controller::get().broadcast_event(evt_avail2);
-    
-    adam::event evt_loaded(adam::event_type::module_loaded);
-    auto* mod_info3 = evt_loaded.data_as<adam::module::basic_info>();
-    mod_info3->setup(adam::module::basic_info::loaded, "evt_mock_to_load", "/mock/path/evt_to_load.so", adam::make_version(1, 0, 0));
-
-    adam::controller::get().broadcast_event(evt_loaded);
-
     // Give events time to propagate over the IPC queue and be dispatched by the thread
     auto start = std::chrono::steady_clock::now();
-    while (cmdr.get_modules().get_available().size() == initial_available && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    while (cmdr.get_modules().get_unavailable().size() == initial_unavailable && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -214,10 +229,6 @@ TEST_F(commander_test, module_events_sync)
     
     EXPECT_EQ(cmdr.get_modules().get_unavailable().size(), initial_unavailable + 1);
     EXPECT_TRUE(cmdr.get_modules().get_unavailable().contains("evt_mock_unavail"_ct.get_hash()));
-
-    EXPECT_EQ(cmdr.get_modules().get_loaded().size(), initial_loaded + 1);
-    EXPECT_TRUE(cmdr.get_modules().get_loaded().contains("evt_mock_to_load"_ct.get_hash()));
-    EXPECT_FALSE(cmdr.get_modules().get_available().contains("evt_mock_to_load"_ct.get_hash()));
 
     EXPECT_TRUE(cmdr.destroy());
 }
@@ -296,67 +307,6 @@ TEST_F(commander_test, request_module_scan_flow)
     adam::response_status status = cmdr.request_module_scan();
     EXPECT_EQ(status, adam::response_status::success);
 
-    EXPECT_TRUE(cmdr.destroy());
-}
-
-/** @brief Tests the full flow of requesting a module load and unload and receiving the updated state via event. */
-TEST_F(commander_test, request_module_load_unload_flow)
-{
-    adam::controller& ctrl = adam::controller::get();
-
-    // Override the default handlers to mock the controller's backend success
-    ctrl.dispatcher().register_handler(adam::command_type::module_load, [](const adam::command* cmds, size_t, adam::command_context& ctx)
-    {
-        auto params = cmds->get_data_as<adam::messages::module_action_data>();
-        adam::string_hashed name(params->module_name);
-
-        adam::event evt(adam::event_type::module_loaded);
-        auto* mod_info = evt.data_as<adam::module::basic_info>();
-        mod_info->setup(adam::module::basic_info::loaded, name.c_str(), "/mock/path/module.so", adam::make_version(1, 0, 0));
-        ctx.ctrl.broadcast_event(evt);
-
-        ctx.set_single_response_status(adam::response_status::success);
-    });
-
-    ctrl.dispatcher().register_handler(adam::command_type::module_unload, [](const adam::command* cmds, size_t, adam::command_context& ctx)
-    {
-        auto params = cmds->get_data_as<adam::messages::module_action_data>();
-        adam::string_hashed name(params->module_name);
-
-        adam::event evt(adam::event_type::module_unloaded);
-        auto* mod_info = evt.data_as<adam::module::basic_info>();
-        mod_info->setup(adam::module::basic_info::available, name.c_str(), "/mock/path/module.so", adam::make_version(1, 0, 0));
-        ctx.ctrl.broadcast_event(evt);
-
-        ctx.set_single_response_status(adam::response_status::success);
-    });
-
-    adam::commander cmdr;
-    ASSERT_TRUE(cmdr.connect());
-
-    adam::string_hashed_ct test_module = "mock_module";
-
-    // Inject a fake available module into the commander view
-    cmdr.modules().available().emplace(test_module, std::make_pair(adam::make_version(1, 0, 0), "/mock/path/module.so"_ct));
-
-    size_t initial_loaded = cmdr.get_modules().get_loaded().size();
-
-    // 1. Request to load the module
-    adam::response_status status = cmdr.request_module_load(test_module);
-    EXPECT_EQ(status, adam::response_status::success);
-
-    // Wait for the event to propagate and update the commander's loaded list
-    auto start = std::chrono::steady_clock::now();
-    while (cmdr.get_modules().get_loaded().size() == initial_loaded && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    // Verify the module moved from available to loaded
-    EXPECT_EQ(cmdr.get_modules().get_loaded().size(), initial_loaded + 1);
-    EXPECT_TRUE(cmdr.get_modules().get_loaded().contains(test_module.get_hash()));
-    EXPECT_FALSE(cmdr.get_modules().get_available().contains(test_module.get_hash()));
-
-    // Restore default handler to not break other tests on the shared controller singleton
-    ctrl.dispatcher().register_default_handlers();
     EXPECT_TRUE(cmdr.destroy());
 }
 
@@ -537,6 +487,13 @@ TEST_F(commander_test, connection_data_format_changed_sync)
 
     auto conn_hash = ("fmt_conn"_ct).get_hash();
     EXPECT_TRUE(cmdr.get_registry().get_connections().contains(conn_hash));
+
+    cmdr.modules().lock();
+    adam::module_info minfo;
+    minfo.name = "new_mod"_ct;
+    minfo.data_formats.push_back("new_fmt"_ct);
+    cmdr.modules().database()["new_mod"_ct] = minfo;
+    cmdr.modules().unlock();
 
     // Trigger input format change event
     adam::event evt(adam::event_type::connection_input_data_format_changed);

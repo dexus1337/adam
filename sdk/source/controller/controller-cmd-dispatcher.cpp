@@ -28,6 +28,124 @@
 
 namespace adam
 {
+    namespace 
+    {
+        template<typename msg_type>
+        struct message_serializer
+        {
+            std::vector<msg_type>& messages;
+            size_t& msg_idx;
+            size_t& unused_off;
+            size_t& unused_size;
+
+            message_serializer(std::vector<msg_type>& msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
+                : messages(msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
+            {
+            }
+
+            void ensure_space(size_t needed_size) 
+            {
+                if (unused_size < needed_size) 
+                {
+                    messages[msg_idx].set_extended(true);
+                    msg_idx++;
+                    auto type = messages[0].get_type();
+                    if (msg_idx >= messages.size()) 
+                        messages.emplace_back(type);
+                    unused_off = 0;
+                    unused_size = msg_type::get_max_data_length();
+                }
+            }
+
+            void write_bytes(const void* data, size_t size) 
+            {
+                const uint8_t* ptr = static_cast<const uint8_t*>(data);
+                size_t remaining = size;
+                while (remaining > 0) 
+                {
+                    if (unused_size == 0) 
+                    {
+                        messages[msg_idx].set_extended(true);
+                        msg_idx++;
+                        auto type = messages[0].get_type();
+                        if (msg_idx >= messages.size()) 
+                            messages.emplace_back(type);
+                        unused_off = 0;
+                        unused_size = msg_type::get_max_data_length();
+                    }
+                    size_t to_write = std::min(remaining, unused_size);
+                    std::memcpy(messages[msg_idx].data_as<uint8_t>() + unused_off, ptr, to_write);
+                    unused_off += to_write;
+                    unused_size -= to_write;
+                    ptr += to_write;
+                    remaining -= to_write;
+                }
+            }
+            
+            template<typename view_type>
+            view_type* allocate_view() 
+            {
+                ensure_space(sizeof(view_type));
+                view_type* view = reinterpret_cast<view_type*>(messages[msg_idx].data_as<uint8_t>() + unused_off);
+                unused_off += sizeof(view_type);
+                unused_size -= sizeof(view_type);
+                return view;
+            }
+        };
+
+        template<typename msg_type>
+        void serialize_user_parameters(const configuration_parameter_list* user_param, message_serializer<msg_type>& serializer) 
+        {
+            if (!user_param) return;
+
+            for (const auto& [name, param] : user_param->get_children()) 
+            {
+                switch (param->get_type()) 
+                {
+                    case configuration_parameter::type::type_string: 
+                    {
+                        auto val = dynamic_cast<configuration_parameter_string*>(param.get())->get_value();
+                        auto* view = serializer.template allocate_view<configuration_parameter_string::view>();
+                        view->var_type = configuration_parameter::type::type_string;
+                        view->name = name.get_hash();
+                        view->length = static_cast<uint16_t>(val.size());
+                        serializer.write_bytes(val.c_str(), val.size());
+                        break;
+                    }
+                    case configuration_parameter::type::type_integer: 
+                    {
+                        auto* view = serializer.template allocate_view<configuration_parameter_integer::view>();
+
+                        view->var_type = configuration_parameter::type::type_integer;
+                        view->name = name.get_hash();
+                        view->value = dynamic_cast<configuration_parameter_integer*>(param.get())->get_value();
+
+                        break;
+                    }
+                    case configuration_parameter::type::type_boolean: 
+                    {
+                        auto* view = serializer.template allocate_view<configuration_parameter_boolean::view>();
+
+                        view->var_type = configuration_parameter::type::type_boolean;
+                        view->name = name.get_hash();
+                        view->value = dynamic_cast<configuration_parameter_boolean*>(param.get())->get_value();
+                        break;
+                    }
+                    case configuration_parameter::type::type_double: 
+                    {
+                        auto* view = serializer.template allocate_view<configuration_parameter_double::view>();
+
+                        view->var_type = configuration_parameter::type::type_double;
+                        view->name = name.get_hash();
+                        view->value = dynamic_cast<configuration_parameter_double*>(param.get())->get_value();
+                        break;
+                    }
+                    default: break;
+                }
+            }
+        }
+    }
+
     controller_cmd_dispatcher::controller_cmd_dispatcher()
     {
         register_default_handlers();
@@ -172,130 +290,11 @@ namespace adam
                     {
                         port_info->user_parameters = static_cast<uint16_t>(user_param->get_children().size());
                         
-                        auto unused_off     = sizeof(port::basic_info);
-                        auto unused_size    = response::get_max_data_length() - unused_off;
-                        auto params_it      = user_param->get_children().begin();
-                        auto params_end     = user_param->get_children().end();
+                        size_t unused_off     = sizeof(port::basic_info);
+                        size_t unused_size    = response::get_max_data_length() - unused_off;
 
-                        while (unused_size > 0 && params_it != params_end)
-                        {
-                            switch (params_it->second->get_type())
-                            {
-                                case configuration_parameter::type::type_string:
-                                {
-                                    configuration_parameter_string::view* param = nullptr;
-
-                                    if (unused_size >= sizeof(configuration_parameter_string::view))
-                                        param = reinterpret_cast<configuration_parameter_string::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    else
-                                    {
-                                        ctx.responses[resp_idx].set_extended(true);
-                                        resp_idx++;
-                                        unused_off = 0;
-                                        unused_size = response::get_max_data_length();
-                                        
-                                        param = reinterpret_cast<configuration_parameter_string::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    }
-
-                                    const auto& val = dynamic_cast<configuration_parameter_string*>(params_it->second.get())->get_value();
-
-                                    param->name = params_it->first.get_hash();
-                                    param->length = static_cast<uint16_t>(val.size());
-                                    unused_size -= sizeof(configuration_parameter_string::view);
-                                    unused_off += sizeof(configuration_parameter_string::view);
-
-                                    if (unused_size >= param->length)
-                                    {
-                                        std::strncpy(reinterpret_cast<char*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off), val.c_str(), param->length);
-                                        unused_size -= param->length;
-                                        unused_off += param->length;
-                                    }
-                                    else
-                                    {
-                                        ctx.responses[resp_idx].set_extended(true);
-                                        resp_idx++;
-                                    }
-
-                                    params_it++;
-
-                                    break;
-                                }
-                                case configuration_parameter::type::type_integer:
-                                {
-                                    configuration_parameter_integer::view* param = nullptr;
-
-                                    if (unused_size >= sizeof(configuration_parameter_integer::view))
-                                        param = reinterpret_cast<configuration_parameter_integer::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    else
-                                    {
-                                        ctx.responses[resp_idx].set_extended(true);
-                                        resp_idx++;
-                                        unused_off = 0;
-                                        unused_size = response::get_max_data_length();
-                                        
-                                        param = reinterpret_cast<configuration_parameter_integer::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    }
-
-                                    param->name = params_it->first.get_hash();
-                                    param->value = dynamic_cast<configuration_parameter_integer*>(params_it->second.get())->get_value();
-                                    unused_size -= sizeof(configuration_parameter_integer::view);
-                                    unused_off += sizeof(configuration_parameter_integer::view);
-                                    params_it++;
-
-                                    break;
-                                }
-                                case configuration_parameter::type::type_boolean:
-                                {
-                                    configuration_parameter_boolean::view* param = nullptr;
-
-                                    if (unused_size >= sizeof(configuration_parameter_boolean::view))
-                                        param = reinterpret_cast<configuration_parameter_boolean::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    else
-                                    {
-                                        ctx.responses[resp_idx].set_extended(true);
-                                        resp_idx++;
-                                        unused_off = 0;
-                                        unused_size = response::get_max_data_length();
-                                        
-                                        param = reinterpret_cast<configuration_parameter_boolean::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    }
-
-                                    param->name = params_it->first.get_hash();
-                                    param->value = dynamic_cast<configuration_parameter_boolean*>(params_it->second.get())->get_value();
-                                    unused_size -= sizeof(configuration_parameter_boolean::view);
-                                    unused_off += sizeof(configuration_parameter_boolean::view);
-                                    params_it++;
-
-                                    break;
-                                }
-                                case configuration_parameter::type::type_double:
-                                {
-                                    configuration_parameter_double::view* param = nullptr;
-
-                                    if (unused_size >= sizeof(configuration_parameter_double::view))
-                                        param = reinterpret_cast<configuration_parameter_double::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    else
-                                    {
-                                        ctx.responses[resp_idx].set_extended(true);
-                                        resp_idx++;
-                                        unused_off = 0;
-                                        unused_size = response::get_max_data_length();
-                                        
-                                        param = reinterpret_cast<configuration_parameter_double::view*>(ctx.responses[resp_idx].data_as<uint8_t>() + unused_off);
-                                    }
-
-                                    param->name = params_it->first.get_hash();
-                                    param->value = dynamic_cast<configuration_parameter_double*>(params_it->second.get())->get_value();
-                                    unused_size -= sizeof(configuration_parameter_double::view);
-                                    unused_off += sizeof(configuration_parameter_double::view);
-                                    params_it++;
-
-                                    break;
-                                }
-                                default:
-                                    break;
-                            }
-                        }
+                        message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
+                        serialize_user_parameters(user_param, serializer);
                     }
 
                     resp_idx++;
@@ -310,6 +309,9 @@ namespace adam
                     auto* port_info = ctx.responses[resp_idx].data_as<port::basic_info>();
                     
                     port_info->setup(upi->get_name(), upi->type, upi->type_module, true);
+                    port_info->is_unavailable = true;
+                    port_info->is_active = false;
+                    port_info->dir = port::direction_inout;
 
                     resp_idx++;
 
@@ -1061,21 +1063,37 @@ namespace adam
                 return;
             }
 
-            event evt(event_type::port_created);
-            auto* evt_data = evt.data_as<port::basic_info>();
+            std::vector<event> events;
+            events.emplace_back(event_type::port_created);
+            auto* evt_data = events[0].data_as<port::basic_info>();
             if (new_port)
             {
-                evt_data->setup(new_port->get_name(), new_port->get_type_name().get_hash(), 0);
+                evt_data->setup(new_port->get_name(), new_port->get_type_name().get_hash(), 0, false, new_port->get_statistic_buffer()->get_handle());
 
                 if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("type_origin_module"_ct)))
                     evt_data->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
 
-                evt_data->dir       = new_port->get_direction();
-                evt_data->is_active = new_port->is_active();
+                evt_data->dir                       = new_port->get_direction();
+                evt_data->is_active                 = new_port->is_active();
+                
+                auto* user_param = dynamic_cast<configuration_parameter_list*>(new_port->get_parameters().get("user_parameters"_ct));
+                if (user_param)
+                {
+                    evt_data->user_parameters = static_cast<uint16_t>(user_param->get_children().size());
+                    
+                    size_t evt_idx = 0;
+                    size_t unused_off = sizeof(port::basic_info);
+                    size_t unused_size = event::get_max_data_length() - unused_off;
+
+                    message_serializer<event> serializer(events, evt_idx, unused_off, unused_size);
+                    serialize_user_parameters(user_param, serializer);
+                }
             }
             else
                 *evt_data = *params;
-            ctx.ctrl.broadcast_event(evt);
+                
+            for (const auto& ev : events)
+                ctx.ctrl.broadcast_event(ev);
 
             auto name_view = name.c_str();
             debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, new_port->get_type_name().c_str()));

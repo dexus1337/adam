@@ -34,7 +34,7 @@ namespace adam
     class ADAM_SDK_API commander_event_dispatcher
     {
     public:
-        using handler_fn = std::function<void(const event&, event_context&)>; /**< A type alias for an event handler function. */
+        using handler_fn = std::function<void(const event*, size_t, event_context&)>; /**< A type alias for an event handler function. */
 
         /** @brief Constructs a new commander_event_dispatcher object. */
         commander_event_dispatcher();
@@ -46,7 +46,7 @@ namespace adam
         void register_handler(event_type type, handler_fn handler);
         
         /** @brief Dispatches an event to the appropriate registered handler. */
-        void dispatch(const event& e, event_context& ctx) const;
+        void dispatch(const event* events, size_t count, event_context& ctx) const;
 
         /** @brief Registers all default event handlers for the commander. */
         void register_default_handlers();
