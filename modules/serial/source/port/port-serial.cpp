@@ -24,25 +24,10 @@ namespace adam::modules::serial
 
             auto up = std::make_unique<adam::configuration_parameter_list>("user_parameters"_ct);
             
-            up->add(std::make_unique<adam::configuration_parameter_string>("path"_ct));
-
-            configuration_parameter_string::presets_container parity_presets = {};
-            
-            parity_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("parity_none"_ct, "none"_ct));
-            parity_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("parity_odd"_ct, "odd"_ct));
-            parity_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("parity_even"_ct, "even"_ct));
-            parity_presets.emplace("3"_ct, std::make_unique<adam::configuration_parameter_string>("parity_mark"_ct, "mark"_ct));
-            parity_presets.emplace("4"_ct, std::make_unique<adam::configuration_parameter_string>("parity_space"_ct, "space"_ct));
-
-            up->add(std::make_unique<adam::configuration_parameter_string>("parity"_ct, "none"_ct, std::move(parity_presets)));
-
-            configuration_parameter_string::presets_container flow_ctrl_presets = {};
-            
-            flow_ctrl_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_none"_ct, "none"_ct));
-            flow_ctrl_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_hardware"_ct, "hardware"_ct));
-            flow_ctrl_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_xon_xoff"_ct, "xon_xoff"_ct));
-
-            up->add(std::make_unique<adam::configuration_parameter_string>("flow_ctrl"_ct, "none"_ct, std::move(flow_ctrl_presets)));
+            auto path_param = std::make_unique<adam::configuration_parameter_string>("path"_ct);
+            path_param->set_description(language_english, "The COM port or device path (e.g. COM1 or /dev/ttyUSB0)."_ct);
+            path_param->set_description(language_german, "Der COM-Port oder Gerätepfad (z.B. COM1 oder /dev/ttyUSB0)."_ct);
+            up->add(std::move(path_param));
 
             configuration_parameter_integer::presets_container baud_presets = {};
             
@@ -62,7 +47,10 @@ namespace adam::modules::serial
             baud_presets.emplace(460800);
             baud_presets.emplace(921600);
 
-            up->add(std::make_unique<adam::configuration_parameter_integer>("baud_rate"_ct, 115200, std::move(baud_presets)));
+            auto baud_rate_param = std::make_unique<adam::configuration_parameter_integer>("baud_rate"_ct, 115200, std::move(baud_presets));
+            baud_rate_param->set_description(language_english, "The communication speed in baud (bits per second)."_ct);
+            baud_rate_param->set_description(language_german, "Die Kommunikationsgeschwindigkeit in Baud (Bits pro Sekunde)."_ct);
+            up->add(std::move(baud_rate_param));
             
             configuration_parameter_integer::presets_container data_bits_presets = {};
             
@@ -71,14 +59,69 @@ namespace adam::modules::serial
             data_bits_presets.emplace(7);
             data_bits_presets.emplace(8);
 
-            up->add(std::make_unique<adam::configuration_parameter_integer>("data_bits"_ct, 8, std::move(data_bits_presets)));
+            auto data_bits_param = std::make_unique<adam::configuration_parameter_integer>("data_bits"_ct, 8, std::move(data_bits_presets));
+            data_bits_param->set_description(language_english, "The number of data bits per byte."_ct);
+            data_bits_param->set_description(language_german, "Die Anzahl der Datenbits pro Byte."_ct);
+            up->add(std::move(data_bits_param));
 
             configuration_parameter_integer::presets_container stop_bits_presets = {};
             
             stop_bits_presets.emplace(1);
             stop_bits_presets.emplace(2);
 
-            up->add(std::make_unique<adam::configuration_parameter_integer>("stop_bits"_ct, 1, std::move(stop_bits_presets)));
+            auto stop_bits_param = std::make_unique<adam::configuration_parameter_integer>("stop_bits"_ct, 1, std::move(stop_bits_presets));
+            stop_bits_param->set_description(language_english, "The number of stop bits indicating the end of a byte."_ct);
+            stop_bits_param->set_description(language_german, "Die Anzahl der Stoppbits, die das Ende eines Bytes markieren."_ct);
+            up->add(std::move(stop_bits_param));
+
+            configuration_parameter_string::presets_container parity_presets = {};
+            
+            parity_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("parity_none"_ct, "none"_ct));
+            parity_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("parity_odd"_ct, "odd"_ct));
+            parity_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("parity_even"_ct, "even"_ct));
+            parity_presets.emplace("3"_ct, std::make_unique<adam::configuration_parameter_string>("parity_mark"_ct, "mark"_ct));
+            parity_presets.emplace("4"_ct, std::make_unique<adam::configuration_parameter_string>("parity_space"_ct, "space"_ct));
+
+            auto parity_param = std::make_unique<adam::configuration_parameter_string>("parity"_ct, "none"_ct, std::move(parity_presets));
+            parity_param->set_description(language_english, "The parity bit configuration."_ct);
+            parity_param->set_description(language_german, "Die Konfiguration des Paritätsbits."_ct);
+            up->add(std::move(parity_param));
+
+            configuration_parameter_string::presets_container flow_ctrl_presets = {};
+            
+            flow_ctrl_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_none"_ct, "none"_ct));
+            flow_ctrl_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_hardware"_ct, "hardware"_ct));
+            flow_ctrl_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_xon_xoff"_ct, "xon_xoff"_ct));
+
+            auto flow_ctrl_param = std::make_unique<adam::configuration_parameter_string>("flow_ctrl"_ct, "none"_ct, std::move(flow_ctrl_presets));
+            flow_ctrl_param->set_description(language_english, "The hardware or software flow control."_ct);
+            flow_ctrl_param->set_description(language_german, "Die Hardware- oder Software-Flusssteuerung."_ct);
+            up->add(std::move(flow_ctrl_param));
+
+            auto rit_param = std::make_unique<adam::configuration_parameter_integer>("read_interval_timeout"_ct, -1);
+            rit_param->set_description(language_english, "Maximum time between bytes before returning (-1 = immediate)."_ct);
+            rit_param->set_description(language_german, "Maximale Zeit zwischen Bytes vor der Rückgabe (-1 = sofort)."_ct);
+            up->add(std::move(rit_param));
+
+            auto rttc_param = std::make_unique<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct, 50);
+            rttc_param->set_description(language_english, "Constant timeout to wait for data (ms)."_ct);
+            rttc_param->set_description(language_german, "Konstantes Timeout zum Warten auf Daten (ms)."_ct);
+            up->add(std::move(rttc_param));
+
+            auto rttm_param = std::make_unique<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct, -1);
+            rttm_param->set_description(language_english, "Multiplier timeout per expected byte (ms)."_ct);
+            rttm_param->set_description(language_german, "Multiplikator-Timeout pro erwartetem Byte (ms)."_ct);
+            up->add(std::move(rttm_param));
+
+            auto wttc_param = std::make_unique<adam::configuration_parameter_integer>("write_total_timeout_constant"_ct, 50);
+            wttc_param->set_description(language_english, "Constant timeout to wait for writes (ms)."_ct);
+            wttc_param->set_description(language_german, "Konstantes Timeout zum Warten auf Schreibvorgänge (ms)."_ct);
+            up->add(std::move(wttc_param));
+
+            auto wttm_param = std::make_unique<adam::configuration_parameter_integer>("write_total_timeout_multiplier"_ct, 10);
+            wttm_param->set_description(language_english, "Multiplier timeout per written byte (ms)."_ct);
+            wttm_param->set_description(language_german, "Multiplikator-Timeout pro geschriebenem Byte (ms)."_ct);
+            up->add(std::move(wttm_param));
 
             p.add(std::move(up));
             
@@ -116,6 +159,11 @@ namespace adam::modules::serial
         int baud_rate = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("baud_rate"_ct)->get_value());
         int data_bits = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("data_bits"_ct)->get_value());
         int stop_bits = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("stop_bits"_ct)->get_value());
+        int64_t rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct)->get_value();
+        int64_t rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct)->get_value();
+        int64_t rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct)->get_value();
+        int64_t wttc = user_params->get<adam::configuration_parameter_integer>("write_total_timeout_constant"_ct)->get_value();
+        int64_t wttm = user_params->get<adam::configuration_parameter_integer>("write_total_timeout_multiplier"_ct)->get_value();
         const auto& parity = user_params->get<adam::configuration_parameter_string>("parity"_ct)->get_value();
         const auto& flow_ctrl = user_params->get<adam::configuration_parameter_string>("flow_ctrl"_ct)->get_value();
 
@@ -164,13 +212,12 @@ namespace adam::modules::serial
         }
 
         COMMTIMEOUTS timeouts = {0};
-        // This specific combination tells Windows to wait up to 50ms for the first byte to arrive.
-        // Once it does, it reads all available bytes and returns immediately.
-        timeouts.ReadIntervalTimeout = MAXDWORD;
-        timeouts.ReadTotalTimeoutConstant = 50;
-        timeouts.ReadTotalTimeoutMultiplier = MAXDWORD;
-        timeouts.WriteTotalTimeoutConstant = 50;
-        timeouts.WriteTotalTimeoutMultiplier = 10;
+        // We treat -1 as MAXDWORD to allow users an intuitive way to define infinite or immediate timeouts
+        timeouts.ReadIntervalTimeout = (rit < 0) ? MAXDWORD : static_cast<DWORD>(rit);
+        timeouts.ReadTotalTimeoutConstant = (rttc < 0) ? MAXDWORD : static_cast<DWORD>(rttc);
+        timeouts.ReadTotalTimeoutMultiplier = (rttm < 0) ? MAXDWORD : static_cast<DWORD>(rttm);
+        timeouts.WriteTotalTimeoutConstant = (wttc < 0) ? MAXDWORD : static_cast<DWORD>(wttc);
+        timeouts.WriteTotalTimeoutMultiplier = (wttm < 0) ? MAXDWORD : static_cast<DWORD>(wttm);
         SetCommTimeouts(m_handle, &timeouts);
         #else
         m_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
@@ -327,6 +374,16 @@ namespace adam::modules::serial
         uint8_t temp_buf[4096];
         int bytes_read = 0;
 
+        #if !defined(ADAM_PLATFORM_WINDOWS)
+        auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
+        int64_t rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct)->get_value();
+        int64_t rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct)->get_value();
+        int64_t rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct)->get_value();
+        
+        long total_timeout = (rttc < 0 ? 0 : rttc) + (rttm < 0 ? 0 : rttm) * sizeof(temp_buf);
+        if (total_timeout <= 0) total_timeout = 50; // Fallback minimum wait to avoid 100% CPU lockup
+        #endif
+
         // Loop until data is read or the port is stopped.
         // This makes the call blocking from the caller's perspective,
         // but correctly aborts if the port is shut down.
@@ -354,10 +411,9 @@ namespace adam::modules::serial
             FD_ZERO(&set);
             FD_SET(m_fd, &set);
             struct timeval timeout;
-            timeout.tv_sec = 0;
-            timeout.tv_usec = 50000; // 50ms
+            timeout.tv_sec = total_timeout / 1000;
+            timeout.tv_usec = (total_timeout % 1000) * 1000;
 
-            // Wait up to 50ms for the first byte to arrive.
             int rv = select(m_fd + 1, &set, NULL, NULL, &timeout);
             if (rv < 0) 
             {
@@ -366,13 +422,38 @@ namespace adam::modules::serial
             }
             else if (rv > 0)
             {
-                bytes_read = ::read(m_fd, temp_buf, sizeof(temp_buf));
-                if (bytes_read < 0 && (errno == EINTR || errno == EAGAIN))
+                int chunk = ::read(m_fd, temp_buf + bytes_read, sizeof(temp_buf) - bytes_read);
+                if (chunk < 0 && (errno == EINTR || errno == EAGAIN))
                 {
-                    bytes_read = 0;
                     continue;
                 }
-                if (bytes_read <= 0) return false;
+                if (chunk <= 0) return false;
+                
+                bytes_read += chunk;
+
+                long interval_timeout = (rit < 0) ? 0 : rit;
+                if (interval_timeout > 0)
+                {
+                    while (bytes_read < static_cast<int>(sizeof(temp_buf)))
+                    {
+                        FD_ZERO(&set);
+                        FD_SET(m_fd, &set);
+                        timeout.tv_sec = interval_timeout / 1000;
+                        timeout.tv_usec = (interval_timeout % 1000) * 1000;
+                        
+                        int burst_rv = select(m_fd + 1, &set, NULL, NULL, &timeout);
+                        if (burst_rv > 0)
+                        {
+                            chunk = ::read(m_fd, temp_buf + bytes_read, sizeof(temp_buf) - bytes_read);
+                            if (chunk > 0) bytes_read += chunk;
+                            else break;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
                 break;
             }
         #endif
