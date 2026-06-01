@@ -7,105 +7,11 @@
 #include "module/module.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"
-#include "configuration/parameters/configuration-parameter.hpp"
 #include <mutex>
 #include <algorithm>
 
 namespace adam 
 {
-    namespace {
-        template<typename MessageType>
-        struct message_deserializer
-        {
-            const MessageType* messages;
-            size_t max_messages;
-            size_t& msg_idx;
-            size_t& unused_off;
-            size_t& unused_size;
-
-            message_deserializer(const MessageType* msgs, size_t max_msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
-                : messages(msgs), max_messages(max_msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
-            {
-            }
-
-            void read_bytes(void* dest, size_t size) 
-            {
-                uint8_t* ptr = static_cast<uint8_t*>(dest);
-                size_t remaining = size;
-                while (remaining > 0) 
-                {
-                    if (unused_size == 0) 
-                    {
-                        msg_idx++;
-                        if (msg_idx >= max_messages) return;
-                        unused_off = 0;
-                        unused_size = MessageType::get_max_data_length();
-                    }
-                    size_t to_read = std::min(remaining, unused_size);
-                    std::memcpy(ptr, messages[msg_idx].template get_data_as<uint8_t>() + unused_off, to_read);
-                    unused_off += to_read;
-                    unused_size -= to_read;
-                    ptr += to_read;
-                    remaining -= to_read;
-                }
-            }
-            
-            template<typename ViewType>
-            ViewType read_view() 
-            {
-                ViewType view;
-                read_bytes(&view, sizeof(ViewType));
-                return view;
-            }
-        };
-
-        template<typename MessageType>
-        void deserialize_user_parameters(uint16_t count, message_deserializer<MessageType>& deserializer, user_parameter_view& user_params) 
-        {
-            for (uint16_t i = 0; i < count; ++i)
-            {
-                auto header = deserializer.template read_view<configuration_parameter::view>();
-                
-                switch (header.var_type)
-                {
-                    case configuration_parameter::type::type_boolean:
-                    {
-                        bool value;
-                        deserializer.read_bytes(&value, sizeof(bool));
-                        user_params.bool_parameters[header.name] = value;
-                        break;
-                    }
-                    case configuration_parameter::type::type_integer:
-                    {
-                        int64_t value;
-                        deserializer.read_bytes(&value, sizeof(int64_t));
-                        user_params.int_parameters[header.name] = value;
-                        break;
-                    }
-                    case configuration_parameter::type::type_double:
-                    {
-                        double value;
-                        deserializer.read_bytes(&value, sizeof(double));
-                        user_params.double_parameters[header.name] = value;
-                        break;
-                    }
-                    case configuration_parameter::type::type_string:
-                    {
-                        uint16_t length;
-                        deserializer.read_bytes(&length, sizeof(uint16_t));
-                        std::string value(length, '\0');
-                        if (length > 0)
-                            deserializer.read_bytes(value.data(), length);
-                        user_params.string_parameters[header.name] = value;
-                        break;
-                    }
-                    default:
-                        break;
-                }
-            }
-        }
-    }
-
     commander_event_dispatcher::commander_event_dispatcher()
     {
         register_default_handlers();
@@ -236,13 +142,30 @@ namespace adam
             {
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
+                
+                if (view->type_module.get_hash() != 0)
+                {
+                    auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->type_module.get_hash());
+                    if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                    {
+                        const auto& factories = mod_it->second.second->get_port_factories();
+                        auto fact_it = factories.find(view->type);
+                        if (fact_it != factories.end() && fact_it->second.parameters)
+                        {
+                            if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                            {
+                                view->user_params = *factory_user_params;
+                            }
+                        }
+                    }
+                }
             }
             
             size_t evt_idx = 0;
             size_t unused_off = sizeof(port::basic_info);
             size_t unused_size = event::get_max_data_length() - unused_off;
-            message_deserializer<event> deserializer(events, count, evt_idx, unused_off, unused_size);
-            deserialize_user_parameters(info->user_parameters, deserializer, view->user_params);
+            detail::message_deserializer<event> deserializer(events, count, evt_idx, unused_off, unused_size);
+            detail::deserialize_user_parameters(info->user_parameters, deserializer, view->user_params);
 
             {
                 std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
@@ -284,6 +207,23 @@ namespace adam
                 {
                     std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                     ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
+                    
+                    if (view->type_module.get_hash() != 0)
+                    {
+                        auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->type_module.get_hash());
+                        if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                        {
+                            const auto& factories = mod_it->second.second->get_port_factories();
+                            auto fact_it = factories.find(view->type);
+                            if (fact_it != factories.end() && fact_it->second.parameters)
+                            {
+                                if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                                {
+                                    view->user_params = *factory_user_params;
+                                }
+                            }
+                        }
+                    }
                 }
                 
                 std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
@@ -363,6 +303,56 @@ namespace adam
                             pid = new_hash;
                             conn->edited = data->edited;
                         }
+                    }
+                }
+            }
+        });
+
+        register_handler(event_type::port_parameter_updated, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::port_parameter_updated_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().ports().find(data->port);
+            if (it != ctx.cmdr.registry().ports().end())
+            {
+                auto* param = it->second->user_params.get(data->param_view.name);
+                if (param && param->get_type() == data->param_view.var_type)
+                {
+                    switch (param->get_type())
+                    {
+                        case configuration_parameter::type_integer:
+                        {
+                            int64_t val;
+                            std::memcpy(&val, data->data, sizeof(int64_t));
+                            static_cast<configuration_parameter_integer*>(param)->set_value(val);
+                            break;
+                        }
+                        case configuration_parameter::type_double:
+                        {
+                            double val;
+                            std::memcpy(&val, data->data, sizeof(double));
+                            static_cast<configuration_parameter_double*>(param)->set_value(val);
+                            break;
+                        }
+                        case configuration_parameter::type_boolean:
+                        {
+                            bool val;
+                            std::memcpy(&val, data->data, sizeof(bool));
+                            static_cast<configuration_parameter_boolean*>(param)->set_value(val);
+                            break;
+                        }
+                        case configuration_parameter::type_string:
+                        {
+                            uint16_t len;
+                            std::memcpy(&len, data->data, sizeof(uint16_t));
+                            std::string val(len, '\0');
+                            if (len > 0)
+                                std::memcpy(&val[0], data->data + sizeof(uint16_t), len);
+                            static_cast<configuration_parameter_string*>(param)->set_value(string_hashed(val));
+                            break;
+                        }
+                        default:
+                            break;
                     }
                 }
             }

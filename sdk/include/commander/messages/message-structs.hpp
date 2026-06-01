@@ -12,6 +12,8 @@
 #include "types/string-hashed.hpp"
 #include "resources/language.hpp"
 #include "commander/messages/command.hpp"
+#include "commander/messages/event.hpp"
+#include "configuration/parameters/configuration-parameter.hpp"
 
 #include <cstdint>
 #include <cstddef>
@@ -133,9 +135,18 @@ namespace adam
         struct port_parameter_updated_data
         {
             string_hash port;
-            string_hash parameter;
+            configuration_parameter::view param_view;
+            uint8_t data[command::get_max_data_length() - sizeof(string_hash) - sizeof(configuration_parameter::view)];
         };
         static_assert(sizeof(port_parameter_updated_data) <= command::get_max_data_length(), "port_parameter_updated_data exceeds maximum command data size");
+
+        struct port_set_parameter_data
+        {
+            string_hash port;
+            configuration_parameter::view param_view;
+            uint8_t data[command::get_max_data_length() - sizeof(string_hash) - sizeof(configuration_parameter::view)];
+        };
+        static_assert(sizeof(port_set_parameter_data) <= command::get_max_data_length(), "port_set_parameter_data exceeds maximum command data size");
 
         struct inspector_create_data
         {

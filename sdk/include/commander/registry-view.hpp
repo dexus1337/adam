@@ -12,11 +12,20 @@
 #include "types/string-hashed.hpp"
 #include "data/port/port.hpp"
 #include "memory/buffer/buffer.hpp"
+#include "configuration/parameters/configuration-parameter-list.hpp"
 #include <vector>
 #include <unordered_map>
 #include <memory>
 #include <atomic>
 #include <mutex>
+
+#include <algorithm>
+#include <cstring>
+#include "configuration/parameters/configuration-parameter.hpp"
+#include "configuration/parameters/configuration-parameter-boolean.hpp"
+#include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "configuration/parameters/configuration-parameter-double.hpp"
+#include "configuration/parameters/configuration-parameter-string.hpp"
 
 #ifdef ADAM_CPU_X64
 #include <immintrin.h>
@@ -24,13 +33,75 @@
 
 namespace adam 
 {
-    struct user_parameter_view
+    namespace detail
     {
-        std::unordered_map<string_hash, int64_t> int_parameters;
-        std::unordered_map<string_hash, double> double_parameters;
-        std::unordered_map<string_hash, bool> bool_parameters;
-        std::unordered_map<string_hash, std::string> string_parameters;
-    };
+        template<typename MessageType>
+        struct message_deserializer
+        {
+            const MessageType* messages;
+            size_t max_messages;
+            size_t& msg_idx;
+            size_t& unused_off;
+            size_t& unused_size;
+
+            message_deserializer(const MessageType* msgs, size_t max_msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
+                : messages(msgs), max_messages(max_msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
+            {
+            }
+
+            void read_bytes(void* dest, size_t size) 
+            {
+                uint8_t* ptr = static_cast<uint8_t*>(dest);
+                size_t remaining = size;
+                while (remaining > 0) 
+                {
+                    if (unused_size == 0) 
+                    {
+                        msg_idx++;
+                        if (msg_idx >= max_messages) return;
+                        unused_off = 0;
+                        unused_size = MessageType::get_max_data_length();
+                    }
+                    size_t to_read = std::min(remaining, unused_size);
+                    std::memcpy(ptr, messages[msg_idx].template get_data_as<uint8_t>() + unused_off, to_read);
+                    unused_off += to_read;
+                    unused_size -= to_read;
+                    ptr += to_read;
+                    remaining -= to_read;
+                }
+            }
+            
+            template<typename ViewType>
+            ViewType read_view() 
+            {
+                ViewType view;
+                read_bytes(&view, sizeof(ViewType));
+                return view;
+            }
+        };
+
+        template<typename MessageType>
+        void deserialize_user_parameters(uint16_t count, message_deserializer<MessageType>& deserializer, configuration_parameter_list& user_params) 
+        {
+            for (uint16_t i = 0; i < count; ++i)
+            {
+                auto header = deserializer.template read_view<configuration_parameter::view>();
+                
+                switch (header.var_type)
+                {
+                    case configuration_parameter::type::type_boolean: { bool value; deserializer.read_bytes(&value, sizeof(bool)); if (auto* p = user_params.get<configuration_parameter_boolean>(header.name)) p->set_value(value); break; }
+                    case configuration_parameter::type::type_integer: { int64_t value; deserializer.read_bytes(&value, sizeof(int64_t)); if (auto* p = user_params.get<configuration_parameter_integer>(header.name)) p->set_value(value); break; }
+                    case configuration_parameter::type::type_double:  { double value; deserializer.read_bytes(&value, sizeof(double)); if (auto* p = user_params.get<configuration_parameter_double>(header.name)) p->set_value(value); break; }
+                    case configuration_parameter::type::type_string:  {
+                        uint16_t length; deserializer.read_bytes(&length, sizeof(uint16_t)); std::string value(length, '\0'); if (length > 0) deserializer.read_bytes(value.data(), length);
+                        if (auto* p = user_params.get<configuration_parameter_string>(header.name)) p->set_value(string_hashed(value));
+                        break;
+                    }
+                    default: break;
+                }
+            }
+        }
+    }
 
     /** @struct port_view */
     struct port_view
@@ -42,7 +113,7 @@ namespace adam
         bool is_unavailable;
         port::direction direction;
         buffer* statistic_buffer;
-        user_parameter_view user_params;
+        configuration_parameter_list user_params{string_hashed("user_parameters")};
         
         ~port_view() { if (statistic_buffer) statistic_buffer->release(); }
     };

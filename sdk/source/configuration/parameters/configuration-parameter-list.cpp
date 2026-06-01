@@ -47,7 +47,7 @@ namespace adam
         m_children.clear();
     }
 
-    configuration_parameter* configuration_parameter_list::get(const string_hashed& name) const
+    configuration_parameter* configuration_parameter_list::get(string_hash name) const
     {
         auto it = m_children.find(name);
         if (it != m_children.end())
@@ -56,16 +56,7 @@ namespace adam
         return nullptr;
     }
 
-    configuration_parameter* configuration_parameter_list::get(const string_hashed_ct& name) const
-    {
-        auto it = m_children.find(name.get_hash());
-        if (it != m_children.end())
-            return it->second.get();
-            
-        return nullptr;
-    }
-
-    bool configuration_parameter_list::rename_child(const string_hashed& old_name, const string_hashed& new_name)
+    bool configuration_parameter_list::rename_child(string_hash old_name, const string_hashed& new_name)
     {
         auto it = m_children.find(old_name);
         if (it == m_children.end()) return false;

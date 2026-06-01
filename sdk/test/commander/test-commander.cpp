@@ -8,8 +8,15 @@
 #include <module/module.hpp>
 #include <data/connection.hpp>
 #include <data/port/port.hpp>
+#include <data/port/port-internal.hpp>
 #include <memory/buffer/buffer-manager.hpp>
 #include <algorithm>
+#include <commander/registry-view.hpp>
+#include <configuration/parameters/configuration-parameter-list.hpp>
+#include <configuration/parameters/configuration-parameter-integer.hpp>
+#include <configuration/parameters/configuration-parameter-string.hpp>
+#include <configuration/parameters/configuration-parameter-boolean.hpp>
+#include <configuration/parameters/configuration-parameter-double.hpp>
 
 using namespace adam::string_hashed_ct_literals;
 
@@ -81,6 +88,158 @@ TEST_F(commander_test, event_broadcast_and_receive)
     EXPECT_EQ(received_type, adam::event_type::language_changed);
 
     EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests the full flow of setting port parameters and receiving the updated states via event. */
+TEST_F(commander_test, request_port_parameter_set_flow)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    // Create a port in the controller's registry and add user parameters of all types
+    adam::port* test_port = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_port("param_test_port"_ct, adam::port_internal::type_name(), 0, &test_port), adam::registry::status_success);
+    ASSERT_NE(test_port, nullptr);
+    
+    auto* user_params = test_port->parameters().get<adam::configuration_parameter_list>("user_parameters"_ct);
+
+    ASSERT_NE(user_params, nullptr);
+
+    user_params->add(std::make_unique<adam::configuration_parameter_integer>("test_int"_ct, 10));
+    user_params->add(std::make_unique<adam::configuration_parameter_double>("test_double"_ct, 1.0));
+    user_params->add(std::make_unique<adam::configuration_parameter_boolean>("test_bool"_ct, false));
+    user_params->add(std::make_unique<adam::configuration_parameter_string>("test_str"_ct, "default"_ct));
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto port_hash = ("param_test_port"_ct).get_hash();
+    ASSERT_TRUE(cmdr.get_registry().get_ports().contains(port_hash));
+
+    auto* pview = cmdr.get_registry().get_ports().at(port_hash).get();
+    
+    // Since we are using an internal port without a real factory for this test,
+    // we must manually mirror the parameter structure into the commander's view
+    pview->user_params.add(std::make_unique<adam::configuration_parameter_integer>("test_int"_ct, 10));
+    pview->user_params.add(std::make_unique<adam::configuration_parameter_double>("test_double"_ct, 1.0));
+    pview->user_params.add(std::make_unique<adam::configuration_parameter_boolean>("test_bool"_ct, false));
+    pview->user_params.add(std::make_unique<adam::configuration_parameter_string>("test_str"_ct, "default"_ct));
+
+    auto* c_int = pview->user_params.get<adam::configuration_parameter_integer>("test_int"_ct);
+    ASSERT_NE(c_int, nullptr);
+    EXPECT_EQ(c_int->get_value(), 10);
+    
+    auto* c_dbl = pview->user_params.get<adam::configuration_parameter_double>("test_double"_ct);
+    ASSERT_NE(c_dbl, nullptr);
+    EXPECT_DOUBLE_EQ(c_dbl->get_value(), 1.0);
+    
+    auto* c_bool = pview->user_params.get<adam::configuration_parameter_boolean>("test_bool"_ct);
+    ASSERT_NE(c_bool, nullptr);
+    EXPECT_EQ(c_bool->get_value(), false);
+    
+    auto* c_str = pview->user_params.get<adam::configuration_parameter_string>("test_str"_ct);
+    ASSERT_NE(c_str, nullptr);
+    EXPECT_EQ(c_str->get_value(), "default"_ct);
+
+    // Request to change parameters
+    EXPECT_EQ(cmdr.request_port_parameter_set(port_hash, "test_int"_ct, static_cast<int64_t>(42)), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_port_parameter_set(port_hash, "test_double"_ct, 3.14), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_port_parameter_set(port_hash, "test_bool"_ct, true), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_port_parameter_set(port_hash, "test_str"_ct, "updated"_ct), adam::response_status::success);
+
+    // Wait for events to propagate over the IPC queue
+    auto start = std::chrono::steady_clock::now();
+    while ((c_int->get_value() == 10 || c_dbl->get_value() == 1.0 || c_bool->get_value() == false || c_str->get_value() == "default"_ct) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(1000))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Verify commander's view is updated successfully
+    EXPECT_EQ(c_int->get_value(), 42);
+    EXPECT_DOUBLE_EQ(c_dbl->get_value(), 3.14);
+    EXPECT_EQ(c_bool->get_value(), true);
+    EXPECT_EQ(c_str->get_value(), "updated"_ct);
+
+    // Verify controller's port parameter list is updated successfully
+    auto* ctrl_user_params = dynamic_cast<adam::configuration_parameter_list*>(test_port->get_parameters().get("user_parameters"_ct));
+    ASSERT_NE(ctrl_user_params, nullptr);
+    EXPECT_EQ(ctrl_user_params->get<adam::configuration_parameter_integer>("test_int"_ct)->get_value(), 42);
+    EXPECT_DOUBLE_EQ(ctrl_user_params->get<adam::configuration_parameter_double>("test_double"_ct)->get_value(), 3.14);
+    EXPECT_EQ(ctrl_user_params->get<adam::configuration_parameter_boolean>("test_bool"_ct)->get_value(), true);
+    EXPECT_EQ(ctrl_user_params->get<adam::configuration_parameter_string>("test_str"_ct)->get_value(), "updated"_ct);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests the deserialization logic of user_parameters synced from the controller. */
+TEST_F(commander_test, parameter_deserialization)
+{
+    // 1. Set up a target configuration_parameter_list with some baseline parameters
+    adam::configuration_parameter_list user_params("user_parameters"_ct);
+    user_params.add(std::make_unique<adam::configuration_parameter_integer>("test_int"_ct, 10));
+    user_params.add(std::make_unique<adam::configuration_parameter_string>("test_str"_ct, "default"_ct));
+    user_params.add(std::make_unique<adam::configuration_parameter_boolean>("test_bool"_ct, false));
+    user_params.add(std::make_unique<adam::configuration_parameter_double>("test_double"_ct, 1.0));
+
+    // 2. Construct serialized byte stream manually mimicking the controller payload
+    std::vector<uint8_t> payload;
+    auto append_bytes = [&](const void* data, size_t size) 
+    {
+        const uint8_t* ptr = static_cast<const uint8_t*>(data);
+        payload.insert(payload.end(), ptr, ptr + size);
+    };
+
+    adam::configuration_parameter_integer::view int_view;
+    int_view.var_type = adam::configuration_parameter::type_integer;
+    int_view.name = ("test_int"_ct).get_hash();
+    int_view.value = 42;
+    append_bytes(&int_view, sizeof(int_view));
+
+    adam::configuration_parameter_string::view str_view;
+    str_view.var_type = adam::configuration_parameter::type_string;
+    str_view.name = ("test_str"_ct).get_hash();
+    std::string str_val = "updated";
+    str_view.length = static_cast<uint16_t>(str_val.length());
+    append_bytes(&str_view, sizeof(str_view));
+    append_bytes(str_val.c_str(), str_val.length());
+
+    adam::configuration_parameter_boolean::view bool_view;
+    bool_view.var_type = adam::configuration_parameter::type_boolean;
+    bool_view.name = ("test_bool"_ct).get_hash();
+    bool_view.value = true;
+    append_bytes(&bool_view, sizeof(bool_view));
+
+    adam::configuration_parameter_double::view dbl_view;
+    dbl_view.var_type = adam::configuration_parameter::type_double;
+    dbl_view.name = ("test_double"_ct).get_hash();
+    dbl_view.value = 3.14;
+    append_bytes(&dbl_view, sizeof(dbl_view));
+
+    // 3. Fake the message architecture for the deserializer
+    std::vector<adam::event> events;
+    size_t offset = 0;
+    while (offset < payload.size() || events.empty())
+    {
+        events.emplace_back(adam::event_type::port_created); 
+        size_t available = adam::event::get_max_data_length();
+        size_t to_copy = std::min(payload.size() - offset, available);
+        if (to_copy > 0) std::memcpy(events.back().data_as<uint8_t>(), payload.data() + offset, to_copy);
+        offset += to_copy;
+        if (offset < payload.size()) events.back().set_extended(true);
+    }
+
+    // 4. Run the deserializer
+    size_t evt_idx = 0;
+    size_t unused_off = 0;
+    size_t unused_size = adam::event::get_max_data_length();
+    adam::detail::message_deserializer<adam::event> deserializer(events.data(), events.size(), evt_idx, unused_off, unused_size);
+    adam::detail::deserialize_user_parameters(4, deserializer, user_params);
+
+    // 5. Verify the updates applied correctly
+    EXPECT_EQ(user_params.get<adam::configuration_parameter_integer>("test_int"_ct)->get_value(), 42);
+    EXPECT_EQ(user_params.get<adam::configuration_parameter_string>("test_str"_ct)->get_value(), "updated"_ct);
+    EXPECT_EQ(user_params.get<adam::configuration_parameter_boolean>("test_bool"_ct)->get_value(), true);
+    EXPECT_DOUBLE_EQ(user_params.get<adam::configuration_parameter_double>("test_double"_ct)->get_value(), 3.14);
 }
 
 /** @brief Tests if a single commander can receive extended events correctly. */

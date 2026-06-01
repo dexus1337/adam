@@ -11,105 +11,11 @@
 #include "module/module.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"
-#include "configuration/parameters/configuration-parameter.hpp"
 #include <mutex>
 
 
 namespace adam 
 {
-    namespace {
-        template<typename MessageType>
-        struct message_deserializer
-        {
-            const MessageType* messages;
-            size_t max_messages;
-            size_t& msg_idx;
-            size_t& unused_off;
-            size_t& unused_size;
-
-            message_deserializer(const MessageType* msgs, size_t max_msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
-                : messages(msgs), max_messages(max_msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
-            {
-            }
-
-            void read_bytes(void* dest, size_t size) 
-            {
-                uint8_t* ptr = static_cast<uint8_t*>(dest);
-                size_t remaining = size;
-                while (remaining > 0) 
-                {
-                    if (unused_size == 0) 
-                    {
-                        msg_idx++;
-                        if (msg_idx >= max_messages) return;
-                        unused_off = 0;
-                        unused_size = MessageType::get_max_data_length();
-                    }
-                    size_t to_read = std::min(remaining, unused_size);
-                    std::memcpy(ptr, messages[msg_idx].template get_data_as<uint8_t>() + unused_off, to_read);
-                    unused_off += to_read;
-                    unused_size -= to_read;
-                    ptr += to_read;
-                    remaining -= to_read;
-                }
-            }
-            
-            template<typename ViewType>
-            ViewType read_view() 
-            {
-                ViewType view;
-                read_bytes(&view, sizeof(ViewType));
-                return view;
-            }
-        };
-
-        template<typename MessageType>
-        void deserialize_user_parameters(uint16_t count, message_deserializer<MessageType>& deserializer, user_parameter_view& user_params) 
-        {
-            for (uint16_t i = 0; i < count; ++i)
-            {
-                auto header = deserializer.template read_view<configuration_parameter::view>();
-                
-                switch (header.var_type)
-                {
-                    case configuration_parameter::type::type_boolean:
-                    {
-                        bool value;
-                        deserializer.read_bytes(&value, sizeof(bool));
-                        user_params.bool_parameters[header.name] = value;
-                        break;
-                    }
-                    case configuration_parameter::type::type_integer:
-                    {
-                        int64_t value;
-                        deserializer.read_bytes(&value, sizeof(int64_t));
-                        user_params.int_parameters[header.name] = value;
-                        break;
-                    }
-                    case configuration_parameter::type::type_double:
-                    {
-                        double value;
-                        deserializer.read_bytes(&value, sizeof(double));
-                        user_params.double_parameters[header.name] = value;
-                        break;
-                    }
-                    case configuration_parameter::type::type_string:
-                    {
-                        uint16_t length;
-                        deserializer.read_bytes(&length, sizeof(uint16_t));
-                        std::string value(length, '\0');
-                        if (length > 0)
-                            deserializer.read_bytes(value.data(), length);
-                        user_params.string_parameters[header.name] = value;
-                        break;
-                    }
-                    default:
-                        break;
-                }
-            }
-        }
-    }
-
     commander::commander() 
      :  m_queue_command(),
         m_queue_event(),
@@ -331,10 +237,27 @@ namespace adam
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
             
+            if (pview->type_module.get_hash() != 0)
+            {
+                auto mod_it = m_module_view.loaded().find(pview->type_module.get_hash());
+                if (mod_it != m_module_view.loaded().end() && mod_it->second.second)
+                {
+                    const auto& factories = mod_it->second.second->get_port_factories();
+                    auto fact_it = factories.find(pview->type);
+                    if (fact_it != factories.end() && fact_it->second.parameters)
+                    {
+                        if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                        {
+                            pview->user_params = *factory_user_params;
+                        }
+                    }
+                }
+            }
+
             size_t unused_off = sizeof(port::basic_info);
             size_t unused_size = response::get_max_data_length() - unused_off;
-            message_deserializer<response> deserializer(resp, m_response_buffer.size(), current_idx, unused_off, unused_size);
-            deserialize_user_parameters(port_info->user_parameters, deserializer, pview->user_params);
+            detail::message_deserializer<response> deserializer(resp, m_response_buffer.size(), current_idx, unused_off, unused_size);
+            detail::deserialize_user_parameters(port_info->user_parameters, deserializer, pview->user_params);
 
             m_registry_view.ports().emplace(pview->name.get_hash(), std::move(pview));
             current_idx++;
@@ -471,6 +394,77 @@ namespace adam
         data->port = old_hash;
         std::strncpy(data->new_name, new_name.c_str(), sizeof(data->new_name) - 1);
         data->new_name[sizeof(data->new_name) - 1] = '\0';
+        return send_command(cmd);
+    }
+
+    response_status commander::request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, int64_t value)
+    {
+        command cmd(command_type::port_set_parameter);
+        auto* data = cmd.data_as<messages::port_set_parameter_data>();
+        data->port = port_hash;
+        data->param_view.var_type = configuration_parameter::type_integer;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(int64_t));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, double value)
+    {
+        command cmd(command_type::port_set_parameter);
+        auto* data = cmd.data_as<messages::port_set_parameter_data>();
+        data->port = port_hash;
+        data->param_view.var_type = configuration_parameter::type_double;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(double));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, bool value)
+    {
+        command cmd(command_type::port_set_parameter);
+        auto* data = cmd.data_as<messages::port_set_parameter_data>();
+        data->port = port_hash;
+        data->param_view.var_type = configuration_parameter::type_boolean;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(bool));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, const string_hashed& value)
+    {
+        command cmd(command_type::port_set_parameter);
+        auto* data = cmd.data_as<messages::port_set_parameter_data>();
+        data->port = port_hash;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.size());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0)
+            std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
+        return send_command(cmd);
+    }
+
+    response_status commander::request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, const string_hashed_ct& value)
+    {
+        command cmd(command_type::port_set_parameter);
+        auto* data = cmd.data_as<messages::port_set_parameter_data>();
+        data->port = port_hash;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.get_length());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0)
+            std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
         return send_command(cmd);
     }
 

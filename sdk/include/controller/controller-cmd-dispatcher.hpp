@@ -74,10 +74,14 @@ namespace adam
             port_destroy_failed,
             port_renamed,
             port_rename_failed,
+            port_parameter_updated,
+            port_parameter_update_failed,
             port_started,
             port_start_failed,
             port_stopped,
             port_stop_failed,
+            port_data_injected,
+            port_data_inject_failed,
             connection_created,
             connection_create_failed,
             connection_destroyed,
@@ -100,8 +104,6 @@ namespace adam
             connection_sorting_index_change_failed,
             connection_color_changed,
             connection_color_change_failed,
-            port_data_injected,
-            port_data_inject_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

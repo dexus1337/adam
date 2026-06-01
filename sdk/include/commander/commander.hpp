@@ -94,6 +94,13 @@ namespace adam
         /** @brief Requests to rename a port. */
         response_status request_port_rename(string_hash old_hash, const string_hashed& new_name);
 
+        /** @brief Requests to set a parameter of a port. */
+        response_status request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, int64_t value);
+        response_status request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, double value);
+        response_status request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, bool value);
+        response_status request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, const string_hashed& value);
+        response_status request_port_parameter_set(string_hash port_hash, const string_hashed& param_name, const string_hashed_ct& value);
+
         /** @brief Requests to change the input data format of a connection. */
         response_status request_connection_set_input_data_format(string_hash conn_hash, string_hash format, string_hash format_module);
 

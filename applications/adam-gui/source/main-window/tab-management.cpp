@@ -296,26 +296,7 @@ namespace adam::gui
             ImGui::Separator();
 
             // Parameters
-            const adam::configuration_parameter_list* factory_user_params = nullptr;
-            
-            if (p_it != ports.end() && !p_it->second->is_unavailable)
-            {
-                if (p_it->second->type_module.get_hash() != 0)
-                {
-                    auto mod_it = ctrl.commander().get_modules().get_loaded().find(p_it->second->type_module.get_hash());
-                    if (mod_it != ctrl.commander().get_modules().get_loaded().end() && mod_it->second.second)
-                    {
-                        const auto& factories = mod_it->second.second->get_port_factories();
-                        auto fact_it = factories.find(p_it->second->type);
-                        if (fact_it != factories.end() && fact_it->second.parameters)
-                        {
-                            factory_user_params = dynamic_cast<const adam::configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct));
-                        }
-                    }
-                }
-            }
-
-            if (factory_user_params && !factory_user_params->get_children().empty())
+            if (p_it != ports.end() && !p_it->second->is_unavailable && !p_it->second->user_params.get_children().empty())
             {
                 ImGui::PushID((const void*)(intptr_t)(info.unique_node_id ^ 0x5555));
                 bool param_expanded = std::find(g_expanded_param_nodes.begin(), g_expanded_param_nodes.end(), info.unique_node_id) != g_expanded_param_nodes.end();
@@ -340,30 +321,24 @@ namespace adam::gui
                     
                     float avail_w = ImGui::GetContentRegionAvail().x;
                     
-                    for (const auto& [param_name, param_ptr] : factory_user_params->get_children())
+                    for (const auto& [param_name, param_ptr] : p_it->second->user_params.get_children())
                     {
                         auto param_type = param_ptr->get_type();
                         
-                        adam::configuration_parameter* current_param = nullptr;
-                        //if (port_user_params) current_param = port_user_params->get(param_name);
-                        
                         ImGui::PushID((const void*)(intptr_t)param_name.get_hash());
                         
-                        std::string label = param_name.c_str();
+                        ImGui::TextUnformatted(param_name.c_str());
                         
                         if (param_type == adam::configuration_parameter::type_integer)
                         {
-                            auto* f_int = static_cast<const adam::configuration_parameter_integer*>(param_ptr.get());
-                            auto* c_int = dynamic_cast<adam::configuration_parameter_integer*>(current_param);
-                            int64_t current_val = c_int ? c_int->get_value() : f_int->get_value();
-                            
-                            ImGui::TextUnformatted(label.c_str());
+                            auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr.get());
+                            int64_t current_val = c_int->get_value();
                             ImGui::SetNextItemWidth(avail_w);
-                            if (f_int->get_mode() == adam::configuration_parameter_integer::value_mode_preset)
+                            if (c_int->get_mode() == adam::configuration_parameter_integer::value_mode_preset)
                             {
                                 std::string preview;
                                 bool found = false;
-                                for (int64_t preset : f_int->get_presets())
+                                for (int64_t preset : c_int->get_presets())
                                 {
                                     if (preset == current_val)
                                     {
@@ -376,7 +351,7 @@ namespace adam::gui
                                 
                                 if (ImGui::BeginCombo("##combo", preview.c_str()))
                                 {
-                                    std::vector<int64_t> sorted_presets(f_int->get_presets().begin(), f_int->get_presets().end());
+                                    std::vector<int64_t> sorted_presets(c_int->get_presets().begin(), c_int->get_presets().end());
                                     std::sort(sorted_presets.begin(), sorted_presets.end());
                                     
                                     for (int64_t preset : sorted_presets)
@@ -387,8 +362,8 @@ namespace adam::gui
                                         {
                                             if (!is_selected)
                                             {
-                                                if (c_int) c_int->set_value(preset);
-                                                //ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                c_int->set_value(preset);
+                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
                                             }
                                         }
                                     }
@@ -404,9 +379,9 @@ namespace adam::gui
                                     try 
                                     {
                                         int64_t new_v = std::stoll(buf);
-                                        if (!c_int || c_int->set_value(new_v))
+                                        if (c_int->set_value(new_v))
                                         {
-                                            //ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
                                         }
                                     } catch(...) {}
                                 }
@@ -414,20 +389,17 @@ namespace adam::gui
                         }
                         else if (param_type == adam::configuration_parameter::type_string)
                         {
-                            auto* f_str = static_cast<const adam::configuration_parameter_string*>(param_ptr.get());
-                            auto* c_str = dynamic_cast<adam::configuration_parameter_string*>(current_param);
-                            adam::string_hashed current_val = c_str ? c_str->get_value() : f_str->get_value();
-                            
-                            ImGui::TextUnformatted(label.c_str());
+                            auto* c_str = static_cast<adam::configuration_parameter_string*>(param_ptr.get());
+                            adam::string_hashed current_val = c_str->get_value();
                             ImGui::SetNextItemWidth(avail_w);
                             
-                            if (f_str->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                            if (c_str->get_mode() == adam::configuration_parameter_string::value_mode_preset)
                             {
                                 std::string preview = current_val.c_str();
                                 if (ImGui::BeginCombo("##combo", preview.c_str()))
                                 {
                                     std::vector<std::string> sorted_presets;
-                                    for (const auto& [preset_val, preset_param] : f_str->get_presets())
+                                    for (const auto& [preset_val, preset_param] : c_str->get_presets())
                                         sorted_presets.push_back(preset_param->get_value().c_str());
                                     std::sort(sorted_presets.begin(), sorted_presets.end());
                                     
@@ -439,8 +411,8 @@ namespace adam::gui
                                             if (!is_selected)
                                             {
                                                 adam::string_hashed new_v(preset_str.c_str());
-                                                if (c_str) c_str->set_value(new_v);
-                                                //ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                c_str->set_value(new_v);
+                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
                                             }
                                         }
                                     }
@@ -453,15 +425,13 @@ namespace adam::gui
                                 strncpy(buf, current_val.c_str(), sizeof(buf));
                                 buf[sizeof(buf) - 1] = '\0';
                                 
-                                bool is_regex = (f_str->get_mode() == adam::configuration_parameter_string::value_mode_regex);
-                                
                                 // Use set_value to determine if the string is inherently matching preset validity or regex configuration parameters
                                 if (ImGui::InputText("##str", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
                                 {
                                     adam::string_hashed new_v(&buf[0]);
-                                    if (!c_str || c_str->set_value(new_v))
+                                    if (c_str->set_value(new_v))
                                     {
-                                        //ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
                                     }
                                 }
                             }
@@ -1848,6 +1818,7 @@ namespace adam::gui
                     auto exp_it = std::find(g_expanded_nodes.begin(), g_expanded_nodes.end(), unique_node_id);
                     is_expanded = (exp_it != g_expanded_nodes.end());
 
+                    // Handle Left Click -> Expand
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
                     {
                         if (is_expanded)
@@ -1857,6 +1828,7 @@ namespace adam::gui
                         is_expanded = !is_expanded;
                     }
 
+                    // Handle Right Click -> Inspect
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
                     {
                         if (!is_drag_preview && ctrl.is_commander_active())
@@ -1906,7 +1878,8 @@ namespace adam::gui
                     ImColor captured_color = color;
                     uint64_t unique_node_id = static_cast<uint64_t>(port_hash ^ hash ^ (stage << 16));
                     float this_expanded_h = get_expanded_h(unique_node_id);
-                    deferred_expansions.push_back({
+                    deferred_expansions.push_back
+                    ({
                         type,
                         stage,
                         port_hash,
@@ -1919,6 +1892,7 @@ namespace adam::gui
                     });
                 }
                     
+                // Draw Port Name
                 if (port_hash != 0 && !is_drag_preview)
                 {
                     char name_buf[max_name_length];
@@ -1974,6 +1948,7 @@ namespace adam::gui
                 out_pin_in.pos = ImVec2(p_min.x, p_min.y + node_h * 0.5f);
                 out_pin_out.pos = ImVec2(p_max.x, p_min.y + node_h * 0.5f);
 
+                // Draw Port Status Dot
                 bool is_port_active = false;
                 if (port_hash != 0)
                 {
@@ -2405,70 +2380,76 @@ namespace adam::gui
                         ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
                         ImGui::TableHeadersRow();
 
-                        for (size_t i = 0; i < buffers.size(); ++i)
+                        ImGuiListClipper clipper;
+                        clipper.Begin(buffers.size());
+                        while (clipper.Step())
                         {
-                            const auto& ib = buffers[i];
-                            ImGui::TableNextRow();
-                            
-                            ImGui::TableSetColumnIndex(0);
-                            ImGui::Text("%zu", i);
-
-                            ImGui::TableSetColumnIndex(1);
-                            ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
-
-                            ImGui::TableSetColumnIndex(2);
-                            ImGui::Text("%zu B", ib.data.size());
-
-                            ImGui::TableSetColumnIndex(3);
-                            
-                            std::string preview_hex;
-                            std::string preview_ascii;
-                            size_t preview_len = std::min(ib.data.size(), (size_t)16);
-                            for (size_t j = 0; j < preview_len; ++j) {
-                                char hex[4];
-                                snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
-                                preview_hex += hex;
-
-                                char c = ib.data[j];
-                                if (c >= 32 && c <= 126) preview_ascii += c;
-                                else preview_ascii += '.';
-                            }
-                            if (ib.data.size() > 16) {
-                                preview_hex += "...";
-                                preview_ascii += "...";
-                            }
-
-                            bool is_expanded = ImGui::TreeNode((void*)(intptr_t)i, "%s", preview_hex.c_str());
-
-                            ImGui::TableSetColumnIndex(4);
-                            ImGui::TextUnformatted(preview_ascii.c_str());
-
-                            if (is_expanded)
+                            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
                             {
+                                const auto& ib = buffers[i];
                                 ImGui::TableNextRow();
+                                
+                                ImGui::TableSetColumnIndex(0);
+                                ImGui::Text("%d", i);
+
+                                ImGui::TableSetColumnIndex(1);
+                                ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
+
+                                ImGui::TableSetColumnIndex(2);
+                                ImGui::Text("%zu B", ib.data.size());
+
                                 ImGui::TableSetColumnIndex(3);
-                                std::string full_hex;
-                                std::string full_ascii;
-                                for (size_t j = 0; j < ib.data.size(); ++j) {
+                                
+                                std::string preview_hex;
+                                std::string preview_ascii;
+                                size_t preview_len = std::min(ib.data.size(), (size_t)16);
+                                for (size_t j = 0; j < preview_len; ++j) 
+                                {
                                     char hex[4];
                                     snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
-                                    full_hex += hex;
+                                    preview_hex += hex;
 
                                     char c = ib.data[j];
-                                    if (c >= 32 && c <= 126) full_ascii += c;
-                                    else full_ascii += '.';
-
-                                    if ((j + 1) % 16 == 0 && j != ib.data.size() - 1) {
-                                        full_hex += "\n";
-                                        full_ascii += "\n";
-                                    }
+                                    if (c >= 32 && c <= 126) preview_ascii += c;
+                                    else preview_ascii += '.';
                                 }
-                                ImGui::TextUnformatted(full_hex.c_str());
-                                
+                                if (ib.data.size() > 16) {
+                                    preview_hex += "...";
+                                    preview_ascii += "...";
+                                }
+
+                                bool is_expanded = ImGui::TreeNode((void*)(intptr_t)i, "%s", preview_hex.c_str());
+
                                 ImGui::TableSetColumnIndex(4);
-                                ImGui::TextUnformatted(full_ascii.c_str());
-                                
-                                ImGui::TreePop();
+                                ImGui::TextUnformatted(preview_ascii.c_str());
+
+                                if (is_expanded)
+                                {
+                                    ImGui::TableNextRow();
+                                    ImGui::TableSetColumnIndex(3);
+                                    std::string full_hex;
+                                    std::string full_ascii;
+                                    for (size_t j = 0; j < ib.data.size(); ++j) {
+                                        char hex[4];
+                                        snprintf(hex, sizeof(hex), "%02X ", ib.data[j]);
+                                        full_hex += hex;
+
+                                        char c = ib.data[j];
+                                        if (c >= 32 && c <= 126) full_ascii += c;
+                                        else full_ascii += '.';
+
+                                        if ((j + 1) % 16 == 0 && j != ib.data.size() - 1) {
+                                            full_hex += "\n";
+                                            full_ascii += "\n";
+                                        }
+                                    }
+                                    ImGui::TextUnformatted(full_hex.c_str());
+                                    
+                                    ImGui::TableSetColumnIndex(4);
+                                    ImGui::TextUnformatted(full_ascii.c_str());
+                                    
+                                    ImGui::TreePop();
+                                }
                             }
                         }
                         ImGui::EndTable();
