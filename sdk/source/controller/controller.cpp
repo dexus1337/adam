@@ -113,6 +113,8 @@ namespace adam
 
     bool controller::run(bool async)
     {
+        this->log(log::info, get_log_event_text(log_event::adam_started, get_language()));
+
         if (!buffer_manager::get().initialize())
         {
             destroy();
@@ -151,6 +153,20 @@ namespace adam
         
     bool controller::destroy()
     {
+        std::unique_lock<std::mutex> lock(m_destroy_mutex);
+        if (m_destroy_state == destroy_state_done)
+        {
+            return true;
+        }
+        if (m_destroy_state == destroy_state_in_progress)
+        {
+            m_destroy_cv.wait(lock, [this] { return m_destroy_state == destroy_state_done; });
+            return true;
+        }
+
+        m_destroy_state = destroy_state_in_progress;
+        lock.unlock();
+
         m_master_queue.disable();
 
         if (m_master_queue_thread.joinable())
@@ -213,6 +229,11 @@ namespace adam
         m_registry.clear();
 
         buffer_manager::get().destroy();
+
+        lock.lock();
+        m_destroy_state = destroy_state_done;
+        lock.unlock();
+        m_destroy_cv.notify_all();
         
         return true;
     }
@@ -659,6 +680,10 @@ namespace adam
             {
                 static_cast<int>(log_event::controller_shutting_down),
                 { "Controller is shutting down.", "Controller wird heruntergefahren." }
+            },
+            {
+                static_cast<int>(log_event::adam_started),
+                { "ADAM started successfully.", "ADAM wurde erfolgreich gestartet." }
             }
         };
 

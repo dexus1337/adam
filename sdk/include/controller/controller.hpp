@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <thread>
 #include <format>
+#include <mutex>
+#include <condition_variable>
 
 #include "types/string-hashed.hpp"
 #include "types/queue-shared-duplex.hpp"
@@ -273,7 +275,8 @@ namespace adam
             slave_queue_failed_to_destroy,
             slave_queue_worker_does_not_exist,
             slave_queue_worker_failed_to_destroy,
-            controller_shutting_down
+            controller_shutting_down,
+            adam_started
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);
@@ -288,6 +291,17 @@ namespace adam
         
         // REGISTRY
         registry                        m_registry;             /**< The controller's registry instance, responsible for managing configuration parameters and other registered items. */
+
+        enum destroy_state
+        {
+            destroy_state_none = 0,
+            destroy_state_in_progress,
+            destroy_state_done
+        };
+
+        std::mutex              m_destroy_mutex;
+        std::condition_variable m_destroy_cv;
+        destroy_state           m_destroy_state = destroy_state_none;
 
     };
 }

@@ -1,6 +1,7 @@
 #include <adam-sdk.hpp>
 
 #include <csignal>
+#include <cstdlib>
 
 void signal_handler(int signal) 
 {
@@ -18,6 +19,7 @@ void signal_handler(int signal)
         }
 
         adam::controller::get().log(adam::log::info, std::format("exiting...", signal));
+        std::exit(0);
     }
 }
 

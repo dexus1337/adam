@@ -264,6 +264,7 @@ namespace adam::gui
             { gui_string_id::col_last_received,           { "Last Received", "Zuletzt empfangen" } },
             { gui_string_id::lbl_no_data,                 { "No data", "Keine Daten" } },
             { gui_string_id::btn_clear_data,              { "Clear Data", "Daten löschen" } },
+            { gui_string_id::btn_clear_all_data,          { "Clear All Buffered Data", "Alle gepufferten Daten löschen" } },
             { gui_string_id::col_index,                   { "Index", "Index" } },
             { gui_string_id::col_timestamp,               { "Timestamp", "Zeitstempel" } },
             { gui_string_id::col_preview_hex,             { "Preview (Hex)", "Vorschau (Hex)" } },

@@ -152,6 +152,7 @@ namespace adam::gui
         col_last_received,
         lbl_no_data,
         btn_clear_data,
+        btn_clear_all_data,
         col_index,
         col_timestamp,
         col_preview_hex,
