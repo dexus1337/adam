@@ -57,7 +57,7 @@ namespace adam
 
         if (resp != controller::status_success)
         {
-            adam::stream_log(log::trace, language_strings::controller_status_text(resp, get_language()), m_log_outstream);
+            adam::stream_log(log::error, language_strings::controller_status_text(resp, get_language()), m_log_outstream);
             
             m_queue_command.destroy();
             return false;
@@ -79,7 +79,7 @@ namespace adam
 
         if (resp != controller::status_success)
         {
-            adam::stream_log(log::trace, language_strings::controller_status_text(resp, get_language()), m_log_outstream);
+            adam::stream_log(log::error, language_strings::controller_status_text(resp, get_language()), m_log_outstream);
             
             destroy();
             return false;
@@ -129,7 +129,7 @@ namespace adam
             res &= (ctrl_resp == controller::status_success);
 
             if (ctrl_resp != controller::status_success)
-                adam::stream_log(log::trace, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);
+                adam::stream_log(log::error, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);
         }
 
         if (m_cmd_active)
@@ -138,7 +138,7 @@ namespace adam
             res &= (ctrl_resp == controller::status_success);
 
             if (ctrl_resp != controller::status_success)
-                adam::stream_log(log::trace, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);
+                adam::stream_log(log::error, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);
         }
 
         for (auto& pair : m_inspectors)

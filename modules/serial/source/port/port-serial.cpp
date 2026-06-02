@@ -154,7 +154,11 @@ namespace adam::modules::serial
 
         auto path = user_params->get<adam::configuration_parameter_string>("path"_ct)->get_value();
         
-        if (path.empty()) return false;
+        if (path.empty())
+        {
+            m_is_active->set_value(false);
+            return false;
+        }
 
         int baud_rate = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("baud_rate"_ct)->get_value());
         int data_bits = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("data_bits"_ct)->get_value());
@@ -170,7 +174,10 @@ namespace adam::modules::serial
         #if defined(ADAM_PLATFORM_WINDOWS)
         m_handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
         if (m_handle == INVALID_HANDLE_VALUE)
+        {
+            m_is_active->set_value(false);
             return false;
+        }
 
         DCB dcbSerialParams = {0};
         dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
@@ -222,7 +229,10 @@ namespace adam::modules::serial
         #else
         m_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
         if (m_fd < 0)
+        {
+            m_is_active->set_value(false);
             return false;
+        }
 
         struct termios tty;
         if (tcgetattr(m_fd, &tty) == 0) 

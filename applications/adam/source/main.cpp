@@ -1,8 +1,6 @@
 #include <adam-sdk.hpp>
 
 #include <csignal>
-#include <iostream>
-#include <atomic>
 
 void signal_handler(int signal) 
 {
@@ -31,13 +29,10 @@ int main()
 
     auto& controller = adam::controller::get();
 
-    if (controller.run(true))
+    if (!controller.run(true))
     {
-        controller.log(adam::log::info, "adam stared succesfully!");
-    }
-    else
-    {
-        controller.log(adam::log::error, "failed to start adam!");
+        controller.log(adam::log::error, "CRITICAL: failed to start adam!");
+        return 1;
     }
 
     getchar();

@@ -491,7 +491,7 @@ namespace adam
 
             if (!ctx.reg.add_module_path(path, &idx))
             {
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_add_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_add_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -501,7 +501,7 @@ namespace adam
             evt_data->setup(params->path, idx);
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_added, ctx.ctrl.get_language()), ctx.tid, path.c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_added, ctx.ctrl.get_language()), ctx.tid, path.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -511,7 +511,7 @@ namespace adam
 
             if (!ctx.reg.remove_module_path(params->idx))
             {
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, params->idx));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, params->idx);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -521,13 +521,13 @@ namespace adam
             evt_data->idx = params->idx;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_removed, ctx.ctrl.get_language()), ctx.tid, params->idx));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_removed, ctx.ctrl.get_language()), ctx.tid, params->idx);
             ctx.set_single_response_status(response_status::success);
         });
 
         register_handler(command_type::module_scan, [](const command*, size_t, command_context& ctx) 
         {
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_scan_requested, ctx.ctrl.get_language()), ctx.tid));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_scan_requested, ctx.ctrl.get_language()), ctx.tid);
             
             ctx.reg.modules().scan_for_modules();
             ctx.set_single_response_status(response_status::success);
@@ -567,7 +567,7 @@ namespace adam
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -589,7 +589,7 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             auto name_view = name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_created, ctx.ctrl.get_language()), ctx.tid, name_view));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_created, ctx.ctrl.get_language()), ctx.tid, name_view);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -608,7 +608,7 @@ namespace adam
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -617,7 +617,7 @@ namespace adam
             evt.data_as<messages::connection_destroy_data>()->connection = params->connection;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -629,7 +629,7 @@ namespace adam
             if (it == ctx.reg.connections().end() || !it->second->start())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_start_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_start_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -638,7 +638,7 @@ namespace adam
             evt.data_as<messages::connection_action_data>()->connection = params->connection;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -650,7 +650,7 @@ namespace adam
             if (it == ctx.reg.connections().end() || !it->second->stop())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stop_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stop_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -659,7 +659,7 @@ namespace adam
             evt.data_as<messages::connection_action_data>()->connection = params->connection;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -679,7 +679,7 @@ namespace adam
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_rename_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_rename_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -698,7 +698,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_renamed, ctx.ctrl.get_language()), ctx.tid, old_conn_str.c_str(), new_name.c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_renamed, ctx.ctrl.get_language()), ctx.tid, old_conn_str.c_str(), new_name.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -723,7 +723,7 @@ namespace adam
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_add_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_add_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -741,7 +741,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -766,7 +766,7 @@ namespace adam
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_remove_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_remove_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -779,7 +779,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
             
             if (it_port != ctx.reg.ports().end())
             {
@@ -791,7 +791,7 @@ namespace adam
                     event evt_del(event_type::port_destroyed);
                     evt_del.data_as<messages::port_destroy_data>()->port = params->port;
                     ctx.ctrl.broadcast_event(evt_del);
-                    debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str()));
+                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
                 }
             }
 
@@ -807,7 +807,7 @@ namespace adam
             if (it == ctx.reg.connections().end())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -827,7 +827,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -840,7 +840,7 @@ namespace adam
             if (it == ctx.reg.connections().end())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -860,7 +860,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -872,7 +872,7 @@ namespace adam
             if (conn_it == ctx.reg.connections().end())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -926,7 +926,7 @@ namespace adam
                 event evt_stop(event_type::connection_stopped);
                 evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
                 ctx.ctrl.broadcast_event(evt_stop);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
             }
 
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
@@ -946,7 +946,7 @@ namespace adam
             evt_data->valid_chain           = conn->is_valid_chain();
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -958,7 +958,7 @@ namespace adam
             if (conn_it == ctx.reg.connections().end())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1012,7 +1012,7 @@ namespace adam
                 event evt_stop(event_type::connection_stopped);
                 evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
                 ctx.ctrl.broadcast_event(evt_stop);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
             }
 
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
@@ -1032,7 +1032,7 @@ namespace adam
             evt_data->valid_chain           = conn->is_valid_chain();
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1046,7 +1046,7 @@ namespace adam
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(registry::status_error_port_already_exists, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1058,7 +1058,7 @@ namespace adam
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1096,7 +1096,7 @@ namespace adam
                 ctx.ctrl.broadcast_event(ev);
 
             auto name_view = name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, new_port->get_type_name().c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, new_port->get_type_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1116,7 +1116,7 @@ namespace adam
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroy_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroy_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1125,7 +1125,7 @@ namespace adam
             evt.data_as<messages::port_destroy_data>()->port = params->port;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1145,7 +1145,7 @@ namespace adam
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_rename_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_rename_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1175,7 +1175,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.tid, old_port_str.c_str(), new_name.c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.tid, old_port_str.c_str(), new_name.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1187,7 +1187,7 @@ namespace adam
             if (it == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1197,7 +1197,7 @@ namespace adam
             if (!user_params)
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1206,7 +1206,7 @@ namespace adam
             if (!param)
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1264,13 +1264,13 @@ namespace adam
                 std::memcpy(evt_data->data, params->data, sizeof(evt_data->data));
                 ctx.ctrl.broadcast_event(evt);
                 
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_updated, ctx.ctrl.get_language()), ctx.tid, port->get_name().c_str()));
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_updated, ctx.ctrl.get_language()), ctx.tid, port->get_name().c_str());
                 ctx.set_single_response_status(response_status::success);
             }
             else
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -1282,18 +1282,24 @@ namespace adam
 
             if (it == ctx.reg.ports().end() || !it->second->start())
             {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                if (it != ctx.reg.ports().end())
+                {
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+                }
+                else
+                {
+                    auto hash_str = std::format("0x{:X}", static_cast<uint64_t>(params->port));
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, hash_str.c_str());
+                }
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
 
             event evt(event_type::port_started);
-            auto* info = evt.data_as<port::status_event_info>();
             evt.data_as<port::status_event_info>()->port_hash = params->port;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1304,18 +1310,24 @@ namespace adam
 
             if (it == ctx.reg.ports().end() || !it->second->stop())
             {
-                uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                if (it != ctx.reg.ports().end())
+                {
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+                }
+                else
+                {
+                    auto hash_str = std::format("0x{:X}", static_cast<uint64_t>(params->port));
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, hash_str.c_str());
+                }
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
 
             event evt(event_type::port_stopped);
-            auto* info = evt.data_as<port::status_event_info>();
             evt.data_as<port::status_event_info>()->port_hash = params->port;
             ctx.ctrl.broadcast_event(evt);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1327,7 +1339,7 @@ namespace adam
             if (it == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1367,7 +1379,7 @@ namespace adam
             }
             else
             {
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
                 ctx.set_single_response_status(response_status::failed);
             }
 
@@ -1382,7 +1394,7 @@ namespace adam
             if (port == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_port_unknown, ctx.ctrl.get_language()), ctx.tid, port_hash));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_port_unknown, ctx.ctrl.get_language()), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::unknown);
                 return;
             }
@@ -1393,7 +1405,7 @@ namespace adam
             if (!new_inspector->open(port_name.get_hash(), ctx.tid))
             {
                 auto name_view = port_name.c_str();
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.ctrl.get_language()), ctx.tid, name_view));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.ctrl.get_language()), ctx.tid, name_view);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1402,7 +1414,7 @@ namespace adam
             ctx.thread_inspectors.emplace(params->port, new_inspector);
 
             auto name_view = port_name.c_str();
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.ctrl.get_language()), ctx.tid, name_view));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.ctrl.get_language()), ctx.tid, name_view);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1414,7 +1426,7 @@ namespace adam
             if (it == ctx.thread_inspectors.end())
             {
                 std::string port_str = std::to_string(static_cast<uint64_t>(params->port));
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.ctrl.get_language()), ctx.tid, port_str));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1427,7 +1439,7 @@ namespace adam
 
             ctx.thread_inspectors.erase(it);
 
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1555,7 +1567,7 @@ namespace adam
             },
             {
                 log_event::port_start_failed,
-                { "Thread {:d} failed to start port {:d}.", "Thread {:d} konnte Port {:d} nicht starten." }
+                { "Thread {:d} failed to start port \"{}\".", "Thread {:d} konnte Port \"{}\" nicht starten." }
             },
             {
                 log_event::port_stopped,
@@ -1563,7 +1575,7 @@ namespace adam
             },
             {
                 log_event::port_stop_failed,
-                { "Thread {:d} failed to stop port {:d}.", "Thread {:d} konnte Port {:d} nicht stoppen." }
+                { "Thread {:d} failed to stop port \"{}\".", "Thread {:d} konnte Port \"{}\" nicht stoppen." }
             },
             {
                 log_event::connection_started,
