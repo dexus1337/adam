@@ -5,3 +5,5 @@
 **/.vs/
 /out/*
 /.qtcreator/*
+.clangd/compile_commands.json
+adam-config.bin

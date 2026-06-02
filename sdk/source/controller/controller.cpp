@@ -154,13 +154,9 @@ namespace adam
     bool controller::destroy()
     {
         std::unique_lock<std::mutex> lock(m_destroy_mutex);
-        if (m_destroy_state == destroy_state_done)
-        {
-            return true;
-        }
         if (m_destroy_state == destroy_state_in_progress)
         {
-            m_destroy_cv.wait(lock, [this] { return m_destroy_state == destroy_state_done; });
+            m_destroy_cv.wait(lock, [this] { return m_destroy_state != destroy_state_in_progress; });
             return true;
         }
 
@@ -231,7 +227,7 @@ namespace adam
         buffer_manager::get().destroy();
 
         lock.lock();
-        m_destroy_state = destroy_state_done;
+        m_destroy_state = destroy_state_none;
         lock.unlock();
         m_destroy_cv.notify_all();
         

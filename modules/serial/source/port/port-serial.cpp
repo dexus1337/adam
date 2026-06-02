@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <cerrno>
 #endif
 
@@ -226,6 +226,9 @@ namespace adam::modules::serial
         timeouts.WriteTotalTimeoutConstant = (wttc < 0) ? MAXDWORD : static_cast<DWORD>(wttc);
         timeouts.WriteTotalTimeoutMultiplier = (wttm < 0) ? MAXDWORD : static_cast<DWORD>(wttm);
         SetCommTimeouts(m_handle, &timeouts);
+
+        // Flush any old data in the kernel buffer
+        PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
         #else
         m_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
         if (m_fd < 0)
@@ -356,6 +359,9 @@ namespace adam::modules::serial
                 tty.c_cflag &= ~CSTOPB;
 
             tcsetattr(m_fd, TCSANOW, &tty);
+            
+            // Flush any old data in the kernel buffer
+            tcflush(m_fd, TCIOFLUSH);
         }
         #endif
         return port::start();
@@ -392,6 +398,10 @@ namespace adam::modules::serial
         
         long total_timeout = (rttc < 0 ? 0 : rttc) + (rttm < 0 ? 0 : rttm) * sizeof(temp_buf);
         if (total_timeout <= 0) total_timeout = 50; // Fallback minimum wait to avoid 100% CPU lockup
+
+        struct pollfd pfd;
+        pfd.fd = m_fd;
+        pfd.events = POLLIN;
         #endif
 
         // Loop until data is read or the port is stopped.
@@ -400,7 +410,6 @@ namespace adam::modules::serial
         while (is_active())
         {
             #if defined(ADAM_PLATFORM_WINDOWS)
-            if (m_handle == INVALID_HANDLE_VALUE) return false;
             DWORD dwRead = 0;
             if (ReadFile(m_handle, temp_buf, sizeof(temp_buf), &dwRead, NULL)) 
             {
@@ -415,16 +424,7 @@ namespace adam::modules::serial
                 return false;
             }
             #else
-            if (m_fd < 0) return false;
-            
-            fd_set set;
-            FD_ZERO(&set);
-            FD_SET(m_fd, &set);
-            struct timeval timeout;
-            timeout.tv_sec = total_timeout / 1000;
-            timeout.tv_usec = (total_timeout % 1000) * 1000;
-
-            int rv = select(m_fd + 1, &set, NULL, NULL, &timeout);
+            int rv = poll(&pfd, 1, static_cast<int>(total_timeout));
             if (rv < 0) 
             {
                 if (errno == EINTR) continue;
@@ -441,17 +441,12 @@ namespace adam::modules::serial
                 
                 bytes_read += chunk;
 
-                long interval_timeout = (rit < 0) ? 0 : rit;
+                int interval_timeout = (rit < 0) ? 0 : static_cast<int>(rit);
                 if (interval_timeout > 0)
                 {
                     while (bytes_read < static_cast<int>(sizeof(temp_buf)))
                     {
-                        FD_ZERO(&set);
-                        FD_SET(m_fd, &set);
-                        timeout.tv_sec = interval_timeout / 1000;
-                        timeout.tv_usec = (interval_timeout % 1000) * 1000;
-                        
-                        int burst_rv = select(m_fd + 1, &set, NULL, NULL, &timeout);
+                        int burst_rv = poll(&pfd, 1, interval_timeout);
                         if (burst_rv > 0)
                         {
                             chunk = ::read(m_fd, temp_buf + bytes_read, sizeof(temp_buf) - bytes_read);
@@ -492,14 +487,12 @@ namespace adam::modules::serial
         int bytes_written = 0;
 
         #if defined(ADAM_PLATFORM_WINDOWS)
-        if (m_handle == INVALID_HANDLE_VALUE) return false;
         DWORD dwWritten = 0;
         if (WriteFile(m_handle, data, static_cast<DWORD>(size), &dwWritten, NULL)) 
         {
             bytes_written = static_cast<int>(dwWritten);
         }
         #else
-        if (m_fd < 0) return false;
         bytes_written = ::write(m_fd, data, size);
         #endif
 

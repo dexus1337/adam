@@ -469,7 +469,7 @@ TEST_F(commander_test, request_module_scan_flow)
     EXPECT_TRUE(cmdr.destroy());
 }
 
-/** @brief Tests the behavior when a shutdown event is received from the controller.
+/** @brief Tests the behavior when a shutdown event is received from the controller. */
 TEST_F(commander_test, shutdown_event_flow)
 {
     adam::commander cmdr;
@@ -490,7 +490,7 @@ TEST_F(commander_test, shutdown_event_flow)
     // Verify the commander is no longer active
     EXPECT_FALSE(cmdr.is_active());
     EXPECT_TRUE(cmdr.destroy());
-} */
+}
 
 /** @brief Tests synchronization of an unavailable port changing its state after module load. */
 TEST_F(commander_test, sync_unavailable_port)
