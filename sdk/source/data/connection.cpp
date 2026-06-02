@@ -42,8 +42,8 @@ namespace adam
         m_unavailable_outputs(),
         m_input_format(&data_format_transparent),   // Default to transparent
         m_output_format(&data_format_transparent),  // Default to transparent
-        m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct))),
-        m_b_valid_data_chain(false)
+        m_b_valid_data_chain(false),
+        m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct)))
     {
 
     }

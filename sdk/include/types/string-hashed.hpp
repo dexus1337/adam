@@ -69,17 +69,26 @@ namespace adam
         /** @brief Compares two string_hashed_template objects for equality based on their hash values. */
         bool operator==(const string_hashed_ct_template<char_type>& other) const { return m_hash == other.get_hash(); }
 
+        /** @brief Compares a string_hashed_template object with a raw hash value for equality. */
+        bool operator==(hash_datatype other) const { return m_hash == other; }
+
         /** @brief Compares two string_hashed_template objects for inequality based on their hash values. */
         bool operator!=(const string_hashed_template& other) const { return m_hash != other.m_hash; }
 
         /** @brief Compares two string_hashed_template objects for inequality based on their hash values. */
         bool operator!=(const string_hashed_ct_template<char_type>& other) const { return m_hash != other.get_hash(); }
 
+        /** @brief Compares a string_hashed_template object with a raw hash value for inequality. */
+        bool operator!=(hash_datatype other) const { return m_hash != other; }
+
         /** @brief Compares two string_hashed_template objects for ordering based on their hash values. Used for std::set and std::map. */
         bool operator<(const string_hashed_template& other) const { return m_hash < other.m_hash; }
 
         /** @brief Compares two string_hashed_template objects for ordering based on their hash values. Used for std::set and std::map. */
         bool operator<(const string_hashed_ct_template<char_type>& other) const { return m_hash < other.get_hash(); }
+
+        /** @brief Compares a string_hashed_template object with a raw hash value for ordering. */
+        bool operator<(hash_datatype other) const { return m_hash < other; }
 
         /** @brief Assigns the value of another string_hashed_template object to this one. */
         string_hashed_template& operator=(const string_hashed_template& other);

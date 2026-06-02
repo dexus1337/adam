@@ -74,7 +74,7 @@ namespace adam
                         unused_size = msg_type::get_max_data_length();
                     }
                     size_t to_write = std::min(remaining, unused_size);
-                    std::memcpy(messages[msg_idx].data_as<uint8_t>() + unused_off, ptr, to_write);
+                    std::memcpy(messages[msg_idx].template data_as<uint8_t>() + unused_off, ptr, to_write);
                     unused_off += to_write;
                     unused_size -= to_write;
                     ptr += to_write;
@@ -86,7 +86,7 @@ namespace adam
             view_type* allocate_view() 
             {
                 ensure_space(sizeof(view_type));
-                view_type* view = reinterpret_cast<view_type*>(messages[msg_idx].data_as<uint8_t>() + unused_off);
+                view_type* view = reinterpret_cast<view_type*>(messages[msg_idx].template data_as<uint8_t>() + unused_off);
                 unused_off += sizeof(view_type);
                 unused_size -= sizeof(view_type);
                 return view;
@@ -1289,7 +1289,6 @@ namespace adam
             }
 
             event evt(event_type::port_started);
-            auto* info = evt.data_as<port::status_event_info>();
             evt.data_as<port::status_event_info>()->port_hash = params->port;
             ctx.ctrl.broadcast_event(evt);
 
@@ -1311,7 +1310,6 @@ namespace adam
             }
 
             event evt(event_type::port_stopped);
-            auto* info = evt.data_as<port::status_event_info>();
             evt.data_as<port::status_event_info>()->port_hash = params->port;
             ctx.ctrl.broadcast_event(evt);
 
@@ -1332,7 +1330,7 @@ namespace adam
                 return;
             }
 
-            if (params->size < 0)
+            if (!params->size)
             {
                 ctx.set_single_response_status(response_status::invalid_argument);
                 return;

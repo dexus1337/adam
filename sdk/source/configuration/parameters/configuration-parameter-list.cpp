@@ -47,6 +47,12 @@ namespace adam
         m_children.clear();
     }
 
+    void configuration_parameter_list::remove(string_hash name) 
+    { 
+        if (auto it = m_children.find(name); it != m_children.end())
+            m_children.erase(it); 
+    }
+
     configuration_parameter* configuration_parameter_list::get(string_hash name) const
     {
         auto it = m_children.find(name);

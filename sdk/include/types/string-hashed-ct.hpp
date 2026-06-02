@@ -49,11 +49,20 @@ namespace adam
         /** @brief Compares two string_hashed_ct_template objects for equality based on their hash values. */
         ADAM_CONSTEXPR bool operator==(const string_hashed_ct_template& other) const { return m_hash == other.m_hash; }
 
+        /** @brief Compares a string_hashed_ct_template object with a raw hash value for equality. */
+        ADAM_CONSTEXPR bool operator==(hash_datatype other) const { return m_hash == other; }
+
         /** @brief Compares two string_hashed_ct_template objects for inequality based on their hash values. */
         ADAM_CONSTEXPR bool operator!=(const string_hashed_ct_template& other) const { return m_hash != other.m_hash; }
 
+        /** @brief Compares a string_hashed_ct_template object with a raw hash value for inequality. */
+        ADAM_CONSTEXPR bool operator!=(hash_datatype other) const { return m_hash != other; }
+
         /** @brief Compares two string_hashed_ct_template objects for ordering based on their hash values. Used for std::set and std::map. */
         ADAM_CONSTEXPR bool operator<(const string_hashed_ct_template& other) const { return m_hash < other.m_hash; }
+
+        /** @brief Compares a string_hashed_ct_template object with a raw hash value for ordering. */
+        ADAM_CONSTEXPR bool operator<(hash_datatype other) const { return m_hash < other; }
 
         /** @brief Assigns the value of another string_hashed_ct_template object to this one. */
         string_hashed_ct_template& operator=(const string_hashed_ct_template&) = delete;
