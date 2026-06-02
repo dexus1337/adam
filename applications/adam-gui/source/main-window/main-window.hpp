@@ -42,6 +42,9 @@ namespace adam::gui
         menu_gui_mode,
         gui_mode_default,
         gui_mode_immediate,
+        menu_vsync,
+        vsync_enabled,
+        vsync_disabled,
         combo_language,
         slider_font_scale,
         combo_theme,
@@ -207,6 +210,7 @@ namespace adam::gui
         adam::configuration_parameter_boolean* m_p_show_log;
         adam::configuration_parameter_boolean* m_p_show_performance;
         adam::configuration_parameter_integer* m_p_gui_mode;
+        adam::configuration_parameter_boolean* m_p_vsync;
         adam::configuration_parameter_string*  m_p_theme;
         adam::configuration_parameter_double*  m_p_font_scale;
         adam::configuration_parameter_double*  m_p_log_height;

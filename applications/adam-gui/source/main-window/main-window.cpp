@@ -154,6 +154,9 @@ namespace adam::gui
             { gui_string_id::menu_gui_mode,               { "GUI Mode", "GUI-Modus" } },
             { gui_string_id::gui_mode_default,            { "Default", "Standard" } },
             { gui_string_id::gui_mode_immediate,          { "Immediate", "Unmittelbar" } },
+            { gui_string_id::menu_vsync,                  { "VSync", "VSync" } },
+            { gui_string_id::vsync_enabled,               { "Enabled", "Aktiviert" } },
+            { gui_string_id::vsync_disabled,              { "Disabled", "Deaktiviert" } },
             { gui_string_id::combo_language,              { "Language###Lang", "Sprache###Lang" } },
             { gui_string_id::slider_font_scale,           { "Font Scale###FontScale", "Schriftskalierung###FontScale" } },
             { gui_string_id::combo_theme,                 { "Theme###Theme", "Design###Theme" } },
@@ -296,6 +299,7 @@ namespace adam::gui
         m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"_ct));
         m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
         m_p_gui_mode            = static_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
+        m_p_vsync               = static_cast<adam::configuration_parameter_boolean*>(params.get("vsync"_ct));
         m_p_perf_ovly_location  = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"_ct));
         m_p_perf_ovly_x         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"_ct));
         m_p_perf_ovly_y         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
@@ -333,6 +337,16 @@ namespace adam::gui
         
         bool is_dark = m_p_theme->get_value() == "default-dark"_ct;
         apply_theme(is_dark);
+
+        // Initialize VSync swap interval
+        if (m_p_gui_mode->get_value() == 1)
+        {
+            SDL_GL_SetSwapInterval(m_p_vsync->get_value() ? 1 : 0);
+        }
+        else
+        {
+            SDL_GL_SetSwapInterval(1);
+        }
     }
 
     main_window::~main_window()
@@ -550,13 +564,34 @@ namespace adam::gui
                 if (ImGui::Selectable(get_gui_string(gui_string_id::gui_mode_default, lang), m_p_gui_mode->get_value() == 0))
                 {
                     m_p_gui_mode->set_value(0);
+                    SDL_GL_SetSwapInterval(1);
                 }
                 if (ImGui::Selectable(get_gui_string(gui_string_id::gui_mode_immediate, lang), m_p_gui_mode->get_value() == 1))
                 {
                     m_p_gui_mode->set_value(1);
+                    SDL_GL_SetSwapInterval(m_p_vsync->get_value() ? 1 : 0);
                     m_ctrl.request_redraw();
                 }
                 ImGui::EndCombo();
+            }
+
+            if (m_p_gui_mode->get_value() == 1)
+            {
+                const char* preview_vsync = m_p_vsync->get_value() ? get_gui_string(gui_string_id::vsync_enabled, lang) : get_gui_string(gui_string_id::vsync_disabled, lang);
+                if (ImGui::BeginCombo(get_gui_string(gui_string_id::menu_vsync, lang), preview_vsync))
+                {
+                    if (ImGui::Selectable(get_gui_string(gui_string_id::vsync_disabled, lang), !m_p_vsync->get_value()))
+                    {
+                        m_p_vsync->set_value(false);
+                        SDL_GL_SetSwapInterval(0);
+                    }
+                    if (ImGui::Selectable(get_gui_string(gui_string_id::vsync_enabled, lang), m_p_vsync->get_value()))
+                    {
+                        m_p_vsync->set_value(true);
+                        SDL_GL_SetSwapInterval(1);
+                    }
+                    ImGui::EndCombo();
+                }
             }
             
             ImGui::Separator();
