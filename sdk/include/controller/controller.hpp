@@ -13,8 +13,6 @@
 
 #include <unordered_map>
 #include <thread>
-#include <sstream>
-#include <functional>
 #include <format>
 
 #include "types/string-hashed.hpp"

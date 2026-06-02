@@ -113,6 +113,7 @@ namespace adam
             {
                 if (module* mod_ptr = get_mod())
                 {
+                    mod_ptr->m_str_filepath = path;
                     m_loaded_modules[name] = std::make_pair(version, mod_ptr);
                     m_handles[name] = handle;
                     return;

@@ -278,7 +278,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_already_exists, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_already_exists, get_language()), tid);
 
             return false;
         }
@@ -289,7 +289,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_open, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_open, get_language()), tid);
 
             m_master_queue.response_queue().push(status_unavailable);
 
@@ -302,7 +302,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_insert, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_insert, get_language()), tid);
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -328,7 +328,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_already_exists, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_already_exists, get_language()), tid);
 
             return false;
         }
@@ -339,7 +339,7 @@ namespace adam
         {
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_open, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_open, get_language()), tid);
 
             m_master_queue.response_queue().push(status_unavailable);
 
@@ -358,7 +358,7 @@ namespace adam
 
             delete new_queue;
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, get_language()), tid);
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -381,7 +381,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_does_not_exist, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_does_not_exist, get_language()), tid);
 
             return false;
         }
@@ -392,7 +392,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_failed_destroy);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_failed_to_destroy, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_destroy, get_language()), tid);
 
             return false;
         }
@@ -417,7 +417,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_does_not_exist, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_does_not_exist, get_language()), tid);
 
             return false;
         }
@@ -427,7 +427,7 @@ namespace adam
         it->second->queue_thread.join();
 
         if (!it->second->queue.destroy())
-            debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), tid));
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), tid);
 
         delete it->second;
 
@@ -450,7 +450,7 @@ namespace adam
             {
                 m_master_queue.response_queue().push(status_unauthorized);
 
-                debug_statement(this->log(log::trace, get_log_event_text(log_event::thread_auth_failed, get_language()), req.tid));
+                this->log(log::error, get_log_event_text(log_event::thread_auth_failed, get_language()), req.tid);
 
                 continue;
             }
@@ -520,11 +520,11 @@ namespace adam
 
             if (req.queue % 2)
             {
-                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_created, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language())));
+                this->log(log::info, get_log_event_text(log_event::slave_queue_created, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language()));
             }
             else
             {
-                debug_statement(this->log(log::trace, get_log_event_text(log_event::slave_queue_destroyed, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language())));
+                this->log(log::info, get_log_event_text(log_event::slave_queue_destroyed, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language()));
             }
 
             m_master_queue.response_queue().push(status_success);
