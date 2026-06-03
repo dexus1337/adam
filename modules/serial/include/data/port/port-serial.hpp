@@ -54,5 +54,9 @@ namespace adam::modules::serial
         #else
         int m_fd;
         #endif
+
+        adam::configuration_parameter_integer* m_rttc = nullptr;
+        adam::configuration_parameter_integer* m_rttm = nullptr;
+        adam::configuration_parameter_integer* m_rit = nullptr;
     };
 }

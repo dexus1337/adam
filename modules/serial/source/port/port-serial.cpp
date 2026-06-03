@@ -142,6 +142,11 @@ namespace adam::modules::serial
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
         add_parameters(port_serial::get_default_parameters());
+
+        auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+        m_rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct);
+        m_rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct);
+        m_rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct);
     }
 
     port_serial::~port_serial() 
@@ -392,13 +397,8 @@ namespace adam::modules::serial
         int bytes_read = 0;
 
         #if defined(ADAM_PLATFORM_LINUX)
-        auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
-        int64_t rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct)->get_value();
-        int64_t rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct)->get_value();
-        int64_t rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct)->get_value();
-        
-        long total_timeout = (rttc < 0 ? 0 : rttc) + (rttm < 0 ? 0 : rttm) * sizeof(temp_buf);
-        if (total_timeout <= 0) total_timeout = 50; // Fallback minimum wait to avoid 100% CPU lockup
+        long total_timeout = (m_rttc->get_value() < 0 ? 0 : m_rttc->get_value()) + 
+                             (m_rttm->get_value() < 0 ? 0 : m_rttm->get_value()) * sizeof(temp_buf);
 
         struct pollfd pfd;
         pfd.fd = m_fd;
@@ -442,7 +442,7 @@ namespace adam::modules::serial
                 
                 bytes_read += chunk;
 
-                int interval_timeout = (rit < 0) ? 0 : static_cast<int>(rit);
+                int interval_timeout = (m_rit->get_value() < 0) ? 0 : static_cast<int>(m_rit->get_value());
                 if (interval_timeout > 0)
                 {
                     while (bytes_read < static_cast<int>(sizeof(temp_buf)))
