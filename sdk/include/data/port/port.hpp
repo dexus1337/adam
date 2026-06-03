@@ -131,10 +131,10 @@ namespace adam
         virtual bool stop();
 
         /** @brief Protoype function for data input */
-        virtual bool read(buffer*& buff) { (void)buff; return false;}
+        virtual bool read(buffer*& buff) = 0;
 
         /** @brief Protoype function for data output. */
-        virtual bool write(buffer* buff) { (void)buff; return false;}
+        virtual bool write(buffer* buff) = 0;
 
     protected:
 

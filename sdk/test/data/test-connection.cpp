@@ -24,6 +24,9 @@ protected:
         const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "test"_ct; return type; }
         direction get_direction() const override { return direction_inout; }
 
+        bool read(adam::buffer*& buff) override { (void)buff; return false;}
+        bool write(adam::buffer* buff) override { (void)buff; return false;}
+        
         void worker() override
         {
             while (is_active())

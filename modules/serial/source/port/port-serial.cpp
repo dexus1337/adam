@@ -2,6 +2,7 @@
 
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 
 #if defined(ADAM_PLATFORM_WINDOWS)
@@ -22,7 +23,7 @@ namespace adam::modules::serial
         {
             adam::configuration_parameter_list p;
 
-            auto up = std::make_unique<adam::configuration_parameter_list>("user_parameters"_ct);
+            auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
             
             auto path_param = std::make_unique<adam::configuration_parameter_string>("path"_ct);
             path_param->set_description(language_english, "The COM port or device path (e.g. COM1 or /dev/ttyUSB0)."_ct);
@@ -76,11 +77,11 @@ namespace adam::modules::serial
 
             configuration_parameter_string::presets_container parity_presets = {};
             
-            parity_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("parity_none"_ct, "none"_ct));
-            parity_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("parity_odd"_ct, "odd"_ct));
-            parity_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("parity_even"_ct, "even"_ct));
-            parity_presets.emplace("3"_ct, std::make_unique<adam::configuration_parameter_string>("parity_mark"_ct, "mark"_ct));
-            parity_presets.emplace("4"_ct, std::make_unique<adam::configuration_parameter_string>("parity_space"_ct, "space"_ct));
+            parity_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("none"_ct, "none"_ct));
+            parity_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("odd"_ct, "odd"_ct));
+            parity_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("even"_ct, "even"_ct));
+            parity_presets.emplace("3"_ct, std::make_unique<adam::configuration_parameter_string>("mark"_ct, "mark"_ct));
+            parity_presets.emplace("4"_ct, std::make_unique<adam::configuration_parameter_string>("space"_ct, "space"_ct));
 
             auto parity_param = std::make_unique<adam::configuration_parameter_string>("parity"_ct, "none"_ct, std::move(parity_presets));
             parity_param->set_description(language_english, "The parity bit configuration."_ct);
@@ -89,9 +90,9 @@ namespace adam::modules::serial
 
             configuration_parameter_string::presets_container flow_ctrl_presets = {};
             
-            flow_ctrl_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_none"_ct, "none"_ct));
-            flow_ctrl_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_hardware"_ct, "hardware"_ct));
-            flow_ctrl_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("flow_ctrl_xon_xoff"_ct, "xon_xoff"_ct));
+            flow_ctrl_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("none"_ct, "none"_ct));
+            flow_ctrl_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("hardware"_ct, "hardware"_ct));
+            flow_ctrl_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("xon_xoff"_ct, "xon_xoff"_ct));
 
             auto flow_ctrl_param = std::make_unique<adam::configuration_parameter_string>("flow_ctrl"_ct, "none"_ct, std::move(flow_ctrl_presets));
             flow_ctrl_param->set_description(language_english, "The hardware or software flow control."_ct);
@@ -114,13 +115,13 @@ namespace adam::modules::serial
             up->add(std::move(rttm_param));
 
             auto wttc_param = std::make_unique<adam::configuration_parameter_integer>("write_total_timeout_constant"_ct, 50);
-            wttc_param->set_description(language_english, "Constant timeout to wait for writes (ms)."_ct);
-            wttc_param->set_description(language_german, "Konstantes Timeout zum Warten auf Schreibvorgänge (ms)."_ct);
+            wttc_param->set_description(language_english, "Constant timeout to wait for writes (ms) (Not used on POSIX)."_ct);
+            wttc_param->set_description(language_german, "Konstantes Timeout zum Warten auf Schreibvorgänge (ms) (Unter POSIX nicht verwendet)."_ct);
             up->add(std::move(wttc_param));
 
             auto wttm_param = std::make_unique<adam::configuration_parameter_integer>("write_total_timeout_multiplier"_ct, 10);
-            wttm_param->set_description(language_english, "Multiplier timeout per written byte (ms)."_ct);
-            wttm_param->set_description(language_german, "Multiplikator-Timeout pro geschriebenem Byte (ms)."_ct);
+            wttm_param->set_description(language_english, "Multiplier timeout per written byte (ms) (Not used on POSIX)."_ct);
+            wttm_param->set_description(language_german, "Multiplikator-Timeout pro geschriebenem Byte (ms) (Unter POSIX nicht verwendet)."_ct);
             up->add(std::move(wttm_param));
 
             p.add(std::move(up));
@@ -150,7 +151,7 @@ namespace adam::modules::serial
 
     bool port_serial::start()
     {
-        auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
+        auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
 
         auto path = user_params->get<adam::configuration_parameter_string>("path"_ct)->get_value();
         
@@ -163,15 +164,15 @@ namespace adam::modules::serial
         int baud_rate = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("baud_rate"_ct)->get_value());
         int data_bits = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("data_bits"_ct)->get_value());
         int stop_bits = static_cast<int>(user_params->get<adam::configuration_parameter_integer>("stop_bits"_ct)->get_value());
+        const auto& parity = user_params->get<adam::configuration_parameter_string>("parity"_ct)->get_value();
+        const auto& flow_ctrl = user_params->get<adam::configuration_parameter_string>("flow_ctrl"_ct)->get_value();
+
+        #if defined(ADAM_PLATFORM_WINDOWS)
         int64_t rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct)->get_value();
         int64_t rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct)->get_value();
         int64_t rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct)->get_value();
         int64_t wttc = user_params->get<adam::configuration_parameter_integer>("write_total_timeout_constant"_ct)->get_value();
         int64_t wttm = user_params->get<adam::configuration_parameter_integer>("write_total_timeout_multiplier"_ct)->get_value();
-        const auto& parity = user_params->get<adam::configuration_parameter_string>("parity"_ct)->get_value();
-        const auto& flow_ctrl = user_params->get<adam::configuration_parameter_string>("flow_ctrl"_ct)->get_value();
-
-        #if defined(ADAM_PLATFORM_WINDOWS)
         m_handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
         if (m_handle == INVALID_HANDLE_VALUE)
         {
@@ -390,8 +391,8 @@ namespace adam::modules::serial
         uint8_t temp_buf[4096];
         int bytes_read = 0;
 
-        #if !defined(ADAM_PLATFORM_WINDOWS)
-        auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
+        #if defined(ADAM_PLATFORM_LINUX)
+        auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
         int64_t rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct)->get_value();
         int64_t rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct)->get_value();
         int64_t rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct)->get_value();
@@ -461,7 +462,7 @@ namespace adam::modules::serial
                 }
                 break;
             }
-        #endif
+            #endif
         }
 
         if (bytes_read > 0)

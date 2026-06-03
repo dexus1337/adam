@@ -11,6 +11,7 @@
 #include <chrono>
 
 #include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "controller/controller.hpp"
@@ -38,6 +39,7 @@ namespace adam::gui
 
         std::vector<uint64_t> g_expanded_param_nodes;
         std::vector<adam::string_hash> g_expanded_inspector_ports;
+        std::vector<adam::string_hash> g_pending_inspector_ports;
 
         std::map<uint64_t, float> g_expanded_node_heights;
         
@@ -335,7 +337,28 @@ namespace adam::gui
                     
                     float avail_w = ImGui::GetContentRegionAvail().x;
                     
-                    for (const auto& [param_name, param_ptr] : p_it->second->user_params.get_children())
+                    std::vector<std::pair<adam::string_hashed, adam::configuration_parameter*>> params_to_render;
+                    auto* sorted_list = dynamic_cast<const adam::configuration_parameter_list_sorted*>(&p_it->second->user_params);
+                    if (sorted_list)
+                    {
+                        for (auto hash : sorted_list->get_order())
+                        {
+                            auto* param_ptr = sorted_list->get(hash);
+                            if (param_ptr)
+                            {
+                                params_to_render.push_back({param_ptr->get_name(), param_ptr});
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (const auto& [param_name, param_ptr] : p_it->second->user_params.get_children())
+                        {
+                            params_to_render.push_back({param_name, param_ptr.get()});
+                        }
+                    }
+
+                    for (const auto& [param_name, param_ptr] : params_to_render)
                     {
                         auto param_type = param_ptr->get_type();
                         
@@ -343,19 +366,62 @@ namespace adam::gui
                         
                         ImGui::TextUnformatted(param_name.c_str());
 
+                        bool has_range = false;
+                        std::string range_str;
+                        if (param_type == adam::configuration_parameter::type_integer)
+                        {
+                            auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr);
+                            if (c_int->get_mode() == adam::configuration_parameter_integer::value_mode_range)
+                            {
+                                has_range = true;
+                                if (lang == adam::language_german)
+                                    range_str = "Erlaubter Bereich: [" + std::to_string(c_int->get_min_value()) + " - " + std::to_string(c_int->get_max_value()) + "]";
+                                else
+                                    range_str = "Allowed Range: [" + std::to_string(c_int->get_min_value()) + " - " + std::to_string(c_int->get_max_value()) + "]";
+                            }
+                        }
+                        else if (param_type == adam::configuration_parameter::type_double)
+                        {
+                            auto* c_dbl = static_cast<adam::configuration_parameter_double*>(param_ptr);
+                            if (c_dbl->get_mode() == adam::configuration_parameter_double::value_mode_range)
+                            {
+                                has_range = true;
+                                char min_buf[32], max_buf[32];
+                                snprintf(min_buf, sizeof(min_buf), "%g", c_dbl->get_min_value());
+                                snprintf(max_buf, sizeof(max_buf), "%g", c_dbl->get_max_value());
+                                if (lang == adam::language_german)
+                                    range_str = std::string("Erlaubter Bereich: [") + min_buf + " - " + max_buf + "]";
+                                else
+                                    range_str = std::string("Allowed Range: [") + min_buf + " - " + max_buf + "]";
+                            }
+                        }
+
                         const adam::string_hashed& desc = param_ptr->get_description(lang);
-                        if (!desc.empty() && ImGui::IsItemHovered())
+                        if ((!desc.empty() || has_range) && ImGui::IsItemHovered())
                         {
                             ImGui::BeginTooltip();
                             ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-                            ImGui::TextUnformatted(desc.c_str());
+                            if (!desc.empty())
+                            {
+                                ImGui::TextUnformatted(desc.c_str());
+                                if (has_range)
+                                {
+                                    ImGui::Spacing();
+                                    ImGui::Separator();
+                                    ImGui::Spacing();
+                                }
+                            }
+                            if (has_range)
+                            {
+                                ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%s", range_str.c_str());
+                            }
                             ImGui::PopTextWrapPos();
                             ImGui::EndTooltip();
                         }
                         
                         if (param_type == adam::configuration_parameter::type_integer)
                         {
-                            auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr.get());
+                            auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr);
                             int64_t current_val = c_int->get_value();
                             ImGui::SetNextItemWidth(avail_w);
                             if (c_int->get_mode() == adam::configuration_parameter_integer::value_mode_preset)
@@ -412,9 +478,68 @@ namespace adam::gui
                                 }
                             }
                         }
+                        else if (param_type == adam::configuration_parameter::type_double)
+                        {
+                            auto* c_dbl = static_cast<adam::configuration_parameter_double*>(param_ptr);
+                            double current_val = c_dbl->get_value();
+                            ImGui::SetNextItemWidth(avail_w);
+                            if (c_dbl->get_mode() == adam::configuration_parameter_double::value_mode_preset)
+                            {
+                                char preview[64] = "";
+                                bool found = false;
+                                for (double preset : c_dbl->get_presets())
+                                {
+                                    if (std::abs(preset - current_val) < 1e-9)
+                                    {
+                                        snprintf(preview, sizeof(preview), "%f", preset);
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (!found) snprintf(preview, sizeof(preview), "%f", current_val);
+                                
+                                if (ImGui::BeginCombo("##combo", preview))
+                                {
+                                    std::vector<double> sorted_presets(c_dbl->get_presets().begin(), c_dbl->get_presets().end());
+                                    std::sort(sorted_presets.begin(), sorted_presets.end());
+                                    
+                                    for (double preset : sorted_presets)
+                                    {
+                                        char preset_str[64];
+                                        snprintf(preset_str, sizeof(preset_str), "%f", preset);
+                                        bool is_selected = (std::abs(preset - current_val) < 1e-9);
+                                        if (ImGui::Selectable(preset_str, is_selected))
+                                        {
+                                            if (!is_selected)
+                                            {
+                                                c_dbl->set_value(preset);
+                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                            }
+                                        }
+                                    }
+                                    ImGui::EndCombo();
+                                }
+                            }
+                            else
+                            {
+                                char buf[64];
+                                snprintf(buf, sizeof(buf), "%f", current_val);
+                                if (ImGui::InputText("##double", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
+                                {
+                                    try 
+                                    {
+                                        double new_v = std::stod(buf);
+                                        if (c_dbl->set_value(new_v))
+                                        {
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                        }
+                                    } catch(...) {}
+                                }
+                            }
+                        }
                         else if (param_type == adam::configuration_parameter::type_string)
                         {
-                            auto* c_str = static_cast<adam::configuration_parameter_string*>(param_ptr.get());
+                            auto* c_str = static_cast<adam::configuration_parameter_string*>(param_ptr);
                             adam::string_hashed current_val = c_str->get_value();
                             ImGui::SetNextItemWidth(avail_w);
                             
@@ -1867,6 +1992,13 @@ namespace adam::gui
                             {
                                 g_request_open_inspector = true;
                                 g_port_to_expand_in_inspector = port_hash;
+                                if (std::find(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), port_hash) == g_pending_inspector_ports.end())
+                                    g_pending_inspector_ports.push_back(port_hash);
+                            }
+                            else
+                            {
+                                g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), port_hash), g_expanded_inspector_ports.end());
+                                g_pending_inspector_ports.erase(std::remove(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), port_hash), g_pending_inspector_ports.end());
                             }
 
                             ctrl.enqueue_commander_action([&ctrl, port_hash]() 
@@ -2185,7 +2317,7 @@ namespace adam::gui
         ImGui::EndChild();
     }
 
-    static void render_inspector_hex_dump(const adam::gui::inspected_buffer& ib, int actual_index, float inspector_height, float dpi_scale)
+    static void render_inspector_hex_dump(const adam::gui::inspected_buffer& ib, int actual_index, float inspector_height, float dpi_scale, adam::language lang)
     {
         size_t display_len = ib.data.size();
         size_t num_rows = (display_len + 15) / 16;
@@ -2193,13 +2325,26 @@ namespace adam::gui
         if (g_mono_font) ImGui::PushFont(g_mono_font);
         float line_h = ImGui::GetTextLineHeight();
         if (g_mono_font) ImGui::PopFont();
-        float calc_h = line_h * num_rows + ImGui::GetStyle().FramePadding.y * 2.0f;
+
+        float item_spacing_y = ImGui::GetStyle().ItemSpacing.y;
+        float window_border_size = ImGui::GetStyle().WindowBorderSize;
+
+        // Calculate text content height with item spacing between lines
+        float text_content_h = num_rows > 0 ? (line_h * num_rows + item_spacing_y * (num_rows - 1)) : 0.0f;
+        // child padding is 4.0f * dpi_scale on top and bottom
+        float child_padding_h = (4.0f * dpi_scale) * 2.0f;
+        // child border height (top + bottom)
+        float child_border_h = window_border_size * 2.0f;
+        
+        float calc_h = text_content_h + child_padding_h + child_border_h;
 
         float button_h = ImGui::GetFrameHeight();
-        float spacing_h = ImGui::GetStyle().ItemSpacing.y;
-        float padding_h = ImGui::GetStyle().WindowPadding.y * 2.0f;
-        float border_h = ImGui::GetStyle().WindowBorderSize * 2.0f;
-        float reserved_container_elements_h = button_h + spacing_h + padding_h + border_h;
+        float spacing_h = item_spacing_y;
+        // container padding is 6.0f * dpi_scale on top and bottom
+        float container_padding_h = (6.0f * dpi_scale) * 2.0f;
+        // container border height
+        float container_border_h = window_border_size * 2.0f;
+        float reserved_container_elements_h = button_h + spacing_h + container_padding_h + container_border_h;
 
         // Capped container height: at most 50% of the inspector height, or at least 110 pixels (to fit buttons and some hex lines)
         float max_container_h = inspector_height * 0.5f;
@@ -2230,7 +2375,7 @@ namespace adam::gui
             float avail_w = ImGui::GetContentRegionAvail().x;
             float button_w = (avail_w - ImGui::GetStyle().ItemSpacing.x * 2.0f) / 3.0f;
 
-            if (ImGui::Button("Copy Hex", ImVec2(button_w, button_h)))
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_hex, lang), ImVec2(button_w, button_h)))
             {
                 std::string copy_str;
                 copy_str.reserve(ib.data.size() * 3);
@@ -2245,7 +2390,7 @@ namespace adam::gui
             }
             ImGui::SameLine();
 
-            if (ImGui::Button("Copy ASCII", ImVec2(button_w, button_h)))
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_ascii, lang), ImVec2(button_w, button_h)))
             {
                 std::string copy_str;
                 copy_str.reserve(ib.data.size());
@@ -2259,7 +2404,7 @@ namespace adam::gui
             }
             ImGui::SameLine();
 
-            if (ImGui::Button("Copy Hex Dump", ImVec2(button_w, button_h)))
+            if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_hex_dump, lang), ImVec2(button_w, button_h)))
             {
                 std::string copy_str;
                 copy_str.reserve(num_rows * 80);
@@ -2530,7 +2675,7 @@ namespace adam::gui
                     current_pushed_id = -1;
                 }
 
-                render_inspector_hex_dump(ib, actual_index, inspector_height, dpi_scale);
+                render_inspector_hex_dump(ib, actual_index, inspector_height, dpi_scale, lang);
 
                 // Re-open the table for the remaining rows
                 current_pushed_id = actual_index;
@@ -2605,6 +2750,17 @@ namespace adam::gui
             else snprintf(buf, buf_size, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
         };
 
+        // Clean up any expanded/pending ports that no longer exist in the registry
+        g_expanded_inspector_ports.erase(
+            std::remove_if(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(),
+                [&ports](const auto& h) { return ports.find(h) == ports.end(); }),
+            g_expanded_inspector_ports.end());
+
+        g_pending_inspector_ports.erase(
+            std::remove_if(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(),
+                [&ports](const auto& h) { return ports.find(h) == ports.end(); }),
+            g_pending_inspector_ports.end());
+
         if (g_port_to_expand_in_inspector != 0)
         {
             if (std::find(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), g_port_to_expand_in_inspector) == g_expanded_inspector_ports.end())
@@ -2624,9 +2780,21 @@ namespace adam::gui
                 }
                 bool has_inspector = inspectors.find(hash) != inspectors.end();
                 if (has_inspector || has_data)
+                {
                     num_expanded++;
+                    g_pending_inspector_ports.erase(std::remove(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), hash), g_pending_inspector_ports.end());
+                }
                 else
-                    g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), hash), g_expanded_inspector_ports.end());
+                {
+                    if (std::find(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), hash) != g_pending_inspector_ports.end())
+                    {
+                        num_expanded++;
+                    }
+                    else
+                    {
+                        g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), hash), g_expanded_inspector_ports.end());
+                    }
+                }
             }
         }
 
@@ -2762,7 +2930,6 @@ namespace adam::gui
                 {
                     if (inspect_val)
                     {
-                        g_port_to_expand_in_inspector = port_hash;
                         ctrl.enqueue_commander_action([&ctrl, port_hash]() 
                         {
                             auto& cmdr = ctrl.commander();
@@ -2786,6 +2953,9 @@ namespace adam::gui
                     }
                     else
                     {
+                        g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), port_hash), g_expanded_inspector_ports.end());
+                        g_pending_inspector_ports.erase(std::remove(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), port_hash), g_pending_inspector_ports.end());
+
                         ctrl.enqueue_commander_action([&ctrl, port_hash]() 
                         {
                             auto& cmdr = ctrl.commander();
@@ -3008,11 +3178,16 @@ namespace adam::gui
         float avail_w = ImGui::GetContentRegionAvail().x;
         float content_h = ImGui::GetContentRegionAvail().y;
 
-        static float left_w = 0.0f;
+        static float left_ratio = 0.66f;
         float dpi_scale     = ImGui::GetStyle()._MainScale;
-        if (left_w == 0.0f) left_w = avail_w * 0.66f;
+        float left_w        = avail_w * left_ratio;
         
-        if (show_inspector && left_w > avail_w - 100.0f * dpi_scale) left_w = avail_w - 100.0f * dpi_scale;
+        if (avail_w > 0.0f)
+        {
+            if (left_w < 100.0f * dpi_scale) left_w = 100.0f * dpi_scale;
+            if (show_inspector && left_w > avail_w - 100.0f * dpi_scale) left_w = avail_w - 100.0f * dpi_scale;
+            left_ratio = left_w / avail_w;
+        }
 
         if (show_inspector) 
             ImGui::BeginChild("ConnectionsRegion", ImVec2(left_w, content_h), false);
@@ -3090,6 +3265,10 @@ namespace adam::gui
         {
             ImGui::EndChild();
             render_inspector_subwindow(ctrl, lang, left_w, avail_w, content_h);
+            if (avail_w > 0.0f)
+            {
+                left_ratio = left_w / avail_w;
+            }
         }
     }
 }

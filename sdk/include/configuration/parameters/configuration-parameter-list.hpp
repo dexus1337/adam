@@ -51,7 +51,7 @@ namespace adam
         std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_list>(*this); }
 
         /** @brief Adds a child parameter to the list. */
-        void add(std::unique_ptr<configuration_parameter> param);
+        virtual void add(std::unique_ptr<configuration_parameter> param);
 
         /** @brief Retrieves the list of child parameters. */
         const std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>>& get_children() const { return m_children; }
@@ -60,10 +60,10 @@ namespace adam
         std::unordered_map<string_hashed, std::unique_ptr<configuration_parameter>>& children() { return m_children; }
 
         /** @brief Clears all child parameters. */
-        void clear();
+        virtual void clear();
 
         /** @brief Removes a child parameter by its name. */
-        void remove(string_hash name);
+        virtual void remove(string_hash name);
 
         /** @brief Retrieves a child parameter by its name. Returns nullptr if not found. */
         configuration_parameter* get(string_hash name) const;
@@ -73,7 +73,7 @@ namespace adam
         T* get(string_hash name) const { return dynamic_cast<T*>(get(name)); }
 
         /** @brief Renames a child parameter and updates the internal map. */
-        bool rename_child(string_hash old_name, const string_hashed& new_name);
+        virtual bool rename_child(string_hash old_name, const string_hashed& new_name);
 
     private:
 

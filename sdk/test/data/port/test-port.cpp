@@ -23,6 +23,9 @@ protected:
         
         void set_threaded(bool threaded) { m_b_threaded = threaded; }
         bool get_threaded() const { return m_b_threaded; }
+
+        bool read(adam::buffer*& buff) override { (void)buff; return false;}
+        bool write(adam::buffer* buff) override { (void)buff; return false;}
         
         std::atomic<int> worker_loops{0};
         

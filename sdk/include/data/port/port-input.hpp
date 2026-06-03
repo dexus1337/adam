@@ -30,6 +30,9 @@ namespace adam
         /** @brief Gets the supported data flow direction capabilities of this port. */
         port::direction get_direction() const override { return direction; }
 
+        /** @brief Needs to be overwritten. Since this is an input port, it only reads data */
+        virtual bool write(buffer* buff) override { (void)buff; return false;}
+        
     protected:
 
         /** @brief Constructs a new input port object. */

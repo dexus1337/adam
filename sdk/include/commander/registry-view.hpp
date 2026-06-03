@@ -13,6 +13,7 @@
 #include "data/port/port.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include <vector>
 #include <unordered_map>
 #include <memory>
@@ -113,7 +114,7 @@ namespace adam
         bool is_unavailable;
         port::direction direction;
         buffer* statistic_buffer;
-        configuration_parameter_list user_params{string_hashed("user_parameters")};
+        configuration_parameter_list_sorted user_params{string_hashed("user_parameters")};
         
         ~port_view() { if (statistic_buffer) statistic_buffer->release(); }
     };

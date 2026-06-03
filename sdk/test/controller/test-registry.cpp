@@ -374,7 +374,6 @@ TEST_F(registry_test, connection_valid_chain)
     
     reg.connection_add_port("test_valid_conn"_ct.get_hash(), "in_port"_ct.get_hash(), true);
     reg.connection_add_port("test_valid_conn"_ct.get_hash(), "out_port"_ct.get_hash(), false);
-    conn->check_valid_chain();
     
     // Transparent to transparent -> valid
     EXPECT_TRUE(conn->is_valid_chain());

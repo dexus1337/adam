@@ -6,7 +6,6 @@
 #include <SDL.h>
 #include <unordered_map>
 #include <array>
-#include <map>
 #include <algorithm>
 #include "tab-management.hpp"
 #include "tab-modules.hpp"
@@ -280,7 +279,10 @@ namespace adam::gui
             { gui_string_id::lbl_data_format_transparent_none, { "transparent (none)", "transparent (keines)" } },
             { gui_string_id::lbl_handled,                 { "Handled", "Verarbeitet" } },
             { gui_string_id::lbl_discarded,               { "Discarded", "Verworfen" } },
-            { gui_string_id::lbl_statistics,              { "Statistics", "Statistiken" } }
+            { gui_string_id::lbl_statistics,              { "Statistics", "Statistiken" } },
+            { gui_string_id::btn_copy_hex,                { "Copy Hex", "Hex kopieren" } },
+            { gui_string_id::btn_copy_ascii,              { "Copy ASCII", "ASCII kopieren" } },
+            { gui_string_id::btn_copy_hex_dump,           { "Copy Hex Dump", "Hex-Dump kopieren" } }
         };
 
         auto it = translations.find(id);

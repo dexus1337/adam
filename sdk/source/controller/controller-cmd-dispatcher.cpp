@@ -739,6 +739,10 @@ namespace adam
             auto* evt_data = evt.data_as<messages::connection_port_add_data>();
             *evt_data = *params;
             evt_data->edited = current_time;
+            if (it_conn != ctx.reg.connections().end())
+                evt_data->valid_chain = it_conn->second->is_valid_chain();
+            else
+                evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
@@ -777,6 +781,10 @@ namespace adam
             auto* evt_data = evt.data_as<messages::connection_port_add_data>();
             *evt_data = *params;
             evt_data->edited = current_time;
+            if (it_conn != ctx.reg.connections().end())
+                evt_data->valid_chain = it_conn->second->is_valid_chain();
+            else
+                evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());

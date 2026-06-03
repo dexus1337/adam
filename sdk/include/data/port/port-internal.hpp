@@ -34,7 +34,12 @@ namespace adam
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
         
         /** @brief Data management routine */
-        virtual bool handle_data(buffer* buffer, data_direction dir);
+        virtual bool handle_data(buffer* buffer, data_direction dir) override;
 
+        /** @brief Needs to be overwritten. Since this is an internal port, it does not read or write data on its own */
+        virtual bool read(buffer*& buff) override { (void)buff; return false;}
+
+        /** @brief Needs to be overwritten. Since this is an internal port, it does not read or write data on its own */
+        virtual bool write(buffer* buff) override { (void)buff; return false;}
     };
 }

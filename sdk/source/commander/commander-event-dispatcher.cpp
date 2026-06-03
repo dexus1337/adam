@@ -460,6 +460,7 @@ namespace adam
                 else
                     it->second->outputs.push_back(data->port);
                 it->second->edited = data->edited;
+                it->second->valid_chain = data->valid_chain;
             }
         });
 
@@ -479,6 +480,7 @@ namespace adam
                     it->second->outputs.erase(std::remove(it->second->outputs.begin(), it->second->outputs.end(), data->port), it->second->outputs.end());
                 }
                 it->second->edited = data->edited;
+                it->second->valid_chain = data->valid_chain;
             }
         });
 

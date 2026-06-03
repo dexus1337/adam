@@ -179,6 +179,7 @@ namespace adam
             string_hash connection;
             string_hash port;
             bool is_input;
+            bool valid_chain;
             uint64_t edited;
         };
         static_assert(sizeof(connection_port_add_data) <= command::get_max_data_length(), "connection_port_add_data exceeds maximum command data size");

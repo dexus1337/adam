@@ -26,6 +26,8 @@ namespace adam::modules::recrep
 
         static ADAM_CONSTEXPR string_hashed_ct type_name() { return "recording"_ct; }
 
+        static const configuration_parameter_list& get_default_parameters();
+
         /** @brief Constructs a new output port object. */
         port_output_recording(const string_hashed& item_name);
 
@@ -33,5 +35,8 @@ namespace adam::modules::recrep
         ~port_output_recording();
 
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
+
+        /** @brief Writes received data to a file. */
+        virtual bool write(buffer* buff) override ;
     };
 }

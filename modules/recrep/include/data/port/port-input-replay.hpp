@@ -35,5 +35,14 @@ namespace adam::modules::recrep
         ~port_input_replay();
 
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
+
+        /** @brief Checks for available file(s) */
+        virtual bool start() override;
+
+        /** @brief Releases resources */
+        virtual bool stop() override;
+
+        /** @brief Protoype function for data input */
+        virtual bool read(buffer*& buff) override;
     };
 }

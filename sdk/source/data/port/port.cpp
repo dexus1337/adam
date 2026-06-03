@@ -4,6 +4,7 @@
 #include "data/inspector.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include <chrono>
 
 
@@ -11,15 +12,15 @@ namespace adam
 {
     const configuration_parameter_list& port::get_default_parameters()
     {
-        static adam::configuration_parameter_list user_params = []() 
+        static adam::configuration_parameter_list_sorted user_params = []() 
         {
-            adam::configuration_parameter_list p;
+            adam::configuration_parameter_list_sorted p;
             return p;
         }();
         static adam::configuration_parameter_list params = []() 
         {
             adam::configuration_parameter_list p;
-            auto up = std::make_unique<adam::configuration_parameter_list>(user_params);
+            auto up = std::make_unique<adam::configuration_parameter_list_sorted>(user_params);
             up->set_name("user_parameters"_ct);
             p.add(std::move(up));
             p.add(std::make_unique<adam::configuration_parameter_boolean>("is_active"_ct));

@@ -227,6 +227,8 @@ namespace adam
             
         if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
             param->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+        conn_it->second->check_valid_chain();
             
         return status_success;
     }
@@ -394,6 +396,8 @@ namespace adam
                 outputs_list->add(std::move(param));
             }
         }
+
+        conn_it->second->check_valid_chain();
             
         return status_success;
     }
