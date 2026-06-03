@@ -260,7 +260,7 @@ namespace adam::gui
             { gui_string_id::btn_remove_port,             { "Remove Port", "Port entfernen" } },
             { gui_string_id::lbl_data_inspector,          { "Data Inspector", "Dateninspektor" } },
             { gui_string_id::lbl_active_inspectors,       { "Active Inspectors", "Aktive Inspektoren" } },
-            { gui_string_id::col_inspect,                 { "Inspect", "Inspizieren" } },
+            { gui_string_id::col_inspect,                 { "On", "An" } },
             { gui_string_id::col_port_name,               { "Port Name", "Portname" } },
             { gui_string_id::col_messages,                { "Messages", "Nachrichten" } },
             { gui_string_id::col_size,                    { "Size", "Größe" } },

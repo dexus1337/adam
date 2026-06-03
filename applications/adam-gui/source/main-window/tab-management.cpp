@@ -27,7 +27,7 @@ namespace adam::gui
         adam::string_hashed g_target_connection("");
         adam::port::direction g_target_direction = adam::port::direction_invalid;
         bool g_request_port_popup = false;
-        char g_port_popup_title[128] = "Add Port###PortPopup";
+        char g_port_popup_title[max_name_length] = "Add Port###PortPopup";
 
         adam::string_hash g_active_drag_hash = 0;
         size_t g_active_drag_target_index = 0;
@@ -616,7 +616,7 @@ namespace adam::gui
         float dpi_scale = ImGui::GetStyle()._MainScale;
         if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            static char conn_name[256] = "";
+            static char conn_name[max_name_length] = "";
             ImGui::InputText(get_gui_string(gui_string_id::tbl_name, lang), conn_name, sizeof(conn_name));
 
             ImGui::Spacing();
@@ -670,7 +670,7 @@ namespace adam::gui
         static std::map<std::string, std::vector<port_display_info>> existing_grouped;
         static std::map<std::string, std::vector<port_display_info>> new_grouped;
         static std::map<adam::string_hash, port_display_info> known_port_types;
-        static std::map<adam::string_hash, std::array<char, 128>> new_port_names;
+        static std::map<adam::string_hash, std::array<char, max_name_length>> new_port_names;
         static std::vector<adam::string_hash> used_ports;
 
         if (g_request_port_popup)
@@ -1071,7 +1071,8 @@ namespace adam::gui
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_sort_by, lang));
         ImGui::SameLine();
-        const char* sort_options[] = {
+        const char* sort_options[] = 
+        {
             get_gui_string(gui_string_id::sort_name_asc, lang),
             get_gui_string(gui_string_id::sort_name_desc, lang),
             get_gui_string(gui_string_id::sort_date_asc, lang),
@@ -1318,7 +1319,8 @@ namespace adam::gui
     /**
      * @brief Draws the bezier curve lines and pin connection dots between the different port nodes.
      */
-    void draw_connection_lines(
+    void draw_connection_lines
+    (
         ImDrawList* draw_list,
         float dpi_scale,
         bool is_light_theme,
@@ -1329,7 +1331,8 @@ namespace adam::gui
         const ImVec2& cur_pos,
         const std::vector<std::vector<connection_pin_data>>& stage_pins_in,
         const std::vector<std::vector<connection_pin_data>>& stage_pins_out,
-        adam::connection_view* conn)
+        adam::connection_view* conn
+    )
     {
         ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
         ImColor grey_col = is_light_theme ? ImColor(210, 210, 210, 80) : ImColor(70, 70, 70, 80);
@@ -1367,8 +1370,6 @@ namespace adam::gui
                     p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
                     cur_line_col, line_thickness);
             }
-                
-            draw_list->AddCircleFilled(p_mid, line_thickness * 0.6f, conn->valid_chain ? line_col : grey_col);
         }
         else
         {
@@ -1385,9 +1386,11 @@ namespace adam::gui
 
                         ImColor cur_line_col = conn->valid_chain ? line_col : grey_col;
 
-                        draw_list->AddBezierCubic(
+                        draw_list->AddBezierCubic
+                        (
                             pin_out, ImVec2(pin_out.x + b_strength, pin_out.y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
-                            cur_line_col, line_thickness);
+                            cur_line_col, line_thickness
+                        );
                     }
                 }
             }
@@ -1396,7 +1399,8 @@ namespace adam::gui
         // Draw circular connection dots (pins) on active nodes
         auto draw_pin_dot = [&](const connection_pin_data& pin)
         {
-            draw_list->AddCircleFilled(pin.pos, 6.0f * dpi_scale, pin.col);
+            float dot_radius = ImGui::GetTextLineHeight() / 2 - ImGui::GetStyle().CellPadding.y;
+            draw_list->AddCircleFilled(pin.pos, dot_radius, pin.col);
         };
 
         for (int s = 0; s < total_stages; ++s)
@@ -1416,7 +1420,8 @@ namespace adam::gui
      * @brief Renders the node addition buttons ("Add Input", "Add Output", "Add Processor") 
      *        at the bottom of a connection card.
      */
-    void draw_connection_card_footer(
+    void draw_connection_card_footer
+    (
         gui_controller& ctrl,
         adam::language lang,
         adam::connection_view* conn,
@@ -1425,7 +1430,8 @@ namespace adam::gui
         float current_y,
         float start_x,
         float avail_x,
-        float avail_w)
+        float avail_w
+    )
     {
         (void)ctrl;
         const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
@@ -2184,7 +2190,9 @@ namespace adam::gui
         size_t display_len = ib.data.size();
         size_t num_rows = (display_len + 15) / 16;
 
+        if (g_mono_font) ImGui::PushFont(g_mono_font);
         float line_h = ImGui::GetTextLineHeight();
+        if (g_mono_font) ImGui::PopFont();
         float calc_h = line_h * num_rows + ImGui::GetStyle().FramePadding.y * 2.0f;
 
         float button_h = ImGui::GetFrameHeight();
@@ -2283,7 +2291,6 @@ namespace adam::gui
             }
 
             ImGui::PopStyleVar();
-            ImGui::Spacing();
 
             // Render Hex Dump Child with Clipper
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0.15f));
@@ -2331,13 +2338,20 @@ namespace adam::gui
                         line_buf[printed++] = ' ';
                         line_buf[printed++] = '|';
 
-                        for (size_t j = 0; j < chunk; ++j)
+                        for (size_t j = 0; j < 16; ++j)
                         {
-                            char c = ib.data[offset + j];
-                            if (c >= 32 && c <= 126)
-                                line_buf[printed++] = c;
+                            if (j < chunk)
+                            {
+                                char c = ib.data[offset + j];
+                                if (c >= 32 && c <= 126)
+                                    line_buf[printed++] = c;
+                                else
+                                    line_buf[printed++] = '.';
+                            }
                             else
-                                line_buf[printed++] = '.';
+                            {
+                                line_buf[printed++] = ' ';
+                            }
                         }
                         line_buf[printed++] = '|';
                         line_buf[printed] = '\0';
@@ -2368,7 +2382,7 @@ namespace adam::gui
         ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x8888));
         
         ImGui::BeginChild("##outer_child", ImVec2(0, inspector_height), true);
-        
+
         float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
         ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
 
@@ -2640,10 +2654,11 @@ namespace adam::gui
         {
             auto setup_columns = [dpi_scale, lang]() 
             {
+                auto fixed_single_size = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.x * 2.f;
                 ImGui::TableSetupScrollFreeze(0, 3);
-                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
-                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, 22.0f * dpi_scale);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_inspect, lang),       ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, fixed_single_size);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.x);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_inspect, lang),       ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, fixed_single_size);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_port_name, lang),     ImGuiTableColumnFlags_WidthStretch);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang),      ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang),          ImGuiTableColumnFlags_WidthFixed, 80.0f * dpi_scale);
@@ -2653,23 +2668,8 @@ namespace adam::gui
             setup_columns();
             ImGui::TableHeadersRow();
 
-            static std::vector<adam::string_hash> port_hashes;
-            port_hashes.clear();
-            for (const auto& [hash, p_view] : ports)
+            for (const auto& [port_hash, p_view] : ports)
             {
-                port_hashes.push_back(hash);
-            }
-            std::sort(port_hashes.begin(), port_hashes.end(), [&](adam::string_hash a, adam::string_hash b) 
-            {
-                return std::strcmp(ports.at(a)->name.c_str(), ports.at(b)->name.c_str()) < 0;
-            });
-
-            for (adam::string_hash port_hash : port_hashes)
-            {
-                auto p_it = ports.find(port_hash);
-                if (p_it == ports.end()) continue;
-                auto p_view = p_it->second.get();
-
                 bool has_inspector = inspectors.find(port_hash) != inspectors.end();
                 bool node_open = false;
 
@@ -2721,14 +2721,12 @@ namespace adam::gui
                 {
                     ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x9999));
                     pushed_id = true;
-                    ImGui::AlignTextToFramePadding();
                     
                     bool is_expanded = std::find(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), port_hash) != g_expanded_inspector_ports.end();
                     
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
                     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-                    
                     if (ImGui::ArrowButton("##node", is_expanded ? ImGuiDir_Down : ImGuiDir_Right))
                     {
                         if (is_expanded)
@@ -2751,8 +2749,8 @@ namespace adam::gui
                     pin_col = get_gui_color(gui_color_id::node_pin_active);
 
                 ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
-                float dot_radius = 6.0f * dpi_scale;
-                ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(cursor_pos.x + 10.0f * dpi_scale, cursor_pos.y + ImGui::GetFrameHeight() * 0.5f), dot_radius, pin_col);
+                float dot_radius = ImGui::GetTextLineHeight() / 2 - ImGui::GetStyle().CellPadding.y;
+                ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(cursor_pos.x + dot_radius + ImGui::GetStyle().CellPadding.x, cursor_pos.y + ImGui::GetFrameHeight() * 0.5f), dot_radius, pin_col);
                 // ---- END Status Icon  ----
                 
                 // ---- BEGIN Inspect  ----
@@ -2838,7 +2836,6 @@ namespace adam::gui
                 if (node_open)
                 {
                     ImGui::EndTable();
-                    ImGui::Spacing();
                     
                     render_inspector_frames_table(p_view->name, inspector_height, dpi_scale, lang);
 
@@ -2888,7 +2885,8 @@ namespace adam::gui
     {
         ImGui::SameLine();
 
-        float splitter_w = 4.0f * ImGui::GetStyle()._MainScale;
+        float dpi_scale     = ImGui::GetStyle()._MainScale;
+        float splitter_w    = 4.0f * dpi_scale;
         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
@@ -2898,8 +2896,8 @@ namespace adam::gui
         if (ImGui::IsItemActive())
         {
             left_w += ImGui::GetIO().MouseDelta.x;
-            if (left_w < 100.0f) left_w = 100.0f;
-            if (left_w > avail_w - 100.0f) left_w = avail_w - 100.0f;
+            if (left_w < 100.0f * dpi_scale) left_w = 100.0f * dpi_scale;
+            if (left_w > avail_w - 100.0f * dpi_scale) left_w = avail_w - 100.0f * dpi_scale;
         }
         if (ImGui::IsItemHovered())
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
@@ -2913,7 +2911,6 @@ namespace adam::gui
 
     void render_tab_management(gui_controller& ctrl, adam::language lang)
     {
-        
         static bool show_inspector = false;
         if (g_request_open_inspector)
         {
@@ -3012,9 +3009,10 @@ namespace adam::gui
         float content_h = ImGui::GetContentRegionAvail().y;
 
         static float left_w = 0.0f;
+        float dpi_scale     = ImGui::GetStyle()._MainScale;
         if (left_w == 0.0f) left_w = avail_w * 0.66f;
         
-        if (show_inspector && left_w > avail_w - 100.0f) left_w = avail_w - 100.0f;
+        if (show_inspector && left_w > avail_w - 100.0f * dpi_scale) left_w = avail_w - 100.0f * dpi_scale;
 
         if (show_inspector) 
             ImGui::BeginChild("ConnectionsRegion", ImVec2(left_w, content_h), false);
