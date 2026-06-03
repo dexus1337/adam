@@ -1,7 +1,20 @@
 #include "data/port/port-output-recording.hpp"
 
+#include "configuration/configuration-item.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-double.hpp"
+#include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "controller/controller.hpp"
+#include "resources/language-strings.hpp"
+#include "data/formats/pcap.hpp"
+
+#include <filesystem>
+#include <format>
+#include <unordered_map>
+#include <array>
+#include <iomanip>
+#include <sstream>
 
 namespace adam::modules::recrep
 {
@@ -77,11 +90,211 @@ namespace adam::modules::recrep
         add_parameters(port_output_recording::get_default_parameters());
     }
 
-    port_output_recording::~port_output_recording() {}
+    port_output_recording::~port_output_recording() 
+    {
+        stop();
+    }
+
+    bool port_output_recording::start()
+    {
+        auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
+        if (!user_params) return false;
+
+        m_data_format_param = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
+        m_file_mode_param = user_params->get<adam::configuration_parameter_string>("file_mode"_ct);
+        m_chunk_mode_param = user_params->get<adam::configuration_parameter_string>("chunk_mode"_ct);
+        m_chunk_size_param = user_params->get<adam::configuration_parameter_integer>("chunk_size"_ct);
+        m_chunk_duration_param = user_params->get<adam::configuration_parameter_integer>("chunk_duration"_ct);
+        m_path_param = user_params->get<adam::configuration_parameter_string>("path"_ct);
+
+        m_current_chunk_index = 0;
+        
+        return open_next_file();
+    }
+
+    bool port_output_recording::stop()
+    {
+        if (m_file_stream.is_open())
+        {
+            m_file_stream.flush();
+            m_file_stream.close();
+        }
+        return true;
+    }
+
+    bool port_output_recording::open_next_file()
+    {
+        if (m_file_stream.is_open())
+        {
+            m_file_stream.flush();
+            m_file_stream.close();
+        }
+
+        auto lang = adam::controller::get().get_language();
+
+        if (m_data_format_param->get_value() == "rff"_ct)
+        {
+            adam::controller::get().log(adam::log::error, get_log_event_text(format_not_implemented, lang));
+            return false;
+        }
+
+        auto t  = std::time(nullptr);
+        std::tm tm_info;
+        #ifdef _WIN32
+        localtime_s(&tm_info, &t);
+        #else
+        localtime_r(&t, &tm_info);
+        #endif
+        std::ostringstream oss;
+        oss << std::put_time(&tm_info, "%d%m%y_%H%M");
+        std::string time_str = oss.str();
+
+        std::string extension = "." + m_data_format_param->get_value();
+
+        std::string file_name;
+        if (m_file_mode_param->get_value() == "chunked_file"_ct)
+        {
+            file_name = std::format("{}_{}_{:03}{}", configuration_item::get_name().c_str(), time_str, m_current_chunk_index, extension);
+        }
+        else
+        {
+            file_name = std::format("{}_{}{}", configuration_item::get_name().c_str(), time_str, extension);
+        }
+
+        std::string final_path;
+        if (m_path_param->get_value().empty())
+        {
+            final_path = file_name;
+        }
+        else
+        {
+            final_path = (std::filesystem::path(m_path_param->get_value().c_str()) / file_name).string();
+        }
+
+        m_file_stream.open(final_path, std::ios::binary | std::ios::out | std::ios::trunc);
+        if (!m_file_stream.is_open())
+        {
+            adam::controller::get().log(adam::log::error, get_log_event_text(file_open_failed, lang));
+            return false;
+        }
+
+        m_current_chunk_bytes = 0;
+        m_first_packet_timestamp_ns = 0;
+
+        if (m_data_format_param->get_value() == "pcap"_ct)
+        {
+            pcap::file_header fh = {};
+            fh.magic = pcap::file_header::magic_number;
+            fh.ver_maj = pcap::version_major;
+            fh.ver_min = pcap::version_minor;
+            fh.thiszone = 0;
+            fh.sigfigs = 0;
+            fh.snaplen = 65535;
+            fh.network = pcap::network_type::raw;
+            
+            m_file_stream.write(reinterpret_cast<const char*>(&fh), sizeof(fh));
+            m_current_chunk_bytes += sizeof(fh);
+        }
+
+        m_current_chunk_index++;
+        return true;
+    }
 
     bool port_output_recording::write(buffer* buff) 
     {
-        (void)buff;
-        return false;
+        if (!buff || !m_file_stream.is_open()) return false;
+
+        bool is_chunked = m_file_mode_param->get_value() == "chunked_file"_ct;
+        
+        if (is_chunked)
+        {
+            auto chunk_mode = m_chunk_mode_param->get_value();
+            bool should_chunk = false;
+
+            if (chunk_mode == "size"_ct)
+            {
+                uint64_t max_size_bytes = m_chunk_size_param->get_value() * 1024ull * 1024ull;
+                if (m_current_chunk_bytes + sizeof(pcap::packet_header) + buff->get_size() >= max_size_bytes)
+                {
+                    should_chunk = true;
+                }
+            }
+            else if (chunk_mode == "time"_ct)
+            {
+                if (m_first_packet_timestamp_ns == 0)
+                {
+                    m_first_packet_timestamp_ns = buff->get_timestamp();
+                }
+                else
+                {
+                    uint64_t max_duration_ns = m_chunk_duration_param->get_value() * 1000000000ull;
+                    if (buff->get_timestamp() >= m_first_packet_timestamp_ns + max_duration_ns)
+                    {
+                        should_chunk = true;
+                    }
+                }
+            }
+
+            if (should_chunk)
+            {
+                if (!open_next_file())
+                {
+                    return false;
+                }
+                if (chunk_mode == "time"_ct)
+                {
+                    m_first_packet_timestamp_ns = buff->get_timestamp();
+                }
+            }
+        }
+
+        if (m_data_format_param->get_value() == "pcap"_ct)
+        {
+            pcap::packet_header ph = {};
+            uint64_t ts = buff->get_timestamp();
+            ph.ts_sec = static_cast<uint32_t>(ts / 1000000000ull);
+            ph.ts_usec = static_cast<uint32_t>((ts % 1000000000ull) / 1000ull);
+            ph.incl_len = static_cast<uint32_t>(buff->get_size());
+            ph.orig_len = static_cast<uint32_t>(buff->get_size());
+
+            m_file_stream.write(reinterpret_cast<const char*>(&ph), sizeof(ph));
+            m_file_stream.write(reinterpret_cast<const char*>(buff->data()), buff->get_size());
+
+            m_current_chunk_bytes += sizeof(ph) + buff->get_size();
+        }
+        else if (m_data_format_param->get_value() == "rff"_ct)
+        {
+            // TODO: implement rff packet writing logic
+            
+            // m_file_stream.write(...);
+            // m_current_chunk_bytes += buff->get_size() + header_size;
+        }
+
+        return true;
+    }
+
+    std::string_view port_output_recording::get_log_event_text(log_event event, language lang)
+    {
+        static const std::unordered_map<log_event, std::array<std::string_view, languages_count>> translations =
+        {
+            {
+                log_event::file_open_failed,
+                { "Recording: Failed to open output file.", "Aufnahme: Fehler beim Öffnen der Ausgabedatei." }
+            },
+            {
+                log_event::format_not_implemented,
+                { "Recording: Selected data format is not yet implemented.", "Aufnahme: Das ausgewählte Datenformat ist noch nicht implementiert." }
+            }
+        };
+
+        auto it = translations.find(event);
+        if (it != translations.end())
+        {
+            if (lang == language_german)
+                return it->second[1];
+            return it->second[0];
+        }
+        
+        return language_strings::unknown_type_message("port_output_recording::log_event", static_cast<int>(event), lang);
     }
 }

@@ -13,6 +13,10 @@
  
 #include <adam-sdk.hpp>
 
+#include <fstream>
+#include <vector>
+#include <chrono>
+
 
 namespace adam::modules::recrep
 {
@@ -25,6 +29,16 @@ namespace adam::modules::recrep
     public:
 
         static ADAM_CONSTEXPR string_hashed_ct type_name() { return "replay"_ct; }
+
+        enum log_event
+        {
+            file_too_small,
+            invalid_magic_number,
+            unsupported_version,
+            format_not_implemented
+        };
+
+        static std::string_view get_log_event_text(log_event event, language lang);
 
         static const configuration_parameter_list& get_default_parameters();
 
@@ -44,5 +58,21 @@ namespace adam::modules::recrep
 
         /** @brief Protoype function for data input */
         virtual bool read(buffer*& buff) override;
+
+    private:
+
+        adam::configuration_parameter_double* m_speed_param = nullptr;
+        adam::configuration_parameter_string* m_mode_param = nullptr;
+        adam::configuration_parameter_string* m_data_format_param = nullptr;
+
+        bool open_next_file();
+
+        std::vector<std::string> m_files;
+        size_t m_current_file_index = 0;
+        std::ifstream m_file_stream;
+        
+        bool m_is_first_packet = true;
+        std::chrono::steady_clock::time_point m_replay_start_time;
+        std::chrono::microseconds m_first_packet_timestamp_us;
     };
 }

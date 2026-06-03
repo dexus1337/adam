@@ -619,72 +619,71 @@ namespace adam
     
     std::string_view controller::get_log_event_text(log_event event, language lang)
     {
-        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        static const std::unordered_map<log_event, std::array<std::string_view, languages_count>> translations =
         {
             { 
-                static_cast<int>(log_event::thread_auth_failed),
+                log_event::thread_auth_failed,
                 { "Thread {:d} did not authenticate correctly.",    "Thread {:d} hat sich nicht korrekt authentifiziert." }
             },
             { 
-                static_cast<int>(log_event::slave_queue_created),
+                log_event::slave_queue_created,
                 { "Thread {:d} did successfully create queue of type \"{}\".",    "Thread {:d} hat eine Warteschlange vom Typ \"{}\" erfolgreich erstellt." }
             },
             { 
-                static_cast<int>(log_event::slave_queue_destroyed),
+                log_event::slave_queue_destroyed,
                 { "Thread {:d} did successfully destroy queue of type \"{}\".",   "Thread {:d} hat eine Warteschlange vom Typ \"{}\" erfolgreich entfernt." }
             },
             {
-                static_cast<int>(log_event::slave_queue_already_exists),
+                log_event::slave_queue_already_exists,
                 { "Client {:d} tried to create a queue that already exists.",   "Client {:d} hat versucht, eine Warteschlange zu erstellen, die bereits existiert." }
             },
             {
-                static_cast<int>(log_event::slave_queue_failed_to_open),
+                log_event::slave_queue_failed_to_open,
                 { "Queue for client {:d} failed to open.",                      "Warteschlange für Client {:d} konnte nicht geöffnet werden." }
             },
             {
-                static_cast<int>(log_event::slave_queue_failed_to_insert),
+                log_event::slave_queue_failed_to_insert,
                 { "Queue for client {:d} failed to insert to database.",        "Warteschlange für Client {:d} konnte nicht in die Datenbank eingefügt werden." }
             },
             {
-                static_cast<int>(log_event::slave_queue_worker_already_exists),
+                log_event::slave_queue_worker_already_exists,
                 { "Client {:d} tried to create a queue + worker that already exists.", "Client {:d} hat versucht, eine Warteschlange + Worker zu erstellen, die bereits existieren." }
             },
             {
-                static_cast<int>(log_event::slave_queue_worker_failed_to_open),
+                log_event::slave_queue_worker_failed_to_open,
                 { "Queue + worker for client {:d} failed to open.",             "Warteschlange + Worker für Client {:d} konnten nicht geöffnet werden." }
             },
             {
-                static_cast<int>(log_event::slave_queue_worker_failed_to_insert),
+                log_event::slave_queue_worker_failed_to_insert,
                 { "Queue + worker for client {:d} failed to insert to database.", "Warteschlange + Worker für Client {:d} konnten nicht in die Datenbank eingefügt werden." }
             },
             {
-                static_cast<int>(log_event::slave_queue_does_not_exist),
+                log_event::slave_queue_does_not_exist,
                 { "Client {:d} tried to destroy a queue that doesnt exists.",   "Client {:d} hat versucht, eine Warteschlange zu entfernen, die nicht existiert." }
             },
             {
-                static_cast<int>(log_event::slave_queue_failed_to_destroy),
+                log_event::slave_queue_failed_to_destroy,
                 { "Failed to destroy queue of client {:d}.",                    "Fehler beim Entfernen der Warteschlange von Client {:d}." }
             },
             {
-                static_cast<int>(log_event::slave_queue_worker_does_not_exist),
+                log_event::slave_queue_worker_does_not_exist,
                 { "Client {:d} tried to destroy a queue + worker that doesnt exists.", "Client {:d} hat versucht, eine Warteschlange + Worker zu entfernen, die nicht existieren." }
             },
             {
-                static_cast<int>(log_event::slave_queue_worker_failed_to_destroy),
+                log_event::slave_queue_worker_failed_to_destroy,
                 { "Failed to destroy queue + worker of client {:d}. Ignoring.", "Fehler beim Entfernen der Warteschlange + Worker von Client {:d}. Wird ignoriert." }
             },
             {
-                static_cast<int>(log_event::controller_shutting_down),
+                log_event::controller_shutting_down,
                 { "Controller is shutting down.", "Controller wird heruntergefahren." }
             },
             {
-                static_cast<int>(log_event::adam_started),
+                log_event::adam_started,
                 { "ADAM started successfully.", "ADAM wurde erfolgreich gestartet." }
             }
         };
 
-        auto val    = static_cast<int>(event);
-        auto it     = translations.find(val);
+        auto it = translations.find(event);
 
         if (it != translations.end())
         {
@@ -694,6 +693,6 @@ namespace adam
             return it->second[0];
         }
         
-        return language_strings::unknown_type_message("controller::log_event", val, lang);
+        return language_strings::unknown_type_message("controller::log_event", static_cast<int>(event), lang);
     }
 }

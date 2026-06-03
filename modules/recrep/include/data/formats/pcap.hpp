@@ -19,10 +19,6 @@ namespace adam::modules::recrep
 {
     namespace pcap
     {
-        static const uint32_t magic_number = 0xa1b2c3d4;
-        static const uint16_t version_major = 2;
-        static const uint16_t version_minor = 4;
-
         enum network_type : uint32_t
         {
             ethernet = 1,
@@ -30,12 +26,17 @@ namespace adam::modules::recrep
             raw = 100,
         };
 
+        static const uint16_t version_major = 2;
+        static const uint16_t version_minor = 4;
+        
         #pragma pack(push, 1)
         struct file_header
-        {
-            uint32_t        magic_number;
-            uint16_t        major_version;
-            uint16_t        minor_version;
+        {        
+            static const uint32_t magic_number = 0xa1b2c3d4;
+
+            uint32_t        magic;
+            uint16_t        ver_maj;
+            uint16_t        ver_min;
             uint32_t        thiszone;
             uint32_t        sigfigs;
             uint32_t        snaplen;

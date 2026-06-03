@@ -154,6 +154,5 @@ namespace adam
         buffer* m_statistic_buffer;                                                 /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::statistic_info. */
 
         configuration_parameter_boolean* m_is_active;                               /**< Cached pointer to the is active parameter as it will be frequently accessed. */
-
     };
 }
