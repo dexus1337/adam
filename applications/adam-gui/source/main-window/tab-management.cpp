@@ -7,6 +7,8 @@
 #include <mutex>
 #include <string>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <chrono>
 
@@ -33,15 +35,15 @@ namespace adam::gui
         adam::string_hash g_active_drag_hash = 0;
         size_t g_active_drag_target_index = 0;
 
-        std::vector<uint64_t> g_expanded_nodes;
+        std::unordered_set<uint64_t> g_expanded_nodes;
         
-        std::vector<uint64_t> g_expanded_inject_nodes;
+        std::unordered_set<uint64_t> g_expanded_inject_nodes;
 
-        std::vector<uint64_t> g_expanded_param_nodes;
-        std::vector<adam::string_hash> g_expanded_inspector_ports;
-        std::vector<adam::string_hash> g_pending_inspector_ports;
+        std::unordered_set<uint64_t> g_expanded_param_nodes;
+        std::unordered_set<adam::string_hash> g_expanded_inspector_ports;
+        std::unordered_set<adam::string_hash> g_pending_inspector_ports;
 
-        std::map<uint64_t, float> g_expanded_node_heights;
+        std::unordered_map<uint64_t, float> g_expanded_node_heights;
         
         bool g_request_open_inspector = false;
         adam::string_hash g_port_to_expand_in_inspector = 0;
@@ -185,6 +187,99 @@ namespace adam::gui
             return {is_valid, bytes};
         }
 
+        // ---------------------------------------------------------------------------
+        // fill_hex_preview
+        // Fills hex_buf (up to max_bytes hex pairs) and ascii_buf with a printable
+        // preview of the given byte range. Both buffers must be sized by caller.
+        // ---------------------------------------------------------------------------
+        static void fill_hex_preview(
+            const uint8_t* data, size_t data_len, size_t max_bytes,
+            char* hex_buf,  size_t hex_buf_size,
+            char* ascii_buf, size_t ascii_buf_size)
+        {
+            char* p_hex   = hex_buf;
+            char* p_ascii = ascii_buf;
+            size_t n = std::min(data_len, max_bytes);
+            for (size_t k = 0; k < n; ++k)
+            {
+                int written = snprintf(p_hex, hex_buf_size - (p_hex - hex_buf), "%02X ", data[k]);
+                if (written > 0) p_hex += written;
+                *p_ascii++ = (data[k] >= 32 && data[k] <= 126) ? static_cast<char>(data[k]) : '.';
+            }
+            if (data_len > max_bytes)
+            {
+                if (p_hex > hex_buf) *(p_hex - 1) = '\0';
+                snprintf(p_hex,   hex_buf_size   - (p_hex   - hex_buf),   "...");
+                snprintf(p_ascii, ascii_buf_size - (p_ascii - ascii_buf), "...");
+            }
+            else
+            {
+                if (p_hex > hex_buf) *(p_hex - 1) = '\0';
+                *p_ascii = '\0';
+            }
+        }
+
+        // ---------------------------------------------------------------------------
+        // draw_direction_badge
+        // Renders a coloured In/Out/In+Out label for a port direction.
+        // is_used dims the colours by half alpha.
+        // ---------------------------------------------------------------------------
+        static void draw_direction_badge(adam::port::direction dir, bool is_used, adam::language lang)
+        {
+            const bool has_in  = (dir & adam::port::direction_in)  != adam::port::direction_invalid;
+            const bool has_out = (dir & adam::port::direction_out) != adam::port::direction_invalid;
+
+            if (has_in && has_out)
+            {
+                ImVec4 in_col  = get_gui_color(gui_color_id::node_input);
+                ImVec4 out_col = get_gui_color(gui_color_id::node_output);
+                if (is_used) { in_col.w *= 0.5f; out_col.w *= 0.5f; }
+                ImGui::TextColored(in_col,  "%s", get_gui_string(gui_string_id::lbl_badge_in_short,  lang));
+                ImGui::SameLine(0, 0);
+                ImGui::TextUnformatted("/");
+                ImGui::SameLine(0, 0);
+                ImGui::TextColored(out_col, "%s", get_gui_string(gui_string_id::lbl_badge_out_short, lang));
+            }
+            else if (has_in)
+            {
+                ImVec4 col = get_gui_color(gui_color_id::node_input);
+                if (is_used) col.w *= 0.5f;
+                ImGui::TextColored(col, "%s", get_gui_string(gui_string_id::lbl_badge_input, lang));
+            }
+            else if (has_out)
+            {
+                ImVec4 col = get_gui_color(gui_color_id::node_output);
+                if (is_used) col.w *= 0.5f;
+                ImGui::TextColored(col, "%s", get_gui_string(gui_string_id::lbl_badge_output, lang));
+            }
+            else
+            {
+                ImGui::TextDisabled("Unknown");
+            }
+        }
+
+        // ---------------------------------------------------------------------------
+        // make_inspector_buffer_callback
+        // Returns the std::function used when creating a data inspector for a port.
+        // Both the draw_node right-click path and the inspector-tab checkbox share
+        // the exact same logic.
+        // ---------------------------------------------------------------------------
+        static std::function<void(adam::buffer*)> make_inspector_buffer_callback(adam::string_hash port_hash)
+        {
+            return [port_hash](adam::buffer* buf)
+            {
+                if (!buf) return;
+                adam::gui::inspected_buffer ib;
+                ib.timestamp = buf->get_timestamp();
+                if (ib.timestamp == 0)
+                    ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                if (buf->get_size() > 0 && buf->get_data())
+                    ib.data.assign(buf->get_data_as<uint8_t>(), buf->get_data_as<uint8_t>() + buf->get_size());
+                std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
+                adam::gui::g_inspection_data.buffers[port_hash].push_back(std::move(ib));
+            };
+        }
+
         void draw_expanded_port_node
         (
             gui_controller& ctrl,
@@ -315,15 +410,15 @@ namespace adam::gui
             if (p_it != ports.end() && !p_it->second->is_unavailable && !p_it->second->user_params.get_children().empty())
             {
                 ImGui::PushID((const void*)(intptr_t)(info.unique_node_id ^ 0x5555));
-                bool param_expanded = std::find(g_expanded_param_nodes.begin(), g_expanded_param_nodes.end(), info.unique_node_id) != g_expanded_param_nodes.end();
+                bool param_expanded = g_expanded_param_nodes.count(info.unique_node_id) > 0;
                 
                 bool tree_open = ImGui::TreeNodeEx("Parameters", param_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
                 if (tree_open != param_expanded)
                 {
                     if (tree_open)
-                        g_expanded_param_nodes.push_back(info.unique_node_id);
+                        g_expanded_param_nodes.insert(info.unique_node_id);
                     else
-                        g_expanded_param_nodes.erase(std::remove(g_expanded_param_nodes.begin(), g_expanded_param_nodes.end(), info.unique_node_id), g_expanded_param_nodes.end());
+                        g_expanded_param_nodes.erase(info.unique_node_id);
 
                     g_expanded_node_heights.erase(info.unique_node_id); // Invalidate cache to force smooth layout recalculation
                 }
@@ -337,28 +432,10 @@ namespace adam::gui
                     
                     float avail_w = ImGui::GetContentRegionAvail().x;
                     
-                    std::vector<std::pair<adam::string_hashed, adam::configuration_parameter*>> params_to_render;
                     auto* sorted_list = dynamic_cast<const adam::configuration_parameter_list_sorted*>(&p_it->second->user_params);
-                    if (sorted_list)
-                    {
-                        for (auto hash : sorted_list->get_order())
-                        {
-                            auto* param_ptr = sorted_list->get(hash);
-                            if (param_ptr)
-                            {
-                                params_to_render.push_back({param_ptr->get_name(), param_ptr});
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (const auto& [param_name, param_ptr] : p_it->second->user_params.get_children())
-                        {
-                            params_to_render.push_back({param_name, param_ptr.get()});
-                        }
-                    }
 
-                    for (const auto& [param_name, param_ptr] : params_to_render)
+                    // Render each param via a lambda to avoid building an intermediate vector every frame
+                    auto render_param = [&](const adam::string_hashed& param_name, adam::configuration_parameter* param_ptr)
                     {
                         auto param_type = param_ptr->get_type();
                         
@@ -588,8 +665,23 @@ namespace adam::gui
                         }
                         
                         ImGui::PopID();
+                    };
+
+                    if (sorted_list)
+                    {
+                        for (auto hash : sorted_list->get_order())
+                        {
+                            auto* param_ptr = sorted_list->get(hash);
+                            if (param_ptr)
+                                render_param(param_ptr->get_name(), param_ptr);
+                        }
                     }
-                    
+                    else
+                    {
+                        for (const auto& [param_name, param_ptr] : p_it->second->user_params.get_children())
+                            render_param(param_name, param_ptr.get());
+                    }
+
                     if (disable_params) ImGui::EndDisabled();
                     
                     ImGui::Indent();
@@ -601,15 +693,15 @@ namespace adam::gui
 
             // Inject Data
             ImGui::PushID((const void*)(intptr_t)(info.unique_node_id ^ 0x3333));
-            bool inject_expanded = std::find(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), info.unique_node_id) != g_expanded_inject_nodes.end();
+            bool inject_expanded = g_expanded_inject_nodes.count(info.unique_node_id) > 0;
             
             bool tree_open = ImGui::TreeNodeEx(get_gui_string(gui_string_id::lbl_inject_data, lang), inject_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
             if (tree_open != inject_expanded)
             {
                 if (tree_open)
-                    g_expanded_inject_nodes.push_back(info.unique_node_id);
+                    g_expanded_inject_nodes.insert(info.unique_node_id);
                 else
-                    g_expanded_inject_nodes.erase(std::remove(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), info.unique_node_id), g_expanded_inject_nodes.end());
+                    g_expanded_inject_nodes.erase(info.unique_node_id);
 
                 g_expanded_node_heights.erase(info.unique_node_id); // Invalidate cache to force smooth layout recalculation
             }
@@ -1002,43 +1094,7 @@ namespace adam::gui
                             ImGui::Unindent();
 
                             ImGui::TableSetColumnIndex(1);
-                            if ((pdi.direction & adam::port::direction_in) != adam::port::direction_invalid && (pdi.direction & adam::port::direction_out) != adam::port::direction_invalid)
-                            {
-                                ImVec4 in_col = get_gui_color(gui_color_id::node_input);
-                                ImVec4 out_col = get_gui_color(gui_color_id::node_output);
-                                if (is_used) 
-                                {
-                                    in_col.w *= 0.5f;
-                                    out_col.w *= 0.5f;
-                                }
-                                ImGui::TextColored(in_col, "%s", get_gui_string(gui_string_id::lbl_badge_in_short, lang));
-                                ImGui::SameLine(0, 0);
-                                ImGui::TextUnformatted("/");
-                                ImGui::SameLine(0, 0);
-                                ImGui::TextColored(out_col, "%s", get_gui_string(gui_string_id::lbl_badge_out_short, lang));
-                            }
-                            else if ((pdi.direction & adam::port::direction_in) != adam::port::direction_invalid)
-                            {
-                                ImVec4 col = get_gui_color(gui_color_id::node_input);
-                                if (is_used) 
-                                {
-                                    col.w *= 0.5f;
-                                }
-                                ImGui::TextColored(col, "%s", get_gui_string(gui_string_id::lbl_badge_input, lang));
-                            }
-                            else if ((pdi.direction & adam::port::direction_out) != adam::port::direction_invalid)
-                            {
-                                ImVec4 col = get_gui_color(gui_color_id::node_output);
-                                if (is_used) 
-                                {
-                                    col.w *= 0.5f;
-                                }
-                                ImGui::TextColored(col, "%s", get_gui_string(gui_string_id::lbl_badge_output, lang));
-                            }
-                            else
-                            {
-                                ImGui::TextDisabled("Unknown");
-                            }
+                            draw_direction_badge(pdi.direction, is_used, lang);
 
                             ImGui::TableSetColumnIndex(2);
                             ImGui::TextUnformatted(pdi.port_name.c_str());
@@ -1103,26 +1159,7 @@ namespace adam::gui
                             ImGui::Unindent();
 
                             ImGui::TableSetColumnIndex(1);
-                            if ((pdi.direction & adam::port::direction_in) != adam::port::direction_invalid && (pdi.direction & adam::port::direction_out) != adam::port::direction_invalid)
-                            {
-                                ImGui::TextColored(get_gui_color(gui_color_id::node_input), "%s", get_gui_string(gui_string_id::lbl_badge_in_short, lang));
-                                ImGui::SameLine(0, 0);
-                                ImGui::TextUnformatted("/");
-                                ImGui::SameLine(0, 0);
-                                ImGui::TextColored(get_gui_color(gui_color_id::node_output), "%s", get_gui_string(gui_string_id::lbl_badge_out_short, lang));
-                            }
-                            else if ((pdi.direction & adam::port::direction_in) != adam::port::direction_invalid)
-                            {
-                                ImGui::TextColored(get_gui_color(gui_color_id::node_input), "%s", get_gui_string(gui_string_id::lbl_badge_input, lang));
-                            }
-                            else if ((pdi.direction & adam::port::direction_out) != adam::port::direction_invalid)
-                            {
-                                ImGui::TextColored(get_gui_color(gui_color_id::node_output), "%s", get_gui_string(gui_string_id::lbl_badge_output, lang));
-                            }
-                            else
-                            {
-                                ImGui::TextDisabled("Unknown");
-                            }
+                            draw_direction_badge(pdi.direction, false, lang);
 
                             ImGui::TableSetColumnIndex(2);
                             ImGui::PushID((const void*)(intptr_t)pdi.port_hash);
@@ -1677,15 +1714,11 @@ namespace adam::gui
             // 2. Fallback estimation for the very first frame the node is expanded before ImGui can cache it
             float h = 200.0f * dpi_scale;
 
-            if (std::find(g_expanded_inject_nodes.begin(), g_expanded_inject_nodes.end(), uid) != g_expanded_inject_nodes.end())
-            {
+            if (g_expanded_inject_nodes.count(uid))
                 h += 150.0f * dpi_scale;
-            }
 
-            if (std::find(g_expanded_param_nodes.begin(), g_expanded_param_nodes.end(), uid) != g_expanded_param_nodes.end())
-            {
+            if (g_expanded_param_nodes.count(uid))
                 h += 150.0f * dpi_scale;
-            }
 
             return h;
         };
@@ -1701,13 +1734,13 @@ namespace adam::gui
             for (auto pid : conn->inputs)
             {
                 uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ (0 << 16));
-                if (std::find(g_expanded_nodes.begin(), g_expanded_nodes.end(), uid) != g_expanded_nodes.end()) in_col_bottom += get_expanded_h(uid);
+                if (g_expanded_nodes.count(uid)) in_col_bottom += get_expanded_h(uid);
             }
 
             for (auto pid : conn->outputs)
             {
                 uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ ((total_stages - 1) << 16));
-                if (std::find(g_expanded_nodes.begin(), g_expanded_nodes.end(), uid) != g_expanded_nodes.end()) out_col_bottom += get_expanded_h(uid);
+                if (g_expanded_nodes.count(uid)) out_col_bottom += get_expanded_h(uid);
             }
         }
         
@@ -1761,20 +1794,24 @@ namespace adam::gui
 
             if (!is_drag_preview)
             {
-                // Available formats
+                // Available formats — rebuilt once per frame across all connection cards, not once per card
                 static std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
-                available_formats.clear();
-                available_formats.push_back({ "transparent"_ct, ""_ct });
+                static int s_formats_frame = -1;
                 {
                     std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
                     const auto& loaded_modules = ctrl.commander().get_modules().get_loaded();
-                    for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
+
+                    if (ImGui::GetFrameCount() != s_formats_frame)
                     {
-                        if (loaded_modules.find(mod_name) != loaded_modules.end())
+                        s_formats_frame = ImGui::GetFrameCount();
+                        available_formats.clear();
+                        available_formats.push_back({ "transparent"_ct, ""_ct });
+                        for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
                         {
-                            for (const auto& fmt : mod_info.data_formats)
+                            if (loaded_modules.find(mod_name) != loaded_modules.end())
                             {
-                                available_formats.push_back({ fmt, mod_name });
+                                for (const auto& fmt : mod_info.data_formats)
+                                    available_formats.push_back({ fmt, mod_name });
                             }
                         }
                     }
@@ -1969,16 +2006,15 @@ namespace adam::gui
                 if (port_hash != 0 && !is_drag_preview)
                 {
                     uint64_t unique_node_id = static_cast<uint64_t>(port_hash ^ hash ^ (stage << 16));
-                    auto exp_it = std::find(g_expanded_nodes.begin(), g_expanded_nodes.end(), unique_node_id);
-                    is_expanded = (exp_it != g_expanded_nodes.end());
+                    is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
 
                     // Handle Left Click -> Expand
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
                     {
                         if (is_expanded)
-                            g_expanded_nodes.erase(exp_it);
+                            g_expanded_nodes.erase(unique_node_id);
                         else
-                            g_expanded_nodes.push_back(unique_node_id);
+                            g_expanded_nodes.insert(unique_node_id);
                         is_expanded = !is_expanded;
                     }
 
@@ -1992,13 +2028,12 @@ namespace adam::gui
                             {
                                 g_request_open_inspector = true;
                                 g_port_to_expand_in_inspector = port_hash;
-                                if (std::find(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), port_hash) == g_pending_inspector_ports.end())
-                                    g_pending_inspector_ports.push_back(port_hash);
+                                g_pending_inspector_ports.insert(port_hash);
                             }
                             else
                             {
-                                g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), port_hash), g_expanded_inspector_ports.end());
-                                g_pending_inspector_ports.erase(std::remove(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), port_hash), g_pending_inspector_ports.end());
+                                g_expanded_inspector_ports.erase(port_hash);
+                                g_pending_inspector_ports.erase(port_hash);
                             }
 
                             ctrl.enqueue_commander_action([&ctrl, port_hash]() 
@@ -2008,21 +2043,7 @@ namespace adam::gui
                                 if (it == cmdr.inspectors().end())
                                 {
                                     adam::data_inspector* new_inspector = nullptr;
-                                    cmdr.request_inspector_create(port_hash, [port_hash](adam::buffer* buf) 
-                                    {
-                                        if (!buf) return;
-
-                                        adam::gui::inspected_buffer ib;
-                                        ib.timestamp = buf->get_timestamp();
-                                        if (ib.timestamp == 0)
-                                            ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-
-                                        if (buf->get_size() > 0 && buf->get_data())
-                                            ib.data.assign(buf->get_data_as<uint8_t>(), buf->get_data_as<uint8_t>() + buf->get_size());
-
-                                        std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
-                                        adam::gui::g_inspection_data.buffers[port_hash].push_back(std::move(ib));
-                                    }, new_inspector);
+                                    cmdr.request_inspector_create(port_hash, make_inspector_buffer_callback(port_hash), new_inspector);
                                 }
                                 else
                                 {
@@ -2172,7 +2193,7 @@ namespace adam::gui
                 current_in_y += row_height;
 
                 uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ (0 << 16));
-                if (std::find(g_expanded_nodes.begin(), g_expanded_nodes.end(), uid) != g_expanded_nodes.end())
+                if (g_expanded_nodes.count(uid))
                     current_in_y += get_expanded_h(uid);
             }
 
@@ -2245,7 +2266,7 @@ namespace adam::gui
                 current_out_y += row_height;
 
                 uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ ((total_stages - 1) << 16));
-                if (std::find(g_expanded_nodes.begin(), g_expanded_nodes.end(), uid) != g_expanded_nodes.end())
+                if (g_expanded_nodes.count(uid))
                     current_out_y += get_expanded_h(uid);
             }
 
@@ -2600,29 +2621,7 @@ namespace adam::gui
 
                         char preview_hex[64];
                         char preview_ascii[32];
-                        char* p_hex = preview_hex;
-                        char* p_ascii = preview_ascii;
-
-                        size_t preview_len = std::min(ib.data.size(), (size_t)16);
-                        for (size_t k = 0; k < preview_len; ++k) 
-                        {
-                            p_hex += snprintf(p_hex, sizeof(preview_hex) - (p_hex - preview_hex), "%02X ", ib.data[k]);
-
-                            char c = ib.data[k];
-                            *p_ascii++ = (c >= 32 && c <= 126) ? c : '.';
-                        }
-
-                        if (ib.data.size() > 16) 
-                        {
-                            if (p_hex > preview_hex) *(p_hex - 1) = '\0';
-                            p_hex += snprintf(p_hex, sizeof(preview_hex) - (p_hex - preview_hex), "...");
-                            p_ascii += snprintf(p_ascii, sizeof(preview_ascii) - (p_ascii - preview_ascii), "...");
-                        }
-                        else
-                        {
-                            if (p_hex > preview_hex) *(p_hex - 1) = '\0';
-                            *p_ascii = '\0';
-                        }
+                        fill_hex_preview(ib.data.data(), ib.data.size(), 16, preview_hex, sizeof(preview_hex), preview_ascii, sizeof(preview_ascii));
 
                         ImGui::TextUnformatted(preview_hex);
                         
@@ -2741,6 +2740,8 @@ namespace adam::gui
         const auto& ports = reg.get_ports();
         
         float dpi_scale = ImGui::GetStyle()._MainScale;
+        auto* s_theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
+        const bool s_is_light_theme = s_theme_param && s_theme_param->get_value() == "default-light"_ct;
 
         auto format_bytes_to_buf = [](uint64_t bytes, char* buf, size_t buf_size) 
         {
@@ -2751,27 +2752,28 @@ namespace adam::gui
         };
 
         // Clean up any expanded/pending ports that no longer exist in the registry
-        g_expanded_inspector_ports.erase(
-            std::remove_if(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(),
-                [&ports](const auto& h) { return ports.find(h) == ports.end(); }),
-            g_expanded_inspector_ports.end());
+        for (auto it = g_expanded_inspector_ports.begin(); it != g_expanded_inspector_ports.end(); )
+        {
+            if (ports.find(*it) == ports.end()) it = g_expanded_inspector_ports.erase(it);
+            else ++it;
+        }
 
-        g_pending_inspector_ports.erase(
-            std::remove_if(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(),
-                [&ports](const auto& h) { return ports.find(h) == ports.end(); }),
-            g_pending_inspector_ports.end());
+        for (auto it = g_pending_inspector_ports.begin(); it != g_pending_inspector_ports.end(); )
+        {
+            if (ports.find(*it) == ports.end()) it = g_pending_inspector_ports.erase(it);
+            else ++it;
+        }
 
         if (g_port_to_expand_in_inspector != 0)
         {
-            if (std::find(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), g_port_to_expand_in_inspector) == g_expanded_inspector_ports.end())
-                g_expanded_inspector_ports.push_back(g_port_to_expand_in_inspector);
+            g_expanded_inspector_ports.insert(g_port_to_expand_in_inspector);
             g_port_to_expand_in_inspector = 0;
         }
 
         size_t num_expanded = 0;
         for (const auto& [hash, p_view] : ports)
         {
-            if (std::find(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), hash) != g_expanded_inspector_ports.end())
+            if (g_expanded_inspector_ports.count(hash))
             {
                 bool has_data = false;
                 {
@@ -2782,18 +2784,14 @@ namespace adam::gui
                 if (has_inspector || has_data)
                 {
                     num_expanded++;
-                    g_pending_inspector_ports.erase(std::remove(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), hash), g_pending_inspector_ports.end());
+                    g_pending_inspector_ports.erase(hash);
                 }
                 else
                 {
-                    if (std::find(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), hash) != g_pending_inspector_ports.end())
-                    {
+                    if (g_pending_inspector_ports.count(hash))
                         num_expanded++;
-                    }
                     else
-                    {
-                        g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), hash), g_expanded_inspector_ports.end());
-                    }
+                        g_expanded_inspector_ports.erase(hash);
                 }
             }
         }
@@ -2864,21 +2862,10 @@ namespace adam::gui
                         last_ts = last_b.timestamp;
                         
                         size_t preview_len = std::min(last_b.data.size(), (size_t)8);
-                        char* p = preview_hex;
-                        char* end = preview_hex + sizeof(preview_hex);
-                        for (size_t j = 0; j < preview_len; ++j) 
-                        {
-                            int n = snprintf(p, end - p, "%02X ", last_b.data[j]);
-                            if (n > 0) p += n;
-                        }
-                        if (last_b.data.size() > 8) 
-                        {
-                            snprintf(p, end - p, "...");
-                        }
-                        else
-                        {
-                            if (p > preview_hex) *(p - 1) = '\0';
-                        }
+                        char preview_hex_buf[32];
+                        char preview_ascii_dummy[16];
+                        fill_hex_preview(last_b.data.data(), last_b.data.size(), 8, preview_hex_buf, sizeof(preview_hex_buf), preview_ascii_dummy, sizeof(preview_ascii_dummy));
+                        snprintf(preview_hex, sizeof(preview_hex), "%s", preview_hex_buf);
                     }
                 }
 
@@ -2890,7 +2877,7 @@ namespace adam::gui
                     ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x9999));
                     pushed_id = true;
                     
-                    bool is_expanded = std::find(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), port_hash) != g_expanded_inspector_ports.end();
+                    bool is_expanded = g_expanded_inspector_ports.count(port_hash) > 0;
                     
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
@@ -2898,9 +2885,9 @@ namespace adam::gui
                     if (ImGui::ArrowButton("##node", is_expanded ? ImGuiDir_Down : ImGuiDir_Right))
                     {
                         if (is_expanded)
-                            g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), port_hash), g_expanded_inspector_ports.end());
+                            g_expanded_inspector_ports.erase(port_hash);
                         else
-                            g_expanded_inspector_ports.push_back(port_hash);
+                            g_expanded_inspector_ports.insert(port_hash);
                         is_expanded = !is_expanded;
                     }
                     ImGui::PopStyleColor(3);
@@ -2910,9 +2897,7 @@ namespace adam::gui
                 
                 // ---- BEGIN Status Icon  ----
                 ImGui::TableSetColumnIndex(1);
-                auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-                bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
-                ImColor pin_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
+                ImColor pin_col = s_is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
                 if (p_view->is_active)
                     pin_col = get_gui_color(gui_color_id::node_pin_active);
 
@@ -2936,25 +2921,14 @@ namespace adam::gui
                             if (cmdr.inspectors().find(port_hash) == cmdr.inspectors().end())
                             {
                                 adam::data_inspector* new_inspector = nullptr;
-                                cmdr.request_inspector_create(port_hash, [port_hash](adam::buffer* buf) 
-                                {
-                                    if (!buf) return;
-                                    adam::gui::inspected_buffer ib;
-                                    ib.timestamp = buf->get_timestamp();
-                                    if (ib.timestamp == 0)
-                                        ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-                                    if (buf->get_size() > 0 && buf->get_data())
-                                        ib.data.assign(buf->get_data_as<uint8_t>(), buf->get_data_as<uint8_t>() + buf->get_size());
-                                    std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                                    adam::gui::g_inspection_data.buffers[port_hash].push_back(std::move(ib));
-                                }, new_inspector);
+                                cmdr.request_inspector_create(port_hash, make_inspector_buffer_callback(port_hash), new_inspector);
                             }
                         });
                     }
                     else
                     {
-                        g_expanded_inspector_ports.erase(std::remove(g_expanded_inspector_ports.begin(), g_expanded_inspector_ports.end(), port_hash), g_expanded_inspector_ports.end());
-                        g_pending_inspector_ports.erase(std::remove(g_pending_inspector_ports.begin(), g_pending_inspector_ports.end(), port_hash), g_pending_inspector_ports.end());
+                        g_expanded_inspector_ports.erase(port_hash);
+                        g_pending_inspector_ports.erase(port_hash);
 
                         ctrl.enqueue_commander_action([&ctrl, port_hash]() 
                         {
