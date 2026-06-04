@@ -75,8 +75,7 @@ namespace adam
         m_connections(),
         m_default_port_factory(),
         m_controller(ctrl),
-        m_modules(ctrl),
-        m_should_save_on_destruct(true)
+        m_modules(ctrl)
     {
         add_parameters(get_default_parameters());
 
@@ -92,15 +91,10 @@ namespace adam
 
     registry::~registry() 
     {
-        if (m_should_save_on_destruct)
-        {
-            save("adam-config.bin");
-        }
     }
 
     void registry::clear()
     {
-        m_should_save_on_destruct = false;
         m_ports.clear();
         m_filters.clear();
         m_converters.clear();
@@ -601,7 +595,6 @@ namespace adam
 
         // Clear the existing state
         clear();
-        m_should_save_on_destruct = true;
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
 

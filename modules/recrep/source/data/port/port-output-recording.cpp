@@ -6,6 +6,7 @@
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "controller/controller.hpp"
+#include "data/port/port-output.hpp"
 #include "resources/language-strings.hpp"
 #include "data/formats/pcap.hpp"
 
@@ -56,7 +57,7 @@ namespace adam::modules::recrep
             chunk_mode_param_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("size"_ct, "size"_ct));
             chunk_mode_param_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("time"_ct, "time"_ct));
 
-            auto chunk_mode_param = std::make_unique<adam::configuration_parameter_string>("chunk_mode"_ct, "time"_ct, std::move(chunk_mode_param_presets));
+            auto chunk_mode_param = std::make_unique<adam::configuration_parameter_string>("chunk_mode"_ct, "size"_ct, std::move(chunk_mode_param_presets));
             chunk_mode_param->set_description(language_english, "The mode of operation for chunked files, either by size or by time."_ct);
             chunk_mode_param->set_description(language_german, "Der Betriebsmodus für geteilte Dateien, entweder nach Größe (size) oder nach Zeit (time)."_ct);
             up->add(std::move(chunk_mode_param));
@@ -92,13 +93,16 @@ namespace adam::modules::recrep
 
     port_output_recording::~port_output_recording() 
     {
-        stop();
+        if (m_file_stream.is_open())
+        {
+            m_file_stream.flush();
+            m_file_stream.close();
+        }
     }
 
     bool port_output_recording::start()
     {
         auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
-        if (!user_params) return false;
 
         m_data_format_param = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
         m_file_mode_param = user_params->get<adam::configuration_parameter_string>("file_mode"_ct);
@@ -109,7 +113,10 @@ namespace adam::modules::recrep
 
         m_current_chunk_index = 0;
         
-        return open_next_file();
+        if (!open_next_file()) 
+            return false;
+
+        return port_output::start();
     }
 
     bool port_output_recording::stop()
@@ -119,7 +126,8 @@ namespace adam::modules::recrep
             m_file_stream.flush();
             m_file_stream.close();
         }
-        return true;
+
+        return port_output::stop();
     }
 
     bool port_output_recording::open_next_file()
@@ -138,15 +146,18 @@ namespace adam::modules::recrep
             return false;
         }
 
-        auto t  = std::time(nullptr);
+        auto now = std::chrono::system_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(now);
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+
         std::tm tm_info;
         #ifdef _WIN32
-        localtime_s(&tm_info, &t);
+        localtime_s(&tm_info, &time);
         #else
-        localtime_r(&t, &tm_info);
+        localtime_r(&time, &tm_info);
         #endif
         std::ostringstream oss;
-        oss << std::put_time(&tm_info, "%d%m%y_%H%M");
+        oss << std::put_time(&tm_info, "%d%m%y_%H%M%S_") << std::setfill('0') << std::setw(3) << ms.count();
         std::string time_str = oss.str();
 
         std::string extension = "." + m_data_format_param->get_value();
@@ -197,12 +208,14 @@ namespace adam::modules::recrep
         }
 
         m_current_chunk_index++;
+
         return true;
     }
 
     bool port_output_recording::write(buffer* buff) 
     {
-        if (!buff || !m_file_stream.is_open()) return false;
+        if (!buff || !m_file_stream.is_open()) 
+            return false;
 
         bool is_chunked = m_file_mode_param->get_value() == "chunked_file"_ct;
         
@@ -289,11 +302,7 @@ namespace adam::modules::recrep
 
         auto it = translations.find(event);
         if (it != translations.end())
-        {
-            if (lang == language_german)
-                return it->second[1];
-            return it->second[0];
-        }
+            return it->second[lang];
         
         return language_strings::unknown_type_message("port_output_recording::log_event", static_cast<int>(event), lang);
     }

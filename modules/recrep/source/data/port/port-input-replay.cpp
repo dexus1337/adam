@@ -95,9 +95,18 @@ namespace adam::modules::recrep
         auto file_mode = user_params->get<adam::configuration_parameter_string>("file_mode"_ct)->get_value();
         auto path = user_params->get<adam::configuration_parameter_string>("path"_ct)->get_value();
 
+        std::string expected_ext = "." + m_data_format_param->get_value();
+
+        auto is_valid_ext = [&](const std::string& p) 
+        {
+            return std::filesystem::path(p).extension().string() == expected_ext;
+        };
+
         if (file_mode == "single_file"_ct)
         {
-            m_files.push_back(std::string(path));
+            std::string file = std::string(path);
+            if (is_valid_ext(file))
+                m_files.push_back(file);
         }
         else if (file_mode == "multiple_files"_ct)
         {
@@ -105,21 +114,28 @@ namespace adam::modules::recrep
             size_t end = path.find(';');
             while (end != std::string::npos)
             {
-                m_files.push_back(std::string(path.substr(start, end - start)));
+                std::string file = std::string(path.substr(start, end - start));
+                if (!file.empty() && is_valid_ext(file))
+                    m_files.push_back(file);
                 start = end + 1;
                 end = path.find(';', start);
             }
-            m_files.push_back(std::string(path.substr(start)));
+            std::string file = std::string(path.substr(start));
+            if (!file.empty() && is_valid_ext(file))
+                m_files.push_back(file);
         }
         else if (file_mode == "directory"_ct)
         {
             try
             {
-                for (const auto& entry : std::filesystem::directory_iterator(path.c_str()))
+                for (const auto& entry : std::filesystem::directory_iterator(path.empty() ? "." : path.c_str()))
                 {
                     if (entry.is_regular_file())
                     {
-                        m_files.push_back(entry.path().string());
+                        if (entry.path().extension().string() == expected_ext)
+                        {
+                            m_files.push_back(entry.path().string());
+                        }
                     }
                 }
             }
@@ -301,11 +317,7 @@ namespace adam::modules::recrep
         auto it = translations.find(event);
 
         if (it != translations.end())
-        {
-            if (lang == language_german)
-                return it->second[1];
-            return it->second[0];
-        }
+            return it->second[lang];
         
         return language_strings::unknown_type_message("port_input_replay::log_event", static_cast<int>(event), lang);
     }

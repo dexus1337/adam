@@ -98,6 +98,7 @@ namespace adam
             }
             case data_direction_out:
             {
+                result &= write(buffer);
                 break;
             }
         }

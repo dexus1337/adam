@@ -192,6 +192,5 @@ namespace adam
 
         controller&             m_controller;           /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
         registry_module_manager m_modules;              /**< Manages external modules loaded into the registry. */
-        bool                    m_should_save_on_destruct = true;
     };
 }
