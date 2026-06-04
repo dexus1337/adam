@@ -58,7 +58,7 @@ TEST_F(port_test, initial_state)
     
     EXPECT_FALSE(p.is_active());
     EXPECT_EQ(p.get_direction(), adam::port::direction_inout);
-    EXPECT_NE(p.get_statistic_buffer(), nullptr);
+    EXPECT_NE(p.get_state_buffer(), nullptr);
     EXPECT_EQ(p.get_threaded(), true); // Default value from constructor
 }
 
@@ -104,7 +104,7 @@ TEST_F(port_test, handle_data_statistics)
     buf->set_size(123);
     p.handle_data(buf, adam::data_direction_in);
     
-    auto* stats = p.get_statistic_buffer()->data_as<adam::port::statistic_info>();
+    auto* stats = p.get_state_buffer()->data_as<adam::port::state_buffer_data>();
     EXPECT_EQ(stats->total_buffers_handled, 1u);
     EXPECT_EQ(stats->total_bytes_handled, 123u);
     
@@ -125,7 +125,7 @@ TEST_F(port_test, inactive_drops_data)
     
     EXPECT_FALSE(p.handle_data(buf, adam::data_direction_in));
     
-    auto* stats = p.get_statistic_buffer()->data_as<adam::port::statistic_info>();
+    auto* stats = p.get_state_buffer()->data_as<adam::port::state_buffer_data>();
     EXPECT_EQ(stats->total_buffers_handled, 0u);
     EXPECT_EQ(stats->total_bytes_handled, 0u);
     

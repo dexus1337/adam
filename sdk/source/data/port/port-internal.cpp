@@ -40,7 +40,7 @@ namespace adam
                         result &= conn->handle_data(buffer);
                 });
 
-                auto* stat_data = m_statistic_buffer->data_as<statistic_info>();
+                auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
 
                 stat_data->total_buffers_handled++;
                 stat_data->total_bytes_handled += buffer->get_size();

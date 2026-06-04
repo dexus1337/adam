@@ -106,8 +106,8 @@ TEST_F(connection_test, connection_data_forwarding_multiple_outputs)
 
     EXPECT_TRUE(conn.handle_data(buf));
 
-    auto* stats_1 = out_port_1.get_statistic_buffer()->data_as<adam::port::statistic_info>();
-    auto* stats_2 = out_port_2.get_statistic_buffer()->data_as<adam::port::statistic_info>();
+    auto* stats_1 = out_port_1.get_state_buffer()->data_as<adam::port::state_buffer_data>();
+    auto* stats_2 = out_port_2.get_state_buffer()->data_as<adam::port::state_buffer_data>();
 
     EXPECT_EQ(stats_1->total_buffers_handled, 1u);
     EXPECT_EQ(stats_2->total_buffers_handled, 1u);
@@ -145,7 +145,7 @@ TEST_F(connection_test, connection_data_forwarding_with_processor)
 
     EXPECT_TRUE(conn.handle_data(buf));
 
-    auto* stats = out_port.get_statistic_buffer()->data_as<adam::port::statistic_info>();
+    auto* stats = out_port.get_state_buffer()->data_as<adam::port::state_buffer_data>();
     EXPECT_EQ(stats->total_buffers_handled, 1u);
 
     buf->release();

@@ -896,7 +896,7 @@ namespace adam
                     
                     event evt(event_type::port_available);
                     auto* evt_data = evt.data_as<port::basic_info>();
-                    evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, false, new_port->get_statistic_buffer()->get_handle());
+                    evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, false, new_port->get_state_buffer()->get_handle());
 
                     evt_data->dir       = new_port->get_direction();
                     evt_data->is_active = new_port->is_active();

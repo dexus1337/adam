@@ -279,7 +279,7 @@ namespace adam
                     else
                         port_info->type_module = 0;
 
-                    port_info->statistic_buffer_handle  = prt->get_statistic_buffer()->get_handle();
+                    port_info->statistic_buffer_handle  = prt->get_state_buffer()->get_handle();
                     port_info->dir                      = prt->get_direction();
                     port_info->is_unavailable           = false;
                     port_info->is_active                = prt->is_active();
@@ -1076,7 +1076,7 @@ namespace adam
             auto* evt_data = events[0].data_as<port::basic_info>();
             if (new_port)
             {
-                evt_data->setup(new_port->get_name(), new_port->get_type_name().get_hash(), 0, false, new_port->get_statistic_buffer()->get_handle());
+                evt_data->setup(new_port->get_name(), new_port->get_type_name().get_hash(), 0, false, new_port->get_state_buffer()->get_handle());
 
                 if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("type_origin_module"_ct)))
                     evt_data->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();

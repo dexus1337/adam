@@ -272,7 +272,7 @@ namespace adam::gui
                 adam::gui::inspected_buffer ib;
                 ib.timestamp = buf->get_timestamp();
                 if (ib.timestamp == 0)
-                    ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                    ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
                 if (buf->get_size() > 0 && buf->get_data())
                     ib.data.assign(buf->get_data_as<uint8_t>(), buf->get_data_as<uint8_t>() + buf->get_size());
                 std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
@@ -302,7 +302,7 @@ namespace adam::gui
             bool p_is_active = false;
             const char* p_type = "Unknown";
             const char* p_module = "Unknown";
-            adam::port::statistic_info stats = {0, 0, 0, 0};
+            adam::port::state_buffer_data* stats;
             bool has_stats = false;
             auto p_it = ports.find(info.port_hash);
             if (p_it != ports.end())
@@ -310,7 +310,7 @@ namespace adam::gui
                 p_is_active = p_it->second->is_active;
                 if (p_it->second->statistic_buffer)
                 {
-                    stats = *p_it->second->statistic_buffer->data_as<adam::port::statistic_info>();
+                    stats = p_it->second->statistic_buffer->data_as<adam::port::state_buffer_data>();
                     has_stats = true;
                 }
                 if (p_it->second->type.get_hash() == ("internal"_ct).get_hash())
@@ -360,20 +360,20 @@ namespace adam::gui
                     ImGui::TableNextColumn();
                     ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_handled, lang));
                     ImGui::TableNextColumn();
-                    ImGui::Text("%llu", (unsigned long long)stats.total_buffers_handled);
+                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_handled);
                     ImGui::TableNextColumn();
                     char buf_handled[64];
-                    format_bytes_to_buf(stats.total_bytes_handled, buf_handled, sizeof(buf_handled));
+                    format_bytes_to_buf(stats->total_bytes_handled, buf_handled, sizeof(buf_handled));
                     ImGui::TextUnformatted(buf_handled);
 
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
                     ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
                     ImGui::TableNextColumn();
-                    ImGui::Text("%llu", (unsigned long long)stats.total_buffers_discarded);
+                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_discarded);
                     ImGui::TableNextColumn();
                     char buf_discarded[64];
-                    format_bytes_to_buf(stats.total_bytes_discarded, buf_discarded, sizeof(buf_discarded));
+                    format_bytes_to_buf(stats->total_bytes_discarded, buf_discarded, sizeof(buf_discarded));
                     ImGui::TextUnformatted(buf_discarded);
 
                     ImGui::EndTable();

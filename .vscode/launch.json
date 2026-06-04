@@ -1,0 +1,4 @@
+{
+    "MIMode": "gdb",
+"miDebuggerPath": "/usr/bin/gdb",   
+}

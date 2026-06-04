@@ -4,10 +4,12 @@
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/formats/pcap.hpp"
 #include "resources/language-strings.hpp"
+#include <chrono>
 #include <filesystem>
 #include <thread>
 #include <unordered_map>
 #include <array>
+#include <cstring>
 
 
 namespace adam::modules::recrep
@@ -71,7 +73,7 @@ namespace adam::modules::recrep
     }
 
     port_input_replay::port_input_replay(const string_hashed& item_name) 
-     :  port_input(item_name)
+     :  port_input(item_name, sizeof(replay_state_buffer_data))
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
@@ -209,6 +211,40 @@ namespace adam::modules::recrep
                     else
                     {
                         m_current_file_index++;
+
+                        // Scan the PCAP file to retrieve first/last packet timestamps
+                        std::streampos start_pos = m_file_stream.tellg();
+                        pcap::packet_header ph;
+                        m_file_stream.read(reinterpret_cast<char*>(&ph), sizeof(ph));
+                        if (m_file_stream.gcount() == sizeof(ph))
+                        {
+                            uint64_t start_ts = static_cast<uint64_t>(ph.ts_sec) * 1000000000ull + static_cast<uint64_t>(ph.ts_usec) * 1000ull;
+                            uint64_t end_ts = start_ts;
+                            
+                            while (true)
+                            {
+                                m_file_stream.seekg(ph.incl_len, std::ios::cur);
+                                m_file_stream.read(reinterpret_cast<char*>(&ph), sizeof(ph));
+                                if (m_file_stream.gcount() != sizeof(ph))
+                                {
+                                    break;
+                                }
+                                end_ts = static_cast<uint64_t>(ph.ts_sec) * 1000000000ull + static_cast<uint64_t>(ph.ts_usec) * 1000ull;
+                            }
+                            
+                            auto* state_data = get_state_buffer()->data_as<replay_state_buffer_data>();
+                            state_data->file_time_start = start_ts;
+                            state_data->file_time_end = end_ts;
+                            state_data->replay_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+                            
+                            const std::string& filename = m_files[m_current_file_index - 1];
+                            std::strncpy(state_data->file_name, filename.c_str(), sizeof(state_data->file_name) - 1);
+                            state_data->file_name[sizeof(state_data->file_name) - 1] = '\0';
+                        }
+                        
+                        m_file_stream.clear();
+                        m_file_stream.seekg(start_pos);
+
                         return true;
                     }
                 }

@@ -36,7 +36,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new in_out port object. */
-        port_in_out(const string_hashed& item_name);
+        port_in_out(const string_hashed& item_name, size_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
 
     };
 }

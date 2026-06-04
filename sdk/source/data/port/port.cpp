@@ -45,7 +45,7 @@ namespace adam
                 data_inspector->destroy();
         });
 
-        m_statistic_buffer->release();
+        m_state_buffer->release();
     }
 
     void port::worker()
@@ -74,7 +74,7 @@ namespace adam
                 data_inspector->handle_data(buffer);
         });
 
-        auto* stat_data = m_statistic_buffer->data_as<statistic_info>();
+        auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
 
         stat_data->total_buffers_handled++;
         stat_data->total_bytes_handled += buffer->get_size();
@@ -108,7 +108,7 @@ namespace adam
 
     bool port::start()
     {
-        auto* stat_data = m_statistic_buffer->data_as<statistic_info>();
+        auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
 
         stat_data->total_buffers_handled    = 0;
         stat_data->total_bytes_handled      = 0;
@@ -139,15 +139,15 @@ namespace adam
         return true;
     }
 
-    port::port(const string_hashed& item_name) 
+    port::port(const string_hashed& item_name, size_t state_buffer_size) 
     :   configuration_item(item_name, port::get_default_parameters()),
         m_b_threaded(true),
         m_thread(),
         m_in_connections(),
         m_out_connections(),
         m_inspectors(),
-        m_statistic_buffer(buffer_manager::get().request_buffer(statistic_info_buffer_size)),
         m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct)))
     {
+        m_state_buffer = buffer_manager::get().request_buffer(state_buffer_size);
     }
 }

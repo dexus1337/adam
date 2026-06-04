@@ -16,6 +16,7 @@
 #include "commander/messages/message-structs.hpp"
 #include "memory/buffer/buffer.hpp"
 
+#include <cstdint>
 #include <memory>
 #include <cstring>
 #include <thread>
@@ -44,6 +45,13 @@ namespace adam
             direction_in       = 1 << 0,
             direction_out      = 1 << 1,
             direction_inout    = direction_in | direction_out
+        };
+
+        enum state : uint8_t
+        {
+            state_stopped,
+            state_running,
+            state_inactive
         };
 
         #pragma pack(push, 1)
@@ -75,10 +83,12 @@ namespace adam
         #pragma pack(pop)
         static_assert(sizeof(port::basic_info) <= command::get_max_data_length(), "port::basic_info exceeds maximum command data size");
 
+        #pragma pack(push, 1)
         struct status_event_info
         {
             string_hash port_hash;
         };
+        #pragma pack(pop)
         static_assert(sizeof(port::status_event_info) <= command::get_max_data_length(), "port::status_event_info exceeds maximum command data size");
 
         struct unavailable_info : public configuration_item
@@ -89,16 +99,18 @@ namespace adam
             unavailable_info(const string_hashed& item_name) : configuration_item(item_name), type(0), type_module(0) { }
         };
 
-        struct statistic_info
+        struct state_buffer_data
         {
+            state    cur_state;
             uint64_t total_buffers_handled;
             uint64_t total_bytes_handled;
             uint64_t total_buffers_discarded;
             uint64_t total_bytes_discarded;
+            uint8_t  user_data_array[1];
+
+            template<typename T> T& user_data() { return *reinterpret_cast<T*>(user_data_array); }
         };
-
-        static ADAM_CONSTEXPR size_t statistic_info_buffer_size = sizeof(statistic_info);
-
+        
 
         /** @brief Retrieves the default configuration parameters for ports. */
         static const configuration_parameter_list& get_default_parameters();
@@ -117,7 +129,7 @@ namespace adam
         vector_double_buffer<connection*>&                      in_connections()    { return m_in_connections; }
         vector_double_buffer<connection*>&                      out_connections()   { return m_out_connections; }
 
-        buffer* get_statistic_buffer() const { return m_statistic_buffer; }
+        buffer* get_state_buffer() const { return m_state_buffer; }
 
         virtual bool is_active() const { return m_is_active != nullptr && m_is_active->get_value(); }
 
@@ -142,7 +154,7 @@ namespace adam
         virtual void worker();
 
         /** @brief Constructs a new port object. */
-        port(const string_hashed& item_name);
+        port(const string_hashed& item_name, size_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
 
         bool m_b_threaded;                                                          /**< Indicates whether this port runs in its own Thread or not */
         std::thread m_thread;                                                       /**< The thread object for threaded ports */
@@ -151,7 +163,7 @@ namespace adam
         vector_double_buffer<connection*>                       m_out_connections;  /**< Connections where this port acts as an output. */
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;       /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
-        buffer* m_statistic_buffer;                                                 /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::statistic_info. */
+        buffer* m_state_buffer;                                                 /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
 
         configuration_parameter_boolean* m_is_active;                               /**< Cached pointer to the is active parameter as it will be frequently accessed. */
     };

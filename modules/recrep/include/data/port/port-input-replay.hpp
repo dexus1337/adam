@@ -10,9 +10,11 @@
 
 
 #include "api/api-recrep.hpp"
+#include "commander/messages/message-structs.hpp"
  
 #include <adam-sdk.hpp>
 
+#include <cstdint>
 #include <fstream>
 #include <vector>
 #include <chrono>
@@ -38,6 +40,14 @@ namespace adam::modules::recrep
             format_not_implemented
         };
 
+        struct replay_state_buffer_data : public adam::port::state_buffer_data
+        {
+            char file_name[max_name_length];
+            uint64_t file_time_start;
+            uint64_t file_time_end;
+            uint64_t replay_start_time;
+        };
+
         static std::string_view get_log_event_text(log_event event, language lang);
 
         static const configuration_parameter_list& get_default_parameters();
@@ -47,6 +57,7 @@ namespace adam::modules::recrep
 
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input_replay();
+        
 
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
 
