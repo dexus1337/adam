@@ -282,7 +282,9 @@ namespace adam::gui
             { gui_string_id::lbl_statistics,              { "Statistics", "Statistiken" } },
             { gui_string_id::btn_copy_hex,                { "Copy Hex", "Hex kopieren" } },
             { gui_string_id::btn_copy_ascii,              { "Copy ASCII", "ASCII kopieren" } },
-            { gui_string_id::btn_copy_hex_dump,           { "Copy Hex Dump", "Hex-Dump kopieren" } }
+            { gui_string_id::btn_copy_hex_dump,           { "Copy Hex Dump", "Hex-Dump kopieren" } },
+            { gui_string_id::lbl_replay_file,             { "File", "Datei" } },
+            { gui_string_id::lbl_replay_instant,          { "instant", "sofort" } }
         };
 
         auto it = translations.find(id);

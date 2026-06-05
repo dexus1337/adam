@@ -171,7 +171,9 @@ namespace adam::gui
         lbl_statistics,
         btn_copy_hex,
         btn_copy_ascii,
-        btn_copy_hex_dump
+        btn_copy_hex_dump,
+        lbl_replay_file,
+        lbl_replay_instant
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

@@ -380,7 +380,8 @@ namespace adam::gui
                     ImGui::EndTable();
                 }
 
-                bool is_replay = (p_it != ports.end() && p_it->second->type.get_hash() == ("replay"_ct).get_hash());
+                // Replay specific stats
+                bool is_replay = (p_it != ports.end() && p_it->second->type == "replay"_ct && p_it->second->type_module == "recrep"_ct);
                 if (is_replay && p_is_active)
                 {
                     auto* replay_stats = p_it->second->statistic_buffer->data_as<adam::modules::recrep::port_input_replay::replay_state_buffer_data>();
@@ -391,7 +392,7 @@ namespace adam::gui
 
                     // Display File name
                     ImGui::Spacing();
-                    ImGui::Text("%s: %s", lang == adam::language_german ? "Datei" : "File", display_name.c_str());
+                    ImGui::Text("%s: %s", get_gui_string(gui_string_id::lbl_replay_file, lang), display_name.c_str());
                     if (ImGui::IsItemHovered() && !full_path.empty())
                     {
                         ImGui::SetTooltip("%s", full_path.c_str());
@@ -474,7 +475,7 @@ namespace adam::gui
                     }
                     else
                     {
-                        snprintf(total_buf, sizeof(total_buf), "%s", lang == adam::language_german ? "sofort" : "instant");
+                        snprintf(total_buf, sizeof(total_buf), "%s", get_gui_string(gui_string_id::lbl_replay_instant, lang));
                     }
 
                     char overlay_buf[128];
