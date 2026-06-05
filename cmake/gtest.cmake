@@ -3,6 +3,9 @@
 #   TARGET_NAME - The name of the executable to setup
 
 function(setup_gtest TARGET_NAME)
+    if(NOT DEFINED ENV{GTEST_ROOT} OR "$ENV{GTEST_ROOT}" STREQUAL "")
+        message(FATAL_ERROR "GTEST_ROOT environment variable is not set. Please set it to the path of Google Test.")
+    endif()
 
     target_include_directories(${TARGET_NAME} 
         PRIVATE $ENV{GTEST_ROOT}/googletest/include
