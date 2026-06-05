@@ -1,4 +1,4 @@
-﻿
+
 # CMakeLists.txt for the gui application
 
 set(CMAKE_CXX_STANDARD 23)
@@ -36,6 +36,7 @@ target_include_directories(adam-gui PRIVATE
     "${imgui_dir}"
     "${imgui_dir}/backends"
     ${SDL2_INCLUDE_DIRS}
+    "../../modules/recrep/include"
 )
 
 target_link_libraries(adam-gui PRIVATE

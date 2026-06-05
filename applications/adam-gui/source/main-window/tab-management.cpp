@@ -18,6 +18,7 @@
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "controller/controller.hpp"
 #include "module/module.hpp"
+#include "data/port/port-input-replay.hpp"
 
 namespace adam::gui 
 {
@@ -377,6 +378,109 @@ namespace adam::gui
                     ImGui::TextUnformatted(buf_discarded);
 
                     ImGui::EndTable();
+                }
+
+                bool is_replay = (p_it != ports.end() && p_it->second->type.get_hash() == ("replay"_ct).get_hash());
+                if (is_replay && p_is_active)
+                {
+                    auto* replay_stats = p_it->second->statistic_buffer->data_as<adam::modules::recrep::port_input_replay::replay_state_buffer_data>();
+                    
+                    std::string full_path = replay_stats->file_name;
+                    size_t last_slash = full_path.find_last_of("/\\");
+                    std::string display_name = (last_slash != std::string::npos) ? full_path.substr(last_slash + 1) : full_path;
+
+                    // Display File name
+                    ImGui::Spacing();
+                    ImGui::Text("%s: %s", lang == adam::language_german ? "Datei" : "File", display_name.c_str());
+                    if (ImGui::IsItemHovered() && !full_path.empty())
+                    {
+                        ImGui::SetTooltip("%s", full_path.c_str());
+                    }
+
+                    // Total play time calculations
+                    uint64_t duration_ns = replay_stats->file_time_end > replay_stats->file_time_start ? (replay_stats->file_time_end - replay_stats->file_time_start) : 0;
+                    double speed = 1.0;
+                    auto* speed_param = p_it->second->user_params.get<adam::configuration_parameter_double>("speed"_ct);
+                    if (speed_param)
+                    {
+                        speed = speed_param->get_value();
+                    }
+
+                    double total_play_time_sec = 0.0;
+                    if (speed > 0.0)
+                    {
+                        total_play_time_sec = (static_cast<double>(duration_ns) / 1e9) / speed;
+                    }
+
+                    // Elapsed time calculations
+                    double elapsed_real_sec = 0.0;
+                    if (p_is_active)
+                    {
+                        uint64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+                        if (now_ns > replay_stats->replay_start_time)
+                        {
+                            elapsed_real_sec = static_cast<double>(now_ns - replay_stats->replay_start_time) / 1e9;
+                        }
+                    }
+
+                    if (elapsed_real_sec > total_play_time_sec)
+                    {
+                        elapsed_real_sec = total_play_time_sec;
+                    }
+
+                    double progress_fraction = 0.0;
+                    double duration_sec = static_cast<double>(duration_ns) / 1e9;
+                    if (duration_sec > 0.0)
+                    {
+                        if (speed > 0.0)
+                        {
+                            progress_fraction = elapsed_real_sec / total_play_time_sec;
+                        }
+                        else
+                        {
+                            progress_fraction = p_is_active ? 1.0 : 0.0;
+                        }
+                    }
+                    if (progress_fraction > 1.0) progress_fraction = 1.0;
+                    if (progress_fraction < 0.0) progress_fraction = 0.0;
+
+                    // Format elapsed time and total play time
+                    auto format_time = [](double total_seconds, char* buf, size_t buf_size)
+                    {
+                        if (total_seconds < 0.0) total_seconds = 0.0;
+                        int hours = static_cast<int>(total_seconds / 3600.0);
+                        int minutes = static_cast<int>((total_seconds - hours * 3600.0) / 60.0);
+                        double seconds = total_seconds - hours * 3600.0 - minutes * 60.0;
+                        if (hours > 0)
+                        {
+                            snprintf(buf, buf_size, "%dh %dm %.2fs", hours, minutes, seconds);
+                        }
+                        else if (minutes > 0)
+                        {
+                            snprintf(buf, buf_size, "%dm %.2fs", minutes, seconds);
+                        }
+                        else
+                        {
+                            snprintf(buf, buf_size, "%.2fs", seconds);
+                        }
+                    };
+
+                    char elapsed_buf[64];
+                    char total_buf[64];
+                    format_time(elapsed_real_sec, elapsed_buf, sizeof(elapsed_buf));
+                    if (speed > 0.0)
+                    {
+                        format_time(total_play_time_sec, total_buf, sizeof(total_buf));
+                    }
+                    else
+                    {
+                        snprintf(total_buf, sizeof(total_buf), "%s", lang == adam::language_german ? "sofort" : "instant");
+                    }
+
+                    char overlay_buf[128];
+                    snprintf(overlay_buf, sizeof(overlay_buf), "%s / %s", elapsed_buf, total_buf);
+
+                    ImGui::ProgressBar(static_cast<float>(progress_fraction), ImVec2(-FLT_MIN, 0.0f), overlay_buf);
                 }
             }
             else
