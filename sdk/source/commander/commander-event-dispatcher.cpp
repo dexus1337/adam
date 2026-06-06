@@ -252,6 +252,12 @@ namespace adam
             auto* data = events[0].get_data_as<messages::port_destroy_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             ctx.cmdr.registry().ports().erase(data->port);
+
+            for (auto& [conn_hash, conn] : ctx.cmdr.registry().connections())
+            {
+                conn->inputs.erase(std::remove(conn->inputs.begin(), conn->inputs.end(), data->port), conn->inputs.end());
+                conn->outputs.erase(std::remove(conn->outputs.begin(), conn->outputs.end(), data->port), conn->outputs.end());
+            }
         });
 
         register_handler(event_type::port_started, [](const event* events, size_t, event_context& ctx) 

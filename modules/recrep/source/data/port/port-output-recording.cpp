@@ -3,7 +3,6 @@
 #include "configuration/configuration-item.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
-#include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "controller/controller.hpp"
 #include "data/port/port-output.hpp"

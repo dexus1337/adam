@@ -883,7 +883,9 @@ namespace adam::gui
             ImGui::PushID((const void*)(intptr_t)(info.port_hash ^ 0x4444));
             if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_port, lang), ImVec2(info.current_node_w - exp_pad * 2.0f, 0)))
             {
-                ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash]() { ctrl.commander().request_port_destroy(port_hash); });
+                ctrl.enqueue_commander_action([&ctrl, conn_hash = info.hash, port_hash = info.port_hash, is_input = (info.type == node_type_input)]() { 
+                    ctrl.commander().request_connection_port_remove(conn_hash, port_hash, is_input); 
+                });
             }
             ImGui::PopID();
 

@@ -1,4 +1,15 @@
 {
-    "MIMode": "gdb",
-"miDebuggerPath": "/usr/bin/gdb",   
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "debug",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "cwd": "${command:cmake.launchTargetDirectory}",
+            "initCommands": [
+                "settings set target.exec-search-paths ${command:cmake.buildDirectory}"
+            ]
+        }
+    ]
 }
