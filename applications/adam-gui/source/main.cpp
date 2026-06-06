@@ -42,6 +42,9 @@ int main(int, char**)
 
     auto* p_immediate = dynamic_cast<adam::configuration_parameter_integer*>(gui_ctrl.get_parameters().get("gui_mode"_ct));
     auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(gui_ctrl.get_parameters().get("show_performance"_ct));
+    auto* p_fps_limit = dynamic_cast<adam::configuration_parameter_integer*>(gui_ctrl.get_parameters().get("fps_limit"_ct));
+
+    auto last_frame_time = std::chrono::steady_clock::now();
 
     while (!done)
     {
@@ -122,6 +125,31 @@ int main(int, char**)
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
+
+        if (p_immediate->get_value() == 1)
+        {
+            int limit_setting = p_fps_limit ? static_cast<int>(p_fps_limit->get_value()) : 4;
+            double target_fps = 0.0;
+            switch(limit_setting)
+            {
+                case 0: target_fps = 10.0; break;
+                case 1: target_fps = 30.0; break;
+                case 2: target_fps = 60.0; break;
+                case 3: target_fps = 120.0; break;
+            }
+
+            if (target_fps > 0.0)
+            {
+                auto target_frame_duration = std::chrono::duration<double>(1.0 / target_fps);
+                auto elapsed = std::chrono::steady_clock::now() - last_frame_time;
+                if (elapsed < target_frame_duration)
+                {
+                    std::this_thread::sleep_for(target_frame_duration - elapsed);
+                }
+            }
+        }
+        
+        last_frame_time = std::chrono::steady_clock::now();
     }
 
     ui_window.save_window_state();

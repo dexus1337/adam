@@ -75,6 +75,7 @@ namespace adam::modules::recrep
         adam::configuration_parameter_double* m_speed_param = nullptr;
         adam::configuration_parameter_string* m_mode_param = nullptr;
         adam::configuration_parameter_string* m_data_format_param = nullptr;
+        adam::configuration_parameter_string* m_timestamps_param = nullptr;
 
         bool open_next_file();
 

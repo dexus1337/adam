@@ -153,9 +153,13 @@ namespace adam::gui
             { gui_string_id::menu_gui_mode,               { "GUI Mode", "GUI-Modus" } },
             { gui_string_id::gui_mode_default,            { "Default", "Standard" } },
             { gui_string_id::gui_mode_immediate,          { "Immediate", "Unmittelbar" } },
-            { gui_string_id::menu_vsync,                  { "VSync", "VSync" } },
-            { gui_string_id::vsync_enabled,               { "Enabled", "Aktiviert" } },
-            { gui_string_id::vsync_disabled,              { "Disabled", "Deaktiviert" } },
+            { gui_string_id::menu_fps_limit,              { "FPS Limit", "FPS-Limit" } },
+            { gui_string_id::fps_10,                      { "10 FPS", "10 FPS" } },
+            { gui_string_id::fps_30,                      { "30 FPS", "30 FPS" } },
+            { gui_string_id::fps_60,                      { "60 FPS", "60 FPS" } },
+            { gui_string_id::fps_120,                     { "120 FPS", "120 FPS" } },
+            { gui_string_id::fps_vsync,                   { "VSync", "VSync" } },
+            { gui_string_id::fps_unlimited,               { "Unlimited", "Unbegrenzt" } },
             { gui_string_id::combo_language,              { "Language###Lang", "Sprache###Lang" } },
             { gui_string_id::slider_font_scale,           { "Font Scale###FontScale", "Schriftskalierung###FontScale" } },
             { gui_string_id::combo_theme,                 { "Theme###Theme", "Design###Theme" } },
@@ -303,7 +307,7 @@ namespace adam::gui
         m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"_ct));
         m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
         m_p_gui_mode            = static_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
-        m_p_vsync               = static_cast<adam::configuration_parameter_boolean*>(params.get("vsync"_ct));
+        m_p_fps_limit           = static_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
         m_p_perf_ovly_location  = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"_ct));
         m_p_perf_ovly_x         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"_ct));
         m_p_perf_ovly_y         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
@@ -345,7 +349,7 @@ namespace adam::gui
         // Initialize VSync swap interval
         if (m_p_gui_mode->get_value() == 1)
         {
-            SDL_GL_SetSwapInterval(m_p_vsync->get_value() ? 1 : 0);
+            SDL_GL_SetSwapInterval((m_p_fps_limit->get_value() == 4) ? 1 : 0);
         }
         else
         {
@@ -573,7 +577,7 @@ namespace adam::gui
                 if (ImGui::Selectable(get_gui_string(gui_string_id::gui_mode_immediate, lang), m_p_gui_mode->get_value() == 1))
                 {
                     m_p_gui_mode->set_value(1);
-                    SDL_GL_SetSwapInterval(m_p_vsync->get_value() ? 1 : 0);
+                    SDL_GL_SetSwapInterval((m_p_fps_limit->get_value() == 4) ? 1 : 0);
                     m_ctrl.request_redraw();
                 }
                 ImGui::EndCombo();
@@ -581,19 +585,34 @@ namespace adam::gui
 
             if (m_p_gui_mode->get_value() == 1)
             {
-                const char* preview_vsync = m_p_vsync->get_value() ? get_gui_string(gui_string_id::vsync_enabled, lang) : get_gui_string(gui_string_id::vsync_disabled, lang);
-                if (ImGui::BeginCombo(get_gui_string(gui_string_id::menu_vsync, lang), preview_vsync))
+                int current_fps_limit = static_cast<int>(m_p_fps_limit->get_value());
+                const char* preview_fps = "";
+                switch (current_fps_limit) {
+                    case 0: preview_fps = get_gui_string(gui_string_id::fps_10, lang); break;
+                    case 1: preview_fps = get_gui_string(gui_string_id::fps_30, lang); break;
+                    case 2: preview_fps = get_gui_string(gui_string_id::fps_60, lang); break;
+                    case 3: preview_fps = get_gui_string(gui_string_id::fps_120, lang); break;
+                    case 4: preview_fps = get_gui_string(gui_string_id::fps_vsync, lang); break;
+                    case 5: preview_fps = get_gui_string(gui_string_id::fps_unlimited, lang); break;
+                }
+
+                if (ImGui::BeginCombo(get_gui_string(gui_string_id::menu_fps_limit, lang), preview_fps))
                 {
-                    if (ImGui::Selectable(get_gui_string(gui_string_id::vsync_disabled, lang), !m_p_vsync->get_value()))
-                    {
-                        m_p_vsync->set_value(false);
-                        SDL_GL_SetSwapInterval(0);
-                    }
-                    if (ImGui::Selectable(get_gui_string(gui_string_id::vsync_enabled, lang), m_p_vsync->get_value()))
-                    {
-                        m_p_vsync->set_value(true);
-                        SDL_GL_SetSwapInterval(1);
-                    }
+                    auto do_selectable = [&](int val, gui_string_id id) {
+                        if (ImGui::Selectable(get_gui_string(id, lang), current_fps_limit == val))
+                        {
+                            m_p_fps_limit->set_value(val);
+                            SDL_GL_SetSwapInterval((val == 4) ? 1 : 0);
+                        }
+                    };
+                    
+                    do_selectable(0, gui_string_id::fps_10);
+                    do_selectable(1, gui_string_id::fps_30);
+                    do_selectable(2, gui_string_id::fps_60);
+                    do_selectable(3, gui_string_id::fps_120);
+                    do_selectable(4, gui_string_id::fps_vsync);
+                    do_selectable(5, gui_string_id::fps_unlimited);
+                    
                     ImGui::EndCombo();
                 }
             }

@@ -55,6 +55,16 @@ namespace adam::modules::recrep
             speed_param->set_description(language_german, "Die Wiedergabegeschwindigkeit relativ zur ursprünglichen Aufnahme. 0.0 sendet die Pakete sofort."_ct);
             up->add(std::move(speed_param));
             
+            configuration_parameter_string::presets_container timestamp_presets = {};
+            
+            timestamp_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("current"_ct, "current"_ct));
+            timestamp_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("original"_ct, "original"_ct));
+
+            auto timestamp_param = std::make_unique<adam::configuration_parameter_string>("timestamps"_ct, "current"_ct, std::move(timestamp_presets));
+            timestamp_param->set_description(language_english, "Use the current system time for the packets or the original timestamps from the recording."_ct);
+            timestamp_param->set_description(language_german, "Verwenden Sie die aktuelle Systemzeit für die Pakete oder die ursprünglichen Zeitstempel aus der Aufnahme."_ct);
+            up->add(std::move(timestamp_param));
+
             configuration_parameter_string::presets_container mode_presets = {};
             
             mode_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("once"_ct, "once"_ct));
@@ -93,6 +103,7 @@ namespace adam::modules::recrep
         m_speed_param = user_params->get<adam::configuration_parameter_double>("speed"_ct);
         m_mode_param = user_params->get<adam::configuration_parameter_string>("mode"_ct);
         m_data_format_param = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
+        m_timestamps_param = user_params->get<adam::configuration_parameter_string>("timestamps"_ct);
 
         auto file_mode = user_params->get<adam::configuration_parameter_string>("file_mode"_ct)->get_value();
         auto path = user_params->get<adam::configuration_parameter_string>("path"_ct)->get_value();
@@ -155,12 +166,13 @@ namespace adam::modules::recrep
 
     bool port_input_replay::stop() 
     {
+        bool result = port_input::stop();
         if (m_file_stream.is_open())
         {
             m_file_stream.close();
         }
         m_files.clear();
-        return port_input::stop();
+        return result;
     }
 
     bool port_input_replay::open_next_file()
@@ -303,7 +315,22 @@ namespace adam::modules::recrep
                     auto adjusted_elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double, std::micro>(static_cast<double>(elapsed_packet_time.count()) / speed));
                     auto expected_time = m_replay_start_time + adjusted_elapsed_time;
                     
-                    std::this_thread::sleep_until(expected_time);
+                    while (m_is_active->get_value())
+                    {
+                        auto now = std::chrono::steady_clock::now();
+                        if (now >= expected_time) break;
+                        
+                        auto sleep_duration = expected_time - now;
+                        if (sleep_duration > std::chrono::milliseconds(5))
+                        {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                        }
+                        else
+                        {
+                            std::this_thread::sleep_until(expected_time);
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -315,7 +342,15 @@ namespace adam::modules::recrep
 
             m_file_stream.read(reinterpret_cast<char*>(buff->data()), ph.incl_len);
             buff->set_size(ph.incl_len);
-            buff->set_timestamp(static_cast<uint64_t>(ph.ts_sec) * 1000000000ull + static_cast<uint64_t>(ph.ts_usec) * 1000ull);
+            
+            if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
+            {
+                buff->set_timestamp(static_cast<uint64_t>(ph.ts_sec) * 1000000000ull + static_cast<uint64_t>(ph.ts_usec) * 1000ull);
+            }
+            else
+            {
+                buff->set_timestamp();
+            }
 
             return true;
         }

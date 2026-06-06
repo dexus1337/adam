@@ -163,7 +163,7 @@ namespace adam
         vector_double_buffer<connection*>                       m_out_connections;  /**< Connections where this port acts as an output. */
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;       /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
-        buffer* m_state_buffer;                                                 /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
+        buffer* m_state_buffer;                                                     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
 
         configuration_parameter_boolean* m_is_active;                               /**< Cached pointer to the is active parameter as it will be frequently accessed. */
     };

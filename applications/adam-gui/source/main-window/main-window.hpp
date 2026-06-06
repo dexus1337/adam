@@ -9,6 +9,7 @@ struct ImFont;
 
 #include <vector>
 #include <map>
+#include <set>
 #include <mutex>
 
 namespace adam::gui 
@@ -42,9 +43,13 @@ namespace adam::gui
         menu_gui_mode,
         gui_mode_default,
         gui_mode_immediate,
-        menu_vsync,
-        vsync_enabled,
-        vsync_disabled,
+        menu_fps_limit,
+        fps_10,
+        fps_30,
+        fps_60,
+        fps_120,
+        fps_vsync,
+        fps_unlimited,
         combo_language,
         slider_font_scale,
         combo_theme,
@@ -181,13 +186,21 @@ namespace adam::gui
     struct inspected_buffer
     {
         uint64_t timestamp;
-        std::vector<uint8_t> data;
+        uint32_t offset;
+        uint32_t size;
+    };
+
+    struct inspection_port_data
+    {
+        std::vector<inspected_buffer> buffers;
+        std::vector<uint8_t> data_pool;
+        std::set<size_t> expanded_nodes;
     };
 
     struct inspection_data
     {
         std::mutex mtx;
-        std::map<adam::string_hash, std::vector<inspected_buffer>> buffers;
+        std::map<adam::string_hash, inspection_port_data> ports;
         adam::string_hash selected_port = 0;
     };
 
@@ -215,7 +228,7 @@ namespace adam::gui
         adam::configuration_parameter_boolean* m_p_show_log;
         adam::configuration_parameter_boolean* m_p_show_performance;
         adam::configuration_parameter_integer* m_p_gui_mode;
-        adam::configuration_parameter_boolean* m_p_vsync;
+        adam::configuration_parameter_integer* m_p_fps_limit;
         adam::configuration_parameter_string*  m_p_theme;
         adam::configuration_parameter_double*  m_p_font_scale;
         adam::configuration_parameter_double*  m_p_log_height;

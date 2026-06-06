@@ -11,7 +11,7 @@ namespace adam::gui
             configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_boolean>("show_log"_ct, true));
             p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0));
-            p.add(std::make_unique<configuration_parameter_boolean>("vsync"_ct, true));
+            p.add(std::make_unique<configuration_parameter_integer>("fps_limit"_ct, 4));
             p.add(std::make_unique<configuration_parameter_boolean>("show_performance"_ct, false));
             p.add(std::make_unique<configuration_parameter_integer>("perf_ovly_location"_ct, 1));
             p.add(std::make_unique<configuration_parameter_double>("perf_ovly_x"_ct, -1.0));
