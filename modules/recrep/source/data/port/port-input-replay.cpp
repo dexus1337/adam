@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <array>
 #include <cstring>
+#include <algorithm>
 
 
 namespace adam::modules::recrep
@@ -151,6 +152,7 @@ namespace adam::modules::recrep
                         }
                     }
                 }
+                std::sort(m_files.begin(), m_files.end());
             }
             catch (const std::exception&)
             {
@@ -256,6 +258,7 @@ namespace adam::modules::recrep
                         
                         m_file_stream.clear();
                         m_file_stream.seekg(start_pos);
+                        m_is_first_packet = true;
 
                         return true;
                     }

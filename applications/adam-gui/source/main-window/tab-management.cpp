@@ -49,6 +49,16 @@ namespace adam::gui
         bool g_request_open_inspector = false;
         adam::string_hash g_port_to_expand_in_inspector = 0;
 
+        static inline uint64_t get_unique_node_id(uint64_t port_hash, uint64_t conn_hash, int stage)
+        {
+            uint64_t id = port_hash;
+            id ^= (conn_hash + 0x9e3779b97f4a7c15ULL + (id << 6) + (id >> 2));
+            id ^= (static_cast<uint64_t>(stage) + 0x9e3779b97f4a7c15ULL + (id << 6) + (id >> 2));
+            if (static_cast<ImGuiID>(id) == 0)
+                id ^= 0x1337;
+            return id;
+        }
+
         struct inject_buffer_state
         {
             std::string text_buffer;
@@ -1856,13 +1866,13 @@ namespace adam::gui
         {
             for (auto pid : conn->inputs)
             {
-                uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ (0 << 16));
+                uint64_t uid = get_unique_node_id(pid, hash, 0);
                 if (g_expanded_nodes.count(uid)) in_col_bottom += get_expanded_h(uid);
             }
 
             for (auto pid : conn->outputs)
             {
-                uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ ((total_stages - 1) << 16));
+                uint64_t uid = get_unique_node_id(pid, hash, total_stages - 1);
                 if (g_expanded_nodes.count(uid)) out_col_bottom += get_expanded_h(uid);
             }
         }
@@ -2121,14 +2131,14 @@ namespace adam::gui
                 draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
 
                 ImGui::SetCursorScreenPos(p_min);
-                ImGui::PushID((const void*)(intptr_t)(port_hash ^ hash ^ (stage << 16) ^ 0xABCD));
+                ImGui::PushID((const void*)(intptr_t)(get_unique_node_id(port_hash, hash, stage) ^ 0xABCD));
                 ImGui::SetNextItemAllowOverlap();
                 ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
                 
                 bool is_expanded = false;
                 if (port_hash != 0 && !is_drag_preview)
                 {
-                    uint64_t unique_node_id = static_cast<uint64_t>(port_hash ^ hash ^ (stage << 16));
+                    uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage);
                     is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
 
                     // Handle Left Click -> Expand
@@ -2181,7 +2191,7 @@ namespace adam::gui
                 if (is_expanded && !is_drag_preview)
                 {
                     ImColor captured_color = color;
-                    uint64_t unique_node_id = static_cast<uint64_t>(port_hash ^ hash ^ (stage << 16));
+                    uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage);
                     float this_expanded_h = get_expanded_h(unique_node_id);
                     deferred_expansions.push_back
                     ({
@@ -2221,7 +2231,7 @@ namespace adam::gui
                     ImGui::SetCursorScreenPos(ImVec2(input_x, p_min.y + (node_h - input_h) * 0.5f));
                     ImGui::PushItemWidth(input_w);
                         
-                    ImGui::PushID((const void*)(intptr_t)(port_hash ^ hash ^ (stage << 16)));
+                    ImGui::PushID((const void*)(intptr_t)get_unique_node_id(port_hash, hash, stage));
                     bool enter_pressed = ImGui::InputText("##port_edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
                     bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
                     ImGui::PopID();
@@ -2315,7 +2325,7 @@ namespace adam::gui
                 stage_pins_out[0].push_back(p_out);
                 current_in_y += row_height;
 
-                uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ (0 << 16));
+                uint64_t uid = get_unique_node_id(pid, hash, 0);
                 if (g_expanded_nodes.count(uid))
                     current_in_y += get_expanded_h(uid);
             }
@@ -2388,7 +2398,7 @@ namespace adam::gui
                 stage_pins_in[total_stages - 1].push_back(p_in);
                 current_out_y += row_height;
 
-                uint64_t uid = static_cast<uint64_t>(pid ^ hash ^ ((total_stages - 1) << 16));
+                uint64_t uid = get_unique_node_id(pid, hash, total_stages - 1);
                 if (g_expanded_nodes.count(uid))
                     current_out_y += get_expanded_h(uid);
             }

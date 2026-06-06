@@ -38,11 +38,11 @@ namespace adam::modules::recrep
 
             configuration_parameter_string::presets_container file_mode_param_presets = {};
             
-            file_mode_param_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("single_file"_ct, "single_file"_ct));
-            file_mode_param_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("chunked_file"_ct, "chunked file"_ct));
+            file_mode_param_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("single"_ct, "single"_ct));
+            file_mode_param_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("chunked"_ct, "chunked"_ct));
 
-            auto file_mode_param = std::make_unique<adam::configuration_parameter_string>("file_mode"_ct, "single_file"_ct, std::move(file_mode_param_presets));
-            file_mode_param->set_description(language_english, "The mode of operation for the output port, either writing to a single file or chunked files (by time)."_ct);
+            auto file_mode_param = std::make_unique<adam::configuration_parameter_string>("file_mode"_ct, "single"_ct, std::move(file_mode_param_presets));
+            file_mode_param->set_description(language_english, "The mode of operation for the output port, either writing to a single file or chunkeds (by time)."_ct);
             file_mode_param->set_description(language_german, "Der Betriebsmodus für den Ausgangsport, entweder Schreiben in eine einzelne Datei oder mehrere Dateien (nach Zeit)."_ct);
             up->add(std::move(file_mode_param));
 
@@ -57,7 +57,7 @@ namespace adam::modules::recrep
             chunk_mode_param_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("time"_ct, "time"_ct));
 
             auto chunk_mode_param = std::make_unique<adam::configuration_parameter_string>("chunk_mode"_ct, "size"_ct, std::move(chunk_mode_param_presets));
-            chunk_mode_param->set_description(language_english, "The mode of operation for chunked files, either by size or by time."_ct);
+            chunk_mode_param->set_description(language_english, "The mode of operation for chunkeds, either by size or by time."_ct);
             chunk_mode_param->set_description(language_german, "Der Betriebsmodus für geteilte Dateien, entweder nach Größe (size) oder nach Zeit (time)."_ct);
             up->add(std::move(chunk_mode_param));
 
@@ -162,7 +162,7 @@ namespace adam::modules::recrep
         std::string extension = "." + m_data_format_param->get_value();
 
         std::string file_name;
-        if (m_file_mode_param->get_value() == "chunked_file"_ct)
+        if (m_file_mode_param->get_value() == "chunked"_ct)
         {
             file_name = std::format("{}_{}_{:03}{}", configuration_item::get_name().c_str(), time_str, m_current_chunk_index, extension);
         }
@@ -216,7 +216,7 @@ namespace adam::modules::recrep
         if (!buff || !m_file_stream.is_open()) 
             return false;
 
-        bool is_chunked = m_file_mode_param->get_value() == "chunked_file"_ct;
+        bool is_chunked = m_file_mode_param->get_value() == "chunked"_ct;
         
         if (is_chunked)
         {
