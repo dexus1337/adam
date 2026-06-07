@@ -39,6 +39,8 @@ namespace adam
         std::vector<response>& responses;   /**< A reference to the pre-allocated buffer handling multiple outgoing responses. */
         
         std::unordered_map<string_hash, std::shared_ptr<data_inspector>> thread_inspectors; /**< A map of data inspectors managed by this thread context. */
+        std::unordered_map<string_hash, std::shared_ptr<data_inspector>> thread_connection_input_inspectors; /**< Input data inspectors managed by this thread context. */
+        std::unordered_map<string_hash, std::shared_ptr<data_inspector>> thread_connection_output_inspectors; /**< Output data inspectors managed by this thread context. */
 
         void set_single_response_status(response_status status)
         {
@@ -96,6 +98,14 @@ namespace adam
             connection_port_add_failed,
             connection_port_removed,
             connection_port_remove_failed,
+            connection_input_inspector_created,
+            connection_input_inspector_create_failed,
+            connection_input_inspector_destroyed,
+            connection_input_inspector_destroy_failed,
+            connection_output_inspector_created,
+            connection_output_inspector_create_failed,
+            connection_output_inspector_destroyed,
+            connection_output_inspector_destroy_failed,
             connection_input_data_format_changed,
             connection_input_data_format_change_failed,
             connection_output_data_format_changed,

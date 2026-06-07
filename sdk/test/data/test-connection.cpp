@@ -10,6 +10,8 @@
 #include "controller/controller.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "controller/registry.hpp"
+#include "data/inspector.hpp"
+#include <atomic>
 
 using namespace adam::string_hashed_ct_literals;
 
@@ -25,7 +27,7 @@ protected:
         direction get_direction() const override { return direction_inout; }
 
         bool read(adam::buffer*& buff) override { (void)buff; return false;}
-        bool write(adam::buffer* buff) override { (void)buff; return false;}
+        bool write(adam::buffer* buff) override { (void)buff; return true;}
         
         void worker() override
         {
@@ -100,6 +102,7 @@ TEST_F(connection_test, connection_data_forwarding_multiple_outputs)
     conn.ports_output().push_back(&out_port_2);
 
     EXPECT_TRUE(conn.check_valid_chain());
+    EXPECT_TRUE(conn.start());
 
     adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
     buf->set_size(10);
@@ -139,6 +142,7 @@ TEST_F(connection_test, connection_data_forwarding_with_processor)
     conn.set_output_format(&formatB);
 
     EXPECT_TRUE(conn.check_valid_chain());
+    EXPECT_TRUE(conn.start());
 
     adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
     buf->set_size(10);
@@ -149,6 +153,86 @@ TEST_F(connection_test, connection_data_forwarding_with_processor)
     EXPECT_EQ(stats->total_buffers_handled, 1u);
 
     buf->release();
+    in_port.stop();
+    out_port.stop();
+}
+
+TEST_F(connection_test, connection_input_inspector_receives_data)
+{
+    test_port in_port("in_port"_ct);
+    in_port.start();
+
+    test_port out_port("out_port"_ct);
+    out_port.start();
+
+    adam::connection conn("conn"_ct);
+    conn.ports_input().push_back(&in_port);
+    conn.ports_output().push_back(&out_port);
+
+    EXPECT_TRUE(conn.check_valid_chain());
+    EXPECT_TRUE(conn.start());
+
+    std::atomic<int> callback_count = 0;
+    auto inspector = std::make_shared<adam::data_inspector>();
+    EXPECT_TRUE(inspector->create("conn"_ct.get_hash() ^ adam::string_hashed_ct("input").get_hash()));
+    EXPECT_TRUE(inspector->start_inspecting([&callback_count](adam::buffer*) {
+        callback_count++;
+    }));
+
+    conn.inspectors_input().push_back(inspector);
+
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
+    buf->set_size(10);
+
+    EXPECT_TRUE(conn.handle_data(buf));
+
+    // Allow inspector thread to process
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    EXPECT_EQ(callback_count.load(), 1);
+
+    buf->release();
+    inspector->destroy();
+    in_port.stop();
+    out_port.stop();
+}
+
+TEST_F(connection_test, connection_output_inspector_receives_data)
+{
+    test_port in_port("in_port"_ct);
+    in_port.start();
+
+    test_port out_port("out_port"_ct);
+    out_port.start();
+
+    adam::connection conn("conn"_ct);
+    conn.ports_input().push_back(&in_port);
+    conn.ports_output().push_back(&out_port);
+
+    EXPECT_TRUE(conn.check_valid_chain());
+    EXPECT_TRUE(conn.start());
+
+    std::atomic<int> callback_count = 0;
+    auto inspector = std::make_shared<adam::data_inspector>();
+    EXPECT_TRUE(inspector->create("conn"_ct.get_hash() ^ adam::string_hashed_ct("output").get_hash()));
+    EXPECT_TRUE(inspector->start_inspecting([&callback_count](adam::buffer*) {
+        callback_count++;
+    }));
+
+    conn.inspectors_output().push_back(inspector);
+
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
+    buf->set_size(10);
+
+    EXPECT_TRUE(conn.handle_data(buf));
+
+    // Allow inspector thread to process
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    EXPECT_EQ(callback_count.load(), 1);
+
+    buf->release();
+    inspector->destroy();
     in_port.stop();
     out_port.stop();
 }

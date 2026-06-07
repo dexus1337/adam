@@ -5,12 +5,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 # Grab all source files for the sdk and tests automatically
-file( GLOB_RECURSE  adam_app_source_files       "source/*cpp"   )
-file( GLOB_RECURSE  adam_app_test_source_files   "test/*cpp"    ) 
+file(GLOB_RECURSE  adam_app_source_files       "source/*cpp"   )
+file(GLOB_RECURSE  adam_app_test_source_files   "test/*cpp"    ) 
+
+set(app_resources "../../resources/resources.rc")
 
 
 # Create the shared library target for the sdk
-add_executable(adam ${adam_app_source_files})
+add_executable(adam ${adam_app_source_files} ${app_resources})
 
 # Link libraries
 target_link_libraries(adam PRIVATE adam-sdk)  # Link against the SDK library

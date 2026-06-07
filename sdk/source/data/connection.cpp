@@ -3,6 +3,7 @@
 #include "data/port/port.hpp"
 #include "data/processor.hpp"
 #include "data/format.hpp"
+#include "data/inspector.hpp"
 #include "controller/controller.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "commander/messages/command.hpp"
@@ -54,11 +55,25 @@ namespace adam
     {
         bool result = true;
 
+        // Run data through input inspectors
+        m_inspectors_input.iterate([&](const auto& inspectors) 
+        {
+            for (const auto& inspector : inspectors) 
+                inspector->handle_data(buffer);
+        });
+
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
         {
             for (auto* processor : processors) 
                 result &= processor->handle_data(buffer);
+        });
+
+        // Run data through output inspectors
+        m_inspectors_output.iterate([&](const auto& inspectors) 
+        {
+            for (const auto& inspector : inspectors) 
+                inspector->handle_data(buffer);
         });
 
         // Forward to all output ports

@@ -201,6 +201,8 @@ namespace adam::gui
     {
         std::mutex mtx;
         std::map<adam::string_hash, inspection_port_data> ports;
+        std::map<adam::string_hash, inspection_port_data> connections_input;
+        std::map<adam::string_hash, inspection_port_data> connections_output;
         adam::string_hash selected_port = 0;
     };
 

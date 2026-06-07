@@ -1451,6 +1451,116 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(command_type::connection_input_inspector_create, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto conn = ctx.reg.connections().find(params->connection);
+
+            if (conn == ctx.reg.connections().end())
+            {
+                std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
+                ctx.set_single_response_status(response_status::unknown);
+                return;
+            }
+
+            const auto& conn_name = conn->second->get_name();
+            auto new_inspector = std::make_shared<data_inspector>();
+
+            if (!new_inspector->open(conn_name.get_hash() ^ ("input"_ct).get_hash(), ctx.tid))
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            conn->second->inspectors_input().push_back(new_inspector);
+            ctx.thread_connection_input_inspectors.emplace(params->connection, new_inspector);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_input_inspector_destroy, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto it = ctx.thread_connection_input_inspectors.find(params->connection);
+
+            if (it == ctx.thread_connection_input_inspectors.end())
+            {
+                std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto conn = ctx.reg.connections().find(params->connection);
+            std::string conn_str = conn != ctx.reg.connections().end() ? std::string(conn->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->connection));
+
+            if (conn != ctx.reg.connections().end())
+                conn->second->inspectors_input().remove(it->second);
+
+            ctx.thread_connection_input_inspectors.erase(it);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_output_inspector_create, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto conn = ctx.reg.connections().find(params->connection);
+
+            if (conn == ctx.reg.connections().end())
+            {
+                std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
+                ctx.set_single_response_status(response_status::unknown);
+                return;
+            }
+
+            const auto& conn_name = conn->second->get_name();
+            auto new_inspector = std::make_shared<data_inspector>();
+
+            if (!new_inspector->open(conn_name.get_hash() ^ ("output"_ct).get_hash(), ctx.tid))
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            conn->second->inspectors_output().push_back(new_inspector);
+            ctx.thread_connection_output_inspectors.emplace(params->connection, new_inspector);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_output_inspector_destroy, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto it = ctx.thread_connection_output_inspectors.find(params->connection);
+
+            if (it == ctx.thread_connection_output_inspectors.end())
+            {
+                std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto conn = ctx.reg.connections().find(params->connection);
+            std::string conn_str = conn != ctx.reg.connections().end() ? std::string(conn->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->connection));
+
+            if (conn != ctx.reg.connections().end())
+                conn->second->inspectors_output().remove(it->second);
+
+            ctx.thread_connection_output_inspectors.erase(it);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
     }
 
     std::string_view controller_cmd_dispatcher::get_log_event_text(log_event event, language lang)
@@ -1624,6 +1734,38 @@ namespace adam
             {
                 log_event::connection_port_remove_failed,
                 { "Thread {:d} failed to remove port {:d} from connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht von Verbindung {:d} entfernen: {}" }
+            },
+            {
+                log_event::connection_input_inspector_created,
+                { "Thread {:d} successfully created input inspector for connection \"{}\".", "Thread {:d} hat erfolgreich einen Eingangs-Inspektor für Verbindung \"{}\" erstellt." }
+            },
+            {
+                log_event::connection_input_inspector_create_failed,
+                { "Thread {:d} failed to create input inspector for connection \"{}\".", "Thread {:d} konnte Eingangs-Inspektor für Verbindung \"{}\" nicht erstellen." }
+            },
+            {
+                log_event::connection_input_inspector_destroyed,
+                { "Thread {:d} successfully destroyed input inspector for connection \"{}\".", "Thread {:d} hat erfolgreich den Eingangs-Inspektor für Verbindung \"{}\" entfernt." }
+            },
+            {
+                log_event::connection_input_inspector_destroy_failed,
+                { "Thread {:d} failed to destroy input inspector for connection \"{}\".", "Thread {:d} konnte Eingangs-Inspektor für Verbindung \"{}\" nicht entfernen." }
+            },
+            {
+                log_event::connection_output_inspector_created,
+                { "Thread {:d} successfully created output inspector for connection \"{}\".", "Thread {:d} hat erfolgreich einen Ausgangs-Inspektor für Verbindung \"{}\" erstellt." }
+            },
+            {
+                log_event::connection_output_inspector_create_failed,
+                { "Thread {:d} failed to create output inspector for connection \"{}\".", "Thread {:d} konnte Ausgangs-Inspektor für Verbindung \"{}\" nicht erstellen." }
+            },
+            {
+                log_event::connection_output_inspector_destroyed,
+                { "Thread {:d} successfully destroyed output inspector for connection \"{}\".", "Thread {:d} hat erfolgreich den Ausgangs-Inspektor für Verbindung \"{}\" entfernt." }
+            },
+            {
+                log_event::connection_output_inspector_destroy_failed,
+                { "Thread {:d} failed to destroy output inspector for connection \"{}\".", "Thread {:d} konnte Ausgangs-Inspektor für Verbindung \"{}\" nicht entfernen." }
             },
             {
                 log_event::connection_sorting_index_changed,

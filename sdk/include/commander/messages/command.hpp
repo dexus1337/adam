@@ -58,6 +58,10 @@ namespace adam
         connection_sorting_index_change,
         connection_color_change,
 
+        connection_input_inspector_create,
+        connection_input_inspector_destroy,
+        connection_output_inspector_create,
+        connection_output_inspector_destroy,
         inspector_create,
         inspector_destroy,
 

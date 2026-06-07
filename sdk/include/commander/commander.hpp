@@ -140,6 +140,18 @@ namespace adam
         /** @brief Requests the destruction of a data inspector on a specific port. */
         response_status request_inspector_destroy(data_inspector* inspector);
 
+        /** @brief Requests the creation of a data inspector on a connection input. */
+        response_status request_connection_input_inspector_create(string_hash conn_hash, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
+
+        /** @brief Requests the destruction of a data inspector on a connection input. */
+        response_status request_connection_input_inspector_destroy(data_inspector* inspector);
+
+        /** @brief Requests the creation of a data inspector on a connection output. */
+        response_status request_connection_output_inspector_create(string_hash conn_hash, std::function<void(buffer*)> callback, data_inspector*& out_inspector);
+
+        /** @brief Requests the destruction of a data inspector on a connection output. */
+        response_status request_connection_output_inspector_destroy(data_inspector* inspector);
+
         /** @brief Requests to inject data into a port. */
         response_status request_port_inject_data(string_hash port_hash, const void* data, size_t size, data_direction dir);
 
@@ -166,6 +178,12 @@ namespace adam
         std::unordered_map<string_hash, data_inspector*>& inspectors() { return m_inspectors; }
         const std::unordered_map<string_hash, data_inspector*>& get_inspectors() const { return m_inspectors; }
 
+        std::unordered_map<string_hash, data_inspector*>& connection_input_inspectors() { return m_connection_input_inspectors; }
+        const std::unordered_map<string_hash, data_inspector*>& get_connection_input_inspectors() const { return m_connection_input_inspectors; }
+
+        std::unordered_map<string_hash, data_inspector*>& connection_output_inspectors() { return m_connection_output_inspectors; }
+        const std::unordered_map<string_hash, data_inspector*>& get_connection_output_inspectors() const { return m_connection_output_inspectors; }
+
     protected:
 
         /** @brief Sends a command. Can have multiple (extended) responses. */
@@ -187,6 +205,8 @@ namespace adam
         language_info               m_lang;
 
         std::unordered_map<string_hash, data_inspector*> m_inspectors;
+        std::unordered_map<string_hash, data_inspector*> m_connection_input_inspectors;
+        std::unordered_map<string_hash, data_inspector*> m_connection_output_inspectors;
 
         registry_view m_registry_view; /**< Local view of the controller's registry components */
         module_view   m_module_view;   /**< Local view of the controller's modules */

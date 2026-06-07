@@ -147,6 +147,20 @@ namespace adam
             delete pair.second;
         }
         m_inspectors.clear();
+
+        for (auto& pair : m_connection_input_inspectors)
+        {
+            pair.second->destroy();
+            delete pair.second;
+        }
+        m_connection_input_inspectors.clear();
+
+        for (auto& pair : m_connection_output_inspectors)
+        {
+            pair.second->destroy();
+            delete pair.second;
+        }
+        m_connection_output_inspectors.clear();
         m_registry_view.clear();
         m_module_view.clear();
 
@@ -638,6 +652,136 @@ namespace adam
                 inspector->destroy();
                 delete inspector;
                 m_inspectors.erase(it);
+            }
+
+            return res;
+        }
+
+        return response_status::inspector_not_found;
+    }
+
+    response_status commander::request_connection_input_inspector_create(string_hash conn_hash, std::function<void(buffer*)> callback, data_inspector*& out_inspector)
+    {
+        if (m_connection_input_inspectors.find(conn_hash) != m_connection_input_inspectors.end())
+            return response_status::inspector_already_exists;
+
+        data_inspector* inspector = new data_inspector();
+        
+        if (!inspector->create(conn_hash ^ ("input"_ct).get_hash()))
+        {
+            delete inspector;
+            return response_status::inspector_creation_failed;
+        }
+
+        if (!inspector->start_inspecting(callback))
+        {
+            inspector->destroy();
+            delete inspector;
+            return response_status::inspector_start_failed;
+        }
+
+        command cmd(command_type::connection_input_inspector_create);
+        cmd.data_as<messages::connection_action_data>()->connection = conn_hash;
+
+        response_status res = send_command(cmd);
+        if (res != response_status::success)
+        {
+            inspector->destroy();
+            delete inspector;
+            return res;
+        }
+
+        m_connection_input_inspectors[conn_hash] = inspector;
+
+        out_inspector = inspector;
+
+        return res;
+    }
+
+    response_status commander::request_connection_input_inspector_destroy(data_inspector* inspector)
+    {
+        if (!inspector)
+            return response_status::inspector_not_found;
+
+        string_hash conn_hash = inspector->get_port_hash() ^ ("input"_ct).get_hash();
+        auto it = m_connection_input_inspectors.find(conn_hash);
+        
+        if (it != m_connection_input_inspectors.end() && it->second == inspector)
+        {
+            command cmd(command_type::connection_input_inspector_destroy);
+            cmd.data_as<messages::connection_action_data>()->connection = conn_hash;
+
+            response_status res = send_command(cmd);
+            if (res == response_status::success)
+            {
+                inspector->destroy();
+                delete inspector;
+                m_connection_input_inspectors.erase(it);
+            }
+
+            return res;
+        }
+
+        return response_status::inspector_not_found;
+    }
+
+    response_status commander::request_connection_output_inspector_create(string_hash conn_hash, std::function<void(buffer*)> callback, data_inspector*& out_inspector)
+    {
+        if (m_connection_output_inspectors.find(conn_hash) != m_connection_output_inspectors.end())
+            return response_status::inspector_already_exists;
+
+        data_inspector* inspector = new data_inspector();
+        
+        if (!inspector->create(conn_hash ^ ("output"_ct).get_hash()))
+        {
+            delete inspector;
+            return response_status::inspector_creation_failed;
+        }
+
+        if (!inspector->start_inspecting(callback))
+        {
+            inspector->destroy();
+            delete inspector;
+            return response_status::inspector_start_failed;
+        }
+
+        command cmd(command_type::connection_output_inspector_create);
+        cmd.data_as<messages::connection_action_data>()->connection = conn_hash;
+
+        response_status res = send_command(cmd);
+        if (res != response_status::success)
+        {
+            inspector->destroy();
+            delete inspector;
+            return res;
+        }
+
+        m_connection_output_inspectors[conn_hash] = inspector;
+
+        out_inspector = inspector;
+
+        return res;
+    }
+
+    response_status commander::request_connection_output_inspector_destroy(data_inspector* inspector)
+    {
+        if (!inspector)
+            return response_status::inspector_not_found;
+
+        string_hash conn_hash = inspector->get_port_hash() ^ ("output"_ct).get_hash();
+        auto it = m_connection_output_inspectors.find(conn_hash);
+        
+        if (it != m_connection_output_inspectors.end() && it->second == inspector)
+        {
+            command cmd(command_type::connection_output_inspector_destroy);
+            cmd.data_as<messages::connection_action_data>()->connection = conn_hash;
+
+            response_status res = send_command(cmd);
+            if (res == response_status::success)
+            {
+                inspector->destroy();
+                delete inspector;
+                m_connection_output_inspectors.erase(it);
             }
 
             return res;

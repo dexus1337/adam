@@ -24,13 +24,17 @@ file(GLOB imgui_sources
 
 
 # Grab all source files for the sdk and tests automatically
-file( GLOB_RECURSE  adam_gui_app_source_files       "source/*cpp"   )
-file( GLOB_RECURSE  adam_gui_app_test_source_files   "test/*cpp"    ) 
+file(GLOB_RECURSE adam_gui_app_source_files         "source/*cpp")
+file(GLOB_RECURSE adam_gui_app_test_source_files    "test/*cpp")
+
+set(app_resources "../../resources/resources.rc")
 
 
 add_executable(adam-gui 
     ${adam_gui_app_source_files}
-    ${imgui_sources})
+    ${imgui_sources}
+    ${app_resources}
+)
 
 target_include_directories(adam-gui PRIVATE
     "${imgui_dir}"
