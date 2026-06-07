@@ -1,4 +1,8 @@
+<div align="center">
+  <img src="resources/icon.ico" alt="ADAM Icon" width="128" height="128" />
+  
 # 🌌 ADAM (Advanced Data Acquisition & Modulation)
+</div>
 
 ADAM is a modular, high-performance, real-time data routing and processing engine written in modern C++23. It is designed to run as a system service (daemon) and interface with multiple client applications using a custom, ultra-low-latency, zero-copy Inter-Process Communication (IPC) framework based on shared memory.
 
@@ -111,14 +115,14 @@ ADAM provides a structured pipeline for routing, filtering, and converting data 
 
 * **Configuration Items (`configuration_item`)**: The base class for all configurable pipeline elements. It hosts a `configuration_parameter_list` supporting types like Boolean, Integer, Double, String, Reference, and nested Parameter Lists. It supports runtime deep-cloning of static default parameters, making instantiation clean, and serializes directly to binary configurations.
 * **Ports (`port`, `port_input`, `port_output`, `port_in_out`)**: Abstract interfaces representing endpoints for data flow.
-  * **Threaded Ports**: Background worker threads run a loop pulling data from physical hardware or virtual resources via `read()` and dispatching it using `handle_data()`.
-  * **Statistics Monitoring**: Every port maintains a statistics block in shared memory recording `total_bytes_handled`, `total_buffers_handled`, and `total_discarded` metrics.
-* **Connections (`connection`)**: High-level routes that chain $N$ inputs to $M$ outputs. A connection does not simply pass pointer references; it manages the pipeline lifecycle, starting and stopping ports automatically as the connection is toggled.
-* **Data Formats & Pipeline Verification**: All data streams carry format identifiers. The `connection` validates the pipeline before activation using `check_valid_chain()`. It traverses the input ports, through the list of processors, ensuring format compatibility (e.g., input format matches processor input, processor output matches next processor input, and final output matches the output ports).
-* **Processors (`data_processor`)**: Plugins placed inside a connection's route.
-  * **Filters (`filter`)**: Read data and return boolean results to drop or accept buffers without modifying the underlying format.
-  * **Converters (`converter`)**: Transform data from one schema layout to another (e.g., parsing raw CAN bytes into structured variables).
-* **Data Inspectors (`data_inspector`)**: Live tap points that can be attached to any port. They copy passing data buffers and stream them to client telemetries without blocking the main pipeline thread.
+  * **Threaded Ports**: Background worker threads run a continuous loop pulling data from physical hardware or virtual resources via `read()` and dispatching it using `handle_data()`.
+  * **Statistics Monitoring**: Every port maintains a statistics block in shared memory recording real-time `total_bytes_handled`, `total_buffers_handled`, and `total_discarded` metrics.
+* **Connections (`connection`)**: High-level routing topologies that dynamically chain $N$ inputs to $M$ outputs. A connection does more than just pass data; it actively manages the entire data pipeline lifecycle, starting and stopping physical ports automatically as the connection is toggled.
+* **Data Formats & Pipeline Verification**: All data streams enforce strict format identifiers. The `connection` validates the pipeline before activation using `check_valid_chain()`. It traverses the inputs, through the list of processors, ensuring format compatibility across the entire chain (e.g., input format matches processor input, processor output matches next processor input, and final output matches the output ports).
+* **Processors (`data_processor`)**: Intermediary plugins placed inside a connection's route to process passing data.
+  * **Filters (`filter`)**: Read data and return boolean results to either drop or accept buffers without modifying the underlying format.
+  * **Converters (`converter`)**: Transform data from one schema layout to another (e.g., parsing raw CAN bytes into structured physical variables).
+* **Data Inspectors (`data_inspector`)**: Live diagnostic tap points that can be attached to any individual port, or directly to a connection's input/output streams. They safely copy passing data buffers and stream them to client telemetry applications without blocking or altering the main high-speed pipeline.
 
 ---
 
@@ -171,8 +175,8 @@ A feature-rich command-line administrative interface.
 ### 📊 `adam-gui`
 A hardware-accelerated desktop telemetry dashboard built using **Dear ImGui** backed by **SDL2** and **OpenGL 3**.
 * **Visual Connections Manager**: Allows administrators to view, create, configure, start, and stop connections and ports using interactive ImGui windows.
+* **Data Inspector View**: Features a powerful real-time interface to inspect live telemetry. Allows administrators to tap into connection inputs/outputs or raw ports, showing a dual hex-dump and ASCII live preview of intercepted messages.
 * **Theme Customization**: Offers standard light and dark mode toggles with customizable font scales.
-* **Hexadecimal Telemetry Tap**: Enables real-time tapping of ports. Selected data buffers are rendered inside a dual hex-dump and ASCII preview window.
 * **Performance Telemetry Overlay**: Renders dynamic FPS, CPU, and RAM overlays, which can be configured to snap to any corner of the screen.
 
 ---
