@@ -327,7 +327,7 @@ TEST_F(commander_test, initial_data_module_sync)
         conn_info->input_count = 0;
         conn_info->processor_count = 0;
         conn_info->output_count = 0;
-        conn_info->is_active = false;
+        conn_info->started = false;
         conn_info->valid_chain = false;
     });
 
@@ -528,7 +528,7 @@ TEST_F(commander_test, sync_unavailable_port)
     auto* evt_data = evt.data_as<adam::port::basic_info>();
     evt_data->setup("cmd_unavail_port"_ct, ("some_type"_ct).get_hash(), ("missing_mod"_ct).get_hash(), false);
     evt_data->dir = adam::port::direction_inout;
-    evt_data->is_active = false;
+    evt_data->started = false;
     ctrl.broadcast_event(evt);
 
     // Wait for event to clear the is_unavailable flag

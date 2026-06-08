@@ -1,11 +1,10 @@
 #include "data/port/port.hpp"
 
 
-#include "data/inspector.hpp"
 #include "data/connection.hpp"
+#include "data/inspector.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
-#include <chrono>
 
 
 namespace adam 
@@ -23,7 +22,7 @@ namespace adam
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>(user_params);
             up->set_name("user_parameters"_ct);
             p.add(std::move(up));
-            p.add(std::make_unique<adam::configuration_parameter_boolean>("is_active"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_boolean>("started"_ct));
             p.add(std::make_unique<adam::configuration_parameter_string>("type"_ct));
             p.add(std::make_unique<adam::configuration_parameter_string>("type_origin_module"_ct));
             return p;
@@ -35,7 +34,7 @@ namespace adam
     {
         if (m_b_threaded && m_thread.joinable())
         {
-            m_is_active->set_value(false);
+            m_started->set_value(false);
             m_thread.join();
         }
 
@@ -50,7 +49,7 @@ namespace adam
 
     void port::worker()
     {
-        while (is_active())
+        while (get_state_buffer_data()->cur_state == state_running)
         {
             buffer* input = nullptr;
             if (read(input))
@@ -65,7 +64,7 @@ namespace adam
     {
         bool result = true;
 
-        if(!m_is_active->get_value())
+        if(!m_started->get_value())
             return false;
 
         m_inspectors.iterate([&](const auto& active_inspectors) 
@@ -108,12 +107,13 @@ namespace adam
 
     bool port::start()
     {
-        auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
+        auto* stat_data = get_state_buffer_data();
 
+        m_started->set_value(true);
+
+        stat_data->cur_state                = state_running;
         stat_data->total_buffers_handled    = 0;
         stat_data->total_bytes_handled      = 0;
-
-        m_is_active->set_value(true);
 
         if (m_b_threaded)
         {
@@ -129,7 +129,10 @@ namespace adam
 
     bool port::stop()
     {
-        m_is_active->set_value(false);
+        auto* stat_data = get_state_buffer_data();
+
+        stat_data->cur_state = state_stopped;
+        m_started->set_value(false);
 
         if (m_b_threaded && m_thread.joinable())
         {
@@ -139,14 +142,14 @@ namespace adam
         return true;
     }
 
-    port::port(const string_hashed& item_name, size_t state_buffer_size) 
+    port::port(const string_hashed& item_name, uint32_t state_buffer_size) 
     :   configuration_item(item_name, port::get_default_parameters()),
         m_b_threaded(true),
         m_thread(),
         m_in_connections(),
         m_out_connections(),
         m_inspectors(),
-        m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct)))
+        m_started(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("started"_ct)))
     {
         m_state_buffer = buffer_manager::get().request_buffer(state_buffer_size);
     }

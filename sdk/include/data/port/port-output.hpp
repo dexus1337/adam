@@ -36,7 +36,7 @@ namespace adam
     protected:
 
         /** @brief Constructs a new input port object. */
-        port_output(const string_hashed& item_name, size_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
+        port_output(const string_hashed& item_name, uint32_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
 
     };
 }

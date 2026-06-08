@@ -3,6 +3,7 @@
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/formats/pcap.hpp"
+#include "data/port/port.hpp"
 #include "resources/language-strings.hpp"
 #include <chrono>
 #include <filesystem>
@@ -281,7 +282,7 @@ namespace adam::modules::recrep
         {
             if (!open_next_file())
             {
-                m_is_active->set_value(false);
+                get_state_buffer_data()->cur_state = state_inactive;
                 return false;
             }
         }
@@ -294,7 +295,7 @@ namespace adam::modules::recrep
             {
                 if (!open_next_file())
                 {
-                    m_is_active->set_value(false);
+                    get_state_buffer_data()->cur_state = state_inactive;
                     return false;
                 }
                 return read(buff);
@@ -318,7 +319,7 @@ namespace adam::modules::recrep
                     auto adjusted_elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double, std::micro>(static_cast<double>(elapsed_packet_time.count()) / speed));
                     auto expected_time = m_replay_start_time + adjusted_elapsed_time;
                     
-                    while (m_is_active->get_value())
+                    while (is_started())
                     {
                         auto now = std::chrono::steady_clock::now();
                         if (now >= expected_time) break;
@@ -356,11 +357,6 @@ namespace adam::modules::recrep
             }
 
             return true;
-        }
-        else if (m_data_format_param->get_value() == "rff"_ct)
-        {
-            m_is_active->set_value(false);
-            return false;
         }
 
         return false;

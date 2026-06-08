@@ -282,7 +282,7 @@ namespace adam
                     port_info->statistic_buffer_handle  = prt->get_state_buffer()->get_handle();
                     port_info->dir                      = prt->get_direction();
                     port_info->is_unavailable           = false;
-                    port_info->is_active                = prt->is_active();
+                    port_info->started                  = prt->is_started();
 
                     auto* user_param = dynamic_cast<configuration_parameter_list*>(prt->get_parameters().get("user_parameters"_ct));
 
@@ -310,7 +310,7 @@ namespace adam
                     
                     port_info->setup(upi->get_name(), upi->type, upi->type_module, true);
                     port_info->is_unavailable = true;
-                    port_info->is_active = false;
+                    port_info->started = false;
                     port_info->dir = port::direction_inout;
 
                     resp_idx++;
@@ -336,7 +336,7 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("color_code"_ct)))
                     conn_info->color = static_cast<uint32_t>(param->get_value());
                 
-                conn_info->is_active = conn->is_active();
+                conn_info->started = conn->is_started();
                 conn_info->valid_chain = conn->is_valid_chain();
                 conn_info->is_unavailable = false;
 
@@ -411,7 +411,7 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_integer*>(uconn->get_parameters().get("color_code"_ct)))
                     conn_info->color = static_cast<uint32_t>(param->get_value());
                 
-                conn_info->is_active = false;
+                conn_info->started = false;
                 conn_info->valid_chain = false;
                 conn_info->is_unavailable = true;
 
@@ -925,10 +925,10 @@ namespace adam
 
             resolve_format(params->format, params->format_module, in_fmt, resolved_in_module);
 
-            bool was_active = conn->is_active();
+            bool was_started = conn->is_started();
             conn->set_input_format(in_fmt);
             
-            if (was_active && !conn->is_valid_chain())
+            if (was_started && !conn->is_valid_chain())
             {
                 conn->stop();
                 event evt_stop(event_type::connection_stopped);
@@ -1011,10 +1011,10 @@ namespace adam
 
             resolve_format(params->format, params->format_module, out_fmt, resolved_out_module);
 
-            bool was_active = conn->is_active();
+            bool was_started = conn->is_started();
             conn->set_output_format(out_fmt);
             
-            if (was_active && !conn->is_valid_chain())
+            if (was_started && !conn->is_valid_chain())
             {
                 conn->stop();
                 event evt_stop(event_type::connection_stopped);
@@ -1081,8 +1081,8 @@ namespace adam
                 if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("type_origin_module"_ct)))
                     evt_data->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
 
-                evt_data->dir                       = new_port->get_direction();
-                evt_data->is_active                 = new_port->is_active();
+                evt_data->dir       = new_port->get_direction();
+                evt_data->started   = new_port->is_started();
                 
                 auto* user_param = dynamic_cast<configuration_parameter_list*>(new_port->get_parameters().get("user_parameters"_ct));
                 if (user_param)

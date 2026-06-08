@@ -58,7 +58,7 @@ namespace adam
                 edited = 0;
                 sorting_index = 0;
                 color = 0;
-                is_active = false;
+                started = false;
                 valid_chain = false;
                 is_unavailable = false;
                 input_format = 0;
@@ -68,7 +68,7 @@ namespace adam
             }
 
             char name[max_name_length];
-            bool is_active;
+            bool started;
             bool valid_chain;
             bool is_unavailable;
 
@@ -134,7 +134,8 @@ namespace adam
         /** @brief Stops the connection. */
         bool stop();
 
-        bool is_active() const { return m_is_active != nullptr && m_is_active->get_value(); }
+        /** @brief Returns true if the connection is started. */
+        bool is_started() const { return m_started != nullptr && m_started->get_value(); }
 
     protected:
 
@@ -150,9 +151,9 @@ namespace adam
         const data_format*                      m_input_format;         /**< Format expected from all input ports (defaults to transparent). */
         const data_format*                      m_output_format;        /**< Format expected for all output ports (defaults to transparent). */
 
-        bool                                    m_b_valid_data_chain;
+        bool                                    m_b_valid_data_chain;   /**< Last calculated validation state of the data chain. */
         
-        configuration_parameter_boolean*        m_is_active;            /**< Cached pointer to the is_active parameter as it will be frequently accessed. */
+        configuration_parameter_boolean*        m_started;              /**< Cached pointer to the started parameter as it will be frequently accessed. */
 
     };
 }

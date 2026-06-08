@@ -110,7 +110,7 @@ namespace adam
         string_hashed name;
         string_hashed type;
         string_hashed type_module;
-        bool is_active;
+        bool started;
         bool is_unavailable;
         port::direction direction;
         buffer* statistic_buffer;
@@ -143,7 +143,7 @@ namespace adam
         std::vector<string_hash> outputs;
         std::vector<string_hash> filters;
         std::vector<string_hash> converters;
-        bool is_active;
+        bool started;
         bool valid_chain;
         bool is_unavailable;
 

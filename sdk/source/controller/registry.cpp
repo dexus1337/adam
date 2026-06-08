@@ -824,7 +824,7 @@ namespace adam
 
             for (auto& [port_hash, port_ptr] : m_ports)
             {
-                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(port_ptr->get_parameters().get("is_active"_ct)))
+                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(port_ptr->get_parameters().get("started"_ct)))
                 {
                     if (param->get_value())
                     {
@@ -838,7 +838,7 @@ namespace adam
 
             for (auto& [conn_hash, conn_ptr] : m_connections)
             {
-                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(conn_ptr->get_parameters().get("is_active"_ct)))
+                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(conn_ptr->get_parameters().get("started"_ct)))
                 {
                     if (param->get_value())
                     {
@@ -899,7 +899,7 @@ namespace adam
                     evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, false, new_port->get_state_buffer()->get_handle());
 
                     evt_data->dir       = new_port->get_direction();
-                    evt_data->is_active = new_port->is_active();
+                    evt_data->started   = new_port->is_started();
                     m_controller.broadcast_event(evt);
                     
                     it = m_unavailable_ports.erase(it);
@@ -1116,7 +1116,7 @@ namespace adam
                         if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("color_code"_ct)))
                             evt_data->color = static_cast<uint32_t>(param->get_value());
 
-                        evt_data->is_active = new_conn->is_active();
+                        evt_data->started = new_conn->is_started();
                         evt_data->valid_chain = new_conn->is_valid_chain();
                         evt_data->is_unavailable = false;
 

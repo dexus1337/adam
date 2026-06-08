@@ -17,7 +17,7 @@ namespace adam
         static adam::configuration_parameter_list params = []() 
         {
             adam::configuration_parameter_list p;
-            p.add(std::make_unique<adam::configuration_parameter_boolean>("is_active"_ct));
+            p.add(std::make_unique<adam::configuration_parameter_boolean>("started"_ct));
             p.add(std::make_unique<adam::configuration_parameter_list>("inputs"_ct));
             p.add(std::make_unique<adam::configuration_parameter_list>("processors"_ct));
             p.add(std::make_unique<adam::configuration_parameter_list>("outputs"_ct));
@@ -44,7 +44,7 @@ namespace adam
         m_input_format(&data_format_transparent),   // Default to transparent
         m_output_format(&data_format_transparent),  // Default to transparent
         m_b_valid_data_chain(false),
-        m_is_active(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("is_active"_ct)))
+        m_started(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("started"_ct)))
     {
 
     }
@@ -170,7 +170,7 @@ namespace adam
         {
             for (auto* in : inputs) 
             {
-                if (!in->is_active())
+                if (!in->is_started())
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
@@ -183,7 +183,7 @@ namespace adam
         {
             for (auto* out : outputs) 
             {
-                if (!out->is_active())
+                if (!out->is_started())
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
@@ -192,7 +192,7 @@ namespace adam
             }
         });
 
-        m_is_active->set_value(result);
+        m_started->set_value(result);
 
         return result;
     }
@@ -207,13 +207,13 @@ namespace adam
             p->in_connections().iterate([&](const auto& conns)
             {
                 for (auto* c : conns)
-                    if (c != this && c->is_active()) is_used = true;
+                    if (c != this && c->is_started()) is_used = true;
             });
             if (is_used) return true;
             p->out_connections().iterate([&](const auto& conns)
             {
                 for (auto* c : conns)
-                    if (c != this && c->is_active()) is_used = true;
+                    if (c != this && c->is_started()) is_used = true;
             });
             return is_used;
         };
@@ -246,7 +246,7 @@ namespace adam
 
         if (result)
         {
-            m_is_active->set_value(false);
+            m_started->set_value(false);
         }
 
         return result;

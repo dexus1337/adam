@@ -32,7 +32,7 @@ protected:
     protected:
         void worker() override
         {
-            while (is_active())
+            while (is_started())
             {
                 worker_loops++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -56,7 +56,7 @@ TEST_F(port_test, initial_state)
 {
     test_port p("test_port"_ct);
     
-    EXPECT_FALSE(p.is_active());
+    EXPECT_FALSE(p.is_started());
     EXPECT_EQ(p.get_direction(), adam::port::direction_inout);
     EXPECT_NE(p.get_state_buffer(), nullptr);
     EXPECT_EQ(p.get_threaded(), true); // Default value from constructor
@@ -69,10 +69,10 @@ TEST_F(port_test, start_stop_unthreaded)
     p.set_threaded(false);
     
     EXPECT_TRUE(p.start());
-    EXPECT_TRUE(p.is_active());
+    EXPECT_TRUE(p.is_started());
     
     EXPECT_TRUE(p.stop());
-    EXPECT_FALSE(p.is_active());
+    EXPECT_FALSE(p.is_started());
 }
 
 /** @brief Tests starting and stopping the port along with its threaded worker loops. */
@@ -81,7 +81,7 @@ TEST_F(port_test, start_stop_threaded)
     test_port p("test_port"_ct);
     
     EXPECT_TRUE(p.start());
-    EXPECT_TRUE(p.is_active());
+    EXPECT_TRUE(p.is_started());
     
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     
@@ -89,7 +89,7 @@ TEST_F(port_test, start_stop_threaded)
     EXPECT_GT(p.worker_loops.load(), 0);
     
     EXPECT_TRUE(p.stop());
-    EXPECT_FALSE(p.is_active());
+    EXPECT_FALSE(p.is_started());
 }
 
 /** @brief Tests handling payload buffers when the port is active, and verifies updating base statistics. */
@@ -118,7 +118,7 @@ TEST_F(port_test, inactive_drops_data)
     test_port p("test_port"_ct);
     p.set_threaded(false);
     
-    // Do not call start(), so is_active() remains false
+    // Do not call start(), so is_started() remains false
     
     adam::buffer* buf = adam::buffer_manager::get().request_buffer(1024);
     buf->set_size(123);

@@ -162,7 +162,7 @@ namespace adam::modules::serial
         
         if (path.empty())
         {
-            m_is_active->set_value(false);
+            m_started->set_value(false);
             return false;
         }
 
@@ -181,7 +181,7 @@ namespace adam::modules::serial
         m_handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
         if (m_handle == INVALID_HANDLE_VALUE)
         {
-            m_is_active->set_value(false);
+            m_started->set_value(false);
             return false;
         }
 
@@ -239,7 +239,7 @@ namespace adam::modules::serial
         m_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
         if (m_fd < 0)
         {
-            m_is_active->set_value(false);
+            m_started->set_value(false);
             return false;
         }
 
@@ -408,7 +408,7 @@ namespace adam::modules::serial
         // Loop until data is read or the port is stopped.
         // This makes the call blocking from the caller's perspective,
         // but correctly aborts if the port is shut down.
-        while (is_active())
+        while (is_started())
         {
             #if defined(ADAM_PLATFORM_WINDOWS)
             DWORD dwRead = 0;

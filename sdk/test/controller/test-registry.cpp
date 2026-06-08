@@ -84,7 +84,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     ASSERT_NE(created_port, nullptr);
 
     // Change a parameter in the port to verify it restores correctly
-    auto* active_param = static_cast<adam::configuration_parameter_boolean*>(created_port->get_parameters().get("is_active"_ct));
+    auto* active_param = static_cast<adam::configuration_parameter_boolean*>(created_port->get_parameters().get("started"_ct));
     ASSERT_NE(active_param, nullptr);
     active_param->set_value(true);
 
@@ -115,7 +115,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     ASSERT_NE(loaded_port, nullptr);
     EXPECT_EQ(loaded_port->get_type_name(), adam::port_internal::type_name());
     
-    auto* loaded_active_param = static_cast<adam::configuration_parameter_boolean*>(loaded_port->get_parameters().get("is_active"_ct));
+    auto* loaded_active_param = static_cast<adam::configuration_parameter_boolean*>(loaded_port->get_parameters().get("started"_ct));
     ASSERT_NE(loaded_active_param, nullptr);
     EXPECT_EQ(loaded_active_param->get_value(), true);
 }

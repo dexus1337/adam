@@ -243,7 +243,7 @@ namespace adam
             auto pview = std::make_unique<port_view>();
             pview->name             = string_hashed(&port_info->name[0]);
             pview->direction        = port_info->dir;
-            pview->is_active        = port_info->is_active;
+            pview->started          = port_info->started;
             pview->is_unavailable   = port_info->is_unavailable;
             
             if (!pview->is_unavailable)
@@ -290,7 +290,7 @@ namespace adam
             conn->created = conn_info->created;
             conn->edited = conn_info->edited;
             conn->sorting_index = conn_info->sorting_index;
-            conn->is_active = conn_info->is_active;
+            conn->started = conn_info->started;
             conn->valid_chain = conn_info->valid_chain;
             conn->color = conn_info->color;
 

@@ -59,7 +59,7 @@ namespace adam
         {
             char            name[max_name_length];
             direction       dir;
-            bool            is_active;
+            bool            started;
             bool            is_unavailable;
             string_hash     type;
             string_hash     type_module;
@@ -73,7 +73,7 @@ namespace adam
                 dir = direction_invalid;
                 statistic_buffer_handle = bh;
                 is_unavailable = unavail;
-                is_active = false;
+                started = false;
                 is_unavailable = false;
                 user_parameters = 0;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
@@ -131,7 +131,9 @@ namespace adam
 
         buffer* get_state_buffer() const { return m_state_buffer; }
 
-        virtual bool is_active() const { return m_is_active != nullptr && m_is_active->get_value(); }
+        state_buffer_data* get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
+
+        virtual bool is_started() const { return m_started != nullptr && m_started->get_value(); }
 
         /** @brief Data management routine */
         virtual bool handle_data(buffer* buffer, data_direction dir);
@@ -154,7 +156,7 @@ namespace adam
         virtual void worker();
 
         /** @brief Constructs a new port object. */
-        port(const string_hashed& item_name, size_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
+        port(const string_hashed& item_name, uint32_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
 
         bool m_b_threaded;                                                          /**< Indicates whether this port runs in its own Thread or not */
         std::thread m_thread;                                                       /**< The thread object for threaded ports */
@@ -165,6 +167,6 @@ namespace adam
 
         buffer* m_state_buffer;                                                     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
 
-        configuration_parameter_boolean* m_is_active;                               /**< Cached pointer to the is active parameter as it will be frequently accessed. */
+        configuration_parameter_boolean* m_started;                                 /**< Cached pointer to the started parameter as it will be frequently accessed. */
     };
 }

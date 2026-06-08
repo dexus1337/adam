@@ -143,7 +143,7 @@ namespace adam::cli
             std::cout << "\r\033[2K\nPorts:\n";
             for (const auto& [hash, p] : c.get_registry().get_ports()) 
             {
-                std::cout << "  " << p->name.c_str() << " (Type: " << p->type.c_str() << ", Active: " << (p->is_active ? "Yes" : "No") << ")\n";
+                std::cout << "  " << p->name.c_str() << " (Type: " << p->type.c_str() << ", Started: " << (p->started ? "Yes" : "No") << ")\n";
                 std::vector<std::string> used_in;
                 std::vector<std::string> used_out;
                 for (const auto& [chash, conn] : c.get_registry().get_connections())
@@ -212,7 +212,7 @@ namespace adam::cli
             std::cout << "\r\033[2K\nConnections:\n";
             for (const auto& [hash, conn] : c.get_registry().get_connections()) 
             {
-                std::cout << "  " << conn->name.c_str() << " (Active: " << (conn->is_active ? "Yes" : "No") << ")\n";
+                std::cout << "  " << conn->name.c_str() << " (Started: " << (conn->started ? "Yes" : "No") << ")\n";
                 std::cout << "    Inputs:\n";
                 if (conn->inputs.empty()) std::cout << "      <none>\n";
                 for (auto ph : conn->inputs)

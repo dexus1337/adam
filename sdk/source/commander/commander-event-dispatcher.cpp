@@ -136,7 +136,7 @@ namespace adam
             view->name = string_hashed(info->name);
             view->direction = info->dir;
             view->is_unavailable = info->is_unavailable;
-            view->is_active = info->is_active;
+            view->started = info->started;
             if (!view->is_unavailable)
                 view->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
             {
@@ -185,7 +185,7 @@ namespace adam
                 {
                     it->second->is_unavailable = false;
                     it->second->direction = info->dir;
-                    it->second->is_active = info->is_active;
+                    it->second->started = info->started;
                     if (it->second->statistic_buffer)
                     {
                         it->second->statistic_buffer->release();
@@ -201,7 +201,7 @@ namespace adam
                 view->name = string_hashed(info->name);
                 view->direction = info->dir;
                 view->is_unavailable = false;
-                view->is_active = info->is_active;
+                view->started = info->started;
                 view->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
                 
                 {
@@ -265,7 +265,7 @@ namespace adam
             auto* data = events[0].get_data_as<messages::port_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().ports().find(data->port);
-            if (it != ctx.cmdr.registry().ports().end()) it->second->is_active = true;
+            if (it != ctx.cmdr.registry().ports().end()) it->second->started = true;
         });
 
         register_handler(event_type::port_stopped, [](const event* events, size_t, event_context& ctx) 
@@ -273,7 +273,7 @@ namespace adam
             auto* data = events[0].get_data_as<messages::port_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().ports().find(data->port);
-            if (it != ctx.cmdr.registry().ports().end()) it->second->is_active = false;
+            if (it != ctx.cmdr.registry().ports().end()) it->second->started = false;
         });
 
         register_handler(event_type::port_renamed, [](const event* events, size_t, event_context& ctx) 
@@ -401,7 +401,7 @@ namespace adam
             view->edited = info->edited;
             view->sorting_index = info->sorting_index;
             view->color = info->color;
-            view->is_active = info->is_active;
+            view->started = info->started;
             view->is_unavailable = info->is_unavailable;
             view->valid_chain = info->valid_chain;
             {
@@ -426,7 +426,7 @@ namespace adam
             auto* data = events[0].get_data_as<messages::connection_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
-            if (it != ctx.cmdr.registry().connections().end()) it->second->is_active = true;
+            if (it != ctx.cmdr.registry().connections().end()) it->second->started = true;
         });
 
         register_handler(event_type::connection_stopped, [](const event* events, size_t, event_context& ctx) 
@@ -434,7 +434,7 @@ namespace adam
             auto* data = events[0].get_data_as<messages::connection_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().connections().find(data->connection);
-            if (it != ctx.cmdr.registry().connections().end()) it->second->is_active = false;
+            if (it != ctx.cmdr.registry().connections().end()) it->second->started = false;
         });
 
         register_handler(event_type::connection_renamed, [](const event* events, size_t, event_context& ctx) 
@@ -526,7 +526,7 @@ namespace adam
             {
                 it->second->is_unavailable = data->is_unavailable;
                 it->second->valid_chain = data->valid_chain;
-                it->second->is_active = data->is_active;
+                it->second->started = data->started;
 
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_datatype_and_module(data->input_format, data->input_format_module, it->second->input_format, it->second->input_format_module);
@@ -553,7 +553,7 @@ namespace adam
                 new_conn->sorting_index = data->sorting_index;
                 new_conn->color = data->color;
                 
-                new_conn->is_active = data->is_active;
+                new_conn->started = data->started;
                 new_conn->valid_chain = data->valid_chain;
                 new_conn->is_unavailable = data->is_unavailable;
 
@@ -584,7 +584,7 @@ namespace adam
             {
                 it->second->is_unavailable = true;
                 it->second->valid_chain = false;
-                it->second->is_active = false;
+                it->second->started = false;
             }
         });
     }

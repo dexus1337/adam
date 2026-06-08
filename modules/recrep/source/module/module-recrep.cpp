@@ -15,10 +15,10 @@ namespace adam::modules::recrep
     {
         m_descriptions[static_cast<size_t>(adam::language_english)] = 
             std::string("Provides capabilities for recording and replaying data streams.\n"
-            "Recordings are data-format independent." );
+            "Both recordings and replays are format-independent." );
         m_descriptions[static_cast<size_t>(adam::language_german)]  = 
             std::string("Bietet Funktionen zum Aufzeichnen und Abspielen von Datenströmen.\n"
-            "Aufzeichnungen sind datenformatunabhängig." );
+            "Sowohl Aufzeichnungen als auch Wiedergaben sind formatunabhängig." );
 
         // Export the factory for the controller to dynamically create this port type!
         m_port_factories.emplace
