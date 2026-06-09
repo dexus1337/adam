@@ -157,8 +157,11 @@ namespace adam::cli
         {
             std::lock_guard<std::mutex> lock(console_mutex);
             std::cout << "\r\033[2K\nPorts:\n";
+            bool first = true;
             for (const auto& [hash, p] : c.get_registry().get_ports()) 
             {
+                if (!first) std::cout << "\n";
+                first = false;
                 std::cout << "  " << p->name.c_str() << " (Type: " << p->type.c_str() << ", Started: " << (p->started ? "Yes" : "No") << ")\n";
                 std::vector<std::string> used_in;
                 std::vector<std::string> used_out;
@@ -170,8 +173,8 @@ namespace adam::cli
                 if (!used_in.empty() || !used_out.empty())
                 {
                     std::cout << "    Connections:\n";
-                    for (const auto& cn : used_in) std::cout << "      " << cn << " [Input]\n";
-                    for (const auto& cn : used_out) std::cout << "      " << cn << " [Output]\n";
+                    for (const auto& cn : used_in) std::cout << "      " << cn << " [\033[94mInput\033[0m]\n";
+                    for (const auto& cn : used_out) std::cout << "      " << cn << " [\033[91mOutput\033[0m]\n";
                 }
             }
             std::cout << std::endl;
@@ -405,24 +408,27 @@ namespace adam::cli
         {
             std::lock_guard<std::mutex> lock(console_mutex);
             std::cout << "\r\033[2K\nConnections:\n";
+            bool first = true;
             for (const auto& [hash, conn] : c.get_registry().get_connections()) 
             {
+                if (!first) std::cout << "\n";
+                first = false;
                 std::cout << "  " << conn->name.c_str() << " (Started: " << (conn->started ? "Yes" : "No") << ")\n";
-                std::cout << "    Inputs:\n";
+                std::cout << "    \033[94mInputs:\033[0m\n";
                 if (conn->inputs.empty()) std::cout << "      <none>\n";
                 for (auto ph : conn->inputs)
                 {
                     auto it = c.get_registry().get_ports().find(ph);
-                    if (it != c.get_registry().get_ports().end()) std::cout << "      " << it->second->name.c_str() << "\n";
-                    else std::cout << "      <unknown:" << ph << ">\n";
+                    if (it != c.get_registry().get_ports().end()) std::cout << "      \033[94m" << it->second->name.c_str() << "\033[0m\n";
+                    else std::cout << "      \033[94m<unknown:" << ph << ">\033[0m\n";
                 }
-                std::cout << "    Outputs:\n";
+                std::cout << "    \033[91mOutputs:\033[0m\n";
                 if (conn->outputs.empty()) std::cout << "      <none>\n";
                 for (auto ph : conn->outputs)
                 {
                     auto it = c.get_registry().get_ports().find(ph);
-                    if (it != c.get_registry().get_ports().end()) std::cout << "      " << it->second->name.c_str() << "\n";
-                    else std::cout << "      <unknown:" << ph << ">\n";
+                    if (it != c.get_registry().get_ports().end()) std::cout << "      \033[91m" << it->second->name.c_str() << "\033[0m\n";
+                    else std::cout << "      \033[91m<unknown:" << ph << ">\033[0m\n";
                 }
             }
             std::cout << std::endl;
