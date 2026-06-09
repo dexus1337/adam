@@ -19,6 +19,9 @@ namespace adam
     {
         bool result = true;
 
+        if (!is_started())
+            return false;
+
         switch (dir)
         {
             case data_direction_in:

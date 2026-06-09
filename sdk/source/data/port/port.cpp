@@ -97,7 +97,19 @@ namespace adam
             }
             case data_direction_out:
             {
-                result &= write(buffer);
+                if (m_use_spinlock)
+                {
+                    while (m_spinlock.test_and_set(std::memory_order_acquire))
+                    {
+                        std::this_thread::yield();
+                    }
+                    result &= write(buffer);
+                    m_spinlock.clear(std::memory_order_release);
+                }
+                else
+                {
+                    result &= write(buffer);
+                }
                 break;
             }
         }
@@ -149,7 +161,8 @@ namespace adam
         m_in_connections(),
         m_out_connections(),
         m_inspectors(),
-        m_started(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("started"_ct)))
+        m_started(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("started"_ct))),
+        m_use_spinlock(false)
     {
         m_state_buffer = buffer_manager::get().request_buffer(state_buffer_size);
     }

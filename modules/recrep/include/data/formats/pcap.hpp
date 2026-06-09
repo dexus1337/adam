@@ -45,7 +45,7 @@ namespace adam::modules::recrep
         #pragma pack(pop)
 
         #pragma pack(push, 1)
-        struct packet_header
+        struct block_header
         {
             uint32_t        ts_sec;
             uint32_t        ts_usec;

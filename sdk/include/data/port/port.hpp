@@ -20,6 +20,7 @@
 #include <memory>
 #include <cstring>
 #include <thread>
+#include <atomic>
 
 namespace adam 
 {
@@ -50,6 +51,7 @@ namespace adam
         enum state : uint8_t
         {
             state_stopped,
+            state_started,
             state_running,
             state_inactive
         };
@@ -168,5 +170,8 @@ namespace adam
         buffer* m_state_buffer;                                                     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
 
         configuration_parameter_boolean* m_started;                                 /**< Cached pointer to the started parameter as it will be frequently accessed. */
+
+        bool m_use_spinlock;                                                        /**< If true, a spinlock will be used to protect the write method access. */
+        std::atomic_flag m_spinlock = ATOMIC_FLAG_INIT;                             /**< Spinlock used for write synchronization. */
     };
 }

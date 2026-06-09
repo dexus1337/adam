@@ -8,6 +8,7 @@
 #include "data/port/port-output.hpp"
 #include "resources/language-strings.hpp"
 #include "data/formats/pcap.hpp"
+#include "data/formats/rff.hpp"
 
 #include <filesystem>
 #include <format>
@@ -88,27 +89,25 @@ namespace adam::modules::recrep
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
         add_parameters(port_output_recording::get_default_parameters());
+
+        port_output::m_use_spinlock = true; // Need to lock write method, as writing asynchronously on a single file stream is not thread safe.
     }
 
     port_output_recording::~port_output_recording() 
     {
-        if (m_file_stream.is_open())
-        {
-            m_file_stream.flush();
-            m_file_stream.close();
-        }
+        close_current_file(true);
     }
 
     bool port_output_recording::start()
     {
         auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
 
-        m_data_format_param = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
-        m_file_mode_param = user_params->get<adam::configuration_parameter_string>("file_mode"_ct);
-        m_chunk_mode_param = user_params->get<adam::configuration_parameter_string>("chunk_mode"_ct);
-        m_chunk_size_param = user_params->get<adam::configuration_parameter_integer>("chunk_size"_ct);
+        m_data_format_param    = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
+        m_file_mode_param      = user_params->get<adam::configuration_parameter_string>("file_mode"_ct);
+        m_chunk_mode_param     = user_params->get<adam::configuration_parameter_string>("chunk_mode"_ct);
+        m_chunk_size_param     = user_params->get<adam::configuration_parameter_integer>("chunk_size"_ct);
         m_chunk_duration_param = user_params->get<adam::configuration_parameter_integer>("chunk_duration"_ct);
-        m_path_param = user_params->get<adam::configuration_parameter_string>("path"_ct);
+        m_path_param           = user_params->get<adam::configuration_parameter_string>("path"_ct);
 
         m_current_chunk_index = 0;
         
@@ -120,30 +119,37 @@ namespace adam::modules::recrep
 
     bool port_output_recording::stop()
     {
+        close_current_file(true);
+        
+        return port_output::stop();
+    }
+
+    void port_output_recording::close_current_file(bool acquire_spinlock)
+    {
+        bool do_lock = acquire_spinlock && m_use_spinlock;
+        if (do_lock)
+        {
+            while (m_spinlock.test_and_set(std::memory_order_acquire)) { std::this_thread::yield(); }
+        }
+
         if (m_file_stream.is_open())
         {
+            finalize_current_file();
             m_file_stream.flush();
             m_file_stream.close();
         }
 
-        return port_output::stop();
+        if (do_lock)
+        {
+            m_spinlock.clear(std::memory_order_release);
+        }
     }
 
     bool port_output_recording::open_next_file()
     {
-        if (m_file_stream.is_open())
-        {
-            m_file_stream.flush();
-            m_file_stream.close();
-        }
+        close_current_file(false);
 
         auto lang = adam::controller::get().get_language();
-
-        if (m_data_format_param->get_value() == "rff"_ct)
-        {
-            adam::controller::get().log(adam::log::error, get_log_event_text(format_not_implemented, lang));
-            return false;
-        }
 
         auto now = std::chrono::system_clock::now();
         auto time = std::chrono::system_clock::to_time_t(now);
@@ -190,6 +196,9 @@ namespace adam::modules::recrep
 
         m_current_chunk_bytes = 0;
         m_first_packet_timestamp_ns = 0;
+        m_last_packet_timestamp_ns = 0;
+        m_file_start_tm = tm_info;
+        m_file_start_timestamp_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 
         if (m_data_format_param->get_value() == "pcap"_ct)
         {
@@ -205,6 +214,16 @@ namespace adam::modules::recrep
             m_file_stream.write(reinterpret_cast<const char*>(&fh), sizeof(fh));
             m_current_chunk_bytes += sizeof(fh);
         }
+        else if (m_data_format_param->get_value() == "rff"_ct)
+        {
+            rff::file_header fh = {};
+            fh.magic = rff::file_header::magic_number;
+            fh.version = rff::version_string();
+            fh.time_start = rff::to_time_string(m_file_start_tm);
+            
+            m_file_stream.write(reinterpret_cast<const char*>(&fh), sizeof(fh));
+            m_current_chunk_bytes += sizeof(fh);
+        }
 
         m_current_chunk_index++;
 
@@ -216,6 +235,11 @@ namespace adam::modules::recrep
         if (!buff || !m_file_stream.is_open()) 
             return false;
 
+        if (m_first_packet_timestamp_ns == 0)
+        {
+            m_first_packet_timestamp_ns = buff->get_timestamp();
+        }
+
         bool is_chunked = m_file_mode_param->get_value() == "chunked"_ct;
         
         if (is_chunked)
@@ -226,7 +250,7 @@ namespace adam::modules::recrep
             if (chunk_mode == "size"_ct)
             {
                 uint64_t max_size_bytes = m_chunk_size_param->get_value() * 1024ull * 1024ull;
-                if (m_current_chunk_bytes + sizeof(pcap::packet_header) + buff->get_size() >= max_size_bytes)
+                if (m_current_chunk_bytes + sizeof(pcap::block_header) + buff->get_size() >= max_size_bytes)
                 {
                     should_chunk = true;
                 }
@@ -253,16 +277,13 @@ namespace adam::modules::recrep
                 {
                     return false;
                 }
-                if (chunk_mode == "time"_ct)
-                {
-                    m_first_packet_timestamp_ns = buff->get_timestamp();
-                }
+                m_first_packet_timestamp_ns = buff->get_timestamp();
             }
         }
 
         if (m_data_format_param->get_value() == "pcap"_ct)
         {
-            pcap::packet_header ph = {};
+            pcap::block_header ph = {};
             uint64_t ts = buff->get_timestamp();
             ph.ts_sec = static_cast<uint32_t>(ts / 1000000000ull);
             ph.ts_usec = static_cast<uint32_t>((ts % 1000000000ull) / 1000ull);
@@ -276,13 +297,54 @@ namespace adam::modules::recrep
         }
         else if (m_data_format_param->get_value() == "rff"_ct)
         {
-            // TODO: implement rff packet writing logic
+            rff::block_header ph = {};
             
-            // m_file_stream.write(...);
-            // m_current_chunk_bytes += buff->get_size() + header_size;
+            uint64_t elapsed_ns = buff->get_timestamp() > m_file_start_timestamp_ns ? buff->get_timestamp() - m_file_start_timestamp_ns : 0;
+            ph.time_to_start_ms = static_cast<uint32_t>(elapsed_ns / 1000000ull);
+            ph.block_size_bytes = static_cast<uint16_t>(buff->get_size());
+
+            m_file_stream.write(reinterpret_cast<const char*>(&ph), sizeof(ph));
+            m_file_stream.write(reinterpret_cast<const char*>(buff->data()), buff->get_size());
+
+            m_current_chunk_bytes += sizeof(ph) + buff->get_size();
+            m_last_packet_timestamp_ns = buff->get_timestamp();
         }
 
         return true;
+    }
+
+    void port_output_recording::finalize_current_file()
+    {
+        if (m_file_stream.is_open() && m_data_format_param->get_value() == "rff"_ct)
+        {
+            auto current_pos = m_file_stream.tellp();
+            m_file_stream.seekp(0);
+
+            rff::file_header fh = {};
+            fh.magic = rff::file_header::magic_number;
+            fh.version = rff::version_string();
+            fh.time_start = rff::to_time_string(m_file_start_tm);
+
+            std::tm end_tm = m_file_start_tm;
+            if (m_last_packet_timestamp_ns > m_file_start_timestamp_ns)
+            {
+                uint64_t elapsed_ns = m_last_packet_timestamp_ns - m_file_start_timestamp_ns;
+                std::tm start_copy = m_file_start_tm;
+                std::time_t start_epoch = std::mktime(&start_copy);
+                std::time_t end_epoch = start_epoch + static_cast<std::time_t>(elapsed_ns / 1000000000ull);
+                
+                #ifdef _WIN32
+                localtime_s(&end_tm, &end_epoch);
+                #else
+                localtime_r(&end_epoch, &end_tm);
+                #endif
+            }
+            fh.time_end = rff::to_time_string(end_tm);
+            fh.file_size_bytes = static_cast<uint32_t>(m_current_chunk_bytes);
+            
+            m_file_stream.write(reinterpret_cast<const char*>(&fh), sizeof(fh));
+            m_file_stream.seekp(current_pos);
+        }
     }
 
     std::string_view port_output_recording::get_log_event_text(log_event event, language lang)

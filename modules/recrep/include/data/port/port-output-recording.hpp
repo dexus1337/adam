@@ -59,18 +59,26 @@ namespace adam::modules::recrep
 
     private:
 
-        adam::configuration_parameter_string* m_data_format_param = nullptr;
-        adam::configuration_parameter_string* m_file_mode_param = nullptr;
-        adam::configuration_parameter_string* m_chunk_mode_param = nullptr;
-        adam::configuration_parameter_integer* m_chunk_size_param = nullptr;
-        adam::configuration_parameter_integer* m_chunk_duration_param = nullptr;
-        adam::configuration_parameter_string* m_path_param = nullptr;
-
         bool open_next_file();
+        void close_current_file(bool acquire_spinlock);
+        void finalize_current_file();
 
-        std::ofstream m_file_stream;
-        size_t m_current_chunk_index = 0;
-        size_t m_current_chunk_bytes = 0;
-        uint64_t m_first_packet_timestamp_ns = 0;
+        adam::configuration_parameter_string*   m_data_format_param     = nullptr;
+        adam::configuration_parameter_string*   m_file_mode_param       = nullptr;
+        adam::configuration_parameter_string*   m_chunk_mode_param      = nullptr;
+        adam::configuration_parameter_integer*  m_chunk_size_param      = nullptr;
+        adam::configuration_parameter_integer*  m_chunk_duration_param  = nullptr;
+        adam::configuration_parameter_string*   m_path_param            = nullptr;
+
+
+        std::ofstream   m_file_stream           = {};
+
+        size_t          m_current_chunk_index   = 0;
+        size_t          m_current_chunk_bytes   = 0;
+        uint64_t        m_first_packet_timestamp_ns = 0;
+        uint64_t        m_last_packet_timestamp_ns  = 0;
+
+        std::tm         m_file_start_tm         = {};
+        uint64_t        m_file_start_timestamp_ns = 0;
     };
 }
