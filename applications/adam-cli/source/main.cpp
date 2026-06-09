@@ -178,20 +178,23 @@ int main()
         else if (c == '\t') // Tab for auto-complete
         {
             std::lock_guard<std::mutex> lock(console_mutex);
-            if (current_input.find(' ') == std::string::npos)
+
+            auto handle_matches = [&](const std::vector<std::string>& possible_matches, std::string prefix, std::string base_input)
             {
                 std::vector<std::string> matches;
-                for (const auto& [name, info] : ctx.db.get_commands())
+                for (const auto& name : possible_matches)
                 {
-                    if (name.compare(0, current_input.length(), current_input) == 0)
-                    {
+                    if (name.compare(0, prefix.length(), prefix) == 0)
                         matches.push_back(name);
-                    }
                 }
 
                 if (matches.size() == 1)
                 {
-                    current_input = matches[0] + " ";
+                    std::string match = matches[0];
+                    if (match.find(' ') != std::string::npos && match.front() != '"')
+                        match = "\"" + match + "\"";
+                    
+                    current_input = base_input + match + " ";
                     cursor_pos = current_input.length();
                     std::cout << "\r\033[2K> " << current_input << std::flush;
                 }
@@ -201,7 +204,9 @@ int main()
                     std::cout << "\n";
                     for (const auto& match : matches)
                     {
-                        std::cout << match << "  ";
+                        std::string m = match;
+                        if (m.find(' ') != std::string::npos && m.front() != '"') m = "\"" + m + "\"";
+                        std::cout << m << "  ";
                     }
                     std::cout << "\n";
 
@@ -213,11 +218,115 @@ int main()
                             j++;
                         common_prefix = common_prefix.substr(0, j);
                     }
-                    if (common_prefix.size() > current_input.size())
-                        current_input = common_prefix;
-
-                    cursor_pos = current_input.length();
+                    if (common_prefix.size() > prefix.size())
+                    {
+                        if (common_prefix.find(' ') != std::string::npos && common_prefix.front() != '"')
+                            current_input = base_input + "\"" + common_prefix;
+                        else
+                            current_input = base_input + common_prefix;
+                        cursor_pos = current_input.length();
+                    }
                     refresh_line();
+                }
+            };
+
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            for (char ch : current_input)
+            {
+                if (ch == '"') in_quotes = !in_quotes;
+                else if (std::isspace(ch) && !in_quotes)
+                {
+                    if (!current_token.empty())
+                    {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                }
+                else current_token += ch;
+            }
+            if (!current_token.empty() || in_quotes)
+                tokens.push_back(current_token);
+            
+            bool ends_with_space = !current_input.empty() && std::isspace(current_input.back());
+            
+            if (tokens.empty() || (tokens.size() == 1 && !ends_with_space))
+            {
+                std::vector<std::string> cmd_names;
+                for (const auto& [name, info] : ctx.db.get_commands()) cmd_names.push_back(name);
+                handle_matches(cmd_names, tokens.empty() ? "" : tokens[0], "");
+            }
+            else
+            {
+                std::string base;
+                size_t limit = ends_with_space ? tokens.size() : tokens.size() - 1;
+                for (size_t i = 0; i < limit; ++i)
+                {
+                    if (tokens[i].find(' ') != std::string::npos) base += "\"" + tokens[i] + "\" ";
+                    else base += tokens[i] + " ";
+                }
+
+                if ((tokens.size() == 1 && ends_with_space) || (tokens.size() == 2 && !ends_with_space))
+                {
+                    std::string cmd = tokens[0];
+                    std::string arg = (tokens.size() == 2) ? tokens[1] : "";
+                    std::vector<std::string> candidates;
+                    
+                    if (cmd.find("port_") == 0 && cmd != "port_create" && cmd != "port_list")
+                    {
+                        for (const auto& [hash, p] : ctx.cmd.get_registry().get_ports())
+                            candidates.push_back(std::string(p->name.c_str()));
+                    }
+                    else if (cmd.find("conn_") == 0 && cmd != "conn_create" && cmd != "conn_list")
+                    {
+                        for (const auto& [hash, p] : ctx.cmd.get_registry().get_connections())
+                            candidates.push_back(std::string(p->name.c_str()));
+                    }
+                    
+                    if (!candidates.empty()) handle_matches(candidates, arg, base);
+                }
+                else if (tokens[0] == "port_set_param" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string port_name = tokens[1];
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    auto it = ctx.cmd.get_registry().get_ports().find(adam::string_hashed(port_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_ports().end())
+                    {
+                        std::vector<std::string> candidates;
+                        for (const auto& [hash, p] : it->second->user_params.get_children())
+                            candidates.push_back(std::string(p->get_name().c_str()));
+                        if (!candidates.empty()) handle_matches(candidates, arg, base);
+                    }
+                }
+                else if (tokens[0] == "port_set_param" && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                {
+                    std::string port_name = tokens[1];
+                    std::string param_name = tokens[2];
+                    std::string arg = (tokens.size() == 4) ? tokens[3] : "";
+                    auto it = ctx.cmd.get_registry().get_ports().find(adam::string_hashed(port_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_ports().end())
+                    {
+                        auto* param = it->second->user_params.get(adam::string_hashed(param_name.c_str()).get_hash());
+                        if (param)
+                        {
+                            std::vector<std::string> candidates;
+                            if (param->get_type() == adam::configuration_parameter::type_boolean)
+                            {
+                                candidates = {"true", "false"};
+                            }
+                            else if (param->get_type() == adam::configuration_parameter::type_string)
+                            {
+                                auto* p = static_cast<adam::configuration_parameter_string*>(param);
+                                if (p->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                                {
+                                    for (const auto& [phash, pval] : p->get_presets())
+                                        candidates.push_back(std::string(pval->get_value().c_str()));
+                                }
+                            }
+                            if (!candidates.empty()) handle_matches(candidates, arg, base);
+                        }
+                    }
                 }
             }
             continue;
@@ -293,19 +402,32 @@ int main()
             continue;
         }
 
-        std::istringstream iss(input);
-        std::string command_name;
-        iss >> command_name;
+        std::vector<std::string> tokens;
+        std::string current_token;
+        bool in_quotes = false;
+        for (char ch : input)
+        {
+            if (ch == '"') in_quotes = !in_quotes;
+            else if (std::isspace(ch) && !in_quotes)
+            {
+                if (!current_token.empty())
+                {
+                    tokens.push_back(current_token);
+                    current_token.clear();
+                }
+            }
+            else current_token += ch;
+        }
+        if (!current_token.empty()) tokens.push_back(current_token);
 
+        if (tokens.empty()) continue;
+        
+        std::string command_name = tokens[0];
         if (command_name == "exit" || command_name == "quit")
             break;
 
         std::vector<std::string> params;
-        std::string param;
-        while (iss >> param)
-        {
-            params.push_back(param);
-        }
+        for (size_t i = 1; i < tokens.size(); ++i) params.push_back(tokens[i]);
 
         if (!ctx.db.execute_command(command_name, params, ctx.cmd, console_mutex))
         {
