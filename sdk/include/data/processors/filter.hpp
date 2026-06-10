@@ -20,7 +20,7 @@ namespace adam
      * @class filter
      * @brief A base class for data filters, providing a common interface for filtering data in different formats used in the ADAM system.
      */
-    class ADAM_SDK_API filter : public data_processor   
+    class ADAM_SDK_API filter : public processor   
     {
     public:
 

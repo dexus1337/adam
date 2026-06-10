@@ -12,8 +12,7 @@ namespace adam
         m_ui32_version(version),
         m_data_formats(),
         m_port_factories(),
-        m_filter_factories(),
-        m_converter_factories()
+        m_processor_factories()
     {
 
     }

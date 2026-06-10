@@ -38,15 +38,17 @@ protected:
         }
     };
 
-    class test_processor : public adam::data_processor
+    class test_processor : public adam::processor
     {
     public:
         test_processor(const adam::string_hashed& name, const adam::data_format* in_fmt, const adam::data_format* out_fmt)
-            : adam::data_processor(name)
+            : adam::processor(name)
         {
             m_format_input = in_fmt;
             m_format_output = out_fmt;
         }
+
+        const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "test"; return type; }
 
         bool handle_data(adam::buffer*& buffer) override
         {

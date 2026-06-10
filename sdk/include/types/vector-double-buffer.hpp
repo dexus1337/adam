@@ -21,7 +21,7 @@ namespace adam
      * @brief A generic double-buffered vector that allows lock-free iteration on the read side
      *        while safely handling concurrent modifications from the write side.
      * 
-     * @tparam T The pointer type to store (e.g., port_input*, data_processor*)
+     * @tparam T The pointer type to store (e.g., port_input*, processor*)
      */
     template<typename T>
     class vector_double_buffer

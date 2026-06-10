@@ -119,20 +119,20 @@ namespace adam
         ~port_view() { if (statistic_buffer) statistic_buffer->release(); }
     };
 
-    /** @struct filter_view */
-    struct filter_view
+    /** @struct processor_view */
+    struct processor_view
     {
         string_hashed name;
         string_hashed type;
         string_hashed module_name;
-    };
+        bool is_filter;
+        bool is_unavailable;
+        string_hashed input_datatype;
+        string_hashed output_datatype;
+        buffer* state_buffer;
+        configuration_parameter_list_sorted user_params{string_hashed("user_parameters")};
 
-    /** @struct converter_view */
-    struct converter_view
-    {
-        string_hashed name;
-        string_hashed type;
-        string_hashed module_name;
+        ~processor_view() { if (state_buffer) state_buffer->release(); }
     };
 
     /** @struct connection_view */
@@ -141,8 +141,7 @@ namespace adam
         string_hashed name;
         std::vector<string_hash> inputs;
         std::vector<string_hash> outputs;
-        std::vector<string_hash> filters;
-        std::vector<string_hash> converters;
+        std::vector<string_hash> processors;
         bool started;
         bool valid_chain;
         bool is_unavailable;
@@ -167,19 +166,16 @@ namespace adam
     {
     public:
         using port_map       = std::unordered_map<string_hash, std::unique_ptr<port_view>>;
-        using filter_map     = std::unordered_map<string_hash, std::unique_ptr<filter_view>>;
-        using converter_map  = std::unordered_map<string_hash, std::unique_ptr<converter_view>>;
+        using processor_map  = std::unordered_map<string_hash, std::unique_ptr<processor_view>>;
         using connection_map = std::unordered_map<string_hash, std::unique_ptr<connection_view>>;
 
-        port_map&       ports()         { return m_ports; }
-        filter_map&     filters()       { return m_filters; }
-        converter_map&  converters()    { return m_converters; }
-        connection_map& connections()   { return m_connections; }
+        port_map&           ports()             { return m_ports; }
+        processor_map&      processors()        { return m_processors; }
+        connection_map&     connections()       { return m_connections; }
 
-        const port_map&       get_ports() const         { return m_ports; }
-        const filter_map&     get_filters() const       { return m_filters; }
-        const converter_map&  get_converters() const    { return m_converters; }
-        const connection_map& get_connections() const   { return m_connections; }
+        const port_map&             get_ports() const           { return m_ports; }
+        const processor_map&        get_processors() const      { return m_processors; }
+        const connection_map&       get_connections() const     { return m_connections; }
 
         void lock() const
         {
@@ -200,16 +196,14 @@ namespace adam
         {
             std::lock_guard<const registry_view> lg(*this);
             m_ports.clear();
-            m_filters.clear();
-            m_converters.clear();
+            m_processors.clear();
             m_connections.clear();
         }
 
     private:
         mutable std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
         port_map       m_ports;
-        filter_map     m_filters;
-        converter_map  m_converters;
+        processor_map  m_processors;
         connection_map m_connections;
     };
 }

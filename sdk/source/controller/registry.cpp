@@ -70,8 +70,7 @@ namespace adam
     registry::registry(controller& ctrl) 
      :  configuration_item("general"_ct),
         m_ports(),
-        m_filters(),
-        m_converters(),
+        m_processors(),
         m_connections(),
         m_default_port_factory(),
         m_controller(ctrl),
@@ -96,10 +95,10 @@ namespace adam
     void registry::clear()
     {
         m_ports.clear();
-        m_filters.clear();
-        m_converters.clear();
+        m_processors.clear();
         m_connections.clear();
         m_unavailable_ports.clear();
+        m_unavailable_processors.clear();
         m_unavailable_connections.clear();
     }
 
@@ -145,7 +144,7 @@ namespace adam
             return status_error_factory_not_found; // Unknown port type
 
         // 3. Create the port and immediately take ownership in the registry
-        port* new_port = port_factory->create(name);
+        auto new_port = port_factory->create(name);
         if (!new_port)
             return status_error_creation_failed;
 
@@ -155,10 +154,11 @@ namespace adam
                 mod_param->set_value(resolved_module_name);
         }
 
-        m_ports.emplace(name, std::unique_ptr<port>(new_port));
+        auto ptr = new_port.get();
+        m_ports.emplace(name, std::move(new_port));
         
         if (out_port) 
-            *out_port = new_port;
+            *out_port = ptr;
             
         return status_success;
     }
@@ -293,6 +293,153 @@ namespace adam
         return status_success;
     }
 
+    registry::status registry::create_processor(const string_hashed& name, string_hash type, string_hash type_module, bool is_filter, processor** out_processor)
+    {
+        if (out_processor) 
+            *out_processor = nullptr;
+
+        if (m_processors.find(name) != m_processors.end())
+            return status_error_port_already_exists;
+
+        const factory_data_processor* factory_data = nullptr;
+        string_hashed resolved_module_name;
+        string_hashed resolved_type_name;
+
+        if (type_module != 0)
+        {
+            const module* mod = nullptr;
+            auto it = m_modules.get_loaded_modules().find(type_module);
+            if (it != m_modules.get_loaded_modules().end())
+            {
+                mod = it->second;
+                resolved_module_name = it->first;
+            }
+
+            if (!mod)
+                return status_error_module_not_found;
+
+            const auto& mod_factories = mod->get_processor_factories();
+            auto factory_it = mod_factories.find(type);
+            if (factory_it != mod_factories.end())
+            {
+                factory_data = &factory_it->second;
+                resolved_type_name = factory_it->first;  // preserve the real type name string
+            }
+        }
+
+        if (!factory_data || !factory_data->factory_ptr)
+            return status_error_factory_not_found;
+
+        auto new_processor = factory_data->factory_ptr->create(name);
+        if (!new_processor)
+            return status_error_creation_failed;
+
+        const data_format* in_fmt = &data_format_transparent;
+        if (factory_data->input_datatype != 0)
+        {
+            if (factory_data->input_datatype_module != 0)
+            {
+                auto mod_it = m_modules.get_loaded_modules().find(factory_data->input_datatype_module);
+                if (mod_it != m_modules.get_loaded_modules().end() && mod_it->second)
+                {
+                    auto fmt_it = mod_it->second->get_data_formats().find(factory_data->input_datatype);
+                    if (fmt_it != mod_it->second->get_data_formats().end())
+                        in_fmt = fmt_it->second;
+                }
+            }
+        }
+
+        const data_format* out_fmt = &data_format_transparent;
+        if (factory_data->output_datatype != 0)
+        {
+            if (factory_data->output_datatype_module != 0)
+            {
+                auto mod_it = m_modules.get_loaded_modules().find(factory_data->output_datatype_module);
+                if (mod_it != m_modules.get_loaded_modules().end() && mod_it->second)
+                {
+                    auto fmt_it = mod_it->second->get_data_formats().find(factory_data->output_datatype);
+                    if (fmt_it != mod_it->second->get_data_formats().end())
+                        out_fmt = fmt_it->second;
+                }
+            }
+        }
+
+        new_processor->m_format_input   = in_fmt;
+        new_processor->m_format_output  = out_fmt;
+
+        if (type_module != 0)
+        {
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type_origin_module"_ct)))
+                mod_param->set_value(resolved_module_name);
+            if (auto* type_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type"_ct)))
+                type_param->set_value(resolved_type_name);
+        }
+
+        if (auto* filter_param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
+            filter_param->set_value(is_filter);
+
+        auto ptr = new_processor.get();
+        m_processors.emplace(name, std::move(new_processor));
+        
+        if (out_processor) 
+            *out_processor = ptr;
+            
+        return status_success;
+    }
+
+    registry::status registry::destroy_processor(string_hash hash)
+    {
+        auto processor_it = m_processors.find(hash);
+        if (processor_it == m_processors.end())
+            return status_error_port_not_found;
+
+        processor* processor_to_remove = processor_it->second.get();
+
+        for (auto& [conn_name, conn_ptr] : m_connections)
+        {
+            if (conn_ptr)
+            {
+                conn_ptr->processors().remove(processor_to_remove);
+            }
+        }
+
+        m_processors.erase(processor_it);
+        return status_success;
+    }
+
+    registry::status registry::rename_processor(string_hash hash, const string_hashed& new_name)
+    {
+        auto it = m_processors.find(hash);
+        if (it == m_processors.end())
+            return status_error_port_not_found;
+
+        if (m_processors.find(new_name.get_hash()) != m_processors.end())
+            return status_error_port_already_exists;
+
+        auto proc = std::move(it->second);
+        m_processors.erase(it);
+
+        proc->set_name(new_name);
+        
+        m_processors.emplace(new_name.get_hash(), std::move(proc));
+
+        for (auto& [conn_name, conn_ptr] : m_connections)
+        {
+            if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn_ptr->get_parameters().get("processors"_ct)))
+            {
+                for (auto& [idx_str, param] : procs_list->get_children())
+                {
+                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                    {
+                        if (ref->get_target().get_hash() == hash)
+                            ref->set_target(new_name);
+                    }
+                }
+            }
+        }
+        return status_success;
+    }
+
     registry::status registry::create_connection(const string_hashed& name, connection** out_connection)
     {
         if (out_connection) 
@@ -390,6 +537,68 @@ namespace adam
                 outputs_list->add(std::move(param));
             }
         }
+
+        conn_it->second->check_valid_chain();
+            
+        return status_success;
+    }
+
+    registry::status registry::connection_add_processor(string_hash conn_hash, string_hash processor_hash)
+    {
+        auto conn_it = m_connections.find(conn_hash);
+        if (conn_it == m_connections.end())
+            return status_error_connection_not_found;
+
+        auto processor_it = m_processors.find(processor_hash);
+        if (processor_it == m_processors.end())
+            return status_error_port_not_found; // Reuse error code or make a new one, but this matches other uses
+            
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
+            param->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+        conn_it->second->processors().push_back(processor_it->second.get());
+        if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("processors"_ct)))
+        {
+            auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(procs_list->get_children().size())));
+            param->set_target(processor_it->second->get_name());
+            procs_list->add(std::move(param));
+        }
+
+        conn_it->second->check_valid_chain();
+            
+        return status_success;
+    }
+
+    registry::status registry::connection_remove_processor(string_hash conn_hash, string_hash processor_hash)
+    {
+        auto conn_it = m_connections.find(conn_hash);
+        if (conn_it == m_connections.end())
+            return status_error_connection_not_found;
+
+        auto processor_it = m_processors.find(processor_hash);
+        if (processor_it == m_processors.end())
+        {
+            auto& unavail = conn_it->second->unavailable_processors();
+            auto it = std::find_if(unavail.begin(), unavail.end(), [processor_hash](const string_hashed& sh) { return sh.get_hash() == processor_hash; });
+            if (it != unavail.end())
+                unavail.erase(it);
+        }
+        else
+        {
+            conn_it->second->processors().remove(processor_it->second.get());
+            if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("processors"_ct)))
+            {
+                procs_list->clear();
+                conn_it->second->processors().iterate([&](const auto& procs) 
+                {
+                    for (size_t i = 0; i < procs.size(); ++i)
+                        procs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), procs[i]->get_name()));
+                });
+            }
+        }
+            
+        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
+            param->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         conn_it->second->check_valid_chain();
             
@@ -498,53 +707,56 @@ namespace adam
         configuration_parameter::write_binary(ofs, configuration_parameter::type_list);
         configuration_parameter::write_string(ofs, "root");
         
-        uint32_t root_count = 6; // general, ports, filters, converters, connections, modules
+        uint32_t root_count = 5; // general, ports, processors, connections, modules
         configuration_parameter::write_binary(ofs, root_count);
 
         // 1. Save general settings
         configuration_parameter::serialize(ofs, &m_parameters);
-
-        // Helper lambda to save grouped items into mock lists
-        auto serialize_group = [&ofs](const std::string& group_name, const auto& group_map) 
-        {
-            configuration_parameter::write_binary(ofs, configuration_parameter::type_list);
-            configuration_parameter::write_string(ofs, group_name);
-            
-            uint32_t count = static_cast<uint32_t>(group_map.size());
-            configuration_parameter::write_binary(ofs, count);
-
-            for (const auto& [name, item] : group_map)
-                if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
-        };
 
         // 2. Save ports (combining available and unavailable)
         {
             configuration_parameter::write_binary(ofs, configuration_parameter::type_list);
             configuration_parameter::write_string(ofs, "ports");
             
-            uint32_t count = static_cast<uint32_t>(m_ports.size() + m_unavailable_ports.size());
+            uint32_t count = 0;
+            for (const auto& [name, item] : m_ports) if (item) count++;
+            for (const auto& [name, item] : m_unavailable_ports) if (item) count++;
+            
             configuration_parameter::write_binary(ofs, count);
 
             for (const auto& [name, item] : m_ports)
-            {
                 if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
-            }
                 
             for (const auto& [name, item] : m_unavailable_ports)
-            {
                 if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
-            }
         }
 
-        // 3-5. Save grouped configuration items
-        serialize_group("filters", m_filters);
-        serialize_group("converters", m_converters);
+        // 3. Save processors (combining available and unavailable)
+        {
+            configuration_parameter::write_binary(ofs, configuration_parameter::type_list);
+            configuration_parameter::write_string(ofs, "processors");
+            
+            uint32_t count = 0;
+            for (const auto& [name, item] : m_processors) if (item) count++;
+            for (const auto& [name, item] : m_unavailable_processors) if (item) count++;
+            
+            configuration_parameter::write_binary(ofs, count);
+
+            for (const auto& [name, item] : m_processors)
+                if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
+                
+            for (const auto& [name, item] : m_unavailable_processors)
+                if (item) configuration_parameter::serialize(ofs, &item->get_parameters());
+        }
         
         {
             configuration_parameter::write_binary(ofs, configuration_parameter::type_list);
             configuration_parameter::write_string(ofs, "connections");
             
-            uint32_t count = static_cast<uint32_t>(m_connections.size() + m_unavailable_connections.size());
+            uint32_t count = 0;
+            for (const auto& [name, item] : m_connections) if (item) count++;
+            for (const auto& [name, item] : m_unavailable_connections) if (item) count++;
+            
             configuration_parameter::write_binary(ofs, count);
 
             for (const auto& [name, item] : m_connections)
@@ -590,228 +802,224 @@ namespace adam
 
         auto loaded_root = configuration_parameter::deserialize(ifs);
 
-        if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list) 
+        if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list)
             return false;
 
-        // Clear the existing state
         clear();
 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
 
         // 1. Restore general settings
-        if (auto* general_mock_param = root_list->get("general"_ct))
-        {
-            if (general_mock_param->get_type() == configuration_parameter::type_list)
-            {
-                copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(general_mock_param));
-            }
-        }
+        copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(root_list->get("general"_ct)));
 
         m_modules.clear_and_unload_all();
         m_modules.scan_for_modules();
 
         // 2. Restore loaded modules
-        if (auto* modules_mock_param = root_list->get("modules"_ct))
-        {
-            if (modules_mock_param->get_type() == configuration_parameter::type_list)
-            {
-                auto* modules_list = static_cast<configuration_parameter_list*>(modules_mock_param);
-                for (auto& [mod_name, mod_param] : modules_list->get_children())
-                {
-                    m_modules.load_module(mod_name);
-                }
-            }
-        }
+        auto* modules_list = static_cast<configuration_parameter_list*>(root_list->get("modules"_ct));
+        for (auto& [mod_name, mod_param] : modules_list->get_children())
+            m_modules.load_module(mod_name);
 
         // 3. Restore ports
-        if (auto* ports_mock_param = root_list->get("ports"_ct))
+        auto* ports_list = static_cast<configuration_parameter_list*>(root_list->get("ports"_ct));
+        for (auto& [port_name, port_param] : ports_list->get_children())
         {
-            if (ports_mock_param->get_type() == configuration_parameter::type_list)
-            {
-                auto* ports_list = static_cast<configuration_parameter_list*>(ports_mock_param);
-                for (auto& [port_name, port_param] : ports_list->get_children())
-                {
-                    if (port_param && port_param->get_type() == configuration_parameter::type_list)
-                    {
-                        auto* port_params = static_cast<configuration_parameter_list*>(port_param.get());
-                        auto* type_param = port_params->get("type"_ct);
-                        if (type_param && type_param->get_type() == configuration_parameter::type_string)
-                        {
-                            string_hashed port_type = static_cast<configuration_parameter_string*>(type_param)->get_value();
-                            string_hashed module_name;
-                            
-                            if (auto* mod_param = port_params->get("type_origin_module"_ct))
-                            {
-                                if (mod_param->get_type() == configuration_parameter::type_string)
-                                    module_name = static_cast<configuration_parameter_string*>(mod_param)->get_value();
-                            }
+            auto* port_params   = static_cast<configuration_parameter_list*>(port_param.get());
+            auto port_type      = static_cast<configuration_parameter_string*>(port_params->get("type"_ct))->get_value().get_hash();
+            auto module_name    = static_cast<configuration_parameter_string*>(port_params->get("type_origin_module"_ct))->get_value().get_hash();
 
-                            port* new_port = nullptr;
-                            status status = create_port(port_name, port_type.get_hash(), module_name.empty() ? 0 : module_name.get_hash(), &new_port);
-                            if (status == status_success && new_port)
-                            {
-                                copy_parameters(&new_port->parameters(), port_params);
-                            }
-                            else if (status == status_error_module_not_found || status == status_error_factory_not_found)
-                            {
-                                auto upi = std::make_unique<port::unavailable_info>(port_name);
-                                upi->type = port_type.get_hash();
-                                upi->type_module = module_name.empty() ? 0 : module_name.get_hash();
-                                copy_parameters(&upi->parameters(), port_params);
-                                m_unavailable_ports[port_name.get_hash()] = std::move(upi);
-                            }
-                        }
-                    }
-                }
+            port* new_port = nullptr;
+            const status s = create_port(port_name, port_type, module_name, &new_port);
+
+            if (s == status_success)
+            {
+                copy_parameters(&new_port->parameters(), port_params);
+            }
+            else if (s == status_error_module_not_found || s == status_error_factory_not_found)
+            {
+                auto upi         = std::make_unique<port::unavailable_info>(port_name);
+                upi->type        = port_type;
+                upi->type_module = module_name;
+                copy_parameters(&upi->parameters(), port_params);
+                m_unavailable_ports[port_name] = std::move(upi);
             }
         }
 
-        // 4. Restore connections
-        if (auto* connections_mock_param = root_list->get("connections"_ct))
+        // 4. Restore processors
+        auto* processors_list = static_cast<configuration_parameter_list*>(root_list->get("processors"_ct));
+        for (auto& [processor_name, processor_param] : processors_list->get_children())
         {
-            if (connections_mock_param->get_type() == configuration_parameter::type_list)
+            auto* processor_params  = static_cast<configuration_parameter_list*>(processor_param.get());
+            auto processor_type     = static_cast<configuration_parameter_string*>(processor_params->get("type"_ct))->get_value().get_hash();
+            auto module_name        = static_cast<configuration_parameter_string*>(processor_params->get("type_origin_module"_ct))->get_value().get_hash();
+            auto is_filter          = static_cast<configuration_parameter_boolean*>(processor_params->get("is_filter"_ct))->get_value();
+
+            processor* new_processor = nullptr;
+            const status s = create_processor(processor_name, processor_type, module_name, is_filter, &new_processor);
+
+            if (s == status_success)
             {
-                auto* connections_list = static_cast<configuration_parameter_list*>(connections_mock_param);
-                for (auto& [conn_name, conn_param] : connections_list->get_children())
+                copy_parameters(&new_processor->parameters(), processor_params);
+            }
+            else if (s == status_error_module_not_found || s == status_error_factory_not_found)
+            {
+                auto upi         = std::make_unique<processor::unavailable_info>(processor_name);
+                upi->type        = processor_type;
+                upi->type_module = module_name;
+                upi->is_filter   = is_filter;
+                copy_parameters(&upi->parameters(), processor_params);
+                m_unavailable_processors[processor_name] = std::move(upi);
+            }
+        }
+
+        // 5. Restore connections
+        auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format, bool& missing_module)
+        {
+            missing_module = false;
+
+            if (fmt_name.empty() || fmt_name == "transparent"_ct)
+            {
+                out_format = &data_format_transparent;
+                return;
+            }
+
+            const auto& loaded_modules = m_modules.get_loaded_modules();
+
+            if (!mod_name.empty())
+            {
+                auto mod_it = loaded_modules.find(mod_name.get_hash());
+                if (mod_it != loaded_modules.end())
                 {
-                    if (conn_param && conn_param->get_type() == configuration_parameter::type_list)
+                    auto fmt_it = mod_it->second->get_data_formats().find(fmt_name.get_hash());
+                    if (fmt_it != mod_it->second->get_data_formats().end())
                     {
-                        auto* conn_params = static_cast<configuration_parameter_list*>(conn_param.get());
-                        
-                        string_hashed in_fmt, in_mod, out_fmt, out_mod;
-                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("input_format"_ct)))
-                            in_fmt = param->get_value();
-                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("input_format_module"_ct)))
-                            in_mod = param->get_value();
-                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("output_format"_ct)))
-                            out_fmt = param->get_value();
-                        if (auto* param = dynamic_cast<configuration_parameter_string*>(conn_params->get("output_format_module"_ct)))
-                            out_mod = param->get_value();
-
-                        auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format, bool& missing_module)
-                        {
-                            missing_module = false;
-                            if (fmt_name.empty() || fmt_name == "transparent"_ct)
-                            {
-                                out_format = &data_format_transparent;
-                                return;
-                            }
-
-                            if (!mod_name.empty() && mod_name.get_hash() != 0)
-                            {
-                                auto mod_it = m_modules.get_loaded_modules().find(mod_name.get_hash());
-                                if (mod_it != m_modules.get_loaded_modules().end())
-                                {
-                                    auto fmt_it = mod_it->second->get_data_formats().find(fmt_name.get_hash());
-                                    if (fmt_it != mod_it->second->get_data_formats().end())
-                                    {
-                                        out_format = fmt_it->second;
-                                        return;
-                                    }
-                                }
-                                else
-                                    missing_module = true;
-                            }
-                            else
-                            {
-                                for (const auto& [name, mod] : m_modules.get_loaded_modules())
-                                {
-                                    auto fmt_it = mod->get_data_formats().find(fmt_name.get_hash());
-                                    if (fmt_it != mod->get_data_formats().end())
-                                    {
-                                        out_format = fmt_it->second;
-                                        return;
-                                    }
-                                }
-                            }
-                            out_format = &data_format_transparent;
-                        };
-
-                        const data_format* resolved_in_fmt = &data_format_transparent;
-                        const data_format* resolved_out_fmt = &data_format_transparent;
-                        bool missing_in = false;
-                        bool missing_out = false;
-                        
-                        resolve_format(in_fmt, in_mod, resolved_in_fmt, missing_in);
-                        resolve_format(out_fmt, out_mod, resolved_out_fmt, missing_out);
-
-                        if (missing_in || missing_out)
-                        {
-                            auto uci = std::make_unique<connection::unavailable_info>(conn_name);
-                            copy_parameters(&uci->parameters(), conn_params);
-                            
-                            if (auto* param = dynamic_cast<configuration_parameter_integer*>(uci->get_parameters().get("color_code"_ct)))
-                            {
-                                if (param->get_value() == 0xFFFFFF) param->set_value(0);
-                            }
-
-                            m_unavailable_connections[conn_name.get_hash()] = std::move(uci);
-                            continue;
-                        }
-
-                        connection* new_conn = nullptr;
-                        status status = create_connection(conn_name, &new_conn);
-                        if (status == status_success && new_conn)
-                        {
-                            copy_parameters(&new_conn->parameters(), conn_params);
-                            
-                            if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("color_code"_ct)))
-                            {
-                                if (param->get_value() == 0xFFFFFF) param->set_value(0);
-                            }
-                            
-                            if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("inputs"_ct)))
-                            {
-                                for (size_t i = 0; i < inputs_list->get_children().size(); ++i)
-                                {
-                                    if (auto* param = dynamic_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i)))))
-                                    {
-                                        auto port_hash = param->get_target().get_hash();
-                                        auto port_it = m_ports.find(port_hash);
-                                        if (port_it != m_ports.end())
-                                        {
-                                            new_conn->ports_input().push_back(port_it->second.get());
-                                            port_it->second->in_connections().push_back(new_conn);
-                                        }
-                                        else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
-                                        {
-                                            new_conn->unavailable_inputs().push_back(param->get_target());
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("outputs"_ct)))
-                            {
-                                for (size_t i = 0; i < outputs_list->get_children().size(); ++i)
-                                {
-                                    if (auto* param = dynamic_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i)))))
-                                    {
-                                        auto port_hash = param->get_target().get_hash();
-                                        auto port_it = m_ports.find(port_hash);
-                                        if (port_it != m_ports.end())
-                                        {
-                                            new_conn->ports_output().push_back(port_it->second.get());
-                                            port_it->second->out_connections().push_back(new_conn);
-                                        }
-                                        else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
-                                        {
-                                            new_conn->unavailable_outputs().push_back(param->get_target());
-                                        }
-                                    }
-                                }
-                            }
-
-                            // these will also perform the chain checks
-                            new_conn->set_input_format(resolved_in_fmt);
-                            new_conn->set_output_format(resolved_out_fmt);
-                        }
+                        out_format = fmt_it->second;
+                        return;
+                    }
+                }
+                else
+                {
+                    missing_module = true;
+                }
+            }
+            else
+            {
+                for (const auto& [name, mod] : loaded_modules)
+                {
+                    auto fmt_it = mod->get_data_formats().find(fmt_name.get_hash());
+                    if (fmt_it != mod->get_data_formats().end())
+                    {
+                        out_format = fmt_it->second;
+                        return;
                     }
                 }
             }
+
+            out_format = &data_format_transparent;
+        };
+
+        auto* connections_list = static_cast<configuration_parameter_list*>(root_list->get("connections"_ct));
+        for (auto& [conn_name, conn_param] : connections_list->get_children())
+        {
+            auto* conn_params = static_cast<configuration_parameter_list*>(conn_param.get());
+
+            const string_hashed in_fmt  = static_cast<configuration_parameter_string*>(conn_params->get("input_format"_ct))->get_value();
+            const string_hashed in_mod  = static_cast<configuration_parameter_string*>(conn_params->get("input_format_module"_ct))->get_value();
+            const string_hashed out_fmt = static_cast<configuration_parameter_string*>(conn_params->get("output_format"_ct))->get_value();
+            const string_hashed out_mod = static_cast<configuration_parameter_string*>(conn_params->get("output_format_module"_ct))->get_value();
+
+            const data_format* resolved_in_fmt  = &data_format_transparent;
+            const data_format* resolved_out_fmt = &data_format_transparent;
+            bool missing_in  = false;
+            bool missing_out = false;
+
+            resolve_format(in_fmt,  in_mod,  resolved_in_fmt,  missing_in);
+            resolve_format(out_fmt, out_mod, resolved_out_fmt, missing_out);
+
+            if (missing_in || missing_out)
+            {
+                auto uci = std::make_unique<connection::unavailable_info>(conn_name);
+                copy_parameters(&uci->parameters(), conn_params);
+
+                auto* color = static_cast<configuration_parameter_integer*>(uci->get_parameters().get("color_code"_ct));
+                if (color->get_value() == 0xFFFFFF) color->set_value(0);
+
+                m_unavailable_connections[conn_name.get_hash()] = std::move(uci);
+                continue;
+            }
+
+            connection* new_conn = nullptr;
+            if (create_connection(conn_name, &new_conn) != status_success)
+                continue;
+
+            copy_parameters(&new_conn->parameters(), conn_params);
+
+            auto* color = static_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("color_code"_ct));
+            if (color->get_value() == 0xFFFFFF) color->set_value(0);
+
+            // inputs
+            {
+                auto* inputs_list  = static_cast<configuration_parameter_list*>(new_conn->get_parameters().get("inputs"_ct));
+                const size_t count = inputs_list->get_children().size();
+                for (size_t i = 0; i < count; ++i)
+                {
+                    auto* ref       = static_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i))));
+                    const auto hash = ref->get_target().get_hash();
+                    auto port_it    = m_ports.find(hash);
+                    if (port_it != m_ports.end())
+                    {
+                        new_conn->ports_input().push_back(port_it->second.get());
+                        port_it->second->in_connections().push_back(new_conn);
+                    }
+                    else if (m_unavailable_ports.count(hash))
+                    {
+                        new_conn->unavailable_inputs().push_back(ref->get_target());
+                    }
+                }
+            }
+
+            // outputs
+            {
+                auto* outputs_list = static_cast<configuration_parameter_list*>(new_conn->get_parameters().get("outputs"_ct));
+                const size_t count = outputs_list->get_children().size();
+                for (size_t i = 0; i < count; ++i)
+                {
+                    auto* ref       = static_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i))));
+                    const auto hash = ref->get_target().get_hash();
+                    auto port_it    = m_ports.find(hash);
+                    if (port_it != m_ports.end())
+                    {
+                        new_conn->ports_output().push_back(port_it->second.get());
+                        port_it->second->out_connections().push_back(new_conn);
+                    }
+                    else if (m_unavailable_ports.count(hash))
+                    {
+                        new_conn->unavailable_outputs().push_back(ref->get_target());
+                    }
+                }
+            }
+
+            // processors
+            {
+                auto* procs_list   = static_cast<configuration_parameter_list*>(new_conn->get_parameters().get("processors"_ct));
+                const size_t count = procs_list->get_children().size();
+                for (size_t i = 0; i < count; ++i)
+                {
+                    auto* ref       = static_cast<configuration_parameter_reference*>(procs_list->get(string_hashed(std::to_string(i))));
+                    const auto hash = ref->get_target().get_hash();
+                    auto proc_it    = m_processors.find(hash);
+                    if (proc_it != m_processors.end())
+                        new_conn->processors().push_back(proc_it->second.get());
+                    else if (m_unavailable_processors.count(hash))
+                        new_conn->unavailable_processors().push_back(ref->get_target());
+                }
+            }
+
+            // these will also perform the chain checks
+            new_conn->set_input_format(resolved_in_fmt);
+            new_conn->set_output_format(resolved_out_fmt);
         }
         
-
         return ifs.good();
     }
 
@@ -982,6 +1190,135 @@ namespace adam
         }
     }
 
+    void registry::retry_unavailable_processors(string_hash module_hash)
+    {
+        for (auto it = m_unavailable_processors.begin(); it != m_unavailable_processors.end();)
+        {
+            if (it->second->type_module == module_hash)
+            {
+                processor* new_processor = nullptr;
+                status stat = create_processor(it->second->get_name(), it->second->type, it->second->type_module, it->second->is_filter, &new_processor);
+
+                if (stat == status_success)
+                {
+                    copy_parameters(&new_processor->parameters(), &it->second->parameters());
+                    
+                    for (auto& [conn_hash, conn] : m_connections)
+                    {
+                        auto& unavail_procs = conn->unavailable_processors();
+                        auto proc_it = std::find_if(unavail_procs.begin(), unavail_procs.end(), [&](const string_hashed& sh) 
+                        {
+                            return sh.get_hash() == it->first; 
+                        });
+                        
+                        if (proc_it != unavail_procs.end())
+                        {
+                            conn->processors().push_back(new_processor);
+                            unavail_procs.erase(proc_it);
+                        }
+                    }
+                    
+                    event evt(event_type::processor_available);
+                    auto* evt_data = evt.data_as<processor::basic_info>();
+                    
+                    bool is_filter = false;
+                    if (auto* param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
+                        is_filter = param->get_value();
+
+                    buffer_handle handle;
+                    // if processor has state buffer, we would pass it here
+
+                    evt_data->setup(new_processor->get_name(), it->second->type, it->second->type_module, is_filter, false, handle);
+                    
+                    if (new_processor->get_input_data_format())
+                    {
+                        evt_data->input_datatype = new_processor->get_input_data_format()->get_name().get_hash();
+                    }
+                    if (new_processor->get_output_data_format())
+                    {
+                        evt_data->output_datatype = new_processor->get_output_data_format()->get_name().get_hash();
+                    }
+
+                    m_controller.broadcast_event(evt);
+                    
+                    // Successfully created, remove from unavailable list
+                    it = m_unavailable_processors.erase(it);
+                    continue;
+                }
+                else
+                {}
+            }
+            ++it;
+        }
+    }
+
+    void registry::mark_processors_unavailable(string_hash module_hash)
+    {
+        for (auto it = m_processors.begin(); it != m_processors.end();)
+        {
+            string_hashed type_module;
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type_origin_module"_ct)))
+            {
+                type_module = mod_param->get_value();
+            }
+
+            if (type_module.get_hash() == module_hash && module_hash != 0)
+            {
+                auto processor_hash = it->first;
+                auto processor_name = it->second->get_name();
+
+                string_hashed orig_type;
+                if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type"_ct)))
+                    orig_type = param->get_value();
+
+                auto upi = std::make_unique<processor::unavailable_info>(processor_name);
+                upi->type = orig_type.get_hash();
+                upi->type_module = module_hash;
+                if (auto* filter_param = dynamic_cast<configuration_parameter_boolean*>(it->second->get_parameters().get("is_filter"_ct)))
+                    upi->is_filter = filter_param->get_value();
+                else
+                    upi->is_filter = false;
+                
+                copy_parameters(&upi->parameters(), &it->second->parameters());
+
+                for (auto& [conn_hash, conn] : m_connections)
+                {
+                    conn->processors().remove(it->second.get());
+
+                    if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn->get_parameters().get("processors"_ct)))
+                    {
+                        for (auto& [idx_str, param] : procs_list->get_children())
+                        {
+                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                            {
+                                if (ref->get_target().get_hash() == processor_hash)
+                                {
+                                    auto& unavail_procs = conn->unavailable_processors();
+                                    if (std::find_if(unavail_procs.begin(), unavail_procs.end(), [&](const string_hashed& sh) { return sh.get_hash() == processor_hash; }) == unavail_procs.end())
+                                    {
+                                        unavail_procs.push_back(ref->get_target());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Notify UI about processor becoming unavailable
+                event evt(event_type::processor_unavailable);
+                evt.data_as<messages::processor_action_data>()->processor = processor_hash;
+                m_controller.broadcast_event(evt);
+
+                m_unavailable_processors[processor_hash] = std::move(upi);
+                it = m_processors.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
     void registry::retry_unavailable_connections(string_hash module_hash)
     {
         for (auto it = m_unavailable_connections.begin(); it != m_unavailable_connections.end();)
@@ -1144,6 +1481,9 @@ namespace adam
                             for (size_t i = 0; i < evt_data->processor_count; ++i)
                                 evt_data->processors[i] = procs[i]->get_name().get_hash();
                         });
+
+                        for (size_t i = 0; i < new_conn->unavailable_processors().size() && evt_data->processor_count < connection::basic_info::default_type_count; ++i)
+                            evt_data->processors[evt_data->processor_count++] = new_conn->unavailable_processors()[i].get_hash();
 
                         new_conn->ports_output().iterate([&](const auto& outputs) 
                         {

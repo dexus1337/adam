@@ -21,13 +21,14 @@
 #include "controller/registry-module-manager.hpp"
 #include "data/port/port.hpp"
 #include "data/connection.hpp"
+#include "data/processor.hpp"
+#include "types/string-hashed.hpp"
 
 namespace adam
 {
     class data_format;
     class controller;
-    class converter;
-    class filter;
+    class processor;
     class connection;
 
     /**
@@ -60,11 +61,11 @@ namespace adam
         using data_format_map               = std::unordered_map<string_hash, const data_format*>;                              /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
         
         using port_map                      = std::unordered_map<string_hash, std::unique_ptr<port>>;                           /**< A map for storing port instances. */
-        using filter_map                    = std::unordered_map<string_hash, std::unique_ptr<filter>>;                         /**< A map for storing filter instances. */
-        using converter_map                 = std::unordered_map<string_hash, std::unique_ptr<converter>>;                      /**< A map for storing converter instances. */
+        using processor_map                 = std::unordered_map<string_hash, std::unique_ptr<processor>>;                      /**< A map for storing processor instances. */
         using connection_map                = std::unordered_map<string_hash, std::unique_ptr<connection>>;                     /**< A map for storing connection instances. */
         using unavailable_port_map          = std::unordered_map<string_hash, std::unique_ptr<port::unavailable_info>>;         /**< A map for storing unavailable port information. */
         using unavailable_connection_map    = std::unordered_map<string_hash, std::unique_ptr<connection::unavailable_info>>;   /**< A map for storing unavailable connection information. */
+        using unavailable_processor_map     = std::unordered_map<string_hash, std::unique_ptr<processor::unavailable_info>>;    /**< A map for storing unavailable processor information. */
 
         template<typename T>
         struct factory_data
@@ -88,28 +89,39 @@ namespace adam
             port::direction direction = port::direction_invalid;
         }; 
 
-        using port_factory_map              = std::unordered_map<string_hashed, factory_data_port>;                             /**< A map of factories for creating ports provided by a module. */
-        using filter_factory_map            = std::unordered_map<string_hashed, factory_data<filter>>;                          /**< A map of factories for creating filters provided by a module. */
-        using converter_factory_map         = std::unordered_map<string_hashed, factory_data<converter>>;                       /**< A map of factories for creating converters provided by a module. */
+        struct factory_data_processor : public factory_data<processor>
+        {
+            factory_data_processor() = default;
+            factory_data_processor(factory<processor>* ptr, const configuration_parameter_list* params, string_hash idt, string_hash idtm, string_hash odt, string_hash odtm) 
+                : factory_data<processor>(ptr, params), input_datatype(idt), input_datatype_module(idtm), output_datatype(odt), output_datatype_module(odtm) {}
+
+            string_hash input_datatype;
+            string_hash input_datatype_module;
+            string_hash output_datatype;
+            string_hash output_datatype_module;
+        }; 
+
+        using port_factory_map              = std::unordered_map<string_hashed, factory_data_port>;         /**< A map of factories for creating ports provided by a module. */
+        using processor_factory_map         = std::unordered_map<string_hashed, factory_data_processor>;    /**< A map of factories for creating processors provided by a module. */
 
         /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
         registry(const registry&) = delete;
         registry& operator=(const registry&) = delete;
 
         const port_map&                     get_ports()                     const   { return m_ports; }
-        const filter_map&                   get_filters()                   const   { return m_filters; }
-        const converter_map&                get_converters()                const   { return m_converters; }
+        const processor_map&                get_processors()                const   { return m_processors; }
         const connection_map&               get_connections()               const   { return m_connections; }
         const unavailable_port_map&         get_unavailable_ports()         const   { return m_unavailable_ports; }
         const unavailable_connection_map&   get_unavailable_connections()   const   { return m_unavailable_connections; }
+        const unavailable_processor_map&    get_unavailable_processors()    const   { return m_unavailable_processors; }
         const registry_module_manager&      get_modules()                   const   { return m_modules; }
 
         port_map&                           ports()                     { return m_ports; }
-        filter_map&                         filters()                   { return m_filters; }
-        converter_map&                      converters()                { return m_converters; }
+        processor_map&                      processors()                { return m_processors; }
         connection_map&                     connections()               { return m_connections; }
         unavailable_port_map&               unavailable_ports()         { return m_unavailable_ports; }
         unavailable_connection_map&         unavailable_connections()   { return m_unavailable_connections; }
+        unavailable_processor_map&          unavailable_processors()    { return m_unavailable_processors; }
         registry_module_manager&            modules()                   { return m_modules; }
         
         /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
@@ -120,6 +132,15 @@ namespace adam
 
         /** @brief Renames a port safely. */
         status rename_port(string_hash hash, const string_hashed& new_name);
+
+        /** @brief Creates a new processor using the appropriate factory and adds it to the registry. Returns the status of the operation. */
+        status create_processor(const string_hashed& name, string_hash type, string_hash type_module = 0, bool is_filter = false, processor** out_processor = nullptr);
+
+        /** @brief Destroys a processor from the registry by its hash, and cleans up its connections. */
+        status destroy_processor(string_hash hash);
+
+        /** @brief Renames a processor safely. */
+        status rename_processor(string_hash hash, const string_hashed& new_name);
 
         /** @brief Creates a new connection and adds it to the registry. Returns the status of the operation. */
         status create_connection(const string_hashed& name, connection** out_connection = nullptr);
@@ -135,6 +156,12 @@ namespace adam
 
         /** @brief Removes a port from an existing connection. */
         status connection_remove_port(string_hash conn_hash, string_hash port_hash, bool is_input);
+
+        /** @brief Adds a processor to an existing connection. */
+        status connection_add_processor(string_hash conn_hash, string_hash processor_hash);
+
+        /** @brief Removes a processor from an existing connection. */
+        status connection_remove_processor(string_hash conn_hash, string_hash processor_hash);
 
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;
@@ -163,6 +190,12 @@ namespace adam
         /** @brief Marks ports originating from the given module as unavailable. */
         void mark_ports_unavailable(string_hash module_hash);
 
+        /** @brief Tries to create and restore any unavailable processors that belong to the newly loaded module. */
+        void retry_unavailable_processors(string_hash module_hash);
+
+        /** @brief Marks processors originating from the given module as unavailable. */
+        void mark_processors_unavailable(string_hash module_hash);
+
         /** @brief Tries to create and restore any unavailable connections that belong to the newly loaded module. */
         void retry_unavailable_connections(string_hash module_hash);
 
@@ -181,12 +214,12 @@ namespace adam
         ~registry();
 
         port_map                m_ports;                /**< The list of configuration parameters for ports. */
-        filter_map              m_filters;              /**< The list of configuration parameters for filters. */
-        converter_map           m_converters;           /**< The list of configuration parameters for converters. */
+        processor_map           m_processors;           /**< The list of configuration parameters for processors. */
         connection_map          m_connections;          /**< The list of configuration parameters for connections. */
 
         unavailable_port_map    m_unavailable_ports;    /**< The list of ports that failed to load because their module was missing. */
         unavailable_connection_map m_unavailable_connections; /**< The list of connections that failed to load because their module format was missing. */
+        unavailable_processor_map m_unavailable_processors; /**< The list of processors that failed to load because their module was missing. */
 
         port_factory_map        m_default_port_factory; /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
 

@@ -191,8 +191,7 @@ TEST_F(registry_test, clear_registry)
     reg.clear();
     
     EXPECT_TRUE(reg.ports().empty());
-    EXPECT_TRUE(reg.filters().empty());
-    EXPECT_TRUE(reg.converters().empty());
+    EXPECT_TRUE(reg.processors().empty());
     EXPECT_TRUE(reg.connections().empty());
 }
 

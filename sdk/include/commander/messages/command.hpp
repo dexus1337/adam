@@ -55,6 +55,8 @@ namespace adam
         connection_rename,
         connection_port_add,
         connection_port_remove,
+        connection_processor_add,
+        connection_processor_remove,
         connection_sorting_index_change,
         connection_color_change,
 
@@ -64,6 +66,11 @@ namespace adam
         connection_output_inspector_destroy,
         inspector_create,
         inspector_destroy,
+
+        processor_create,
+        processor_set_parameter,
+        processor_destroy,
+        processor_rename,
 
     };
 

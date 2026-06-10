@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file    format-asterix.hpp
+ * @file    data-format-asterix.hpp
  * @author  dexus1337
  * @brief   Defines the asterix data format with its parsers and deserializers
  * @version 1.0
- * @date    25.04.2026
+ * @date    10.06.2026
  */
 
  

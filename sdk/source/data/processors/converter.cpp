@@ -4,8 +4,9 @@
 namespace adam 
 {
     converter::converter(const string_hashed& name)
-     :  data_processor(name)
+     :  processor(name)
     {
+        get_parameter<configuration_parameter_boolean>("is_filter"_ct)->set_value(false);
     }
 
 

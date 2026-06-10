@@ -24,7 +24,6 @@
 
 namespace adam 
 {
-    class buffer;
     class connection;
     class data_inspector;
 
@@ -65,7 +64,7 @@ namespace adam
             bool            is_unavailable;
             string_hash     type;
             string_hash     type_module;
-            buffer_handle   statistic_buffer_handle;
+            buffer_handle   state_buffer_handle;
             uint16_t        user_parameters;
 
             void setup(const string_hashed& n, string_hash t, string_hash tm, bool unavail = false, buffer_handle bh = buffer_handle())
@@ -73,7 +72,7 @@ namespace adam
                 type = t;
                 type_module = tm;
                 dir = direction_invalid;
-                statistic_buffer_handle = bh;
+                state_buffer_handle = bh;
                 is_unavailable = unavail;
                 started = false;
                 is_unavailable = false;

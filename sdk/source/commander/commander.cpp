@@ -247,7 +247,7 @@ namespace adam
             pview->is_unavailable   = port_info->is_unavailable;
             
             if (!pview->is_unavailable)
-                pview->statistic_buffer = buffer_manager::get().resolve_handle(port_info->statistic_buffer_handle);
+                pview->statistic_buffer = buffer_manager::get().resolve_handle(port_info->state_buffer_handle);
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
             
@@ -277,6 +277,52 @@ namespace adam
             current_idx++;
         }
 
+        for (size_t i = 0; i < head->conn_info.processors; i++)
+        {
+            if (!resp[current_idx-1].is_extended())
+                break;
+            
+            auto* proc_info = resp[current_idx].data_as<processor::basic_info>();
+            
+            auto proc_view = std::make_unique<processor_view>();
+            proc_view->name             = string_hashed(&proc_info->name[0]);
+            proc_view->is_filter        = proc_info->is_filter;
+            proc_view->is_unavailable   = proc_info->is_unavailable;
+            
+            if (!proc_view->is_unavailable)
+                proc_view->state_buffer = buffer_manager::get().resolve_handle(proc_info->state_buffer_handle);
+            
+            m_module_view.extract_processor_type_and_module(proc_info->type, proc_info->type_module, proc_view->type, proc_view->module_name);
+            string_hashed dummy_mod;
+            m_module_view.extract_datatype_and_module(proc_info->input_datatype, 0, proc_view->input_datatype, dummy_mod);
+            m_module_view.extract_datatype_and_module(proc_info->output_datatype, 0, proc_view->output_datatype, dummy_mod);
+
+            if (proc_view->module_name.get_hash() != 0)
+            {
+                auto mod_it = m_module_view.loaded().find(proc_view->module_name.get_hash());
+                if (mod_it != m_module_view.loaded().end() && mod_it->second.second)
+                {
+                    const auto& factories = mod_it->second.second->get_processor_factories();
+                    auto fact_it = factories.find(proc_view->type);
+                    if (fact_it != factories.end() && fact_it->second.parameters)
+                    {
+                        if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                        {
+                            proc_view->user_params = *factory_user_params;
+                        }
+                    }
+                }
+            }
+
+            size_t unused_off = sizeof(processor::basic_info);
+            size_t unused_size = response::get_max_data_length() - unused_off;
+            detail::message_deserializer<response> deserializer(resp, m_response_buffer.size(), current_idx, unused_off, unused_size);
+            detail::deserialize_user_parameters(proc_info->user_parameters, deserializer, proc_view->user_params);
+
+            m_registry_view.processors().emplace(proc_view->name.get_hash(), std::move(proc_view));
+            current_idx++;
+        }
+
         for (size_t i = 0; i < head->conn_info.connections; i++)
         {
             if (!resp[current_idx-1].is_extended())
@@ -302,7 +348,7 @@ namespace adam
                 conn->inputs.push_back(conn_info->inputs[j]);
                 
             for (size_t j = 0; j < conn_info->processor_count; j++)
-                conn->filters.push_back(conn_info->processors[j]);
+                conn->processors.push_back(conn_info->processors[j]);
                 
             for (size_t j = 0; j < conn_info->output_count; j++)
                 conn->outputs.push_back(conn_info->outputs[j]);
@@ -576,6 +622,46 @@ namespace adam
         data->connection = conn_hash;
         data->port = port_hash;
         data->is_input = is_input;
+        return send_command(cmd);
+    }
+
+    response_status commander::request_processor_create(const string_hashed& name, string_hash type, string_hash type_module, bool is_filter)
+    {
+        {
+            std::lock_guard<const registry_view> lg(m_registry_view);
+            if (m_registry_view.processors().find(name.get_hash()) != m_registry_view.processors().end())
+                return response_status::command_send_failed;
+        }
+
+        command cmd(command_type::processor_create);
+        buffer_handle handle;
+        cmd.data_as<processor::basic_info>()->setup(name, type, type_module, is_filter, false, handle);
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_processor_destroy(string_hash processor_hash)
+    {
+        command cmd(command_type::processor_destroy);
+        cmd.data_as<messages::processor_destroy_data>()->processor = processor_hash;
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_processor_add(string_hash conn_hash, string_hash processor_hash)
+    {
+        command cmd(command_type::connection_processor_add);
+        auto* data = cmd.data_as<messages::connection_processor_add_data>();
+        data->connection = conn_hash;
+        data->processor = processor_hash;
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_processor_remove(string_hash conn_hash, string_hash processor_hash)
+    {
+        command cmd(command_type::connection_processor_remove);
+        auto* data = cmd.data_as<messages::connection_processor_add_data>();
+        data->connection = conn_hash;
+        data->processor = processor_hash;
         return send_command(cmd);
     }
 

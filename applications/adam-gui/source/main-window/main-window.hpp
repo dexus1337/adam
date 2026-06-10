@@ -151,6 +151,7 @@ namespace adam::gui
         lbl_stat_discarded,
         lbl_stat_unavailable,
         btn_remove_port,
+        btn_remove_processor,
         lbl_data_inspector,
         lbl_active_inspectors,
         col_inspect,

@@ -56,6 +56,23 @@ namespace adam
             }
         }
     }
+
+    void module_view::extract_processor_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const
+    {
+        auto it = m_database.find(module_hash);
+        if (it != m_database.end())
+        {
+            out_module = it->first;
+            for (const auto& proc : it->second.processors)
+            {
+                if (proc.name.get_hash() == type_hash)
+                {
+                    out_type = proc.name;
+                    return;
+                }
+            }
+        }
+    }
     
     void module_view::update_module_database(const string_hashed& name, const string_hashed& path, uint32_t version)
     {
@@ -85,11 +102,11 @@ namespace adam
                     for (const auto& [port_name, port_factory] : mod_ptr->get_port_factories())
                         info.ports.push_back({port_name, port_factory.direction});
                     
-                    for (const auto& [flt_name, flt_factory] : mod_ptr->get_filter_factories())
-                        info.filters.push_back({flt_name});
-                        
-                    for (const auto& [cnv_name, cnv_factory] : mod_ptr->get_converter_factories())
-                        info.converters.push_back({cnv_name});
+                    for (const auto& [proc_name, proc_factory] : mod_ptr->get_processor_factories())
+                    {
+                        bool is_filter = (proc_factory.input_datatype == proc_factory.output_datatype);
+                        info.processors.push_back({proc_name, is_filter});
+                    }
                         
                     m_database[name] = std::move(info);
                 }

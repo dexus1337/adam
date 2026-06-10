@@ -225,7 +225,7 @@ namespace adam::gui
 
                             bool has_formats = !mod_info_ptr->data_formats.empty();
                             bool has_ports = !mod_info_ptr->ports.empty();
-                            bool has_processors = !mod_info_ptr->filters.empty() || !mod_info_ptr->converters.empty();
+                            bool has_processors = !mod_info_ptr->processors.empty();
 
                             if (has_formats || has_ports || has_processors)
                             {
@@ -271,30 +271,21 @@ namespace adam::gui
                                             ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(port_name.get_hash()));
                                     }
 
-                                    for (const auto& [filter_name] : mod_info_ptr->filters)
+                                    for (const auto& [processor_name, is_filter] : mod_info_ptr->processors)
                                     {
                                         ImGui::TableNextRow();
                                         ImGui::TableSetColumnIndex(0);
-                                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_filter, lang));
-                                        ImGui::TableSetColumnIndex(1);
-                                        if (!filter_name.empty())
-                                            ImGui::TextUnformatted(filter_name.c_str());
+                                        if (is_filter)
+                                            ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_filter, lang));
                                         else
-                                            ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(filter_name.get_hash()));
+                                            ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_converter, lang));
+                                        ImGui::TableSetColumnIndex(1);
+                                        if (!processor_name.empty())
+                                            ImGui::TextUnformatted(processor_name.c_str());
+                                        else
+                                            ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(processor_name.get_hash()));
                                     }
 
-                                    for (const auto& [converter_name] : mod_info_ptr->converters)
-                                    {
-                                        ImGui::TableNextRow();
-                                        ImGui::TableSetColumnIndex(0);
-                                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_converter, lang));
-                                        ImGui::TableSetColumnIndex(1);
-                                        if (!converter_name.empty())
-                                            ImGui::TextUnformatted(converter_name.c_str());
-                                        else
-                                            ImGui::Text("Unknown (Hash: 0x%llx)", static_cast<unsigned long long>(converter_name.get_hash()));
-                                    }
-                                    
                                     ImGui::EndTable();
                                 }
                                 

@@ -261,6 +261,7 @@ namespace adam::gui
             { gui_string_id::lbl_stat_discarded,          { "Discarded: %llu msgs (%s)", "Verworfen: %llu Nachr. (%s)" } },
             { gui_string_id::lbl_stat_unavailable,        { "Statistics unavailable", "Statistiken nicht verfügbar" } },
             { gui_string_id::btn_remove_port,             { "Remove Port", "Port entfernen" } },
+            { gui_string_id::btn_remove_processor,        { "Remove Processor", "Prozessor entfernen" } },
             { gui_string_id::lbl_data_inspector,          { "Data Inspector", "Dateninspektor" } },
             { gui_string_id::lbl_active_inspectors,       { "Active Inspectors", "Aktive Inspektoren" } },
             { gui_string_id::col_inspect,                 { "Inspect", "Inspizieren" } },

@@ -117,6 +117,42 @@ namespace adam
         };
         static_assert(sizeof(port_rename_data) <= command::get_max_data_length(), "port_rename_data exceeds maximum command data size");
 
+        struct processor_destroy_data
+        {
+            string_hash processor;
+        };
+        static_assert(sizeof(processor_destroy_data) <= command::get_max_data_length(), "processor_destroy_data exceeds maximum command data size");
+
+        struct processor_action_data
+        {
+            string_hash processor;
+        };
+        static_assert(sizeof(processor_action_data) <= command::get_max_data_length(), "processor_action_data exceeds maximum command data size");
+
+        struct processor_rename_data
+        {
+            string_hash processor;
+            char new_name[max_name_length];
+            uint64_t edited;
+        };
+        static_assert(sizeof(processor_rename_data) <= command::get_max_data_length(), "processor_rename_data exceeds maximum command data size");
+
+        struct processor_parameter_updated_data
+        {
+            string_hash processor;
+            configuration_parameter::view param_view;
+            uint8_t data[command::get_max_data_length() - sizeof(string_hash) - sizeof(configuration_parameter::view)];
+        };
+        static_assert(sizeof(processor_parameter_updated_data) <= command::get_max_data_length(), "processor_parameter_updated_data exceeds maximum command data size");
+
+        struct processor_set_parameter_data
+        {
+            string_hash processor;
+            configuration_parameter::view param_view;
+            uint8_t data[command::get_max_data_length() - sizeof(string_hash) - sizeof(configuration_parameter::view)];
+        };
+        static_assert(sizeof(processor_set_parameter_data) <= command::get_max_data_length(), "processor_set_parameter_data exceeds maximum command data size");
+
         struct connection_data_format_data
         {
             string_hash connection;
@@ -183,6 +219,15 @@ namespace adam
             uint64_t edited;
         };
         static_assert(sizeof(connection_port_add_data) <= command::get_max_data_length(), "connection_port_add_data exceeds maximum command data size");
+        
+        struct connection_processor_add_data
+        {
+            string_hash connection;
+            string_hash processor;
+            bool valid_chain;
+            uint64_t edited;
+        };
+        static_assert(sizeof(connection_processor_add_data) <= command::get_max_data_length(), "connection_processor_add_data exceeds maximum command data size");
         
         struct connection_property_change_data 
         {

@@ -2,13 +2,15 @@
 
 
 #include "data/data-format-asterix.hpp"
-
-
-static adam::modules::asterix::module_asterix global_instance = adam::modules::asterix::module_asterix();
+#include "data/converter/asterix-to-text-converter.hpp"
 
 
 namespace adam::modules::asterix
 {
+    static module_asterix global_instance = adam::modules::asterix::module_asterix();
+
+    static default_factory<processor, asterix_to_text_converter> global_processor_factory = default_factory<processor, asterix_to_text_converter>();
+
     module_asterix::module_asterix() : module("asterix", version)
     {
         m_data_formats.emplace(data_format_asterix.get_name(), &data_format_asterix);
@@ -20,6 +22,13 @@ namespace adam::modules::asterix
             std::string("Bietet das Datenformat ASTERIX (All Purpose Structured Eurocontrol Surveillance Information Exchange) an.\n"
                         "Dies ist ein binäres Datenformat für den Austausch von Flugsicherungsdaten.");
 
+        // Export the factory for the controller to dynamically create this port type!
+        m_processor_factories.emplace
+        (
+            asterix_to_text_converter::type_name(), 
+            registry::factory_data_processor(&global_processor_factory, &processor::get_default_parameters(), data_format_asterix.get_name(), this->get_name(), 0, 0)
+        );
+
     }
 
     module_asterix::~module_asterix() 
@@ -30,5 +39,5 @@ namespace adam::modules::asterix
 
 extern "C" adam::module* get_adam_module() 
 {
-    return &global_instance;
+    return &adam::modules::asterix::global_instance;
 }

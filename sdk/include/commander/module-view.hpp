@@ -39,6 +39,7 @@ namespace adam
     struct processor_info
     {
         string_hashed name;
+        bool is_filter;
     };
 
     struct module_info
@@ -49,8 +50,7 @@ namespace adam
         std::array<std::string, static_cast<size_t>(languages_count)> descriptions;
         std::vector<string_hashed> data_formats;
         std::vector<port_info> ports;
-        std::vector<processor_info> filters;
-        std::vector<processor_info> converters;
+        std::vector<processor_info> processors;
     };
 
     /**
@@ -96,6 +96,9 @@ namespace adam
 
         /** @brief Extracts the datatype and module names for a given data format hash. */
         void extract_datatype_and_module(string_hash datatype_hash, string_hash module_hash, string_hashed& out_datatype, string_hashed& out_module) const;
+
+        /** @brief Extracts the type and module names for a given data processor hash. */
+        void extract_processor_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const;
 
         void update_module_database(const string_hashed& name, const string_hashed& path, uint32_t version);
 

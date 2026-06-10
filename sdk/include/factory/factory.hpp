@@ -10,6 +10,8 @@
 
 #include "types/string-hashed.hpp"
 
+#include <memory>
+
 namespace adam 
 {
     /**
@@ -27,7 +29,7 @@ namespace adam
          * @param name The unique name to assign to the new instance.
          * @return A pointer to the newly created instance. The caller assumes ownership.
          */
-        virtual type* create(const string_hashed& name) const = 0;
+        virtual std::unique_ptr<type> create(const string_hashed& name) const = 0;
     };
 
     /**
@@ -40,9 +42,9 @@ namespace adam
     public:
         virtual ~default_factory() = default;
 
-        type_base* create(const string_hashed& name) const override
+        std::unique_ptr<type_base> create(const string_hashed& name) const override
         {
-            return new type_derived(name);
+            return std::make_unique<type_derived>(name);
         }
     };
 }

@@ -24,7 +24,7 @@ namespace adam
     class buffer;
     class data_format;
     class data_inspector;
-    class data_processor;
+    class processor;
     class port;
 
     /**
@@ -101,10 +101,11 @@ namespace adam
 
         vector_double_buffer<port*>&                            ports_input()           { return m_ports_input; }
         vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors_input()      { return m_inspectors_input; }
-        vector_double_buffer<data_processor*>&                  processors()            { return m_processors; }
+        vector_double_buffer<processor*>&                       processors()            { return m_processors; }
         vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors_output()     { return m_inspectors_output; }
         vector_double_buffer<port*>&                            ports_output()          { return m_ports_output; }
         std::vector<string_hashed>&                             unavailable_inputs()    { return m_unavailable_inputs; }
+        std::vector<string_hashed>&                             unavailable_processors(){ return m_unavailable_processors; }
         std::vector<string_hashed>&                             unavailable_outputs()   { return m_unavailable_outputs; }
 
         /** @brief Returns the data format expected on all input ports. */
@@ -141,12 +142,13 @@ namespace adam
 
         vector_double_buffer<port*>                             m_ports_input;          /**< Zero or many input ports. */
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors_input;     /**< Zero or many data inspectors. All incoming data will be forwarded to them */
-        vector_double_buffer<data_processor*>                   m_processors;           /**< Zero or many data processors. */
+        vector_double_buffer<processor*>                        m_processors;           /**< Zero or many processors. */
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors_output;    /**< Zero or many data inspectors. All data passing through the processors will be forwarded to them */
         vector_double_buffer<port*>                             m_ports_output;         /**< Zero or many output ports. */
 
-        std::vector<string_hashed>              m_unavailable_inputs;   /**< Zero or many unavailable input ports. */
-        std::vector<string_hashed>              m_unavailable_outputs;  /**< Zero or many unavailable output ports. */
+        std::vector<string_hashed>              m_unavailable_inputs;       /**< Zero or many unavailable input ports. */
+        std::vector<string_hashed>              m_unavailable_processors;   /**< Zero or many unavailable processors. */
+        std::vector<string_hashed>              m_unavailable_outputs;      /**< Zero or many unavailable output ports. */
 
         const data_format*                      m_input_format;         /**< Format expected from all input ports (defaults to transparent). */
         const data_format*                      m_output_format;        /**< Format expected for all output ports (defaults to transparent). */

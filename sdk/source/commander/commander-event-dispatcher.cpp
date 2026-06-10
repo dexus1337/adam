@@ -138,7 +138,7 @@ namespace adam
             view->is_unavailable = info->is_unavailable;
             view->started = info->started;
             if (!view->is_unavailable)
-                view->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
+                view->statistic_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
             {
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
@@ -190,7 +190,7 @@ namespace adam
                     {
                         it->second->statistic_buffer->release();
                     }
-                    it->second->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
+                    it->second->statistic_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
                     found = true;
                 }
             }
@@ -202,7 +202,7 @@ namespace adam
                 view->direction = info->dir;
                 view->is_unavailable = false;
                 view->started = info->started;
-                view->statistic_buffer = buffer_manager::get().resolve_handle(info->statistic_buffer_handle);
+                view->statistic_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
                 
                 {
                     std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
@@ -320,6 +320,214 @@ namespace adam
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             auto it = ctx.cmdr.registry().ports().find(data->port);
             if (it != ctx.cmdr.registry().ports().end())
+            {
+                auto* param = it->second->user_params.get(data->param_view.name);
+                if (param && param->get_type() == data->param_view.var_type)
+                {
+                    switch (param->get_type())
+                    {
+                        case configuration_parameter::type_integer:
+                        {
+                            int64_t val;
+                            std::memcpy(&val, data->data, sizeof(int64_t));
+                            static_cast<configuration_parameter_integer*>(param)->set_value(val);
+                            break;
+                        }
+                        case configuration_parameter::type_double:
+                        {
+                            double val;
+                            std::memcpy(&val, data->data, sizeof(double));
+                            static_cast<configuration_parameter_double*>(param)->set_value(val);
+                            break;
+                        }
+                        case configuration_parameter::type_boolean:
+                        {
+                            bool val;
+                            std::memcpy(&val, data->data, sizeof(bool));
+                            static_cast<configuration_parameter_boolean*>(param)->set_value(val);
+                            break;
+                        }
+                        case configuration_parameter::type_string:
+                        {
+                            uint16_t len;
+                            std::memcpy(&len, data->data, sizeof(uint16_t));
+                            std::string val(len, '\0');
+                            if (len > 0)
+                                std::memcpy(&val[0], data->data + sizeof(uint16_t), len);
+                            static_cast<configuration_parameter_string*>(param)->set_value(string_hashed(val));
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                }
+            }
+        });
+
+        register_handler(event_type::processor_created, [](const event* events, size_t count, event_context& ctx) 
+        {
+            auto* info = events[0].get_data_as<processor::basic_info>();
+            auto view = std::make_unique<processor_view>();
+            view->name = string_hashed(info->name);
+            view->is_filter = info->is_filter;
+            view->is_unavailable = info->is_unavailable;
+            if (!view->is_unavailable)
+                view->state_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
+
+            {
+                std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                ctx.cmdr.get_modules().extract_processor_type_and_module(info->type, info->type_module, view->type, view->module_name);
+                string_hashed dummy_mod;
+                ctx.cmdr.get_modules().extract_datatype_and_module(info->input_datatype, 0, view->input_datatype, dummy_mod);
+                ctx.cmdr.get_modules().extract_datatype_and_module(info->output_datatype, 0, view->output_datatype, dummy_mod);
+                
+                if (view->module_name.get_hash() != 0)
+                {
+                    auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->module_name.get_hash());
+                    if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                    {
+                        const auto& factories = mod_it->second.second->get_processor_factories();
+                        auto fact_it = factories.find(view->type);
+                        if (fact_it != factories.end() && fact_it->second.parameters)
+                        {
+                            if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                            {
+                                view->user_params = *factory_user_params;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            size_t evt_idx = 0;
+            size_t unused_off = sizeof(processor::basic_info);
+            size_t unused_size = event::get_max_data_length() - unused_off;
+            detail::message_deserializer<event> deserializer(events, count, evt_idx, unused_off, unused_size);
+            detail::deserialize_user_parameters(info->user_parameters, deserializer, view->user_params);
+
+            {
+                std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+                ctx.cmdr.registry().processors()[view->name.get_hash()] = std::move(view);
+            }
+        });
+
+        register_handler(event_type::processor_available, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* info = events[0].get_data_as<processor::basic_info>();
+            
+            bool found = false;
+            {
+                std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+                auto it = ctx.cmdr.registry().processors().find(string_hashed(info->name).get_hash());
+                if (it != ctx.cmdr.registry().processors().end())
+                {
+                    it->second->is_unavailable = false;
+                    it->second->is_filter = info->is_filter;
+                    if (it->second->state_buffer)
+                    {
+                        it->second->state_buffer->release();
+                    }
+                    it->second->state_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
+                    found = true;
+                }
+            }
+            
+            if (!found)
+            {
+                auto view = std::make_unique<processor_view>();
+                view->name = string_hashed(info->name);
+                view->is_filter = info->is_filter;
+                view->is_unavailable = false;
+                view->state_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
+                
+                {
+                    std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
+                    ctx.cmdr.get_modules().extract_processor_type_and_module(info->type, info->type_module, view->type, view->module_name);
+                    string_hashed dummy_mod;
+                    ctx.cmdr.get_modules().extract_datatype_and_module(info->input_datatype, 0, view->input_datatype, dummy_mod);
+                    ctx.cmdr.get_modules().extract_datatype_and_module(info->output_datatype, 0, view->output_datatype, dummy_mod);
+                    
+                    if (view->module_name.get_hash() != 0)
+                    {
+                        auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->module_name.get_hash());
+                        if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                        {
+                            const auto& factories = mod_it->second.second->get_processor_factories();
+                            auto fact_it = factories.find(view->type);
+                            if (fact_it != factories.end() && fact_it->second.parameters)
+                            {
+                                if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                                {
+                                    view->user_params = *factory_user_params;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                std::lock_guard<const registry_view> reg_lg(ctx.cmdr.registry());
+                ctx.cmdr.registry().processors()[view->name.get_hash()] = std::move(view);
+            }
+        });
+
+        register_handler(event_type::processor_unavailable, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::processor_action_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().processors().find(data->processor);
+            if (it != ctx.cmdr.registry().processors().end())
+            {
+                it->second->is_unavailable = true;
+                if (it->second->state_buffer)
+                {
+                    it->second->state_buffer->release();
+                    it->second->state_buffer = nullptr;
+                }
+            }
+        });
+
+        register_handler(event_type::processor_destroyed, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::processor_action_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            ctx.cmdr.registry().processors().erase(data->processor);
+        });
+
+        register_handler(event_type::processor_renamed, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::processor_rename_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().processors().find(data->processor);
+            if (it != ctx.cmdr.registry().processors().end())
+            {
+                auto view = std::move(it->second);
+                ctx.cmdr.registry().processors().erase(it);
+                
+                string_hashed new_name(data->new_name);
+                view->name = new_name;
+                string_hash new_hash = new_name.get_hash();
+                ctx.cmdr.registry().processors()[new_hash] = std::move(view);
+                
+                for (auto& [conn_hash, conn] : ctx.cmdr.registry().connections())
+                {
+                    for (auto& pid : conn->processors)
+                    {
+                        if (pid == data->processor)
+                        {
+                            pid = new_hash;
+                            conn->edited = data->edited;
+                        }
+                    }
+                }
+            }
+        });
+
+        register_handler(event_type::processor_parameter_updated, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::processor_parameter_updated_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().processors().find(data->processor);
+            if (it != ctx.cmdr.registry().processors().end())
             {
                 auto* param = it->second->user_params.get(data->param_view.name);
                 if (param && param->get_type() == data->param_view.var_type)
@@ -490,6 +698,32 @@ namespace adam
             }
         });
 
+        register_handler(event_type::connection_processor_added, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::connection_processor_add_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                it->second->processors.push_back(data->processor);
+                it->second->edited = data->edited;
+                it->second->valid_chain = data->valid_chain;
+            }
+        });
+
+        register_handler(event_type::connection_processor_removed, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::connection_processor_add_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                it->second->processors.erase(std::remove(it->second->processors.begin(), it->second->processors.end(), data->processor), it->second->processors.end());
+                it->second->edited = data->edited;
+                it->second->valid_chain = data->valid_chain;
+            }
+        });
+
         register_handler(event_type::connection_sorting_index_changed, [](const event* events, size_t, event_context& ctx) 
         {
             auto* data = events[0].get_data_as<messages::connection_property_change_data>();
@@ -536,9 +770,9 @@ namespace adam
                 for (size_t i = 0; i < data->input_count; ++i)
                     it->second->inputs.push_back(data->inputs[i]);
 
-                it->second->filters.clear();
+                it->second->processors.clear();
                 for (size_t i = 0; i < data->processor_count; ++i)
-                    it->second->filters.push_back(data->processors[i]);
+                    it->second->processors.push_back(data->processors[i]);
 
                 it->second->outputs.clear();
                 for (size_t i = 0; i < data->output_count; ++i)
@@ -565,7 +799,7 @@ namespace adam
                     new_conn->inputs.push_back(data->inputs[i]);
 
                 for (size_t i = 0; i < data->processor_count; ++i)
-                    new_conn->filters.push_back(data->processors[i]);
+                    new_conn->processors.push_back(data->processors[i]);
 
                 for (size_t i = 0; i < data->output_count; ++i)
                     new_conn->outputs.push_back(data->outputs[i]);

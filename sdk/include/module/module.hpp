@@ -89,8 +89,7 @@ namespace adam
         uint32_t                                get_version()                  const { return m_ui32_version; }
         const registry::data_format_map&        get_data_formats()             const { return m_data_formats; }
         const registry::port_factory_map&       get_port_factories()           const { return m_port_factories; }
-        const registry::filter_factory_map&     get_filter_factories()         const { return m_filter_factories; }
-        const registry::converter_factory_map&  get_converter_factories()      const { return m_converter_factories; }
+        const registry::processor_factory_map&  get_processor_factories()      const { return m_processor_factories; }
 
     protected:
 
@@ -99,10 +98,9 @@ namespace adam
         uintptr_t                       m_mod_handle;               /**< The handle to the loaded module's shared library, used for managing the module's lifecycle. */
         uint32_t                        m_ui32_req_sdk_version;     /**< The minimum SDK version required for this module to function correctly. */
         uint32_t                        m_ui32_version;             /**< The version of the module. */
-        registry::data_format_map       m_data_formats;             /**< A map of data formats supported by this module, indexed by their hashed string names for efficient lookup. */
-        registry::port_factory_map      m_port_factories;           /**< A map of port factories provided by this module. */
-        registry::filter_factory_map    m_filter_factories;         /**< A map of filter factories provided by this module. */
-        registry::converter_factory_map m_converter_factories;      /**< A map of converter factories provided by this module. */
+        registry::data_format_map       m_data_formats;             /**< A map of data formats supported by the module. */
+        registry::port_factory_map      m_port_factories;           /**< A map of factories for creating ports provided by the module. */
+        registry::processor_factory_map m_processor_factories;      /**< A map of factories for creating processors provided by the module. */
 
         std::array<std::string, static_cast<size_t>(languages_count)> m_descriptions; /**< The multi-language description of the module. */
     };

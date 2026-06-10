@@ -128,6 +128,18 @@ namespace adam
         /** @brief Requests to remove a port from a connection. */
         response_status request_connection_port_remove(string_hash conn_hash, string_hash port_hash, bool is_input);
 
+        /** @brief Requests the creation of a processor. */
+        response_status request_processor_create(const string_hashed& name, string_hash type, string_hash type_module = 0, bool is_filter = false);
+
+        /** @brief Requests the destruction of a processor. */
+        response_status request_processor_destroy(string_hash processor_hash);
+
+        /** @brief Requests to attach a processor to a connection. */
+        response_status request_connection_processor_add(string_hash conn_hash, string_hash processor_hash);
+
+        /** @brief Requests to remove a processor from a connection. */
+        response_status request_connection_processor_remove(string_hash conn_hash, string_hash processor_hash);
+
         /** @brief Requests to change the sorting index of a connection. */
         response_status request_connection_sorting_index_change(string_hash hash, uint32_t sorting_index);
 

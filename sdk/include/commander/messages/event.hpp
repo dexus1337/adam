@@ -49,6 +49,8 @@ namespace adam
         connection_renamed,
         connection_port_added,
         connection_port_removed,
+        connection_processor_added,
+        connection_processor_removed,
         connection_input_inspector_created,
         connection_input_inspector_destroyed,
         connection_output_inspector_created,
@@ -59,6 +61,14 @@ namespace adam
         connection_output_data_format_changed,
         connection_available,
         connection_unavailable,
+
+        processor_created,
+        processor_parameter_updated,
+        processor_destroyed,
+        processor_renamed,
+        processor_available,
+        processor_unavailable,
+        processor_removed,
 
         shutdown
     };

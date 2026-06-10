@@ -261,8 +261,8 @@ namespace adam
             // Ports
             {
                 data->conn_info.ports       = static_cast<uint32_t>(ctx.reg.ports().size() + ctx.reg.get_unavailable_ports().size());
-                data->conn_info.processors  = static_cast<uint32_t>(ctx.reg.filters().size() + ctx.reg.converters().size());
-                data->conn_info.connections = static_cast<uint32_t>(ctx.reg.connections().size());
+                data->conn_info.processors  = static_cast<uint32_t>(ctx.reg.processors().size() + ctx.reg.get_unavailable_processors().size());
+                data->conn_info.connections = static_cast<uint32_t>(ctx.reg.connections().size() + ctx.reg.get_unavailable_connections().size());
 
                 for (const auto& [hash, prt] : ctx.reg.ports())
                 {
@@ -279,7 +279,7 @@ namespace adam
                     else
                         port_info->type_module = 0;
 
-                    port_info->statistic_buffer_handle  = prt->get_state_buffer()->get_handle();
+                    port_info->state_buffer_handle  = prt->get_state_buffer()->get_handle();
                     port_info->dir                      = prt->get_direction();
                     port_info->is_unavailable           = false;
                     port_info->started                  = prt->is_started();
@@ -312,6 +312,68 @@ namespace adam
                     port_info->is_unavailable = true;
                     port_info->started = false;
                     port_info->dir = port::direction_inout;
+
+                    resp_idx++;
+
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
+            }
+
+            // Processors
+            {
+                for (const auto& [hash, prc] : ctx.reg.processors())
+                {
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* proc_info = ctx.responses[resp_idx].data_as<processor::basic_info>();
+                    
+                    bool is_filter = false;
+                    if (auto* param = dynamic_cast<configuration_parameter_boolean*>(prc->get_parameters().get("is_filter"_ct)))
+                        is_filter = param->get_value();
+
+                    string_hashed type_module;
+                    if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prc->get_parameters().get("type_origin_module"_ct)))
+                        type_module = mod_param->get_value();
+
+                    buffer_handle handle; // if processor starts supporting state buffers
+
+                    proc_info->setup(prc->get_name(), prc->get_type_name().get_hash(), type_module.get_hash(), is_filter, false, handle);
+                    
+                    if (prc->get_input_data_format())
+                        proc_info->input_datatype = prc->get_input_data_format()->get_name().get_hash();
+                    else
+                        proc_info->input_datatype = 0;
+
+                    if (prc->get_output_data_format())
+                        proc_info->output_datatype = prc->get_output_data_format()->get_name().get_hash();
+                    else
+                        proc_info->output_datatype = 0;
+
+                    auto* user_param = dynamic_cast<configuration_parameter_list*>(prc->get_parameters().get("user_parameters"_ct));
+
+                    if (user_param)
+                    {
+                        proc_info->user_parameters = static_cast<uint16_t>(user_param->get_children().size());
+                        
+                        size_t unused_off     = sizeof(processor::basic_info);
+                        size_t unused_size    = response::get_max_data_length() - unused_off;
+
+                        message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
+                        serialize_user_parameters(user_param, serializer);
+                    }
+
+                    resp_idx++;
+
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
+
+                for (const auto& [hash, upi] : ctx.reg.get_unavailable_processors())
+                {
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* proc_info = ctx.responses[resp_idx].data_as<processor::basic_info>();
+                    
+                    proc_info->setup(upi->get_name(), upi->type, upi->type_module, upi->is_filter, true);
 
                     resp_idx++;
 
@@ -380,6 +442,9 @@ namespace adam
                     for (size_t i = 0; i < conn_info->processor_count; ++i)
                         conn_info->processors[i] = procs[i]->get_name().get_hash();
                 });
+
+                for (size_t i = 0; i < conn->unavailable_processors().size() && conn_info->processor_count < connection::basic_info::default_type_count; ++i)
+                    conn_info->processors[conn_info->processor_count++] = conn->unavailable_processors()[i].get_hash();
 
                 conn->ports_output().iterate([&](const auto& outputs) 
                 {
@@ -590,6 +655,109 @@ namespace adam
 
             auto name_view = name.c_str();
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_created, ctx.ctrl.get_language()), ctx.tid, name_view);
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::processor_create, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<processor::basic_info>();
+            string_hashed name(params->name);
+
+            processor* new_processor = nullptr;
+            registry::status res = ctx.reg.create_processor(name, params->type, params->type_module, params->is_filter, &new_processor);
+
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            // Build the event from the resolved processor state, not the raw command params.
+            // params->type is a hash that may differ from the actual factory key string hash
+            // (though typically they are the same); more importantly params->input_datatype
+            // and output_datatype are always 0 from the GUI command — the real values come
+            // from the factory registration, which create_processor already applied.
+            event evt(event_type::processor_created);
+            auto* evt_data = evt.data_as<processor::basic_info>();
+
+            bool is_filter = false;
+            if (auto* param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
+                is_filter = param->get_value();
+
+            string_hashed type_module;
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type_origin_module"_ct)))
+                type_module = mod_param->get_value();
+
+            buffer_handle handle; // processors don't currently expose a state buffer handle
+
+            evt_data->setup(new_processor->get_name(), new_processor->get_type_name().get_hash(), type_module.get_hash(), is_filter, false, handle);
+
+            evt_data->input_datatype  = new_processor->get_input_data_format()  ? new_processor->get_input_data_format()->get_name().get_hash()  : 0;
+            evt_data->output_datatype = new_processor->get_output_data_format() ? new_processor->get_output_data_format()->get_name().get_hash() : 0;
+
+            evt_data->input_datatype_module  = 0;
+            evt_data->output_datatype_module = 0;
+            evt_data->user_parameters        = 0;
+
+            ctx.ctrl.broadcast_event(evt);
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::processor_destroy, [](const command* cmds, size_t, command_context& ctx)
+        {
+            auto params = cmds->get_data_as<messages::processor_destroy_data>();
+
+            registry::status res = ctx.reg.destroy_processor(params->processor);
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::processor_destroyed);
+            evt.data_as<messages::processor_action_data>()->processor = params->processor;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_processor_add, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_processor_add_data>();
+
+            registry::status res = ctx.reg.connection_add_processor(params->connection, params->processor);
+
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_processor_added);
+            auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_processor_remove, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_processor_add_data>();
+
+            registry::status res = ctx.reg.connection_remove_processor(params->connection, params->processor);
+
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_processor_removed);
+            auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
             ctx.set_single_response_status(response_status::success);
         });
 
