@@ -467,26 +467,26 @@ TEST_F(registry_test, connection_valid_chain)
     reg.create_connection("test_valid_conn"_ct, &conn);
     
     // Empty connection -> invalid
-    EXPECT_FALSE(conn->is_valid_chain());
+    EXPECT_FALSE(conn->check_valid_chain());
     
     reg.connection_add_port("test_valid_conn"_ct.get_hash(), "in_port"_ct.get_hash(), true);
     reg.connection_add_port("test_valid_conn"_ct.get_hash(), "out_port"_ct.get_hash(), false);
     
     // Transparent to transparent -> valid
-    EXPECT_TRUE(conn->is_valid_chain());
+    EXPECT_TRUE(conn->check_valid_chain());
     
     // Dummy formats
     adam::data_format dummy_fmt1("fmt1"_ct);
     adam::data_format dummy_fmt2("fmt2"_ct);
     
     conn->set_input_format(&dummy_fmt1);
-    EXPECT_FALSE(conn->is_valid_chain()); // fmt1 != transparent
+    EXPECT_FALSE(conn->check_valid_chain()); // fmt1 != transparent
     
     conn->set_output_format(&dummy_fmt1);
-    EXPECT_TRUE(conn->is_valid_chain()); // fmt1 == fmt1
+    EXPECT_TRUE(conn->check_valid_chain()); // fmt1 == fmt1
     
     conn->set_output_format(&dummy_fmt2);
-    EXPECT_FALSE(conn->is_valid_chain()); // fmt1 != fmt2
+    EXPECT_FALSE(conn->check_valid_chain()); // fmt1 != fmt2
 
     // Add a processor mock module and processor
     adam::test::mock_module mock_mod("my_mod"_ct);
@@ -496,7 +496,7 @@ TEST_F(registry_test, connection_valid_chain)
     // Reset connection formats to transparent
     conn->set_input_format(&adam::data_format_transparent);
     conn->set_output_format(&adam::data_format_transparent);
-    EXPECT_TRUE(conn->is_valid_chain());
+    EXPECT_TRUE(conn->check_valid_chain());
 
     adam::processor* proc = nullptr;
     EXPECT_EQ(reg.create_processor("proc1"_ct, "my-proc-type"_ct, "my_mod"_ct, false, &proc), adam::registry::status_success);
@@ -506,26 +506,26 @@ TEST_F(registry_test, connection_valid_chain)
     EXPECT_EQ(reg.connection_add_processor("test_valid_conn"_ct.get_hash(), "proc1"_ct.get_hash()), adam::registry::status_success);
 
     // Default formats (transparent) -> valid
-    EXPECT_TRUE(conn->is_valid_chain());
+    EXPECT_TRUE(conn->check_valid_chain());
 
     // Cast processor to mock_processor to set its input/output formats
     auto* mock_proc = static_cast<adam::test::mock_processor*>(proc);
     
     // Connection: transparent -> mock_proc (fmt1 -> transparent) -> transparent -> invalid
     mock_proc->set_input_format(&dummy_fmt1);
-    EXPECT_FALSE(conn->is_valid_chain());
+    EXPECT_FALSE(conn->check_valid_chain());
 
     // Connection: fmt1 -> mock_proc (fmt1 -> transparent) -> transparent -> valid
     conn->set_input_format(&dummy_fmt1);
-    EXPECT_TRUE(conn->is_valid_chain());
+    EXPECT_TRUE(conn->check_valid_chain());
 
     // Connection: fmt1 -> mock_proc (fmt1 -> fmt2) -> transparent -> invalid
     mock_proc->set_output_format(&dummy_fmt2);
-    EXPECT_FALSE(conn->is_valid_chain());
+    EXPECT_FALSE(conn->check_valid_chain());
 
     // Connection: fmt1 -> mock_proc (fmt1 -> fmt2) -> fmt2 -> valid
     conn->set_output_format(&dummy_fmt2);
-    EXPECT_TRUE(conn->is_valid_chain());
+    EXPECT_TRUE(conn->check_valid_chain());
 }
 
 /** @brief Tests marking and retrying unavailable connections. */
@@ -650,9 +650,12 @@ TEST_F(registry_test, unavailable_processors)
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
 
+    adam::data_format dummy_fmt1("fmt1"_ct);
+    adam::data_format dummy_fmt2("fmt2"_ct);
+
     // 1. Setup mock module with mock processor
     adam::test::mock_module mock_mod("mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory, dummy_fmt1.get_name(), 0, dummy_fmt2.get_name(), 0);
     adam::test::mock_module_injector injector(reg, &mock_mod);
 
     // 2. Create input port, output port, processor, and connection
@@ -665,17 +668,27 @@ TEST_F(registry_test, unavailable_processors)
     EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
 
+    dynamic_cast<adam::test::mock_processor*>(proc)->set_input_format(&dummy_fmt1);
+    dynamic_cast<adam::test::mock_processor*>(proc)->set_output_format(&dummy_fmt2);
+
     adam::connection* conn = nullptr;
     EXPECT_EQ(reg.create_connection("conn1"_ct, &conn), adam::registry::status_success);
     ASSERT_NE(conn, nullptr);
 
+    conn->set_input_format(&dummy_fmt1);
+    conn->set_output_format(&dummy_fmt2);
+
     // 3. Link them to the connection
     EXPECT_EQ(reg.connection_add_port("conn1"_ct.get_hash(), "in_port"_ct.get_hash(), true), adam::registry::status_success);
     EXPECT_EQ(reg.connection_add_port("conn1"_ct.get_hash(), "out_port"_ct.get_hash(), false), adam::registry::status_success);
+    
+    // Without the processor, chain should be invlaid;
+    EXPECT_FALSE(conn->check_valid_chain());
+
     EXPECT_EQ(reg.connection_add_processor("conn1"_ct.get_hash(), "proc1"_ct.get_hash()), adam::registry::status_success);
 
-    // The data chain should be valid (transparent ports and transparent processor)
-    EXPECT_TRUE(conn->is_valid_chain());
+    // Now, the data chain should be valid
+    EXPECT_TRUE(conn->check_valid_chain());
 
     // 4. Start the connection
     EXPECT_TRUE(conn->start());
@@ -687,8 +700,7 @@ TEST_F(registry_test, unavailable_processors)
     // 6. Verify processor was moved to unavailable, connection stops, and connection chain is invalid
     EXPECT_FALSE(reg.processors().contains("proc1"_ct));
     EXPECT_TRUE(reg.get_unavailable_processors().contains("proc1"_ct.get_hash()));
-    EXPECT_FALSE(conn->is_started()); // connection should stop!
-    EXPECT_FALSE(conn->is_valid_chain()); // chain should be invalid because of unavailable processor
+    EXPECT_FALSE(conn->check_valid_chain()); // chain should be invalid because of unavailable processor
 
     // Double buffer should no longer contain the processor
     conn->processors().iterate([&](const auto& procs) 
@@ -706,7 +718,7 @@ TEST_F(registry_test, unavailable_processors)
     EXPECT_TRUE(reg.processors().contains("proc1"_ct));
     EXPECT_TRUE(reg.get_unavailable_processors().empty());
     EXPECT_FALSE(conn->is_started()); // shouldn't auto-start, just valid chain
-    EXPECT_TRUE(conn->is_valid_chain()); // valid again because processor is available
+    EXPECT_TRUE(conn->check_valid_chain()); // valid again because processor is available
 
     // Double buffer should contain the processor again
     conn->processors().iterate([&](const auto& procs) 

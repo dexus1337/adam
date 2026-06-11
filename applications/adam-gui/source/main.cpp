@@ -12,7 +12,7 @@
 
 using namespace adam::string_hashed_ct_literals;
 
-static ADAM_CONSTEXPR int event_redraw_count            = 1;
+static ADAM_CONSTEXPR int event_redraw_count            = 3;
 static ADAM_CONSTEXPR int perf_overlay_redraw_time      = 2000;
 
 adam::gui::gui_controller gui_ctrl;
