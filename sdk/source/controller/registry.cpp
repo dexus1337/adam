@@ -180,34 +180,29 @@ namespace adam
             {
                 port_it->second->in_connections().remove(conn_it->second.get());
                 conn_it->second->ports_input().remove(port_it->second.get());
-                if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("inputs"_ct)))
+                auto* inputs_list = conn_it->second->get_parameter<configuration_parameter_list>("inputs"_ct);
+                inputs_list->clear();
+                conn_it->second->ports_input().iterate([&](const auto& inputs) 
                 {
-                    inputs_list->clear();
-                    conn_it->second->ports_input().iterate([&](const auto& inputs) 
-                    {
-                        for (size_t i = 0; i < inputs.size(); ++i)
-                            inputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), inputs[i]->get_name()));
-                    });
-                }
+                    for (size_t i = 0; i < inputs.size(); ++i)
+                        inputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), inputs[i]->get_name()));
+                });
             }
             else
             {
                 port_it->second->out_connections().remove(conn_it->second.get());
                 conn_it->second->ports_output().remove(port_it->second.get());
-                if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("outputs"_ct)))
+                auto* outputs_list = conn_it->second->get_parameter<configuration_parameter_list>("outputs"_ct);
+                outputs_list->clear();
+                conn_it->second->ports_output().iterate([&](const auto& outputs) 
                 {
-                    outputs_list->clear();
-                    conn_it->second->ports_output().iterate([&](const auto& outputs) 
-                    {
-                        for (size_t i = 0; i < outputs.size(); ++i)
-                            outputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), outputs[i]->get_name()));
-                    });
-                }
+                    for (size_t i = 0; i < outputs.size(); ++i)
+                        outputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), outputs[i]->get_name()));
+                });
             }
         }
             
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
-            param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         conn_it->second->check_valid_chain();
             
@@ -254,26 +249,22 @@ namespace adam
 
         for (auto& [conn_name, conn_ptr] : m_connections)
         {
-            if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_ptr->get_parameters().get("inputs"_ct)))
+            auto* inputs_list = conn_ptr->get_parameter<configuration_parameter_list>("inputs"_ct);
+            for (auto& [idx_str, param] : inputs_list->get_children())
             {
-                for (auto& [idx_str, param] : inputs_list->get_children())
+                if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                 {
-                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
-                    {
-                        if (ref->get_target().get_hash() == hash)
-                            ref->set_target(new_name);
-                    }
+                    if (ref->get_target().get_hash() == hash)
+                        ref->set_target(new_name);
                 }
             }
-            if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_ptr->get_parameters().get("outputs"_ct)))
+            auto* outputs_list = conn_ptr->get_parameter<configuration_parameter_list>("outputs"_ct);
+            for (auto& [idx_str, param] : outputs_list->get_children())
             {
-                for (auto& [idx_str, param] : outputs_list->get_children())
+                if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                 {
-                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
-                    {
-                        if (ref->get_target().get_hash() == hash)
-                            ref->set_target(new_name);
-                    }
+                    if (ref->get_target().get_hash() == hash)
+                        ref->set_target(new_name);
                 }
             }
         }
@@ -358,12 +349,10 @@ namespace adam
 
         if (type_module != 0)
         {
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type_origin_module"_ct)))
-                mod_param->set_value(resolved_module_name);
+            new_processor->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->set_value(resolved_module_name);
         }
 
-        if (auto* filter_param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
-            filter_param->set_value(is_filter);
+        new_processor->get_parameter<configuration_parameter_boolean>("is_filter"_ct)->set_value(is_filter);
 
         auto ptr = new_processor.get();
         m_processors.emplace(name, std::move(new_processor));
@@ -412,15 +401,13 @@ namespace adam
 
         for (auto& [conn_name, conn_ptr] : m_connections)
         {
-            if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn_ptr->get_parameters().get("processors"_ct)))
+            auto* procs_list = conn_ptr->get_parameter<configuration_parameter_list>("processors"_ct);
+            for (auto& [idx_str, param] : procs_list->get_children())
             {
-                for (auto& [idx_str, param] : procs_list->get_children())
+                if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                 {
-                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
-                    {
-                        if (ref->get_target().get_hash() == hash)
-                            ref->set_target(new_name);
-                    }
+                    if (ref->get_target().get_hash() == hash)
+                        ref->set_target(new_name);
                 }
             }
         }
@@ -438,17 +425,10 @@ namespace adam
         auto new_connection = std::make_unique<connection>(name);
         auto timestamp      = std::time(nullptr);
 
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("date_created"_ct)))
-            param->set_value(static_cast<int64_t>(timestamp));
-
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("date_edited"_ct)))
-            param->set_value(static_cast<int64_t>(timestamp));
-
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("sorting_index"_ct)))
-            param->set_value(static_cast<int64_t>(m_connections.size()));
-
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_connection->get_parameters().get("color_code"_ct)))
-            param->set_value(0);
+        new_connection->get_parameter<configuration_parameter_integer>("date_created"_ct)->set_value(static_cast<int64_t>(timestamp));
+        new_connection->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(timestamp));
+        new_connection->get_parameter<configuration_parameter_integer>("sorting_index"_ct)->set_value(static_cast<int64_t>(m_connections.size()));
+        new_connection->get_parameter<configuration_parameter_integer>("color_code"_ct)->set_value(0);
 
         if (out_connection) 
             *out_connection = new_connection.get();
@@ -482,8 +462,7 @@ namespace adam
 
         conn->set_name(new_name);
         
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("date_edited"_ct)))
-            param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        conn->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
             
         m_connections.emplace(new_name.get_hash(), std::move(conn));
         return status_success;
@@ -499,30 +478,25 @@ namespace adam
         if (port_it == m_ports.end())
             return status_error_port_not_found;
             
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
-            param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         if (is_input)
         {
             port_it->second->in_connections().push_back(conn_it->second.get());
             conn_it->second->ports_input().push_back(port_it->second.get());
-            if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("inputs"_ct)))
-            {
-                auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(inputs_list->get_children().size())));
-                param->set_target(port_it->second->get_name());
-                inputs_list->add(std::move(param));
-            }
+            auto* inputs_list = conn_it->second->get_parameter<configuration_parameter_list>("inputs"_ct);
+            auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(inputs_list->get_children().size())));
+            param->set_target(port_it->second->get_name());
+            inputs_list->add(std::move(param));
         }
         else
         {
             port_it->second->out_connections().push_back(conn_it->second.get());
             conn_it->second->ports_output().push_back(port_it->second.get());
-            if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("outputs"_ct)))
-            {
-                auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(outputs_list->get_children().size())));
-                param->set_target(port_it->second->get_name());
-                outputs_list->add(std::move(param));
-            }
+            auto* outputs_list = conn_it->second->get_parameter<configuration_parameter_list>("outputs"_ct);
+            auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(outputs_list->get_children().size())));
+            param->set_target(port_it->second->get_name());
+            outputs_list->add(std::move(param));
         }
 
         conn_it->second->check_valid_chain();
@@ -540,16 +514,13 @@ namespace adam
         if (processor_it == m_processors.end())
             return status_error_port_not_found; // Reuse error code or make a new one, but this matches other uses
             
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
-            param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         conn_it->second->processors().push_back(processor_it->second.get());
-        if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("processors"_ct)))
-        {
-            auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(procs_list->get_children().size())));
-            param->set_target(processor_it->second->get_name());
-            procs_list->add(std::move(param));
-        }
+        auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+        auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(procs_list->get_children().size())));
+        param->set_target(processor_it->second->get_name());
+        procs_list->add(std::move(param));
 
         conn_it->second->check_valid_chain();
             
@@ -573,19 +544,16 @@ namespace adam
         else
         {
             conn_it->second->processors().remove(processor_it->second.get());
-            if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn_it->second->get_parameters().get("processors"_ct)))
+            auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+            procs_list->clear();
+            conn_it->second->processors().iterate([&](const auto& procs) 
             {
-                procs_list->clear();
-                conn_it->second->processors().iterate([&](const auto& procs) 
-                {
-                    for (size_t i = 0; i < procs.size(); ++i)
-                        procs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), procs[i]->get_name()));
-                });
-            }
+                for (size_t i = 0; i < procs.size(); ++i)
+                    procs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), procs[i]->get_name()));
+            });
         }
             
-        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_it->second->get_parameters().get("date_edited"_ct)))
-            param->set_value(static_cast<int64_t>(std::time(nullptr)));
+        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         conn_it->second->check_valid_chain();
             
@@ -1046,29 +1014,23 @@ namespace adam
 
             for (auto& [port_hash, port_ptr] : m_ports)
             {
-                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(port_ptr->get_parameters().get("started"_ct)))
+                if (port_ptr->get_parameter<configuration_parameter_boolean>("started"_ct)->get_value())
                 {
-                    if (param->get_value())
-                    {
-                        command cmd(command_type::port_start);
-                        if (auto* data = cmd.data_as<messages::port_action_data>())
-                            data->port = port_hash;
-                        m_controller.dispatcher().dispatch(&cmd, 1, ctx);
-                    }
+                    command cmd(command_type::port_start);
+                    if (auto* data = cmd.data_as<messages::port_action_data>())
+                        data->port = port_hash;
+                    m_controller.dispatcher().dispatch(&cmd, 1, ctx);
                 }
             }
 
             for (auto& [conn_hash, conn_ptr] : m_connections)
             {
-                if (auto* param = dynamic_cast<configuration_parameter_boolean*>(conn_ptr->get_parameters().get("started"_ct)))
+                if (conn_ptr->get_parameter<configuration_parameter_boolean>("started"_ct)->get_value())
                 {
-                    if (param->get_value())
-                    {
-                        command cmd(command_type::connection_start);
-                        if (auto* data = cmd.data_as<messages::connection_action_data>())
-                            data->connection = conn_hash;
-                        m_controller.dispatcher().dispatch(&cmd, 1, ctx);
-                    }
+                    command cmd(command_type::connection_start);
+                    if (auto* data = cmd.data_as<messages::connection_action_data>())
+                        data->connection = conn_hash;
+                    m_controller.dispatcher().dispatch(&cmd, 1, ctx);
                 }
             }
         }
@@ -1136,20 +1098,14 @@ namespace adam
     {
         for (auto it = m_ports.begin(); it != m_ports.end();)
         {
-            string_hashed type_module;
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type_origin_module"_ct)))
-            {
-                type_module = mod_param->get_value();
-            }
+            string_hashed type_module = it->second->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->get_value();
 
             if (type_module.get_hash() == module_hash && module_hash != 0)
             {
                 auto port_hash = it->first;
                 auto port_name = it->second->get_name();
 
-                string_hashed orig_type;
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type"_ct)))
-                    orig_type = param->get_value();
+                string_hashed orig_type = it->second->get_parameter<configuration_parameter_string>("type"_ct)->get_value();
 
                 auto upi = std::make_unique<port::unavailable_info>(port_name);
                 upi->type = orig_type.get_hash();
@@ -1159,32 +1115,28 @@ namespace adam
 
                 for (auto& [conn_hash, conn] : m_connections)
                 {
-                    if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(conn->get_parameters().get("inputs"_ct)))
+                    auto* inputs_list = conn->get_parameter<configuration_parameter_list>("inputs"_ct);
+                    for (const auto& [idx_str, param] : inputs_list->get_children())
                     {
-                        for (const auto& [idx_str, param] : inputs_list->get_children())
+                        if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                         {
-                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                            if (ref->get_target().get_hash() == port_hash)
                             {
-                                if (ref->get_target().get_hash() == port_hash)
-                                {
-                                    conn->ports_input().remove(it->second.get());
-                                    conn->unavailable_inputs().push_back(ref->get_target());
-                                }
+                                conn->ports_input().remove(it->second.get());
+                                conn->unavailable_inputs().push_back(ref->get_target());
                             }
                         }
                     }
                     
-                    if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(conn->get_parameters().get("outputs"_ct)))
+                    auto* outputs_list = conn->get_parameter<configuration_parameter_list>("outputs"_ct);
+                    for (const auto& [idx_str, param] : outputs_list->get_children())
                     {
-                        for (const auto& [idx_str, param] : outputs_list->get_children())
+                        if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                         {
-                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                            if (ref->get_target().get_hash() == port_hash)
                             {
-                                if (ref->get_target().get_hash() == port_hash)
-                                {
-                                    conn->ports_output().remove(it->second.get());
-                                    conn->unavailable_outputs().push_back(ref->get_target());
-                                }
+                                conn->ports_output().remove(it->second.get());
+                                conn->unavailable_outputs().push_back(ref->get_target());
                             }
                         }
                     }
@@ -1235,9 +1187,7 @@ namespace adam
                     event evt(event_type::processor_available);
                     auto* evt_data = evt.data_as<processor::basic_info>();
                     
-                    bool is_filter = false;
-                    if (auto* param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
-                        is_filter = param->get_value();
+                    bool is_filter = new_processor->get_parameter<configuration_parameter_boolean>("is_filter"_ct)->get_value();
 
                     buffer_handle handle;
                     // if processor has state buffer, we would pass it here
@@ -1270,28 +1220,19 @@ namespace adam
     {
         for (auto it = m_processors.begin(); it != m_processors.end();)
         {
-            string_hashed type_module;
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type_origin_module"_ct)))
-            {
-                type_module = mod_param->get_value();
-            }
+            string_hashed type_module = it->second->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->get_value();
 
             if (type_module.get_hash() == module_hash && module_hash != 0)
             {
                 auto processor_hash = it->first;
                 auto processor_name = it->second->get_name();
 
-                string_hashed orig_type;
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("type"_ct)))
-                    orig_type = param->get_value();
+                string_hashed orig_type = it->second->get_parameter<configuration_parameter_string>("type"_ct)->get_value();
 
                 auto upi = std::make_unique<processor::unavailable_info>(processor_name);
                 upi->type = orig_type.get_hash();
                 upi->type_module = module_hash;
-                if (auto* filter_param = dynamic_cast<configuration_parameter_boolean*>(it->second->get_parameters().get("is_filter"_ct)))
-                    upi->is_filter = filter_param->get_value();
-                else
-                    upi->is_filter = false;
+                upi->is_filter = it->second->get_parameter<configuration_parameter_boolean>("is_filter"_ct)->get_value();
                 
                 copy_parameters(&upi->parameters(), &it->second->parameters());
 
@@ -1299,19 +1240,17 @@ namespace adam
                 {
                     conn->processors().remove(it->second.get());
 
-                    if (auto* procs_list = dynamic_cast<configuration_parameter_list*>(conn->get_parameters().get("processors"_ct)))
+                    auto* procs_list = conn->get_parameter<configuration_parameter_list>("processors"_ct);
+                    for (auto& [idx_str, param] : procs_list->get_children())
                     {
-                        for (auto& [idx_str, param] : procs_list->get_children())
+                        if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                         {
-                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                            if (ref->get_target().get_hash() == processor_hash)
                             {
-                                if (ref->get_target().get_hash() == processor_hash)
+                                auto& unavail_procs = conn->unavailable_processors();
+                                if (std::find_if(unavail_procs.begin(), unavail_procs.end(), [&](const string_hashed& sh) { return sh.get_hash() == processor_hash; }) == unavail_procs.end())
                                 {
-                                    auto& unavail_procs = conn->unavailable_processors();
-                                    if (std::find_if(unavail_procs.begin(), unavail_procs.end(), [&](const string_hashed& sh) { return sh.get_hash() == processor_hash; }) == unavail_procs.end())
-                                    {
-                                        unavail_procs.push_back(ref->get_target());
-                                    }
+                                    unavail_procs.push_back(ref->get_target());
                                 }
                             }
                         }
@@ -1337,17 +1276,11 @@ namespace adam
     {
         for (auto it = m_unavailable_connections.begin(); it != m_unavailable_connections.end();)
         {
-            string_hashed in_mod, out_mod;
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format_module"_ct)))
-                in_mod = param->get_value();
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format_module"_ct)))
-                out_mod = param->get_value();
+            string_hashed in_mod  = it->second->get_parameter<configuration_parameter_string>("input_format_module"_ct)->get_value();
+            string_hashed out_mod = it->second->get_parameter<configuration_parameter_string>("output_format_module"_ct)->get_value();
 
-            string_hashed in_fmt, out_fmt;
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format"_ct)))
-                in_fmt = param->get_value();
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format"_ct)))
-                out_fmt = param->get_value();
+            string_hashed in_fmt  = it->second->get_parameter<configuration_parameter_string>("input_format"_ct)->get_value();
+            string_hashed out_fmt = it->second->get_parameter<configuration_parameter_string>("output_format"_ct)->get_value();
                 
             bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct;
             bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct;
@@ -1412,44 +1345,40 @@ namespace adam
                         new_conn->set_input_format(resolved_in_fmt);
                         new_conn->set_output_format(resolved_out_fmt);
 
-                        if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("inputs"_ct)))
+                        auto* inputs_list = new_conn->get_parameter<configuration_parameter_list>("inputs"_ct);
+                        for (size_t i = 0; i < inputs_list->get_children().size(); ++i)
                         {
-                            for (size_t i = 0; i < inputs_list->get_children().size(); ++i)
+                            if (auto* param = dynamic_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i)))))
                             {
-                                if (auto* param = dynamic_cast<configuration_parameter_reference*>(inputs_list->get(string_hashed(std::to_string(i)))))
+                                auto port_hash = param->get_target().get_hash();
+                                auto port_it = m_ports.find(port_hash);
+                                if (port_it != m_ports.end())
                                 {
-                                    auto port_hash = param->get_target().get_hash();
-                                    auto port_it = m_ports.find(port_hash);
-                                    if (port_it != m_ports.end())
-                                    {
-                                        new_conn->ports_input().push_back(port_it->second.get());
-                                        port_it->second->in_connections().push_back(new_conn);
-                                    }
-                                    else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
-                                    {
-                                        new_conn->unavailable_inputs().push_back(param->get_target());
-                                    }
+                                    new_conn->ports_input().push_back(port_it->second.get());
+                                    port_it->second->in_connections().push_back(new_conn);
+                                }
+                                else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
+                                {
+                                    new_conn->unavailable_inputs().push_back(param->get_target());
                                 }
                             }
                         }
 
-                        if (auto* outputs_list = dynamic_cast<configuration_parameter_list*>(new_conn->get_parameters().get("outputs"_ct)))
+                        auto* outputs_list = new_conn->get_parameter<configuration_parameter_list>("outputs"_ct);
+                        for (size_t i = 0; i < outputs_list->get_children().size(); ++i)
                         {
-                            for (size_t i = 0; i < outputs_list->get_children().size(); ++i)
+                            if (auto* param = dynamic_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i)))))
                             {
-                                if (auto* param = dynamic_cast<configuration_parameter_reference*>(outputs_list->get(string_hashed(std::to_string(i)))))
+                                auto port_hash = param->get_target().get_hash();
+                                auto port_it = m_ports.find(port_hash);
+                                if (port_it != m_ports.end())
                                 {
-                                    auto port_hash = param->get_target().get_hash();
-                                    auto port_it = m_ports.find(port_hash);
-                                    if (port_it != m_ports.end())
-                                    {
-                                        new_conn->ports_output().push_back(port_it->second.get());
-                                        port_it->second->out_connections().push_back(new_conn);
-                                    }
-                                    else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
-                                    {
-                                        new_conn->unavailable_outputs().push_back(param->get_target());
-                                    }
+                                    new_conn->ports_output().push_back(port_it->second.get());
+                                    port_it->second->out_connections().push_back(new_conn);
+                                }
+                                else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
+                                {
+                                    new_conn->unavailable_outputs().push_back(param->get_target());
                                 }
                             }
                         }
@@ -1458,14 +1387,10 @@ namespace adam
                         auto* evt_data = evt.data_as<connection::basic_info>();
                         evt_data->setup(new_conn->get_name());
 
-                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_created"_ct)))
-                            evt_data->created = static_cast<uint64_t>(param->get_value());
-                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_edited"_ct)))
-                            evt_data->edited = static_cast<uint64_t>(param->get_value());
-                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("sorting_index"_ct)))
-                            evt_data->sorting_index = static_cast<uint32_t>(param->get_value());
-                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("color_code"_ct)))
-                            evt_data->color = static_cast<uint32_t>(param->get_value());
+                        evt_data->created       = static_cast<uint64_t>(new_conn->get_parameter<configuration_parameter_integer>("date_created"_ct)->get_value());
+                        evt_data->edited        = static_cast<uint64_t>(new_conn->get_parameter<configuration_parameter_integer>("date_edited"_ct)->get_value());
+                        evt_data->sorting_index = static_cast<uint32_t>(new_conn->get_parameter<configuration_parameter_integer>("sorting_index"_ct)->get_value());
+                        evt_data->color         = static_cast<uint32_t>(new_conn->get_parameter<configuration_parameter_integer>("color_code"_ct)->get_value());
 
                         evt_data->started = new_conn->is_started();
                         evt_data->valid_chain = new_conn->is_valid_chain();
@@ -1525,17 +1450,11 @@ namespace adam
 
         for (auto it = m_connections.begin(); it != m_connections.end();)
         {
-            string_hashed in_mod, out_mod;
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format_module"_ct)))
-                in_mod = param->get_value();
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format_module"_ct)))
-                out_mod = param->get_value();
+            string_hashed in_mod  = it->second->get_parameter<configuration_parameter_string>("input_format_module"_ct)->get_value();
+            string_hashed out_mod = it->second->get_parameter<configuration_parameter_string>("output_format_module"_ct)->get_value();
 
-            string_hashed in_fmt, out_fmt;
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("input_format"_ct)))
-                in_fmt = param->get_value();
-            if (auto* param = dynamic_cast<configuration_parameter_string*>(it->second->get_parameters().get("output_format"_ct)))
-                out_fmt = param->get_value();
+            string_hashed in_fmt  = it->second->get_parameter<configuration_parameter_string>("input_format"_ct)->get_value();
+            string_hashed out_fmt = it->second->get_parameter<configuration_parameter_string>("output_format"_ct)->get_value();
                 
             bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct;
             bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct;
@@ -1579,78 +1498,72 @@ namespace adam
 
     const configuration_parameter_list* registry::get_module_paths() const
     {
-        return dynamic_cast<configuration_parameter_list*>(m_parameters.get("module_paths"_ct));
+        return get_parameter<configuration_parameter_list>("module_paths"_ct);
     }
 
     bool registry::add_module_path(const string_hashed& path, uint32_t* index)
     {
-        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get("module_paths"_ct)))
+        auto* list = get_parameter<configuration_parameter_list>("module_paths"_ct);
+        uint32_t max_idx = 0;
+        for (const auto& [name, param] : list->get_children())
         {
-            uint32_t max_idx = 0;
-            for (const auto& [name, param] : list->get_children())
+            if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
             {
-                if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
-                {
-                    if (str_param->get_value() == path) return false; // Already exists
-                }
-                uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
-                if (idx >= max_idx) max_idx = idx + 1;
+                if (str_param->get_value() == path) return false; // Already exists
             }
-            
-            uint32_t target_idx = max_idx;
-            if (index && *index > 0 && *index < max_idx)
-            {
-                target_idx = *index;
-            }
-            
-            if (index)
-            {
-                *index = target_idx;
-            }
-            
-            for (uint32_t i = max_idx; i > target_idx; --i)
-            {
-                string_hashed old_key(std::to_string(i - 1));
-                string_hashed new_key(std::to_string(i));
-                list->rename_child(old_key, new_key);
-            }
-            
-            string_hashed new_key(std::to_string(target_idx));
-            auto new_param = std::make_unique<configuration_parameter_string>(new_key);
-            new_param->set_value(path);
-            list->add(std::move(new_param));
-
-            return true;
+            uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
+            if (idx >= max_idx) max_idx = idx + 1;
         }
-        return false;
+            
+        uint32_t target_idx = max_idx;
+        if (index && *index > 0 && *index < max_idx)
+        {
+            target_idx = *index;
+        }
+        
+        if (index)
+        {
+            *index = target_idx;
+        }
+        
+        for (uint32_t i = max_idx; i > target_idx; --i)
+        {
+            string_hashed old_key(std::to_string(i - 1));
+            string_hashed new_key(std::to_string(i));
+            list->rename_child(old_key, new_key);
+        }
+        
+        string_hashed new_key(std::to_string(target_idx));
+        auto new_param = std::make_unique<configuration_parameter_string>(new_key);
+        new_param->set_value(path);
+        list->add(std::move(new_param));
+
+        return true;
     }
 
     bool registry::remove_module_path(uint32_t index)
     {
-        if (auto* list = dynamic_cast<configuration_parameter_list*>(m_parameters.get("module_paths"_ct)))
+        auto* list = get_parameter<configuration_parameter_list>("module_paths"_ct);
+        uint32_t max_idx = 0;
+        
+        for (const auto& [name, param] : list->get_children())
         {
-            uint32_t max_idx = 0;
-            
-            for (const auto& [name, param] : list->get_children())
-            {
-                uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
-                if (idx >= max_idx) max_idx = idx + 1;
-            }
-
-            if (index == 0 || index >= max_idx) return false; // Deny removal of the default (first) module path
-
-            list->remove(string_hashed(std::to_string(index)));
-            
-            for (uint32_t i = index + 1; i < max_idx; ++i)
-            {
-                string_hashed old_key(std::to_string(i));
-                string_hashed new_key(std::to_string(i - 1));
-                list->rename_child(old_key, new_key);
-            }
-
-            return true;
+            uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
+            if (idx >= max_idx) max_idx = idx + 1;
         }
-        return false;
+
+        if (index == 0 || index >= max_idx) return false; // Deny removal of the default (first) module path
+
+        list->remove(string_hashed(std::to_string(index)));
+        
+        for (uint32_t i = index + 1; i < max_idx; ++i)
+        {
+            string_hashed old_key(std::to_string(i));
+            string_hashed new_key(std::to_string(i - 1));
+            list->rename_child(old_key, new_key);
+        }
+
+        return true;
     }
     
     std::string_view registry::get_status_text(status status, language lang)
