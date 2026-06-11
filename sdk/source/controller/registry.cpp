@@ -1051,6 +1051,7 @@ namespace adam
                     
                     for (auto& [conn_hash, conn] : m_connections)
                     {
+                        bool modified = false;
                         auto& unavail_in = conn->unavailable_inputs();
                         auto in_it = std::find_if(unavail_in.begin(), unavail_in.end(), [&](const string_hashed& sh) 
                         {
@@ -1062,6 +1063,7 @@ namespace adam
                             conn->ports_input().push_back(new_port);
                             new_port->in_connections().push_back(conn.get());
                             unavail_in.erase(in_it);
+                            modified = true;
                         }
 
                         auto& unavail_out = conn->unavailable_outputs();
@@ -1075,6 +1077,12 @@ namespace adam
                             conn->ports_output().push_back(new_port);
                             new_port->out_connections().push_back(conn.get());
                             unavail_out.erase(out_it);
+                            modified = true;
+                        }
+
+                        if (modified)
+                        {
+                            conn->check_valid_chain();
                         }
                     }
                     
@@ -1115,6 +1123,7 @@ namespace adam
 
                 for (auto& [conn_hash, conn] : m_connections)
                 {
+                    bool modified = false;
                     auto* inputs_list = conn->get_parameter<configuration_parameter_list>("inputs"_ct);
                     for (const auto& [idx_str, param] : inputs_list->get_children())
                     {
@@ -1124,6 +1133,7 @@ namespace adam
                             {
                                 conn->ports_input().remove(it->second.get());
                                 conn->unavailable_inputs().push_back(ref->get_target());
+                                modified = true;
                             }
                         }
                     }
@@ -1137,7 +1147,20 @@ namespace adam
                             {
                                 conn->ports_output().remove(it->second.get());
                                 conn->unavailable_outputs().push_back(ref->get_target());
+                                modified = true;
                             }
+                        }
+                    }
+
+                    if (modified)
+                    {
+                        conn->check_valid_chain();
+                        if (conn->is_started() && !conn->is_valid_chain())
+                        {
+                            conn->stop();
+                            event evt_stop(event_type::connection_stopped);
+                            evt_stop.data_as<messages::connection_action_data>()->connection = conn_hash;
+                            m_controller.broadcast_event(evt_stop);
                         }
                     }
                 }
@@ -1181,6 +1204,7 @@ namespace adam
                         {
                             conn->processors().push_back(new_processor);
                             unavail_procs.erase(proc_it);
+                            conn->check_valid_chain();
                         }
                     }
                     
@@ -1241,6 +1265,7 @@ namespace adam
                     conn->processors().remove(it->second.get());
 
                     auto* procs_list = conn->get_parameter<configuration_parameter_list>("processors"_ct);
+                    bool modified = false;
                     for (auto& [idx_str, param] : procs_list->get_children())
                     {
                         if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
@@ -1251,8 +1276,21 @@ namespace adam
                                 if (std::find_if(unavail_procs.begin(), unavail_procs.end(), [&](const string_hashed& sh) { return sh.get_hash() == processor_hash; }) == unavail_procs.end())
                                 {
                                     unavail_procs.push_back(ref->get_target());
+                                    modified = true;
                                 }
                             }
+                        }
+                    }
+
+                    if (modified)
+                    {
+                        conn->check_valid_chain();
+                        if (conn->is_started() && !conn->is_valid_chain())
+                        {
+                            conn->stop();
+                            event evt_stop(event_type::connection_stopped);
+                            evt_stop.data_as<messages::connection_action_data>()->connection = conn_hash;
+                            m_controller.broadcast_event(evt_stop);
                         }
                     }
                 }

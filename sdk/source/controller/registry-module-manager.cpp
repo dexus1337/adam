@@ -350,6 +350,7 @@ namespace adam
         }
 
         m_controller.get_registry().retry_unavailable_ports(mod->get_name().get_hash());
+        m_controller.get_registry().retry_unavailable_processors(mod->get_name().get_hash());
         m_controller.get_registry().retry_unavailable_connections(mod->get_name().get_hash());
 
         m_available_modules.erase(it);
@@ -372,6 +373,7 @@ namespace adam
         }
 
         m_controller.get_registry().mark_ports_unavailable(name.get_hash());
+        m_controller.get_registry().mark_processors_unavailable(name.get_hash());
         m_controller.get_registry().mark_connections_unavailable(name.get_hash());
 
         const module* mod = it->second;
@@ -403,6 +405,7 @@ namespace adam
         for (const auto& [name, mod] : m_loaded_modules)
         {
             m_controller.get_registry().mark_ports_unavailable(name.get_hash());
+            m_controller.get_registry().mark_processors_unavailable(name.get_hash());
             m_controller.get_registry().mark_connections_unavailable(name.get_hash());
             uintptr_t handle = mod->get_module_handle();
             os::unload_library(reinterpret_cast<void*>(handle));

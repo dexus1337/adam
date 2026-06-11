@@ -1450,6 +1450,101 @@ namespace adam
                 ctx.set_single_response_status(response_status::failed);
             }
         });
+        register_handler(command_type::processor_set_parameter, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::processor_set_parameter_data>();
+            auto it = ctx.reg.processors().find(params->processor);
+
+            if (it == ctx.reg.processors().end())
+            {
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto* processor = it->second.get();
+            auto* user_params = dynamic_cast<configuration_parameter_list*>(processor->get_parameters().get("user_parameters"_ct));
+            if (!user_params)
+            {
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto* param = user_params->get(params->param_view.name);
+            if (!param)
+            {
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+            
+            bool changed = false;
+
+            if (param->get_type() == params->param_view.var_type)
+            {
+                switch (param->get_type())
+                {
+                    case configuration_parameter::type_integer:
+                    {
+                        int64_t val;
+                        std::memcpy(&val, params->data, sizeof(int64_t));
+                        if (static_cast<configuration_parameter_integer*>(param)->set_value(val)) changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_double:
+                    {
+                        double val;
+                        std::memcpy(&val, params->data, sizeof(double));
+                        static_cast<configuration_parameter_double*>(param)->set_value(val);
+                        changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_boolean:
+                    {
+                        bool val;
+                        std::memcpy(&val, params->data, sizeof(bool));
+                        static_cast<configuration_parameter_boolean*>(param)->set_value(val);
+                        changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_string:
+                    {
+                        uint16_t len;
+                        std::memcpy(&len, params->data, sizeof(uint16_t));
+                        std::string val(len, '\0');
+                        if (len > 0)
+                            std::memcpy(&val[0], params->data + sizeof(uint16_t), len);
+                        if (static_cast<configuration_parameter_string*>(param)->set_value(string_hashed(val))) changed = true;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+
+            if (changed)
+            {
+                event evt(event_type::processor_parameter_updated);
+                auto* evt_data = evt.data_as<messages::processor_parameter_updated_data>();
+                evt_data->processor = params->processor;
+                evt_data->param_view = params->param_view;
+                std::memcpy(evt_data->data, params->data, sizeof(evt_data->data));
+                ctx.ctrl.broadcast_event(evt);
+                
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_updated, ctx.ctrl.get_language()), ctx.tid, processor->get_name().c_str());
+                ctx.set_single_response_status(response_status::success);
+            }
+            else
+            {
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.set_single_response_status(response_status::failed);
+            }
+        });
 
         register_handler(command_type::port_start, [](const command* cmds, size_t, command_context& ctx) 
         {
@@ -1814,6 +1909,14 @@ namespace adam
             {
                 log_event::port_parameter_update_failed,
                 { "Thread {:d} failed to update parameter on port {:d}.", "Thread {:d} konnte Parameter an Port {:d} nicht aktualisieren." }
+            },
+            {
+                log_event::processor_parameter_updated,
+                { "Thread {:d} successfully updated parameter on processor \"{}\".", "Thread {:d} hat erfolgreich einen Parameter an Prozessor \"{}\" aktualisiert." }
+            },
+            {
+                log_event::processor_parameter_update_failed,
+                { "Thread {:d} failed to update parameter on processor {:d}.", "Thread {:d} konnte Parameter an Prozessor {:d} nicht aktualisieren." }
             },
             {
                 log_event::connection_input_data_format_changed,

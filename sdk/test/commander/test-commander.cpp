@@ -20,6 +20,95 @@
 
 using namespace adam::string_hashed_ct_literals;
 
+namespace cmdr_test
+{
+    class mock_processor : public adam::processor
+    {
+    public:
+        mock_processor(const adam::string_hashed& item_name)
+            : adam::processor(item_name)
+        {
+        }
+
+        const adam::string_hashed_ct& get_type_name() const override
+        {
+            static adam::string_hashed_ct type = "mock-processor-type"_ct;
+            return type;
+        }
+
+        bool handle_data(adam::buffer*& buffer) override
+        {
+            return true;
+        }
+    };
+
+    class mock_processor_factory : public adam::factory<adam::processor>
+    {
+    public:
+        std::unique_ptr<adam::processor> create(const adam::string_hashed& name) const override
+        {
+            return std::make_unique<mock_processor>(name);
+        }
+    };
+
+    class mock_module : public adam::module
+    {
+    public:
+        mock_module(const adam::string_hashed& name)
+            : adam::module(name, adam::make_version(1, 0, 0), adam::sdk_version)
+        {
+        }
+
+        void register_processor_factory(const adam::string_hashed& type_name, adam::factory<adam::processor>* factory_ptr)
+        {
+            m_processor_factories[type_name] = adam::registry::factory_data_processor(factory_ptr, nullptr, 0, 0, 0, 0);
+        }
+    };
+
+    struct loaded_modules_tag_commander 
+    {
+        using type = adam::registry_module_manager::map_loaded_modules adam::registry_module_manager::*;
+        friend type get_private(loaded_modules_tag_commander);
+    };
+
+    template <typename Tag, typename Tag::type Member>
+    struct private_accessor_commander 
+    {
+        friend typename Tag::type get_private(Tag) 
+        {
+            return Member;
+        }
+    };
+}
+
+template struct cmdr_test::private_accessor_commander<cmdr_test::loaded_modules_tag_commander, &adam::registry_module_manager::m_loaded_modules>;
+
+namespace cmdr_test
+{
+    class mock_module_injector
+    {
+    public:
+        mock_module_injector(adam::registry& reg, adam::module* mod)
+            : m_reg(reg), m_name(mod->get_name())
+        {
+            auto& loaded_modules = reg.modules().*get_private(loaded_modules_tag_commander{});
+            loaded_modules.emplace(m_name, mod);
+        }
+
+        ~mock_module_injector()
+        {
+            auto& loaded_modules = m_reg.modules().*get_private(loaded_modules_tag_commander{});
+            loaded_modules.erase(m_name);
+        }
+
+    private:
+        adam::registry& m_reg;
+        adam::string_hashed m_name;
+    };
+
+    static mock_processor_factory global_mock_proc_factory;
+}
+
 class commander_test : public ::testing::Test
 {
 protected:
@@ -162,6 +251,93 @@ TEST_F(commander_test, request_port_parameter_set_flow)
 
     // Verify controller's port parameter list is updated successfully
     auto* ctrl_user_params = dynamic_cast<adam::configuration_parameter_list*>(test_port->get_parameters().get("user_parameters"_ct));
+    ASSERT_NE(ctrl_user_params, nullptr);
+    EXPECT_EQ(ctrl_user_params->get<adam::configuration_parameter_integer>("test_int"_ct)->get_value(), 42);
+    EXPECT_DOUBLE_EQ(ctrl_user_params->get<adam::configuration_parameter_double>("test_double"_ct)->get_value(), 3.14);
+    EXPECT_EQ(ctrl_user_params->get<adam::configuration_parameter_boolean>("test_bool"_ct)->get_value(), true);
+    EXPECT_EQ(ctrl_user_params->get<adam::configuration_parameter_string>("test_str"_ct)->get_value(), "updated"_ct);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests the full flow of setting processor parameters and receiving the updated states via event. */
+TEST_F(commander_test, request_processor_parameter_set_flow)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    // 1. Setup mock module with mock processor factory
+    cmdr_test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &cmdr_test::global_mock_proc_factory);
+    cmdr_test::mock_module_injector injector(ctrl.get_registry(), &mock_mod);
+
+    // 2. Create the processor in the controller's registry
+    adam::processor* test_proc = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_processor("param_test_proc"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &test_proc), adam::registry::status_success);
+    ASSERT_NE(test_proc, nullptr);
+    
+    // 3. Add user parameters of all types
+    auto* user_params = test_proc->parameters().get<adam::configuration_parameter_list>("user_parameters"_ct);
+    ASSERT_NE(user_params, nullptr);
+
+    user_params->add(std::make_unique<adam::configuration_parameter_integer>("test_int"_ct, 10));
+    user_params->add(std::make_unique<adam::configuration_parameter_double>("test_double"_ct, 1.0));
+    user_params->add(std::make_unique<adam::configuration_parameter_boolean>("test_bool"_ct, false));
+    user_params->add(std::make_unique<adam::configuration_parameter_string>("test_str"_ct, "default"_ct));
+
+    // 4. Connect commander
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto proc_hash = ("param_test_proc"_ct).get_hash();
+    ASSERT_TRUE(cmdr.get_registry().get_processors().contains(proc_hash));
+
+    auto* proc_view = cmdr.get_registry().get_processors().at(proc_hash).get();
+    
+    // Since we are using an internal mock without a real scan/scan_for_modules,
+    // we must manually mirror the parameter structure into the commander's view
+    proc_view->user_params.add(std::make_unique<adam::configuration_parameter_integer>("test_int"_ct, 10));
+    proc_view->user_params.add(std::make_unique<adam::configuration_parameter_double>("test_double"_ct, 1.0));
+    proc_view->user_params.add(std::make_unique<adam::configuration_parameter_boolean>("test_bool"_ct, false));
+    proc_view->user_params.add(std::make_unique<adam::configuration_parameter_string>("test_str"_ct, "default"_ct));
+
+    auto* c_int = proc_view->user_params.get<adam::configuration_parameter_integer>("test_int"_ct);
+    ASSERT_NE(c_int, nullptr);
+    EXPECT_EQ(c_int->get_value(), 10);
+    
+    auto* c_dbl = proc_view->user_params.get<adam::configuration_parameter_double>("test_double"_ct);
+    ASSERT_NE(c_dbl, nullptr);
+    EXPECT_DOUBLE_EQ(c_dbl->get_value(), 1.0);
+    
+    auto* c_bool = proc_view->user_params.get<adam::configuration_parameter_boolean>("test_bool"_ct);
+    ASSERT_NE(c_bool, nullptr);
+    EXPECT_EQ(c_bool->get_value(), false);
+    
+    auto* c_str = proc_view->user_params.get<adam::configuration_parameter_string>("test_str"_ct);
+    ASSERT_NE(c_str, nullptr);
+    EXPECT_EQ(c_str->get_value(), "default"_ct);
+
+    // 5. Request to change parameters
+    EXPECT_EQ(cmdr.request_processor_parameter_set(proc_hash, "test_int"_ct, static_cast<int64_t>(42)), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_processor_parameter_set(proc_hash, "test_double"_ct, 3.14), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_processor_parameter_set(proc_hash, "test_bool"_ct, true), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_processor_parameter_set(proc_hash, "test_str"_ct, "updated"_ct), adam::response_status::success);
+
+    // Wait for events to propagate over the IPC queue
+    auto start = std::chrono::steady_clock::now();
+    while ((c_int->get_value() == 10 || c_dbl->get_value() == 1.0 || c_bool->get_value() == false || c_str->get_value() == "default"_ct) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(1000))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Verify commander's view is updated successfully
+    EXPECT_EQ(c_int->get_value(), 42);
+    EXPECT_DOUBLE_EQ(c_dbl->get_value(), 3.14);
+    EXPECT_EQ(c_bool->get_value(), true);
+    EXPECT_EQ(c_str->get_value(), "updated"_ct);
+
+    // Verify controller's processor parameter list is updated successfully
+    auto* ctrl_user_params = dynamic_cast<adam::configuration_parameter_list*>(test_proc->get_parameters().get("user_parameters"_ct));
     ASSERT_NE(ctrl_user_params, nullptr);
     EXPECT_EQ(ctrl_user_params->get<adam::configuration_parameter_integer>("test_int"_ct)->get_value(), 42);
     EXPECT_DOUBLE_EQ(ctrl_user_params->get<adam::configuration_parameter_double>("test_double"_ct)->get_value(), 3.14);

@@ -78,6 +78,8 @@ namespace adam
             port_rename_failed,
             port_parameter_updated,
             port_parameter_update_failed,
+            processor_parameter_updated,
+            processor_parameter_update_failed,
             port_started,
             port_start_failed,
             port_stopped,

@@ -140,6 +140,13 @@ namespace adam
         /** @brief Requests to remove a processor from a connection. */
         response_status request_connection_processor_remove(string_hash conn_hash, string_hash processor_hash);
 
+        /** @brief Requests to set a parameter of a processor. */
+        response_status request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, int64_t value);
+        response_status request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, double value);
+        response_status request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, bool value);
+        response_status request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, const string_hashed& value);
+        response_status request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, const string_hashed_ct& value);
+
         /** @brief Requests to change the sorting index of a connection. */
         response_status request_connection_sorting_index_change(string_hash hash, uint32_t sorting_index);
 

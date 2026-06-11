@@ -665,6 +665,77 @@ namespace adam
         return send_command(cmd);
     }
 
+    response_status commander::request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, int64_t value)
+    {
+        command cmd(command_type::processor_set_parameter);
+        auto* data = cmd.data_as<messages::processor_set_parameter_data>();
+        data->processor = processor_hash;
+        data->param_view.var_type = configuration_parameter::type_integer;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(int64_t));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, double value)
+    {
+        command cmd(command_type::processor_set_parameter);
+        auto* data = cmd.data_as<messages::processor_set_parameter_data>();
+        data->processor = processor_hash;
+        data->param_view.var_type = configuration_parameter::type_double;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(double));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, bool value)
+    {
+        command cmd(command_type::processor_set_parameter);
+        auto* data = cmd.data_as<messages::processor_set_parameter_data>();
+        data->processor = processor_hash;
+        data->param_view.var_type = configuration_parameter::type_boolean;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(bool));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, const string_hashed& value)
+    {
+        command cmd(command_type::processor_set_parameter);
+        auto* data = cmd.data_as<messages::processor_set_parameter_data>();
+        data->processor = processor_hash;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.size());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0)
+            std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
+        return send_command(cmd);
+    }
+
+    response_status commander::request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, const string_hashed_ct& value)
+    {
+        command cmd(command_type::processor_set_parameter);
+        auto* data = cmd.data_as<messages::processor_set_parameter_data>();
+        data->processor = processor_hash;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.get_length());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0)
+            std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
+        return send_command(cmd);
+    }
+
     response_status commander::request_connection_sorting_index_change(string_hash hash, uint32_t sorting_index)
     {
         command cmd(command_type::connection_sorting_index_change);
