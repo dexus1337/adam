@@ -647,6 +647,25 @@ namespace adam
         return send_command(cmd);
     }
 
+    response_status commander::request_processor_rename(string_hash old_hash, const string_hashed& new_name)
+    {
+        if (old_hash == new_name.get_hash())
+            return response_status::success;
+
+        {
+            std::lock_guard<const registry_view> lg(m_registry_view);
+            if (m_registry_view.processors().find(new_name.get_hash()) != m_registry_view.processors().end())
+                return response_status::command_send_failed;
+        }
+
+        command cmd(command_type::processor_rename);
+        auto* data = cmd.data_as<messages::processor_rename_data>();
+        data->processor = old_hash;
+        std::strncpy(data->new_name, new_name.c_str(), sizeof(data->new_name) - 1);
+        data->new_name[sizeof(data->new_name) - 1] = '\0';
+        return send_command(cmd);
+    }
+
     response_status commander::request_connection_processor_add(string_hash conn_hash, string_hash processor_hash)
     {
         command cmd(command_type::connection_processor_add);

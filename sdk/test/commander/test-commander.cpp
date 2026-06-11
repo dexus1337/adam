@@ -718,6 +718,54 @@ TEST_F(commander_test, sync_unavailable_port)
     EXPECT_TRUE(cmdr.destroy());
 }
 
+/** @brief Tests synchronization of an unavailable processor changing its state after module load. */
+TEST_F(commander_test, sync_unavailable_processor)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    // Setup an unavailable processor in the controller's registry
+    auto upi = std::make_unique<adam::processor::unavailable_info>("cmd_unavail_proc"_ct);
+    upi->type = ("some_type"_ct).get_hash();
+    upi->type_module = ("missing_mod"_ct).get_hash();
+    upi->is_filter = false;
+    ctrl.get_registry().unavailable_processors()[("cmd_unavail_proc"_ct).get_hash()] = std::move(upi);
+    
+    adam::connection* conn = nullptr;
+    ctrl.get_registry().create_connection("cmd_conn"_ct, &conn);
+    conn->unavailable_processors().push_back("cmd_unavail_proc"_ct);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    // Verify it's in the registry view as unavailable
+    const auto& processors = cmdr.get_registry().get_processors();
+    EXPECT_EQ(processors.size(), 1u);
+    
+    auto proc_hash = ("cmd_unavail_proc"_ct).get_hash();
+    EXPECT_TRUE(processors.contains(proc_hash));
+    EXPECT_TRUE(processors.at(proc_hash)->is_unavailable);
+    
+    const auto& conns = cmdr.get_registry().get_connections();
+    EXPECT_EQ(conns.size(), 1u);
+    EXPECT_EQ(conns.at(("cmd_conn"_ct).get_hash())->processors.size(), 1u);
+    EXPECT_EQ(conns.at(("cmd_conn"_ct).get_hash())->processors[0], proc_hash);
+
+    // Trigger retry by broadcasting a processor_available event
+    adam::event evt(adam::event_type::processor_available);
+    auto* evt_data = evt.data_as<adam::processor::basic_info>();
+    evt_data->setup("cmd_unavail_proc"_ct, ("some_type"_ct).get_hash(), ("missing_mod"_ct).get_hash(), false);
+    ctrl.broadcast_event(evt);
+
+    // Wait for event to clear the is_unavailable flag
+    auto start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_processors().at(proc_hash)->is_unavailable && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_FALSE(processors.at(proc_hash)->is_unavailable);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
 /** @brief Tests the full flow of creating and destroying a connection via commander and verifying the event synchronization. */
 TEST_F(commander_test, connection_create)
 {

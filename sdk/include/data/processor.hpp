@@ -14,10 +14,12 @@
 #include "memory/buffer/buffer.hpp"
 #include "commander/messages/message-structs.hpp"
 #include "commander/messages/command.hpp"
+#include "types/vector-double-buffer.hpp"
 
 namespace adam 
 {
     class data_format;
+    class connection;
 
     /**
      * @class processor
@@ -88,6 +90,8 @@ namespace adam
 
         /** @brief Destroys the data processor object and cleans up resources. */
         virtual ~processor();
+
+        vector_double_buffer<connection*>& connections() { return m_connections; }
         
         const data_format* get_input_data_format()  const { return m_format_input; }
         const data_format* get_output_data_format() const { return m_format_output; }
@@ -109,5 +113,6 @@ namespace adam
         const data_format* m_format_output;    /**< The data format of data after leaving this class. */
 
         buffer* m_state_buffer;                /**< The state buffer of the processor. */
+        vector_double_buffer<connection*> m_connections; /**< Connections where this processor is assigned to. */
     };
 }

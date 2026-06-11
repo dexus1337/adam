@@ -744,7 +744,10 @@ namespace adam::gui
                                                 if (!is_selected)
                                                 {
                                                     c_int->set_value(preset);
-                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                    if (is_port)
+                                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                    else
+                                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
                                                 }
                                             }
                                         }
@@ -762,7 +765,10 @@ namespace adam::gui
                                             int64_t new_v = std::stoll(buf);
                                             if (c_int->set_value(new_v))
                                             {
-                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                if (is_port)
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                else
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
                                             }
                                         } catch(...) {}
                                     }
@@ -803,7 +809,10 @@ namespace adam::gui
                                                 if (!is_selected)
                                                 {
                                                     c_dbl->set_value(preset);
-                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                    if (is_port)
+                                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                    else
+                                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
                                                 }
                                             }
                                         }
@@ -821,7 +830,10 @@ namespace adam::gui
                                             double new_v = std::stod(buf);
                                             if (c_dbl->set_value(new_v))
                                             {
-                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                if (is_port)
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                else
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
                                             }
                                         } catch(...) {}
                                     }
@@ -852,7 +864,10 @@ namespace adam::gui
                                                 {
                                                     adam::string_hashed new_v(preset_str.c_str());
                                                     c_str->set_value(new_v);
-                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                    if (is_port)
+                                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                    else
+                                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
                                                 }
                                             }
                                         }
@@ -871,7 +886,10 @@ namespace adam::gui
                                         adam::string_hashed new_v(&buf[0]);
                                         if (c_str->set_value(new_v))
                                         {
-                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                            if (is_port)
+                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                            else
+                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
                                         }
                                     }
                                 }
@@ -996,7 +1014,8 @@ namespace adam::gui
                 {
                     if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_port, lang), ImVec2(info.current_node_w - exp_pad * 2.0f, 0)))
                     {
-                        ctrl.enqueue_commander_action([&ctrl, conn_hash = info.hash, port_hash = info.port_hash, is_input = (info.type == node_type_input)]() { 
+                        ctrl.enqueue_commander_action([&ctrl, conn_hash = info.hash, port_hash = info.port_hash, is_input = (info.type == node_type_input)]() 
+                        { 
                             ctrl.commander().request_connection_port_remove(conn_hash, port_hash, is_input); 
                         });
                     }
@@ -1005,9 +1024,9 @@ namespace adam::gui
                 {
                     if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_processor, lang), ImVec2(info.current_node_w - exp_pad * 2.0f, 0)))
                     {
-                        ctrl.enqueue_commander_action([&ctrl, conn_hash = info.hash, proc_hash = info.port_hash]() { 
+                        ctrl.enqueue_commander_action([&ctrl, conn_hash = info.hash, proc_hash = info.port_hash]() 
+                        { 
                             ctrl.commander().request_connection_processor_remove(conn_hash, proc_hash);
-                            ctrl.commander().request_processor_destroy(proc_hash);
                         });
                     }
                 }
@@ -1483,6 +1502,7 @@ namespace adam::gui
         static std::map<std::string, std::vector<processor_display_info>> new_converters;
         static std::map<adam::string_hash, processor_display_info> known_proc_types;
         static std::map<adam::string_hash, std::array<char, max_name_length>> new_proc_names;
+        static std::vector<adam::string_hash> used_processors;
 
         if (g_request_processor_popup)
         {
@@ -1494,6 +1514,7 @@ namespace adam::gui
             new_converters.clear();
             known_proc_types.clear();
             new_proc_names.clear();
+            used_processors.clear();
 
             {
                 std::lock_guard<const adam::module_view> mod_lock(ctrl.commander().modules());
@@ -1502,6 +1523,13 @@ namespace adam::gui
                 const auto& db              = ctrl.get_commander().get_modules().database();
                 const auto& loaded_modules  = ctrl.get_commander().get_modules().get_loaded();
                 const auto& reg_procs       = ctrl.commander().registry().get_processors();
+                const auto& reg_conns       = ctrl.commander().registry().get_connections();
+
+                auto conn_it = reg_conns.find(g_target_connection.get_hash());
+                if (conn_it != reg_conns.end())
+                {
+                    used_processors = conn_it->second->processors;
+                }
 
                 for (const auto& [mod_hash, mod_info] : db)
                 {
@@ -1628,9 +1656,11 @@ namespace adam::gui
 
                             for (const auto& pdi : procs)
                             {
+                                bool is_used = std::find(used_processors.begin(), used_processors.end(), pdi.proc_hash) != used_processors.end();
+
                                 ImGui::TableNextRow();
                                 
-                                if (pdi.is_unavailable)
+                                if (is_used || pdi.is_unavailable)
                                 {
                                     ImGui::BeginDisabled();
                                 }
@@ -1650,6 +1680,7 @@ namespace adam::gui
                                     adam::string_hash conn_hash = g_target_connection.get_hash();
                                     adam::string_hash proc_hash = pdi.proc_hash;
                                     ctrl.enqueue_commander_action([&ctrl, conn_hash, proc_hash]() { ctrl.commander().request_connection_processor_add(conn_hash, proc_hash); });
+                                    used_processors.push_back(pdi.proc_hash);
                                 }
                                 if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                                 {
@@ -1657,7 +1688,7 @@ namespace adam::gui
                                 }
                                 ImGui::PopID();
                                 
-                                if (pdi.is_unavailable)
+                                if (is_used || pdi.is_unavailable)
                                 {
                                     ImGui::EndDisabled();
                                 }
@@ -2756,10 +2787,22 @@ namespace adam::gui
                     if ((enter_pressed || deactivated) && name_buf[0] != '\0' && std::strcmp(name, name_buf) != 0)
                     {
                         adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
-                        if (ports.find(proposed_hash) == ports.end())
+                        bool is_node_port = (type == node_type_input || type == node_type_output);
+                        if (is_node_port)
                         {
-                            adam::string_hashed new_name(&name_buf[0]);
-                            ctrl.enqueue_commander_action([&ctrl, port_hash, new_name]() { ctrl.commander().request_port_rename(port_hash, new_name); });
+                            if (ports.find(proposed_hash) == ports.end())
+                            {
+                                adam::string_hashed new_name(&name_buf[0]);
+                                ctrl.enqueue_commander_action([&ctrl, port_hash, new_name]() { ctrl.commander().request_port_rename(port_hash, new_name); });
+                            }
+                        }
+                        else
+                        {
+                            if (ctrl.commander().registry().get_processors().find(proposed_hash) == ctrl.commander().registry().get_processors().end())
+                            {
+                                adam::string_hashed new_name(&name_buf[0]);
+                                ctrl.enqueue_commander_action([&ctrl, port_hash, new_name]() { ctrl.commander().request_processor_rename(port_hash, new_name); });
+                            }
                         }
                     }
                 }
@@ -2865,16 +2908,24 @@ namespace adam::gui
                 if (proc_it != ctrl.commander().registry().get_processors().end())
                     proc_name = proc_it->second->name.c_str();
 
+                bool is_unavail = (proc_it != ctrl.commander().registry().get_processors().end() && proc_it->second->is_unavailable);
+                ImColor col = proc_col;
+                if (is_unavail) col.Value.w *= 0.4f;
+
+                const char* mod_name = "Unknown";
+                if (is_unavail && proc_it->second->module_name.get_hash() != 0)
+                    mod_name = proc_it->second->module_name.c_str();
+
                 connection_pin_data p_in, p_out;
                 if (compact_processors)
                 {
                     char short_name[16];
                     snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
-                    draw_node(short_name, node_type_processor, current_stage, 0.0f, proc_col, p_in, p_out, false, nullptr, fid, proc_extra_y);
+                    draw_node(short_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y);
                 }
                 else
                 {
-                    draw_node(proc_name, node_type_processor, current_stage, 0.0f, proc_col, p_in, p_out, false, nullptr, fid, proc_extra_y);
+                    draw_node(proc_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y);
                 }
                 p_in.format_name = "transparent";
                 p_out.format_name = "transparent";

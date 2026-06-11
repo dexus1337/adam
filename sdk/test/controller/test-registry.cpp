@@ -890,9 +890,12 @@ TEST_F(registry_test, processor_load_save_persistence)
     // Load from binary in a fresh registry
     adam::test::local_controller loaded_ctrl;
     adam::registry& loaded_reg = loaded_ctrl.get_registry();
-    adam::test::mock_module_injector loaded_injector(loaded_reg, &mock_mod);
     
-    EXPECT_TRUE(loaded_reg.load(test_filepath)); // TODO: load will remove all currently loaded modules, so we need another workaround
+    EXPECT_TRUE(loaded_reg.load(test_filepath));
+
+    // Inject mock module after load is done, so it is not cleared by load()
+    adam::test::mock_module_injector loaded_injector(loaded_reg, &mock_mod);
+    loaded_reg.retry_unavailable_processors("mock_mod"_ct.get_hash());
 
     // Verify processors were recreated
     EXPECT_EQ(loaded_reg.processors().size(), 3u);

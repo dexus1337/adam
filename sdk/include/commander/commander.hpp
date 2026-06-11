@@ -134,6 +134,9 @@ namespace adam
         /** @brief Requests the destruction of a processor. */
         response_status request_processor_destroy(string_hash processor_hash);
 
+        /** @brief Requests to rename a processor. */
+        response_status request_processor_rename(string_hash old_hash, const string_hashed& new_name);
+
         /** @brief Requests to attach a processor to a connection. */
         response_status request_connection_processor_add(string_hash conn_hash, string_hash processor_hash);
 

@@ -675,6 +675,12 @@ namespace adam
             auto it = ctx.reg.connections().find(params->connection);
             if (it != ctx.reg.connections().end())
                 conn_str = it->second->get_name().c_str();
+            else
+            {
+                auto unavail_it = ctx.reg.unavailable_connections().find(params->connection);
+                if (unavail_it != ctx.reg.unavailable_connections().end())
+                    conn_str = unavail_it->second->get_name().c_str();
+            }
 
             registry::status res = ctx.reg.destroy_connection(params->connection);
 
@@ -884,18 +890,41 @@ namespace adam
         {
             auto params = cmds->get_data_as<messages::connection_processor_add_data>();
 
+            std::string conn_str;
+            auto it_conn = ctx.reg.connections().find(params->connection);
+            if (it_conn != ctx.reg.connections().end())
+                conn_str = it_conn->second->get_name().c_str();
+
+            std::string processor_str;
+            auto it_proc = ctx.reg.processors().find(params->processor);
+            if (it_proc != ctx.reg.processors().end())
+                processor_str = it_proc->second->get_name().c_str();
+
             registry::status res = ctx.reg.connection_add_processor(params->connection, params->processor);
 
             if (res != registry::status_success)
             {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_add_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
 
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+
             event evt(event_type::connection_processor_added);
             auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
             *evt_data = *params;
+            evt_data->edited = current_time;
+            if (it_conn != ctx.reg.connections().end())
+                evt_data->valid_chain = it_conn->second->is_valid_chain();
+            else
+                evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_added, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str(), conn_str.c_str());
 
             ctx.set_single_response_status(response_status::success);
         });
@@ -904,18 +933,54 @@ namespace adam
         {
             auto params = cmds->get_data_as<messages::connection_processor_add_data>();
 
+            std::string conn_str;
+            auto it_conn = ctx.reg.connections().find(params->connection);
+            if (it_conn != ctx.reg.connections().end())
+                conn_str = it_conn->second->get_name().c_str();
+
+            std::string processor_str;
+            auto it_proc = ctx.reg.processors().find(params->processor);
+            if (it_proc != ctx.reg.processors().end())
+                processor_str = it_proc->second->get_name().c_str();
+
             registry::status res = ctx.reg.connection_remove_processor(params->connection, params->processor);
 
             if (res != registry::status_success)
             {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_remove_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
 
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+
             event evt(event_type::connection_processor_removed);
             auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
             *evt_data = *params;
+            evt_data->edited = current_time;
+            if (it_conn != ctx.reg.connections().end())
+                evt_data->valid_chain = it_conn->second->is_valid_chain();
+            else
+                evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_removed, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str(), conn_str.c_str());
+
+            if (it_proc != ctx.reg.processors().end())
+            {
+                it_proc->second->connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+                if (it_proc->second->connections().empty())
+                {
+                    ctx.reg.destroy_processor(params->processor);
+                    event evt_del(event_type::processor_destroyed);
+                    evt_del.data_as<messages::processor_action_data>()->processor = params->processor;
+                    ctx.ctrl.broadcast_event(evt_del);
+                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroyed, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str());
+                }
+            }
 
             ctx.set_single_response_status(response_status::success);
         });
@@ -991,15 +1056,29 @@ namespace adam
             auto params = cmds->get_data_as<messages::connection_data_format_data>();
 
             auto conn_it = ctx.reg.connections().find(params->connection);
-            if (conn_it == ctx.reg.connections().end())
+            connection* conn = nullptr;
+            connection::unavailable_info* unavail_conn = nullptr;
+
+            if (conn_it != ctx.reg.connections().end())
+            {
+                conn = conn_it->second.get();
+            }
+            else
+            {
+                auto unavail_it = ctx.reg.unavailable_connections().find(params->connection);
+                if (unavail_it != ctx.reg.unavailable_connections().end())
+                {
+                    unavail_conn = unavail_it->second.get();
+                }
+            }
+
+            if (!conn && !unavail_conn)
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
-
-            connection* conn = conn_it->second.get();
 
             const data_format* in_fmt  = &data_format_transparent;
             string_hashed resolved_in_module;
@@ -1039,37 +1118,49 @@ namespace adam
 
             resolve_format(params->format, params->format_module, in_fmt, resolved_in_module);
 
-            bool was_started = conn->is_started();
-            conn->set_input_format(in_fmt);
-            
-            if (was_started && !conn->is_valid_chain())
-            {
-                conn->stop();
-                event evt_stop(event_type::connection_stopped);
-                evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
-                ctx.ctrl.broadcast_event(evt_stop);
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
-            }
-
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
             {
-                if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
+                auto* params_list = conn ? &conn->get_parameters() : &unavail_conn->get_parameters();
+                if (auto* p = dynamic_cast<configuration_parameter_string*>(params_list->get(key)))
                     p->set_value(value);
             };
 
             set_str_param("input_format"_ct,        in_fmt  == &data_format_transparent ? "transparent"_ct : in_fmt->get_name());
             set_str_param("input_format_module"_ct, resolved_in_module);
 
+            bool valid_chain = false;
+
+            if (conn)
+            {
+                bool was_started = conn->is_started();
+                conn->set_input_format(in_fmt);
+                
+                if (was_started && !conn->is_valid_chain())
+                {
+                    conn->stop();
+                    event evt_stop(event_type::connection_stopped);
+                    evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
+                    ctx.ctrl.broadcast_event(evt_stop);
+                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
+                }
+                valid_chain = conn->is_valid_chain();
+            }
+
             event evt(event_type::connection_input_data_format_changed);
             auto* evt_data = evt.data_as<messages::connection_data_format_data>();
             evt_data->connection            = params->connection;
             evt_data->format                = in_fmt->get_name().get_hash();
             evt_data->format_module         = resolved_in_module.get_hash();
-            evt_data->valid_chain           = conn->is_valid_chain();
+            evt_data->valid_chain           = valid_chain;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
+
+            if (unavail_conn)
+            {
+                ctx.reg.retry_unavailable_connections(0);
+            }
         });
 
         register_handler(command_type::connection_set_output_data_format, [](const command* cmds, size_t, command_context& ctx) 
@@ -1077,15 +1168,29 @@ namespace adam
             auto params = cmds->get_data_as<messages::connection_data_format_data>();
 
             auto conn_it = ctx.reg.connections().find(params->connection);
-            if (conn_it == ctx.reg.connections().end())
+            connection* conn = nullptr;
+            connection::unavailable_info* unavail_conn = nullptr;
+
+            if (conn_it != ctx.reg.connections().end())
+            {
+                conn = conn_it->second.get();
+            }
+            else
+            {
+                auto unavail_it = ctx.reg.unavailable_connections().find(params->connection);
+                if (unavail_it != ctx.reg.unavailable_connections().end())
+                {
+                    unavail_conn = unavail_it->second.get();
+                }
+            }
+
+            if (!conn && !unavail_conn)
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
-
-            connection* conn = conn_it->second.get();
 
             const data_format* out_fmt = &data_format_transparent;
             string_hashed resolved_out_module;
@@ -1125,37 +1230,49 @@ namespace adam
 
             resolve_format(params->format, params->format_module, out_fmt, resolved_out_module);
 
-            bool was_started = conn->is_started();
-            conn->set_output_format(out_fmt);
-            
-            if (was_started && !conn->is_valid_chain())
-            {
-                conn->stop();
-                event evt_stop(event_type::connection_stopped);
-                evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
-                ctx.ctrl.broadcast_event(evt_stop);
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
-            }
-
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
             {
-                if (auto* p = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get(key)))
+                auto* params_list = conn ? &conn->get_parameters() : &unavail_conn->get_parameters();
+                if (auto* p = dynamic_cast<configuration_parameter_string*>(params_list->get(key)))
                     p->set_value(value);
             };
 
             set_str_param("output_format"_ct,        out_fmt == &data_format_transparent ? "transparent"_ct : out_fmt->get_name());
             set_str_param("output_format_module"_ct, resolved_out_module);
 
+            bool valid_chain = false;
+
+            if (conn)
+            {
+                bool was_started = conn->is_started();
+                conn->set_output_format(out_fmt);
+                
+                if (was_started && !conn->is_valid_chain())
+                {
+                    conn->stop();
+                    event evt_stop(event_type::connection_stopped);
+                    evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
+                    ctx.ctrl.broadcast_event(evt_stop);
+                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
+                }
+                valid_chain = conn->is_valid_chain();
+            }
+
             event evt(event_type::connection_output_data_format_changed);
             auto* evt_data = evt.data_as<messages::connection_data_format_data>();
             evt_data->connection            = params->connection;
             evt_data->format                = out_fmt->get_name().get_hash();
             evt_data->format_module         = resolved_out_module.get_hash();
-            evt_data->valid_chain           = conn->is_valid_chain();
+            evt_data->valid_chain           = valid_chain;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
+
+            if (unavail_conn)
+            {
+                ctx.reg.retry_unavailable_connections(0);
+            }
         });
 
         register_handler(command_type::connection_input_inspector_create, [](const command* cmds, size_t, command_context& ctx) 
@@ -1685,6 +1802,9 @@ namespace adam
 
             if (res != registry::status_success)
             {
+                auto name_view = name.c_str();
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1724,6 +1844,8 @@ namespace adam
             evt_data->output_datatype_module    = out_mod ? out_mod->get_name().get_hash() : 0ull;
 
             ctx.ctrl.broadcast_event(evt);
+            
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_created, ctx.ctrl.get_language()), ctx.tid, name.c_str(), new_processor->get_type_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1731,9 +1853,17 @@ namespace adam
         {
             auto params = cmds->get_data_as<messages::processor_destroy_data>();
 
+            std::string processor_str;
+            auto it = ctx.reg.processors().find(params->processor);
+            if (it != ctx.reg.processors().end())
+                processor_str = it->second->get_name().c_str();
+
             registry::status res = ctx.reg.destroy_processor(params->processor);
             if (res != registry::status_success)
             {
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroy_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1742,6 +1872,7 @@ namespace adam
             evt.data_as<messages::processor_action_data>()->processor = params->processor;
             ctx.ctrl.broadcast_event(evt);
 
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroyed, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1841,6 +1972,66 @@ namespace adam
             }
         });
 
+        register_handler(command_type::processor_rename, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::processor_rename_data>();
+            string_hashed new_name(params->new_name);
+
+            std::string old_processor_str;
+            auto it = ctx.reg.processors().find(params->processor);
+            if (it != ctx.reg.processors().end())
+                old_processor_str = it->second->get_name().c_str();
+
+            registry::status res = ctx.reg.rename_processor(params->processor, new_name);
+
+            if (res != registry::status_success)
+            {
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_rename_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, status_text);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+            auto renamed_it = ctx.reg.processors().find(new_name.get_hash());
+            if (renamed_it != ctx.reg.processors().end())
+            {
+                for (auto& [conn_hash, conn_ptr] : ctx.reg.connections())
+                {
+                    bool contains_proc = false;
+                    conn_ptr->processors().iterate([&](const auto& procs) 
+                    {
+                        for (auto* proc : procs)
+                        {
+                            if (proc->get_name().get_hash() == new_name.get_hash())
+                            {
+                                contains_proc = true;
+                                break;
+                            }
+                        }
+                    });
+
+                    if (contains_proc)
+                    {
+                        if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn_ptr->get_parameters().get("date_edited"_ct)))
+                            param->set_value(static_cast<int64_t>(current_time));
+                    }
+                }
+            }
+
+            event evt(event_type::processor_renamed);
+            auto* evt_data = evt.data_as<messages::processor_rename_data>();
+            evt_data->processor = params->processor;
+            std::strncpy(evt_data->new_name, params->new_name, sizeof(evt_data->new_name) - 1);
+            evt_data->new_name[sizeof(evt_data->new_name) - 1] = '\0';
+            evt_data->edited = current_time;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_renamed, ctx.ctrl.get_language()), ctx.tid, old_processor_str.c_str(), new_name.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
     }
 
     std::string_view controller_cmd_dispatcher::get_log_event_text(log_event event, language lang)
@@ -1936,6 +2127,30 @@ namespace adam
                 { "Thread {:d} failed to update parameter on processor {:d}.", "Thread {:d} konnte Parameter an Prozessor {:d} nicht aktualisieren." }
             },
             {
+                log_event::processor_created,
+                { "Thread {:d} successfully created processor \"{}\" of type \"{}\".", "Thread {:d} hat Prozessor \"{}\" vom Typ \"{}\" erfolgreich erstellt." }
+            },
+            {
+                log_event::processor_create_failed,
+                { "Thread {:d} failed to create processor \"{}\": {}", "Thread {:d} konnte Prozessor \"{}\" nicht erstellen: {}" }
+            },
+            {
+                log_event::processor_destroyed,
+                { "Thread {:d} successfully destroyed processor \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich entfernt." }
+            },
+            {
+                log_event::processor_destroy_failed,
+                { "Thread {:d} failed to destroy processor {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht entfernen: {}" }
+            },
+            {
+                log_event::processor_renamed,
+                { "Thread {:d} successfully renamed processor \"{}\" to \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich zu \"{}\" umbenannt." }
+            },
+            {
+                log_event::processor_rename_failed,
+                { "Thread {:d} failed to rename processor {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht umbenennen: {}" }
+            },
+            {
                 log_event::connection_input_data_format_changed,
                 { "Thread {:d} successfully changed input data format of connection \"{}\".", "Thread {:d} hat das Eingangsdatenformat von Verbindung \"{}\" erfolgreich geändert." }
             },
@@ -2022,6 +2237,22 @@ namespace adam
             {
                 log_event::connection_port_remove_failed,
                 { "Thread {:d} failed to remove port {:d} from connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht von Verbindung {:d} entfernen: {}" }
+            },
+            {
+                log_event::connection_processor_added,
+                { "Thread {:d} successfully added processor \"{}\" to connection \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich zur Verbindung \"{}\" hinzugefügt." }
+            },
+            {
+                log_event::connection_processor_add_failed,
+                { "Thread {:d} failed to add processor {:d} to connection {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
+            },
+            {
+                log_event::connection_processor_removed,
+                { "Thread {:d} successfully removed processor \"{}\" from connection \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich von Verbindung \"{}\" entfernt." }
+            },
+            {
+                log_event::connection_processor_remove_failed,
+                { "Thread {:d} failed to remove processor {:d} from connection {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht von Verbindung {:d} entfernen: {}" }
             },
             {
                 log_event::connection_input_inspector_created,
