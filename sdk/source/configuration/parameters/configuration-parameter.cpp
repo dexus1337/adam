@@ -1,12 +1,14 @@
 #include "configuration/parameters/configuration-parameter.hpp"
 
 #include <string>
+#include <algorithm>
 #include "configuration/parameters/configuration-parameter-boolean.hpp"
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-reference.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 
 namespace adam 
 {
@@ -76,13 +78,33 @@ namespace adam
                 break;
             case configuration_parameter::type_list: 
             {
-                const auto& children = static_cast<const configuration_parameter_list*>(param)->get_children();
-                uint32_t count = static_cast<uint32_t>(children.size());
-                write_binary(os, count);
+                if (auto* sorted_list = dynamic_cast<const configuration_parameter_list_sorted*>(param))
+                {
+                    const auto& children = sorted_list->get_children();
+                    const auto& order = sorted_list->get_order();
+                    uint32_t count = static_cast<uint32_t>(children.size());
+                    write_binary(os, count);
 
-                for (const auto& [child_name, child] : children)
-                    serialize(os, child.get());
-                
+                    for (string_hash child_hash : order)
+                    {
+                        auto it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) {
+                            return pair.first.get_hash() == child_hash;
+                        });
+                        if (it != children.end())
+                        {
+                            serialize(os, it->second.get());
+                        }
+                    }
+                }
+                else
+                {
+                    const auto& children = static_cast<const configuration_parameter_list*>(param)->get_children();
+                    uint32_t count = static_cast<uint32_t>(children.size());
+                    write_binary(os, count);
+
+                    for (const auto& [child_name, child] : children)
+                        serialize(os, child.get());
+                }
                 break;
             }
             default: break;
@@ -139,7 +161,7 @@ namespace adam
             }
             case configuration_parameter::type_list: 
             {
-                auto list_param = std::make_unique<configuration_parameter_list>(name);
+                auto list_param = std::make_unique<configuration_parameter_list_sorted>(name);
                 uint32_t count;
                 read_binary(is, count);
 

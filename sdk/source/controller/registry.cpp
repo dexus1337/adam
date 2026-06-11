@@ -13,6 +13,7 @@
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "configuration/parameters/configuration-parameter-reference.hpp"
 #include "commander/messages/event.hpp"
 #include "commander/messages/command.hpp"
@@ -608,8 +609,8 @@ namespace adam
     void registry::copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source)
     {
         if (!target || !source) return;
-        for (auto& [name, param] : source->get_children()) 
-        {
+
+        auto copy_single_parameter = [&](const string_hashed& name, const std::unique_ptr<configuration_parameter>& param) {
             if (auto* existing = target->get(name)) 
             {
                 if (existing->get_type() == param->get_type())
@@ -673,7 +674,12 @@ namespace adam
                     }
                     case configuration_parameter::type_list:
                     {
-                        auto new_param = std::make_unique<configuration_parameter_list>(param->get_name());
+                        std::unique_ptr<configuration_parameter_list> new_param;
+                        if (dynamic_cast<const configuration_parameter_list_sorted*>(param.get()))
+                            new_param = std::make_unique<configuration_parameter_list_sorted>(param->get_name());
+                        else
+                            new_param = std::make_unique<configuration_parameter_list>(param->get_name());
+
                         copy_parameters(new_param.get(), static_cast<configuration_parameter_list*>(param.get()));
                         target->add(std::move(new_param));
                         break;
@@ -688,6 +694,28 @@ namespace adam
                     default:
                         break;
                 }
+            }
+        };
+
+        if (auto* sorted_source = dynamic_cast<const configuration_parameter_list_sorted*>(source))
+        {
+            const auto& children = sorted_source->get_children();
+            for (string_hash child_hash : sorted_source->get_order())
+            {
+                auto it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) {
+                    return pair.first.get_hash() == child_hash;
+                });
+                if (it != children.end())
+                {
+                    copy_single_parameter(it->first, it->second);
+                }
+            }
+        }
+        else
+        {
+            for (const auto& [name, param] : source->get_children()) 
+            {
+                copy_single_parameter(name, param);
             }
         }
     }

@@ -4,12 +4,14 @@
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "configuration/parameters/configuration-parameter-reference.hpp"
 #include "data/port/port-input.hpp"
 #include "data/port/port-output.hpp"
 #include "data/port/port-internal.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
+#include "module/module.hpp"
 #include "data/connection.hpp"
 #include "data/format.hpp"
 #include "memory/buffer/buffer-manager.hpp"
@@ -27,6 +29,89 @@ namespace adam::test
     public:
         local_controller() : adam::controller() {}
     };
+
+    struct loaded_modules_tag {
+        using type = adam::registry_module_manager::map_loaded_modules adam::registry_module_manager::*;
+        friend type get_private(loaded_modules_tag);
+    };
+
+    template <typename Tag, typename Tag::type Member>
+    struct private_accessor {
+        friend typename Tag::type get_private(Tag) {
+            return Member;
+        }
+    };
+}
+
+template struct adam::test::private_accessor<adam::test::loaded_modules_tag, &adam::registry_module_manager::m_loaded_modules>;
+
+namespace adam::test
+{
+    class mock_processor : public adam::processor
+    {
+    public:
+        mock_processor(const adam::string_hashed& item_name)
+            : adam::processor(item_name)
+        {
+        }
+
+        const adam::string_hashed_ct& get_type_name() const override
+        {
+            static adam::string_hashed_ct type = "mock-processor-type"_ct;
+            return type;
+        }
+
+        bool handle_data(adam::buffer*& buffer) override
+        {
+            return true;
+        }
+    };
+
+    class mock_processor_factory : public adam::factory<adam::processor>
+    {
+    public:
+        std::unique_ptr<adam::processor> create(const adam::string_hashed& name) const override
+        {
+            return std::make_unique<mock_processor>(name);
+        }
+    };
+
+    class mock_module : public adam::module
+    {
+    public:
+        mock_module(const adam::string_hashed& name)
+            : adam::module(name, adam::make_version(1, 0, 0), adam::sdk_version)
+        {
+        }
+
+        void register_processor_factory(const adam::string_hashed& type_name, adam::factory<adam::processor>* factory_ptr)
+        {
+            m_processor_factories[type_name] = adam::registry::factory_data_processor(factory_ptr, nullptr, 0, 0, 0, 0);
+        }
+    };
+
+    class mock_module_injector
+    {
+    public:
+        mock_module_injector(adam::registry& reg, adam::module* mod)
+            : m_reg(reg), m_name(mod->get_name())
+        {
+            auto& loaded_modules = reg.modules().*get_private(loaded_modules_tag{});
+            loaded_modules[m_name] = mod;
+        }
+
+        ~mock_module_injector()
+        {
+            auto& loaded_modules = m_reg.modules().*get_private(loaded_modules_tag{});
+            loaded_modules.erase(m_name);
+        }
+
+    private:
+        adam::registry& m_reg;
+        adam::string_hashed m_name;
+    };
+
+    static mock_processor_factory global_mock_proc_factory;
 }
 
 class registry_test : public ::testing::Test
@@ -427,4 +512,206 @@ TEST_F(registry_test, unavailable_connections)
     
     EXPECT_EQ(reg.connections().size(), 1u);
     EXPECT_EQ(reg.get_unavailable_connections().size(), 0u);
+}
+
+/** @brief Tests basic processor creation, renaming, and destruction. */
+TEST_F(registry_test, create_rename_destroy_processor)
+{
+    adam::test::mock_module mock_mod("asterix"_ct);
+    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+    adam::test::mock_module_injector injector(reg, &mock_mod);
+
+    // Attempt to create a processor with an invalid type should fail
+    adam::processor* invalid_proc = nullptr;
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "non_existent_type"_ct, "asterix"_ct, false, &invalid_proc), adam::registry::status_error_factory_not_found);
+    EXPECT_EQ(invalid_proc, nullptr);
+
+    // Create a valid processor
+    adam::processor* created_proc = nullptr;
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &created_proc), adam::registry::status_success);
+    ASSERT_NE(created_proc, nullptr);
+    EXPECT_EQ(reg.processors().size(), 1u);
+    EXPECT_TRUE(reg.processors().contains("test_proc_1"_ct));
+
+    // Attempt to create a duplicate processor should fail
+    adam::processor* duplicate_proc = nullptr;
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &duplicate_proc), adam::registry::status_error_port_already_exists);
+    EXPECT_EQ(duplicate_proc, nullptr);
+
+    // Rename the processor
+    EXPECT_EQ(reg.rename_processor("test_proc_1"_ct.get_hash(), "test_proc_new"_ct), adam::registry::status_success);
+    EXPECT_EQ(reg.processors().size(), 1u);
+    EXPECT_FALSE(reg.processors().contains("test_proc_1"_ct));
+    EXPECT_TRUE(reg.processors().contains("test_proc_new"_ct));
+    EXPECT_EQ(reg.processors().at("test_proc_new"_ct.get_hash())->get_name(), "test_proc_new"_ct);
+
+    // Destroy the processor
+    EXPECT_EQ(reg.destroy_processor("test_proc_new"_ct.get_hash()), adam::registry::status_success);
+    EXPECT_EQ(reg.processors().size(), 0u);
+    EXPECT_FALSE(reg.processors().contains("test_proc_new"_ct));
+}
+
+/** @brief Tests adding and removing a processor to/from a connection. */
+TEST_F(registry_test, connection_processor_management)
+{
+    adam::test::mock_module mock_mod("asterix"_ct);
+    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+    adam::test::mock_module_injector injector(reg, &mock_mod);
+
+    adam::processor* proc = nullptr;
+    EXPECT_EQ(reg.create_processor("proc1"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc), adam::registry::status_success);
+    ASSERT_NE(proc, nullptr);
+
+    // Create a connection
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(reg.create_connection("conn1"_ct, &conn), adam::registry::status_success);
+    ASSERT_NE(conn, nullptr);
+
+    // Add processor to connection
+    EXPECT_EQ(reg.connection_add_processor("conn1"_ct.get_hash(), "proc1"_ct.get_hash()), adam::registry::status_success);
+    
+    // Check it was added to connection double buffer
+    bool found = false;
+    conn->processors().iterate([&](const auto& procs) {
+        EXPECT_EQ(procs.size(), 1u);
+        if (!procs.empty() && procs[0] == proc) found = true;
+    });
+    EXPECT_TRUE(found);
+
+    // Check configuration parameters
+    auto* procs_list = dynamic_cast<adam::configuration_parameter_list*>(conn->get_parameters().get("processors"_ct));
+    ASSERT_NE(procs_list, nullptr);
+    EXPECT_EQ(procs_list->get_children().size(), 1u);
+    auto* ref = dynamic_cast<adam::configuration_parameter_reference*>(procs_list->get("0"_ct));
+    ASSERT_NE(ref, nullptr);
+    EXPECT_EQ(ref->get_target(), "proc1"_ct);
+
+    // Remove processor from connection
+    EXPECT_EQ(reg.connection_remove_processor("conn1"_ct.get_hash(), "proc1"_ct.get_hash()), adam::registry::status_success);
+    
+    // Check it was removed from double buffer
+    found = false;
+    conn->processors().iterate([&](const auto& procs) {
+        if (procs.empty()) found = true;
+    });
+    EXPECT_TRUE(found);
+    EXPECT_EQ(procs_list->get_children().size(), 0u);
+}
+
+/** @brief Tests that destroying a processor cleans up any references in connections. */
+TEST_F(registry_test, destroy_processor_updates_connections)
+{
+    adam::test::mock_module mock_mod("asterix"_ct);
+    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+    adam::test::mock_module_injector injector(reg, &mock_mod);
+
+    adam::processor* proc = nullptr;
+    EXPECT_EQ(reg.create_processor("proc_to_del"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc), adam::registry::status_success);
+
+    // Create a connection and add processor
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(reg.create_connection("conn_with_proc"_ct, &conn), adam::registry::status_success);
+    EXPECT_EQ(reg.connection_add_processor("conn_with_proc"_ct.get_hash(), "proc_to_del"_ct.get_hash()), adam::registry::status_success);
+
+    // Verify presence in connection double buffer
+    bool found = false;
+    conn->processors().iterate([&](const auto& procs) {
+        if (!procs.empty() && procs[0] == proc) found = true;
+    });
+    EXPECT_TRUE(found);
+
+    // Destroy processor directly
+    EXPECT_EQ(reg.destroy_processor("proc_to_del"_ct.get_hash()), adam::registry::status_success);
+
+    // Verify it was removed from connection double buffer
+    found = false;
+    conn->processors().iterate([&](const auto& procs) {
+        if (procs.empty()) found = true;
+    });
+    EXPECT_TRUE(found);
+}
+
+/** @brief Tests processor serialization (saving and loading) and ordering works correctly. */
+TEST_F(registry_test, processor_load_save_persistence)
+{
+    adam::test::mock_module mock_mod("asterix"_ct);
+    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+    adam::test::mock_module_injector injector(reg, &mock_mod);
+
+    adam::processor* proc1 = nullptr;
+    adam::processor* proc2 = nullptr;
+    adam::processor* proc3 = nullptr;
+    EXPECT_EQ(reg.create_processor("proc_first"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc1), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_second"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc2), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_third"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc3), adam::registry::status_success);
+
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(reg.create_connection("persisted_conn"_ct, &conn), adam::registry::status_success);
+    EXPECT_EQ(reg.connection_add_processor("persisted_conn"_ct.get_hash(), "proc_first"_ct.get_hash()), adam::registry::status_success);
+    EXPECT_EQ(reg.connection_add_processor("persisted_conn"_ct.get_hash(), "proc_second"_ct.get_hash()), adam::registry::status_success);
+    EXPECT_EQ(reg.connection_add_processor("persisted_conn"_ct.get_hash(), "proc_third"_ct.get_hash()), adam::registry::status_success);
+
+    EXPECT_TRUE(reg.save(test_filepath));
+
+    // Load from binary in a fresh registry
+    adam::test::local_controller loaded_ctrl;
+    adam::registry& loaded_reg = loaded_ctrl.get_registry();
+    adam::test::mock_module_injector loaded_injector(loaded_reg, &mock_mod);
+    
+    EXPECT_TRUE(loaded_reg.load(test_filepath));
+
+    // Verify processors were recreated
+    EXPECT_EQ(loaded_reg.processors().size(), 3u);
+    EXPECT_TRUE(loaded_reg.processors().contains("proc_first"_ct));
+    EXPECT_TRUE(loaded_reg.processors().contains("proc_second"_ct));
+    EXPECT_TRUE(loaded_reg.processors().contains("proc_third"_ct));
+
+    // Verify connection and its double-buffered processor list
+    EXPECT_EQ(loaded_reg.connections().size(), 1u);
+    EXPECT_TRUE(loaded_reg.connections().contains("persisted_conn"_ct));
+    
+    adam::connection* loaded_conn = loaded_reg.connections().at("persisted_conn"_ct.get_hash()).get();
+    
+    // 1. Verify the double buffer order
+    loaded_conn->processors().iterate([&](const auto& procs) {
+        ASSERT_EQ(procs.size(), 3u);
+        EXPECT_EQ(procs[0]->get_name(), "proc_first"_ct);
+        EXPECT_EQ(procs[1]->get_name(), "proc_second"_ct);
+        EXPECT_EQ(procs[2]->get_name(), "proc_third"_ct);
+    });
+
+    // 2. Verify the configuration parameter order (sorted list order)
+    auto* procs_list = dynamic_cast<adam::configuration_parameter_list_sorted*>(loaded_conn->get_parameters().get("processors"_ct));
+    ASSERT_NE(procs_list, nullptr);
+    const auto& order = procs_list->get_order();
+    ASSERT_EQ(order.size(), 3u);
+    
+    auto* ref0 = dynamic_cast<adam::configuration_parameter_reference*>(procs_list->get("0"_ct));
+    auto* ref1 = dynamic_cast<adam::configuration_parameter_reference*>(procs_list->get("1"_ct));
+    auto* ref2 = dynamic_cast<adam::configuration_parameter_reference*>(procs_list->get("2"_ct));
+    
+    ASSERT_NE(ref0, nullptr);
+    ASSERT_NE(ref1, nullptr);
+    ASSERT_NE(ref2, nullptr);
+    
+    EXPECT_EQ(ref0->get_target(), "proc_first"_ct);
+    EXPECT_EQ(ref1->get_target(), "proc_second"_ct);
+    EXPECT_EQ(ref2->get_target(), "proc_third"_ct);
+
+    // Verify the insertion order matches
+    EXPECT_EQ(order[0], "0"_ct.get_hash());
+    EXPECT_EQ(order[1], "1"_ct.get_hash());
+    EXPECT_EQ(order[2], "2"_ct.get_hash());
 }

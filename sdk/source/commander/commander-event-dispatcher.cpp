@@ -491,6 +491,11 @@ namespace adam
             auto* data = events[0].get_data_as<messages::processor_action_data>();
             std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
             ctx.cmdr.registry().processors().erase(data->processor);
+
+            for (auto& [conn_hash, conn] : ctx.cmdr.registry().connections())
+            {
+                conn->processors.erase(std::remove(conn->processors.begin(), conn->processors.end(), data->processor), conn->processors.end());
+            }
         });
 
         register_handler(event_type::processor_renamed, [](const event* events, size_t, event_context& ctx) 
