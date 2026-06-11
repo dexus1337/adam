@@ -300,7 +300,7 @@ namespace adam::modules::recrep
             rff::block_header ph = {};
             
             uint64_t elapsed_ns = buff->get_timestamp() > m_file_start_timestamp_ns ? buff->get_timestamp() - m_file_start_timestamp_ns : 0;
-            ph.time_to_start_ms = static_cast<uint32_t>(elapsed_ns / 1000000ull);
+            ph.time_of_day_ms = static_cast<uint32_t>(elapsed_ns / 1000000ull);
             ph.block_size_bytes = static_cast<uint16_t>(buff->get_size());
 
             m_file_stream.write(reinterpret_cast<const char*>(&ph), sizeof(ph));

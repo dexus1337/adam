@@ -97,7 +97,7 @@ namespace adam::modules::recrep
 
     bool port_input_replay::start() 
     {
-        get_state_buffer_data()->cur_state = state_started;
+        set_state(state_started);
 
         m_files.clear();
         m_current_file_index = 0;
@@ -160,14 +160,14 @@ namespace adam::modules::recrep
             }
             catch (const std::exception&)
             {
-                get_state_buffer_data()->cur_state = state_stopped;
+                set_state(state_stopped);
                 return false;
             }
         }
 
         if (!open_next_file())
         {
-            get_state_buffer_data()->cur_state = state_stopped;
+            set_state(state_stopped);
             return false;
         }
 
@@ -192,7 +192,7 @@ namespace adam::modules::recrep
             m_file_stream.close();
         }
 
-        while (get_state_buffer_data()->cur_state != state_stopped)
+        while (get_state() != state_stopped)
         {
             if (m_current_file_index >= m_files.size())
             {
@@ -243,7 +243,7 @@ namespace adam::modules::recrep
                             uint64_t start_ts = static_cast<uint64_t>(ph.ts_sec) * 1000000000ull + static_cast<uint64_t>(ph.ts_usec) * 1000ull;
                             uint64_t end_ts = start_ts;
                             
-                            while (get_state_buffer_data()->cur_state != state_stopped)
+                            while (get_state() != state_stopped)
                             {
                                 m_file_stream.seekg(ph.incl_len, std::ios::cur);
                                 m_file_stream.read(reinterpret_cast<char*>(&ph), sizeof(ph));
@@ -327,7 +327,7 @@ namespace adam::modules::recrep
         {
             if (!open_next_file())
             {
-                get_state_buffer_data()->cur_state = state_inactive;
+                set_state(state_inactive);
                 return false;
             }
         }
@@ -340,7 +340,7 @@ namespace adam::modules::recrep
             {
                 if (!open_next_file())
                 {
-                    get_state_buffer_data()->cur_state = state_inactive;
+                    set_state(state_inactive);
                     return false;
                 }
                 return read(buff);
@@ -412,7 +412,7 @@ namespace adam::modules::recrep
             {
                 if (!open_next_file())
                 {
-                    get_state_buffer_data()->cur_state = state_inactive;
+                    set_state(state_inactive);
                     return false;
                 }
                 return read(buff);
@@ -421,7 +421,7 @@ namespace adam::modules::recrep
             double speed = m_speed_param ? m_speed_param->get_value() : 1.0;
             
             auto* state_data = get_state_buffer()->data_as<replay_state_buffer_data>();
-            uint64_t packet_ts_ns = state_data->file_time_start + static_cast<uint64_t>(ph.time_to_start_ms) * 1000000ull;
+            uint64_t packet_ts_ns = static_cast<uint64_t>(ph.time_of_day_ms) * 1000000ull;
             std::chrono::microseconds packet_ts(packet_ts_ns / 1000ull);
 
             if (speed > 0.0)
@@ -459,9 +459,7 @@ namespace adam::modules::recrep
 
             buff = buffer_manager::get().request_buffer(ph.block_size_bytes);
             if (!buff)
-            {
                 return false;
-            }
 
             m_file_stream.read(reinterpret_cast<char*>(buff->data()), ph.block_size_bytes);
             buff->set_size(ph.block_size_bytes);

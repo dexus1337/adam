@@ -2384,13 +2384,13 @@ namespace adam::gui
 
                     if (is_unavailable)
                     {
-                        bool is_in_transparent = conn->input_format.empty() || conn->input_format.get_hash() == ("transparent"_ct).get_hash();
+                        bool is_in_transparent = conn->input_format.empty() || conn->input_format.get_hash() == "transparent"_ct.get_hash();
                         if (!is_in_transparent && conn->input_format_module.get_hash() != 0 && loaded_modules.find(conn->input_format_module.get_hash()) == loaded_modules.end())
                         {
                             input_missing = true;
                         }
                         
-                        bool is_out_transparent = conn->output_format.empty() || conn->output_format.get_hash() == ("transparent"_ct).get_hash();
+                        bool is_out_transparent = conn->output_format.empty() || conn->output_format.get_hash() == "transparent"_ct.get_hash();
                         if (!is_out_transparent && conn->output_format_module.get_hash() != 0 && loaded_modules.find(conn->output_format_module.get_hash()) == loaded_modules.end())
                         {
                             output_missing = true;

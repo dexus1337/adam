@@ -130,11 +130,13 @@ namespace adam
         vector_double_buffer<connection*>&                      in_connections()    { return m_in_connections; }
         vector_double_buffer<connection*>&                      out_connections()   { return m_out_connections; }
 
-        buffer* get_state_buffer() const { return m_state_buffer; }
+        buffer*             get_state_buffer()      const { return m_state_buffer; }
+        state_buffer_data*  get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
 
-        state_buffer_data* get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
+        state get_state() const { return get_state_buffer_data()->cur_state; }
+        bool is_started() const { return m_started != nullptr && m_started->get_value(); }
 
-        virtual bool is_started() const { return m_started != nullptr && m_started->get_value(); }
+        virtual void reset_state_buffer();
 
         /** @brief Data management routine */
         virtual bool handle_data(buffer* buffer, data_direction dir);
@@ -155,6 +157,8 @@ namespace adam
 
         /** @brief Worker function for threaded ports. */
         virtual void worker();
+
+        void set_state(state cur) { get_state_buffer_data()->cur_state = cur; }
 
         /** @brief Constructs a new port object. */
         port(const string_hashed& item_name, uint32_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));

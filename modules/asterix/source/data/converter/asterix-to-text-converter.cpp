@@ -1,5 +1,5 @@
 #include "data/converter/asterix-to-text-converter.hpp"
-#include "data/data-format-asterix.hpp"
+#include "data/format-asterix.hpp"
 
 #include <cstring>
 

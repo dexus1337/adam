@@ -124,6 +124,9 @@ namespace adam
         unavailable_processor_map&          unavailable_processors()    { return m_unavailable_processors; }
         registry_module_manager&            modules()                   { return m_modules; }
         
+        /** @brief Retrieves the list of configured module paths. */
+        const configuration_parameter_list* get_module_paths() const;
+
         /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
         status create_port(const string_hashed& name, string_hash type, string_hash type_module = 0, port** out_port = nullptr);
 
@@ -174,9 +177,6 @@ namespace adam
 
         /** @brief Resumes active items based on their loaded configuration, must be called after system initialization */
         void resume_active_items();
-
-        /** @brief Retrieves the list of configured module paths. */
-        const configuration_parameter_list* get_module_paths() const;
 
         /** @brief Adds a new module path to the configuration if it doesn't already exist. */
         bool add_module_path(const string_hashed& path, uint32_t* index = nullptr);

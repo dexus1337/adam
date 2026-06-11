@@ -1,6 +1,6 @@
 #include "module/module.hpp"
 
-#include "data/data-format-can.hpp"
+#include "data/format-can.hpp"
 
 
 static adam::modules::can::module_can global_instance = adam::modules::can::module_can();

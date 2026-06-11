@@ -62,6 +62,16 @@ namespace adam
         }
     }
 
+    void port::reset_state_buffer()
+    {
+        auto* stat_data = get_state_buffer_data();
+
+        stat_data->total_buffers_handled    = 0;
+        stat_data->total_bytes_handled      = 0;
+        stat_data->total_buffers_discarded  = 0;
+        stat_data->total_bytes_discarded    = 0;
+    }
+
     bool port::handle_data(buffer* buffer, data_direction dir)
     {
         bool result = true;
@@ -121,13 +131,10 @@ namespace adam
 
     bool port::start()
     {
-        auto* stat_data = get_state_buffer_data();
+        reset_state_buffer();
+        set_state(state_running);
 
         m_started->set_value(true);
-
-        stat_data->cur_state                = state_running;
-        stat_data->total_buffers_handled    = 0;
-        stat_data->total_bytes_handled      = 0;
 
         if (m_b_threaded)
         {
@@ -143,9 +150,8 @@ namespace adam
 
     bool port::stop()
     {
-        auto* stat_data = get_state_buffer_data();
+        set_state(state_stopped);
 
-        stat_data->cur_state = state_stopped;
         m_started->set_value(false);
 
         if (m_b_threaded && m_thread.joinable())
@@ -167,5 +173,7 @@ namespace adam
         m_use_spinlock(false)
     {
         m_state_buffer = buffer_manager::get().request_buffer(state_buffer_size);
+        
+        reset_state_buffer();
     }
 }

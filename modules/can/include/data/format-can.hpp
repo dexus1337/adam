@@ -13,8 +13,10 @@
 
 #include <adam-sdk.hpp>
 
+#include "module/module-can.hpp"
+
 
 namespace adam::modules::can
 {
-    static const data_format data_format_can = data_format( "can" );
+    static const data_format data_format_can = data_format("can", nullptr, nullptr, get_adam_module());
 }

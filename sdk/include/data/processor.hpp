@@ -92,6 +92,9 @@ namespace adam
         const data_format* get_input_data_format()  const { return m_format_input; }
         const data_format* get_output_data_format() const { return m_format_output; }
 
+        buffer*             get_state_buffer()      const { return m_state_buffer; }
+        state_buffer_data*  get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
+
         virtual const string_hashed_ct& get_type_name() const = 0;
 
         /** @brief Data management routine, arrives here, and may be changed to another buffer */

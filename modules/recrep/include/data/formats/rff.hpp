@@ -34,7 +34,7 @@ namespace adam::modules::recrep
         using time_string        = text_field<19>;
         using ref_name_string    = text_field<12>;
         using user_string        = text_field<11>;
-        using system_id_string   = text_field<11>;
+        using system_id_string   = text_field<5>;
         using data_source_string = text_field<16>;
         using interface_string   = text_field<5>;
 
@@ -77,13 +77,15 @@ namespace adam::modules::recrep
             int32_t             speed               = 0;
         };
         #pragma pack(pop)
+        static_assert(sizeof(file_header) == 128, "rff::file_header size is not 128 bytes");
 
         #pragma pack(push, 1)
         struct block_header
         {
-            uint32_t        time_to_start_ms;   // ms since start of file
+            uint32_t        time_of_day_ms;   // ms since start of file
             uint16_t        block_size_bytes;
         };
         #pragma pack(pop)
+        static_assert(sizeof(block_header) == 6, "rff::file_header size is not 6 bytes");
     }
 }

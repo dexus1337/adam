@@ -1,7 +1,7 @@
 #include "module/module.hpp"
 
 
-#include "data/data-format-asterix.hpp"
+#include "data/format-asterix.hpp"
 #include "data/converter/asterix-to-text-converter.hpp"
 
 

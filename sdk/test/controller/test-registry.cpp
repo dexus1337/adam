@@ -650,11 +650,12 @@ TEST_F(registry_test, unavailable_processors)
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
 
-    adam::data_format dummy_fmt1("fmt1"_ct);
-    adam::data_format dummy_fmt2("fmt2"_ct);
-
     // 1. Setup mock module with mock processor
     adam::test::mock_module mock_mod("mock_mod"_ct);
+
+    adam::data_format dummy_fmt1("fmt1"_ct, nullptr, nullptr, &mock_mod);
+    adam::data_format dummy_fmt2("fmt2"_ct, nullptr, nullptr, &mock_mod);
+
     mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory, dummy_fmt1.get_name(), 0, dummy_fmt2.get_name(), 0);
     adam::test::mock_module_injector injector(reg, &mock_mod);
 

@@ -335,19 +335,27 @@ namespace adam
                     if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prc->get_parameters().get("type_origin_module"_ct)))
                         type_module = mod_param->get_value();
 
-                    buffer_handle handle; // if processor starts supporting state buffers
-
-                    proc_info->setup(prc->get_name(), prc->get_type_name().get_hash(), type_module.get_hash(), is_filter, false, handle);
+                    proc_info->setup
+                    (
+                        prc->get_name(), 
+                        prc->get_type_name().get_hash(), 
+                        type_module.get_hash(), 
+                        is_filter, 
+                        false, 
+                        prc->get_state_buffer()->get_handle()
+                    );
                     
-                    if (prc->get_input_data_format())
-                        proc_info->input_datatype = prc->get_input_data_format()->get_name().get_hash();
-                    else
-                        proc_info->input_datatype = 0;
+                    auto* in_fmt = prc->get_input_data_format();
+                    auto* in_mod = in_fmt ? in_fmt->get_origin_module() : nullptr;
 
-                    if (prc->get_output_data_format())
-                        proc_info->output_datatype = prc->get_output_data_format()->get_name().get_hash();
-                    else
-                        proc_info->output_datatype = 0;
+                    auto* out_fmt = prc->get_output_data_format();
+                    auto* out_mod = out_fmt ? out_fmt->get_origin_module() : nullptr;
+
+                    proc_info->input_datatype            = in_fmt ? in_fmt->get_name().get_hash() : 0ull;
+                    proc_info->input_datatype_module     = in_mod ? in_mod->get_name().get_hash() : 0ull;
+
+                    proc_info->output_datatype           = out_fmt ? out_fmt->get_name().get_hash() : 0ull;
+                    proc_info->output_datatype_module    = out_mod ? out_mod->get_name().get_hash() : 0ull;
 
                     auto* user_param = dynamic_cast<configuration_parameter_list*>(prc->get_parameters().get("user_parameters"_ct));
 
@@ -406,7 +414,7 @@ namespace adam
                 if (conn->get_input_format())
                     conn_info->input_format = conn->get_input_format()->get_name().get_hash();
                 else
-                    conn_info->input_format = ("transparent"_ct).get_hash();
+                    conn_info->input_format = "transparent"_ct.get_hash();
                 
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("input_format_module"_ct)))
                     conn_info->input_format_module = param->get_value().get_hash();
@@ -416,7 +424,7 @@ namespace adam
                 if (conn->get_output_format())
                     conn_info->output_format = conn->get_output_format()->get_name().get_hash();
                 else
-                    conn_info->output_format = ("transparent"_ct).get_hash();
+                    conn_info->output_format = "transparent"_ct.get_hash();
                 
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("output_format_module"_ct)))
                     conn_info->output_format_module = param->get_value().get_hash();
@@ -483,7 +491,7 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct)))
                     conn_info->input_format = param->get_value().get_hash();
                 else
-                    conn_info->input_format = ("transparent"_ct).get_hash();
+                    conn_info->input_format = "transparent"_ct.get_hash();
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format_module"_ct)))
                     conn_info->input_format_module = param->get_value().get_hash();
                 else
@@ -492,7 +500,7 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format"_ct)))
                     conn_info->output_format = param->get_value().get_hash();
                 else
-                    conn_info->output_format = ("transparent"_ct).get_hash();
+                    conn_info->output_format = "transparent"_ct.get_hash();
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format_module"_ct)))
                     conn_info->output_format_module = param->get_value().get_hash();
                 else
@@ -655,109 +663,6 @@ namespace adam
 
             auto name_view = name.c_str();
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_created, ctx.ctrl.get_language()), ctx.tid, name_view);
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::processor_create, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<processor::basic_info>();
-            string_hashed name(params->name);
-
-            processor* new_processor = nullptr;
-            registry::status res = ctx.reg.create_processor(name, params->type, params->type_module, params->is_filter, &new_processor);
-
-            if (res != registry::status_success)
-            {
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            // Build the event from the resolved processor state, not the raw command params.
-            // params->type is a hash that may differ from the actual factory key string hash
-            // (though typically they are the same); more importantly params->input_datatype
-            // and output_datatype are always 0 from the GUI command — the real values come
-            // from the factory registration, which create_processor already applied.
-            event evt(event_type::processor_created);
-            auto* evt_data = evt.data_as<processor::basic_info>();
-
-            bool is_filter = false;
-            if (auto* param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
-                is_filter = param->get_value();
-
-            string_hashed type_module;
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type_origin_module"_ct)))
-                type_module = mod_param->get_value();
-
-            buffer_handle handle; // processors don't currently expose a state buffer handle
-
-            evt_data->setup(new_processor->get_name(), new_processor->get_type_name().get_hash(), type_module.get_hash(), is_filter, false, handle);
-
-            evt_data->input_datatype  = new_processor->get_input_data_format()  ? new_processor->get_input_data_format()->get_name().get_hash()  : 0;
-            evt_data->output_datatype = new_processor->get_output_data_format() ? new_processor->get_output_data_format()->get_name().get_hash() : 0;
-
-            evt_data->input_datatype_module  = 0;
-            evt_data->output_datatype_module = 0;
-            evt_data->user_parameters        = 0;
-
-            ctx.ctrl.broadcast_event(evt);
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::processor_destroy, [](const command* cmds, size_t, command_context& ctx)
-        {
-            auto params = cmds->get_data_as<messages::processor_destroy_data>();
-
-            registry::status res = ctx.reg.destroy_processor(params->processor);
-            if (res != registry::status_success)
-            {
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            event evt(event_type::processor_destroyed);
-            evt.data_as<messages::processor_action_data>()->processor = params->processor;
-            ctx.ctrl.broadcast_event(evt);
-
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::connection_processor_add, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_processor_add_data>();
-
-            registry::status res = ctx.reg.connection_add_processor(params->connection, params->processor);
-
-            if (res != registry::status_success)
-            {
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            event evt(event_type::connection_processor_added);
-            auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
-            *evt_data = *params;
-            ctx.ctrl.broadcast_event(evt);
-
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::connection_processor_remove, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_processor_add_data>();
-
-            registry::status res = ctx.reg.connection_remove_processor(params->connection, params->processor);
-
-            if (res != registry::status_success)
-            {
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            event evt(event_type::connection_processor_removed);
-            auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
-            *evt_data = *params;
-            ctx.ctrl.broadcast_event(evt);
-
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -974,6 +879,46 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(command_type::connection_processor_add, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_processor_add_data>();
+
+            registry::status res = ctx.reg.connection_add_processor(params->connection, params->processor);
+
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_processor_added);
+            auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_processor_remove, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_processor_add_data>();
+
+            registry::status res = ctx.reg.connection_remove_processor(params->connection, params->processor);
+
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::connection_processor_removed);
+            auto* evt_data = evt.data_as<messages::connection_processor_add_data>();
+            *evt_data = *params;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(command_type::connection_sorting_index_change, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_property_change_data>();
@@ -1060,7 +1005,7 @@ namespace adam
 
             auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
             {
-                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
+                if (fmt_hash == 0 || fmt_hash == "transparent"_ct.get_hash())
                     return; // stays transparent
 
                 if (mod_hash != 0)
@@ -1146,7 +1091,7 @@ namespace adam
 
             auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
             {
-                if (fmt_hash == 0 || fmt_hash == ("transparent"_ct).get_hash())
+                if (fmt_hash == 0 || fmt_hash == "transparent"_ct.get_hash())
                     return; // stays transparent
 
                 if (mod_hash != 0)
@@ -1209,6 +1154,116 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_input_inspector_create, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto conn = ctx.reg.connections().find(params->connection);
+
+            if (conn == ctx.reg.connections().end())
+            {
+                std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
+                ctx.set_single_response_status(response_status::unknown);
+                return;
+            }
+
+            const auto& conn_name = conn->second->get_name();
+            auto new_inspector = std::make_shared<data_inspector>();
+
+            if (!new_inspector->open(conn_name.get_hash() ^ ("input"_ct).get_hash(), ctx.tid))
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            conn->second->inspectors_input().push_back(new_inspector);
+            ctx.thread_connection_input_inspectors.emplace(params->connection, new_inspector);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_input_inspector_destroy, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto it = ctx.thread_connection_input_inspectors.find(params->connection);
+
+            if (it == ctx.thread_connection_input_inspectors.end())
+            {
+                std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto conn = ctx.reg.connections().find(params->connection);
+            std::string conn_str = conn != ctx.reg.connections().end() ? std::string(conn->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->connection));
+
+            if (conn != ctx.reg.connections().end())
+                conn->second->inspectors_input().remove(it->second);
+
+            ctx.thread_connection_input_inspectors.erase(it);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_output_inspector_create, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto conn = ctx.reg.connections().find(params->connection);
+
+            if (conn == ctx.reg.connections().end())
+            {
+                std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
+                ctx.set_single_response_status(response_status::unknown);
+                return;
+            }
+
+            const auto& conn_name = conn->second->get_name();
+            auto new_inspector = std::make_shared<data_inspector>();
+
+            if (!new_inspector->open(conn_name.get_hash() ^ ("output"_ct).get_hash(), ctx.tid))
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            conn->second->inspectors_output().push_back(new_inspector);
+            ctx.thread_connection_output_inspectors.emplace(params->connection, new_inspector);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::connection_output_inspector_destroy, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_action_data>();
+            auto it = ctx.thread_connection_output_inspectors.find(params->connection);
+
+            if (it == ctx.thread_connection_output_inspectors.end())
+            {
+                std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto conn = ctx.reg.connections().find(params->connection);
+            std::string conn_str = conn != ctx.reg.connections().end() ? std::string(conn->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->connection));
+
+            if (conn != ctx.reg.connections().end())
+                conn->second->inspectors_output().remove(it->second);
+
+            ctx.thread_connection_output_inspectors.erase(it);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1450,6 +1505,77 @@ namespace adam
                 ctx.set_single_response_status(response_status::failed);
             }
         });
+        
+        register_handler(command_type::processor_create, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<processor::basic_info>();
+            string_hashed name(params->name);
+
+            processor* new_processor = nullptr;
+            registry::status res = ctx.reg.create_processor(name, params->type, params->type_module, params->is_filter, &new_processor);
+
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            // Build the event from the resolved processor state, not the raw command params.
+            event evt(event_type::processor_created);
+            auto* evt_data = evt.data_as<processor::basic_info>();
+
+            bool is_filter = false;
+            if (auto* param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
+                is_filter = param->get_value();
+
+            string_hashed type_module;
+            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type_origin_module"_ct)))
+                type_module = mod_param->get_value();
+
+            evt_data->setup
+            (
+                new_processor->get_name(), 
+                new_processor->get_type_name().get_hash(), 
+                type_module.get_hash(), 
+                is_filter, 
+                false, 
+                new_processor->get_state_buffer()->get_handle()
+            );
+
+            auto* in_fmt = new_processor->get_input_data_format();
+            auto* in_mod = in_fmt ? in_fmt->get_origin_module() : nullptr;
+
+            auto* out_fmt = new_processor->get_output_data_format();
+            auto* out_mod = out_fmt ? out_fmt->get_origin_module() : nullptr;
+
+            evt_data->input_datatype            = in_fmt ? in_fmt->get_name().get_hash() : 0ull;
+            evt_data->input_datatype_module     = in_mod ? in_mod->get_name().get_hash() : 0ull;
+
+            evt_data->output_datatype           = out_fmt ? out_fmt->get_name().get_hash() : 0ull;
+            evt_data->output_datatype_module    = out_mod ? out_mod->get_name().get_hash() : 0ull;
+
+            ctx.ctrl.broadcast_event(evt);
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::processor_destroy, [](const command* cmds, size_t, command_context& ctx)
+        {
+            auto params = cmds->get_data_as<messages::processor_destroy_data>();
+
+            registry::status res = ctx.reg.destroy_processor(params->processor);
+            if (res != registry::status_success)
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::processor_destroyed);
+            evt.data_as<messages::processor_action_data>()->processor = params->processor;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(command_type::processor_set_parameter, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::processor_set_parameter_data>();
@@ -1713,117 +1839,6 @@ namespace adam
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
-
-        register_handler(command_type::connection_input_inspector_create, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_action_data>();
-            auto conn = ctx.reg.connections().find(params->connection);
-
-            if (conn == ctx.reg.connections().end())
-            {
-                std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
-                ctx.set_single_response_status(response_status::unknown);
-                return;
-            }
-
-            const auto& conn_name = conn->second->get_name();
-            auto new_inspector = std::make_shared<data_inspector>();
-
-            if (!new_inspector->open(conn_name.get_hash() ^ ("input"_ct).get_hash(), ctx.tid))
-            {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            conn->second->inspectors_input().push_back(new_inspector);
-            ctx.thread_connection_input_inspectors.emplace(params->connection, new_inspector);
-
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::connection_input_inspector_destroy, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_action_data>();
-            auto it = ctx.thread_connection_input_inspectors.find(params->connection);
-
-            if (it == ctx.thread_connection_input_inspectors.end())
-            {
-                std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            auto conn = ctx.reg.connections().find(params->connection);
-            std::string conn_str = conn != ctx.reg.connections().end() ? std::string(conn->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->connection));
-
-            if (conn != ctx.reg.connections().end())
-                conn->second->inspectors_input().remove(it->second);
-
-            ctx.thread_connection_input_inspectors.erase(it);
-
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::connection_output_inspector_create, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_action_data>();
-            auto conn = ctx.reg.connections().find(params->connection);
-
-            if (conn == ctx.reg.connections().end())
-            {
-                std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
-                ctx.set_single_response_status(response_status::unknown);
-                return;
-            }
-
-            const auto& conn_name = conn->second->get_name();
-            auto new_inspector = std::make_shared<data_inspector>();
-
-            if (!new_inspector->open(conn_name.get_hash() ^ ("output"_ct).get_hash(), ctx.tid))
-            {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            conn->second->inspectors_output().push_back(new_inspector);
-            ctx.thread_connection_output_inspectors.emplace(params->connection, new_inspector);
-
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
-            ctx.set_single_response_status(response_status::success);
-        });
-
-        register_handler(command_type::connection_output_inspector_destroy, [](const command* cmds, size_t, command_context& ctx) 
-        {
-            auto params = cmds->get_data_as<messages::connection_action_data>();
-            auto it = ctx.thread_connection_output_inspectors.find(params->connection);
-
-            if (it == ctx.thread_connection_output_inspectors.end())
-            {
-                std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
-                ctx.set_single_response_status(response_status::failed);
-                return;
-            }
-
-            auto conn = ctx.reg.connections().find(params->connection);
-            std::string conn_str = conn != ctx.reg.connections().end() ? std::string(conn->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->connection));
-
-            if (conn != ctx.reg.connections().end())
-                conn->second->inspectors_output().remove(it->second);
-
-            ctx.thread_connection_output_inspectors.erase(it);
-
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
-            ctx.set_single_response_status(response_status::success);
-        });
-
     }
 
     std::string_view controller_cmd_dispatcher::get_log_event_text(log_event event, language lang)
