@@ -33,7 +33,7 @@ TEST_F(controller_cmd_dispatcher_test, register_and_dispatch_custom_handler)
     
     std::vector<adam::response> resps;
     resps.emplace_back();
-    adam::command_context ctx { 0, reg, ctrl, resps, {} };
+    adam::command_context ctx { 0, reg, ctrl, resps, {}, {}, {} };
     
     // Creating a standard command which inherently falls outside our custom boundaries unless specifically modified.
     adam::command cmd;
@@ -77,7 +77,7 @@ TEST_F(controller_cmd_dispatcher_test, multiple_responses)
     resps.emplace_back();
     resps.emplace_back();
     resps.emplace_back();
-    adam::command_context ctx { 0, reg, ctrl, resps, {} };
+    adam::command_context ctx { 0, reg, ctrl, resps, {}, {}, {} };
     dispatcher.dispatch(&cmd, 1, ctx);
     
     ASSERT_EQ(resps.size(), static_cast<size_t>(3));
@@ -123,7 +123,7 @@ TEST_F(controller_cmd_dispatcher_test, connection_set_input_data_format_dispatch
 
     std::vector<adam::response> resps;
     resps.emplace_back();
-    adam::command_context ctx { 0, reg, ctrl, resps, {} };
+    adam::command_context ctx { 0, reg, ctrl, resps, {}, {}, {} };
     dispatcher.dispatch(&cmd, 1, ctx);
 
     EXPECT_EQ(resps[0].get_type(), adam::response_status::success);

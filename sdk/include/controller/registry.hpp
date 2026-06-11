@@ -213,17 +213,18 @@ namespace adam
         /** @brief Destroys the registry object. */
         ~registry();
 
-        port_map                m_ports;                /**< The list of configuration parameters for ports. */
-        processor_map           m_processors;           /**< The list of configuration parameters for processors. */
-        connection_map          m_connections;          /**< The list of configuration parameters for connections. */
+        port_map                    m_ports;                    /**< The list of configuration parameters for ports. */
+        processor_map               m_processors;               /**< The list of configuration parameters for processors. */
+        connection_map              m_connections;              /**< The list of configuration parameters for connections. */
 
-        unavailable_port_map    m_unavailable_ports;    /**< The list of ports that failed to load because their module was missing. */
-        unavailable_connection_map m_unavailable_connections; /**< The list of connections that failed to load because their module format was missing. */
-        unavailable_processor_map m_unavailable_processors; /**< The list of processors that failed to load because their module was missing. */
+        unavailable_port_map        m_unavailable_ports;        /**< The list of ports that failed to load because their module was missing. */
+        unavailable_connection_map  m_unavailable_connections;  /**< The list of connections that failed to load because their module format was missing. */
+        unavailable_processor_map   m_unavailable_processors;   /**< The list of processors that failed to load because their module was missing. */
 
-        port_factory_map        m_default_port_factory; /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
+        port_factory_map            m_default_port_factory;     /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
+        processor_factory_map       m_default_processor_factory;/**< A map of default factories for creating processors, used when loading configurations that reference processors without specific factory information. */
 
-        controller&             m_controller;           /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
-        registry_module_manager m_modules;              /**< Manages external modules loaded into the registry. */
+        controller&                 m_controller;               /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
+        registry_module_manager     m_modules;                  /**< Manages external modules loaded into the registry. */
     };
 }

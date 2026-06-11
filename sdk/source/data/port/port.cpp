@@ -16,6 +16,7 @@ namespace adam
             adam::configuration_parameter_list_sorted p;
             return p;
         }();
+
         static adam::configuration_parameter_list params = []() 
         {
             adam::configuration_parameter_list p;
@@ -27,6 +28,7 @@ namespace adam
             p.add(std::make_unique<adam::configuration_parameter_string>("type_origin_module"_ct));
             return p;
         }();
+        
         return params;
     }
 

@@ -33,25 +33,6 @@ namespace adam
 {
     static default_factory<port, port_internal> global_port_internal_factory = default_factory<port, port_internal>();
 
-    std::string_view registry::get_status_text(status status, language lang)
-    {
-        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
-        {
-            { static_cast<int>(status_success), { "Success.", "Erfolgreich." } },
-            { static_cast<int>(status_error_port_already_exists), { "A port with this name already exists.", "Ein Port mit diesem Namen existiert bereits." } },
-            { static_cast<int>(status_error_module_not_found), { "The specified module was not found or is not loaded.", "Das angegebene Modul wurde nicht gefunden oder ist nicht geladen." } },
-            { static_cast<int>(status_error_factory_not_found), { "No factory found for the specified port type.", "Für den angegebenen Port-Typ wurde keine Factory gefunden." } },
-            { static_cast<int>(status_error_port_not_found), { "The specified port was not found.", "Der angegebene Port wurde nicht gefunden." } },
-            { static_cast<int>(status_error_creation_failed), { "Port creation failed internally.", "Die interne Erstellung des Ports ist fehlgeschlagen." } },
-            { static_cast<int>(status_error_connection_already_exists), { "A connection with this name already exists.", "Eine Verbindung mit diesem Namen existiert bereits." } },
-            { static_cast<int>(status_error_connection_not_found), { "The specified connection was not found.", "Die angegebene Verbindung wurde nicht gefunden." } }
-        };
-
-        auto it = translations.find(static_cast<int>(status));
-        if (it != translations.end()) return it->second[static_cast<size_t>(lang)];
-        return "Unknown registry status.";
-    }
-
     const configuration_parameter_list& registry::get_default_parameters()
     {
         static adam::configuration_parameter_list params = []() 
@@ -62,6 +43,10 @@ namespace adam
             auto module_paths = std::make_unique<configuration_parameter_list>("module_paths"_ct);
             module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
             p.add(std::move(module_paths));
+
+            p.add(std::move(std::make_unique<configuration_parameter_list>("ports"_ct)));
+            p.add(std::move(std::make_unique<configuration_parameter_list_sorted>("processors"_ct)));
+            p.add(std::move(std::make_unique<configuration_parameter_list>("connections"_ct)));
 
             return p;
         }();
@@ -74,6 +59,7 @@ namespace adam
         m_processors(),
         m_connections(),
         m_default_port_factory(),
+        m_default_processor_factory(),
         m_controller(ctrl),
         m_modules(ctrl)
     {
@@ -151,7 +137,7 @@ namespace adam
 
         if (type_module != 0)
         {
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_port->get_parameters().get("type_origin_module"_ct)))
+            if (auto* mod_param = new_port->get_parameter<configuration_parameter_string>("type_origin_module"_ct))
                 mod_param->set_value(resolved_module_name);
         }
 
@@ -302,9 +288,8 @@ namespace adam
         if (m_processors.find(name) != m_processors.end())
             return status_error_port_already_exists;
 
-        const factory_data_processor* factory_data = nullptr;
+        const factory_data_processor* processor_factory = nullptr;
         string_hashed resolved_module_name;
-        string_hashed resolved_type_name;
 
         if (type_module != 0)
         {
@@ -322,28 +307,31 @@ namespace adam
             const auto& mod_factories = mod->get_processor_factories();
             auto factory_it = mod_factories.find(type);
             if (factory_it != mod_factories.end())
-            {
-                factory_data = &factory_it->second;
-                resolved_type_name = factory_it->first;  // preserve the real type name string
-            }
+                processor_factory = &factory_it->second;
+        }
+        else
+        {
+            auto it = m_default_processor_factory.find(type);
+            if (it != m_default_processor_factory.end())
+                processor_factory = &it->second;
         }
 
-        if (!factory_data || !factory_data->factory_ptr)
+        if (!processor_factory)
             return status_error_factory_not_found;
 
-        auto new_processor = factory_data->factory_ptr->create(name);
+        auto new_processor = processor_factory->factory_ptr->create(name);
         if (!new_processor)
             return status_error_creation_failed;
 
         const data_format* in_fmt = &data_format_transparent;
-        if (factory_data->input_datatype != 0)
+        if (processor_factory->input_datatype != 0)
         {
-            if (factory_data->input_datatype_module != 0)
+            if (processor_factory->input_datatype_module != 0)
             {
-                auto mod_it = m_modules.get_loaded_modules().find(factory_data->input_datatype_module);
+                auto mod_it = m_modules.get_loaded_modules().find(processor_factory->input_datatype_module);
                 if (mod_it != m_modules.get_loaded_modules().end() && mod_it->second)
                 {
-                    auto fmt_it = mod_it->second->get_data_formats().find(factory_data->input_datatype);
+                    auto fmt_it = mod_it->second->get_data_formats().find(processor_factory->input_datatype);
                     if (fmt_it != mod_it->second->get_data_formats().end())
                         in_fmt = fmt_it->second;
                 }
@@ -351,14 +339,14 @@ namespace adam
         }
 
         const data_format* out_fmt = &data_format_transparent;
-        if (factory_data->output_datatype != 0)
+        if (processor_factory->output_datatype != 0)
         {
-            if (factory_data->output_datatype_module != 0)
+            if (processor_factory->output_datatype_module != 0)
             {
-                auto mod_it = m_modules.get_loaded_modules().find(factory_data->output_datatype_module);
+                auto mod_it = m_modules.get_loaded_modules().find(processor_factory->output_datatype_module);
                 if (mod_it != m_modules.get_loaded_modules().end() && mod_it->second)
                 {
-                    auto fmt_it = mod_it->second->get_data_formats().find(factory_data->output_datatype);
+                    auto fmt_it = mod_it->second->get_data_formats().find(processor_factory->output_datatype);
                     if (fmt_it != mod_it->second->get_data_formats().end())
                         out_fmt = fmt_it->second;
                 }
@@ -372,8 +360,6 @@ namespace adam
         {
             if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type_origin_module"_ct)))
                 mod_param->set_value(resolved_module_name);
-            if (auto* type_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type"_ct)))
-                type_param->set_value(resolved_type_name);
         }
 
         if (auto* filter_param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
@@ -1665,5 +1651,24 @@ namespace adam
             return true;
         }
         return false;
+    }
+    
+    std::string_view registry::get_status_text(status status, language lang)
+    {
+        static const std::unordered_map<int, std::array<std::string_view, languages_count>> translations =
+        {
+            { static_cast<int>(status_success), { "Success.", "Erfolgreich." } },
+            { static_cast<int>(status_error_port_already_exists), { "A port with this name already exists.", "Ein Port mit diesem Namen existiert bereits." } },
+            { static_cast<int>(status_error_module_not_found), { "The specified module was not found or is not loaded.", "Das angegebene Modul wurde nicht gefunden oder ist nicht geladen." } },
+            { static_cast<int>(status_error_factory_not_found), { "No factory found for the specified port type.", "Für den angegebenen Port-Typ wurde keine Factory gefunden." } },
+            { static_cast<int>(status_error_port_not_found), { "The specified port was not found.", "Der angegebene Port wurde nicht gefunden." } },
+            { static_cast<int>(status_error_creation_failed), { "Port creation failed internally.", "Die interne Erstellung des Ports ist fehlgeschlagen." } },
+            { static_cast<int>(status_error_connection_already_exists), { "A connection with this name already exists.", "Eine Verbindung mit diesem Namen existiert bereits." } },
+            { static_cast<int>(status_error_connection_not_found), { "The specified connection was not found.", "Die angegebene Verbindung wurde nicht gefunden." } }
+        };
+
+        auto it = translations.find(static_cast<int>(status));
+        if (it != translations.end()) return it->second[static_cast<size_t>(lang)];
+        return "Unknown registry status.";
     }
 }
