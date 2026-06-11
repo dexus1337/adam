@@ -51,13 +51,15 @@ namespace adam::modules::recrep
 
         static const configuration_parameter_list& get_default_parameters();
 
+        /** @brief Returns the map of supported format name hashes to their file extensions (e.g. "pcap"_ct -> ".pcap"). */
+        static const std::unordered_map<string_hash, string_hashed_ct>& get_format_map();
+
         /** @brief Constructs a new input port object. */
         port_input_replay(const string_hashed& item_name);
 
         /** @brief Destroys the input port object and cleans up resources. */
         ~port_input_replay();
         
-
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
 
         /** @brief Checks for available file(s) */
@@ -78,9 +80,20 @@ namespace adam::modules::recrep
 
         bool open_next_file();
 
-        std::vector<std::string>    m_files;
-        size_t                      m_current_file_index;
-        std::ifstream               m_file_stream;
+        /**
+         * @brief Attempts to open the currently-open m_file_stream as the given format.
+         * Reads and validates the format-specific file header. On success, advances
+         * m_current_file_index, fills the state buffer and sets m_is_first_packet.
+         * @param fmt_hash  Hash of the format name (e.g. "pcap"_ct or "rff"_ct).
+         * @param log_errors  When false, suppresses log output (used in "any" mode probing).
+         * @return true if the file was successfully validated as the given format.
+         */
+        bool try_open_as(string_hash fmt_hash, bool log_errors = true);
+
+        std::vector<std::pair<std::string, string_hash>>    m_files; // path + resolved format hash
+        size_t                                              m_current_file_index;
+        std::ifstream                                       m_file_stream;
+        string_hash                                         m_file_format;
         
         bool                                    m_is_first_packet;
         std::chrono::steady_clock::time_point   m_replay_start_time;
