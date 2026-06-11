@@ -7,6 +7,12 @@
 #include <iostream>
 
 #define GENERATE_STRING_HASHED_TESTS(CHAR_TYPE, PREFIX, TYPE_NAME) \
+    /** @brief Tests empty strings, should have hash == 0. */ \
+    TEST(string_hashed, empty##TYPE_NAME) \
+    { \
+        adam::string_hashed_template<CHAR_TYPE> str1(PREFIX##""); \
+        EXPECT_EQ(str1.get_hash(), 0ull); \
+    } \
     /** @brief Tests the initialization of string_hashed objects. */ \
     TEST(string_hashed, set_##TYPE_NAME) \
     { \
@@ -81,14 +87,14 @@
         } \
         EXPECT_EQ(match, 2); \
     } \
-    /** @brief Tests heterogeneous lookup using uint64_t hash for runtime strings. */ \
+    /** @brief Tests heterogeneous lookup using adam::string_hash hash for runtime strings. */ \
     TEST(string_hashed, transparent_lookup_##TYPE_NAME) \
     { \
         std::unordered_map<adam::string_hashed_template<CHAR_TYPE>, int> test_map; \
         adam::string_hashed_template<CHAR_TYPE> key_1(PREFIX##"transparent_test"); \
         test_map[key_1] = 42; \
         \
-        uint64_t raw_hash = key_1.get_hash(); \
+        adam::string_hash raw_hash = key_1.get_hash(); \
         auto it = test_map.find(raw_hash); \
         ASSERT_NE(it, test_map.end()); \
         EXPECT_EQ(it->second, 42); \
@@ -118,7 +124,7 @@ TEST(string_hashed, benchmark_vs_fnv1a)
 
     // Benchmark adam::string_hashed (rapidhash)
     auto start_rapid = std::chrono::high_resolution_clock::now();
-    uint64_t dummy_rapid = 0;
+    adam::string_hash dummy_rapid = 0;
     for (size_t i = 0; i < num_iterations; ++i) {
         sh[0] = static_cast<char>(i % 256);
         sh.calculate_hash();
@@ -129,10 +135,10 @@ TEST(string_hashed, benchmark_vs_fnv1a)
 
     // Benchmark FNV-1a
     auto start_fnv = std::chrono::high_resolution_clock::now();
-    uint64_t dummy_fnv = 0;
+    adam::string_hash dummy_fnv = 0;
     for (size_t i = 0; i < num_iterations; ++i) {
         test_str[0] = static_cast<char>(i % 256);
-        uint64_t hash = 0xcbf29ce484222325ULL;
+        adam::string_hash hash = 0xcbf29ce484222325ULL;
         for (size_t j = 0; j < test_str.length(); ++j) {
             hash ^= static_cast<uint8_t>(test_str[j]);
             hash *= 0x100000001b3ULL;

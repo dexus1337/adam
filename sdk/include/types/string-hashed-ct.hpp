@@ -33,7 +33,7 @@ namespace adam
         /** @brief Constructs a new string_hashed_ct_template object. */
         template<size_t string_len>
         ADAM_CONSTEVAL string_hashed_ct_template(const char_type (&arr)[string_len]) 
-            : m_text(&arr[0]), m_length(string_len - 1), m_hash(rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type))) { }
+            : m_text(&arr[0]), m_length(string_len - 1), m_hash((string_len - 1) ? rapidhash_ct(&arr[0], (string_len - 1) * sizeof(char_type)) : 0) { }
 
         /** @brief Internal constructor for User-Defined Literals. */
         ADAM_CONSTEVAL string_hashed_ct_template(const char_type* str, size_t len) 

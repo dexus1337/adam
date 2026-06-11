@@ -30,14 +30,17 @@ namespace adam::test
         local_controller() : adam::controller() {}
     };
 
-    struct loaded_modules_tag {
+    struct loaded_modules_tag 
+    {
         using type = adam::registry_module_manager::map_loaded_modules adam::registry_module_manager::*;
         friend type get_private(loaded_modules_tag);
     };
 
     template <typename Tag, typename Tag::type Member>
-    struct private_accessor {
-        friend typename Tag::type get_private(Tag) {
+    struct private_accessor 
+    {
+        friend typename Tag::type get_private(Tag) 
+        {
             return Member;
         }
     };
@@ -97,7 +100,7 @@ namespace adam::test
             : m_reg(reg), m_name(mod->get_name())
         {
             auto& loaded_modules = reg.modules().*get_private(loaded_modules_tag{});
-            loaded_modules[m_name] = mod;
+            loaded_modules.emplace(m_name, mod);
         }
 
         ~mock_module_injector()
@@ -517,8 +520,8 @@ TEST_F(registry_test, unavailable_connections)
 /** @brief Tests basic processor creation, renaming, and destruction. */
 TEST_F(registry_test, create_rename_destroy_processor)
 {
-    adam::test::mock_module mock_mod("asterix"_ct);
-    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
@@ -526,19 +529,19 @@ TEST_F(registry_test, create_rename_destroy_processor)
 
     // Attempt to create a processor with an invalid type should fail
     adam::processor* invalid_proc = nullptr;
-    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "non_existent_type"_ct, "asterix"_ct, false, &invalid_proc), adam::registry::status_error_factory_not_found);
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "non_existent_type"_ct, "mock_mod"_ct, false, &invalid_proc), adam::registry::status_error_factory_not_found);
     EXPECT_EQ(invalid_proc, nullptr);
 
     // Create a valid processor
     adam::processor* created_proc = nullptr;
-    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &created_proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &created_proc), adam::registry::status_success);
     ASSERT_NE(created_proc, nullptr);
     EXPECT_EQ(reg.processors().size(), 1u);
     EXPECT_TRUE(reg.processors().contains("test_proc_1"_ct));
 
     // Attempt to create a duplicate processor should fail
     adam::processor* duplicate_proc = nullptr;
-    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &duplicate_proc), adam::registry::status_error_port_already_exists);
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &duplicate_proc), adam::registry::status_error_port_already_exists);
     EXPECT_EQ(duplicate_proc, nullptr);
 
     // Rename the processor
@@ -557,15 +560,15 @@ TEST_F(registry_test, create_rename_destroy_processor)
 /** @brief Tests adding and removing a processor to/from a connection. */
 TEST_F(registry_test, connection_processor_management)
 {
-    adam::test::mock_module mock_mod("asterix"_ct);
-    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
     adam::test::mock_module_injector injector(reg, &mock_mod);
 
     adam::processor* proc = nullptr;
-    EXPECT_EQ(reg.create_processor("proc1"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
 
     // Create a connection
@@ -607,15 +610,15 @@ TEST_F(registry_test, connection_processor_management)
 /** @brief Tests that destroying a processor cleans up any references in connections. */
 TEST_F(registry_test, destroy_processor_updates_connections)
 {
-    adam::test::mock_module mock_mod("asterix"_ct);
-    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
     adam::test::mock_module_injector injector(reg, &mock_mod);
 
     adam::processor* proc = nullptr;
-    EXPECT_EQ(reg.create_processor("proc_to_del"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_to_del"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc), adam::registry::status_success);
 
     // Create a connection and add processor
     adam::connection* conn = nullptr;
@@ -624,7 +627,8 @@ TEST_F(registry_test, destroy_processor_updates_connections)
 
     // Verify presence in connection double buffer
     bool found = false;
-    conn->processors().iterate([&](const auto& procs) {
+    conn->processors().iterate([&](const auto& procs) 
+    {
         if (!procs.empty() && procs[0] == proc) found = true;
     });
     EXPECT_TRUE(found);
@@ -634,7 +638,8 @@ TEST_F(registry_test, destroy_processor_updates_connections)
 
     // Verify it was removed from connection double buffer
     found = false;
-    conn->processors().iterate([&](const auto& procs) {
+    conn->processors().iterate([&](const auto& procs) 
+    {
         if (procs.empty()) found = true;
     });
     EXPECT_TRUE(found);
@@ -643,8 +648,8 @@ TEST_F(registry_test, destroy_processor_updates_connections)
 /** @brief Tests processor serialization (saving and loading) and ordering works correctly. */
 TEST_F(registry_test, processor_load_save_persistence)
 {
-    adam::test::mock_module mock_mod("asterix"_ct);
-    mock_mod.register_processor_factory("asterix-to-text-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
@@ -653,9 +658,9 @@ TEST_F(registry_test, processor_load_save_persistence)
     adam::processor* proc1 = nullptr;
     adam::processor* proc2 = nullptr;
     adam::processor* proc3 = nullptr;
-    EXPECT_EQ(reg.create_processor("proc_first"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc1), adam::registry::status_success);
-    EXPECT_EQ(reg.create_processor("proc_second"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc2), adam::registry::status_success);
-    EXPECT_EQ(reg.create_processor("proc_third"_ct, "asterix-to-text-converter"_ct, "asterix"_ct, false, &proc3), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_first"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc1), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_second"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc2), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_third"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc3), adam::registry::status_success);
 
     adam::connection* conn = nullptr;
     EXPECT_EQ(reg.create_connection("persisted_conn"_ct, &conn), adam::registry::status_success);
@@ -670,7 +675,7 @@ TEST_F(registry_test, processor_load_save_persistence)
     adam::registry& loaded_reg = loaded_ctrl.get_registry();
     adam::test::mock_module_injector loaded_injector(loaded_reg, &mock_mod);
     
-    EXPECT_TRUE(loaded_reg.load(test_filepath));
+    EXPECT_TRUE(loaded_reg.load(test_filepath)); // TODO: load will remove all currently loaded modules, so we need another workaround
 
     // Verify processors were recreated
     EXPECT_EQ(loaded_reg.processors().size(), 3u);

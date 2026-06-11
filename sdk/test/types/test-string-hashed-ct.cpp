@@ -6,6 +6,12 @@
 #include <string_view>
 
 #define GENERATE_STRING_HASHED_CT_TESTS(CHAR_TYPE, PREFIX, TYPE_NAME) \
+    /** @brief Tests empty strings, should have hash == 0. */ \
+    TEST(string_hashed_ct, empty##TYPE_NAME) \
+    { \
+        adam::string_hashed_ct_template<CHAR_TYPE> str1(PREFIX##""); \
+        EXPECT_EQ(str1.get_hash(), 0ull); \
+    } \
     /** @brief Tests the initialization of string_hashed_ct_template objects. */ \
     TEST(string_hashed_ct, set_##TYPE_NAME) \
     { \
@@ -32,14 +38,17 @@
         ADAM_CONSTEXPR adam::string_hashed_ct_template<CHAR_TYPE> str1(PREFIX##"Hello"); \
         ADAM_CONSTEXPR adam::string_hashed_ct_template<CHAR_TYPE> str2(PREFIX##"Hello"); \
         ADAM_CONSTEXPR adam::string_hashed_ct_template<CHAR_TYPE> str3(PREFIX##"World"); \
+        ADAM_CONSTEXPR adam::string_hashed_ct_template<CHAR_TYPE> str4(PREFIX##""); \
         adam::string_hashed_template<CHAR_TYPE> str_rt1(PREFIX##"Hello"); \
         adam::string_hashed_template<CHAR_TYPE> str_rt2(PREFIX##"Hello"); \
         adam::string_hashed_template<CHAR_TYPE> str_rt3(PREFIX##"World"); \
+        adam::string_hashed_template<CHAR_TYPE> str_rt4(PREFIX##""); \
         EXPECT_EQ(str1.get_hash(), str2.get_hash()); \
         EXPECT_EQ(str1.get_hash(), str_rt1.get_hash()); \
         EXPECT_EQ(str1.get_hash(), str_rt2.get_hash()); \
         EXPECT_NE(str1.get_hash(), str3.get_hash()); \
         EXPECT_NE(str1.get_hash(), str_rt3.get_hash()); \
+        EXPECT_EQ(str4.get_hash(), str_rt4.get_hash()); \
         EXPECT_TRUE(str1 == str2); \
         EXPECT_TRUE(str1 != str3); \
     } \
@@ -63,14 +72,14 @@
         size_t system_hash = hasher(sh); \
         EXPECT_EQ(system_hash, static_cast<size_t>(sh.get_hash())); \
     } \
-    /** @brief Tests heterogeneous lookup using uint64_t hash for compile-time strings. */ \
+    /** @brief Tests heterogeneous lookup using adam::string_hash hash for compile-time strings. */ \
     TEST(string_hashed_ct, transparent_lookup_##TYPE_NAME) \
     { \
         std::unordered_map<adam::string_hashed_ct_template<CHAR_TYPE>, int> test_map; \
         ADAM_CONSTEXPR adam::string_hashed_ct_template<CHAR_TYPE> key_1(PREFIX##"transparent_ct_test"); \
         test_map.emplace(key_1, 84); \
         \
-        uint64_t raw_hash = key_1.get_hash(); \
+        adam::string_hash raw_hash = key_1.get_hash(); \
         auto it = test_map.find(raw_hash); \
         ASSERT_NE(it, test_map.end()); \
         EXPECT_EQ(it->second, 84); \
