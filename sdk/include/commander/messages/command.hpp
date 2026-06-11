@@ -64,8 +64,8 @@ namespace adam
         connection_input_inspector_destroy,
         connection_output_inspector_create,
         connection_output_inspector_destroy,
-        inspector_create,
-        inspector_destroy,
+        port_inspector_create,
+        port_inspector_destroy,
 
         processor_create,
         processor_set_parameter,

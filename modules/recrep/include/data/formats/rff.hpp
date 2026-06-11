@@ -82,7 +82,7 @@ namespace adam::modules::recrep
         #pragma pack(push, 1)
         struct block_header
         {
-            uint32_t        time_of_day_ms;   // ms since start of file
+            uint32_t        time_diff_ms;       // ms since start of file
             uint16_t        block_size_bytes;
         };
         #pragma pack(pop)

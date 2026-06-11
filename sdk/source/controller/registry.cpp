@@ -927,6 +927,37 @@ namespace adam
         }
     }
 
+    void registry::stop_items()
+    {
+        if (!m_ports.empty() || !m_connections.empty())
+        {
+            std::vector<response> dummy_responses(1);
+            command_context ctx { os::get_current_thread_id(), *this, m_controller, dummy_responses, {} };
+
+            for (auto& [port_hash, port_ptr] : m_ports)
+            {
+                if (port_ptr->get_parameter<configuration_parameter_boolean>("started"_ct)->get_value())
+                {
+                    command cmd(command_type::port_stop);
+                    if (auto* data = cmd.data_as<messages::port_action_data>())
+                        data->port = port_hash;
+                    m_controller.dispatcher().dispatch(&cmd, 1, ctx);
+                }
+            }
+
+            for (auto& [conn_hash, conn_ptr] : m_connections)
+            {
+                if (conn_ptr->get_parameter<configuration_parameter_boolean>("started"_ct)->get_value())
+                {
+                    command cmd(command_type::connection_stop);
+                    if (auto* data = cmd.data_as<messages::connection_action_data>())
+                        data->connection = conn_hash;
+                    m_controller.dispatcher().dispatch(&cmd, 1, ctx);
+                }
+            }
+        }
+    }
+
     void registry::retry_unavailable_ports(string_hash module_hash)
     {
         for (auto it = m_unavailable_ports.begin(); it != m_unavailable_ports.end();)

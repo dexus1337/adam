@@ -184,17 +184,17 @@ namespace adam
         };
         static_assert(sizeof(port_set_parameter_data) <= command::get_max_data_length(), "port_set_parameter_data exceeds maximum command data size");
 
-        struct inspector_create_data
+        struct port_inspector_create_data
         {
             string_hash port;
         };
-        static_assert(sizeof(inspector_create_data) <= command::get_max_data_length(), "inspector_create_data exceeds maximum command data size");
+        static_assert(sizeof(port_inspector_create_data) <= command::get_max_data_length(), "port_inspector_create_data exceeds maximum command data size");
 
-        struct inspector_destroy_data
+        struct port_inspector_destroy_data
         {
             string_hash port;
         };
-        static_assert(sizeof(inspector_destroy_data) <= command::get_max_data_length(), "inspector_destroy_data exceeds maximum command data size");
+        static_assert(sizeof(port_inspector_destroy_data) <= command::get_max_data_length(), "port_inspector_destroy_data exceeds maximum command data size");
 
         struct connection_destroy_data
         {

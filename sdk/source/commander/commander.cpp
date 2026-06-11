@@ -774,8 +774,8 @@ namespace adam
             return response_status::inspector_start_failed;
         }
 
-        command cmd(command_type::inspector_create);
-        cmd.data_as<messages::inspector_create_data>()->port = port_hash;
+        command cmd(command_type::port_inspector_create);
+        cmd.data_as<messages::port_inspector_create_data>()->port = port_hash;
 
         response_status res = send_command(cmd);
         if (res != response_status::success)
@@ -800,8 +800,8 @@ namespace adam
         auto it = m_inspectors.find(inspector->get_port_hash());
         if (it != m_inspectors.end() && it->second == inspector)
         {
-            command cmd(command_type::inspector_destroy);
-            cmd.data_as<messages::inspector_destroy_data>()->port = it->first;
+            command cmd(command_type::port_inspector_destroy);
+            cmd.data_as<messages::port_inspector_destroy_data>()->port = it->first;
 
             response_status res = send_command(cmd);
             if (res == response_status::success)

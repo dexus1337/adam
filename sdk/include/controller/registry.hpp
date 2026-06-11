@@ -178,6 +178,9 @@ namespace adam
         /** @brief Resumes active items based on their loaded configuration, must be called after system initialization */
         void resume_active_items();
 
+        /** @brief Stops active items, must be called before system shutdown */
+        void stop_items();
+
         /** @brief Adds a new module path to the configuration if it doesn't already exist. */
         bool add_module_path(const string_hashed& path, uint32_t* index = nullptr);
 

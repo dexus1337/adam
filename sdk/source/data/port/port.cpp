@@ -34,12 +34,8 @@ namespace adam
 
     port::~port() 
     {
-        if (m_b_threaded && m_thread.joinable())
-        {
-            m_started->set_value(false);
-            m_thread.join();
-        }
-
+        stop();
+        
         m_inspectors.iterate([&](const auto& active_inspectors) 
         {
             for (const auto& data_inspector : active_inspectors) 

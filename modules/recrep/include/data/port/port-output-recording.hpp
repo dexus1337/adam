@@ -32,8 +32,7 @@ namespace adam::modules::recrep
 
         enum log_event
         {
-            file_open_failed,
-            format_not_implemented
+            file_open_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

@@ -36,8 +36,7 @@ namespace adam::modules::recrep
         {
             file_too_small,
             invalid_magic_number,
-            unsupported_version,
-            format_not_implemented
+            unsupported_version
         };
 
         struct replay_state_buffer_data : public adam::port::state_buffer_data
@@ -72,19 +71,19 @@ namespace adam::modules::recrep
 
     private:
 
-        adam::configuration_parameter_double* m_speed_param = nullptr;
-        adam::configuration_parameter_string* m_mode_param = nullptr;
-        adam::configuration_parameter_string* m_data_format_param = nullptr;
-        adam::configuration_parameter_string* m_timestamps_param = nullptr;
+        adam::configuration_parameter_double* m_speed_param;
+        adam::configuration_parameter_string* m_mode_param;
+        adam::configuration_parameter_string* m_data_format_param;
+        adam::configuration_parameter_string* m_timestamps_param;
 
         bool open_next_file();
 
-        std::vector<std::string> m_files;
-        size_t m_current_file_index = 0;
-        std::ifstream m_file_stream;
+        std::vector<std::string>    m_files;
+        size_t                      m_current_file_index;
+        std::ifstream               m_file_stream;
         
-        bool m_is_first_packet = true;
-        std::chrono::steady_clock::time_point m_replay_start_time;
-        std::chrono::microseconds m_first_packet_timestamp_us;
+        bool                                    m_is_first_packet;
+        std::chrono::steady_clock::time_point   m_replay_start_time;
+        std::chrono::nanoseconds                m_first_packet_timestamp_ns;
     };
 }
