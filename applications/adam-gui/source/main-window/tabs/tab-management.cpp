@@ -231,25 +231,48 @@ namespace adam::gui
                         float proc_w = port_w;
                         float node_h = ImGui::GetTextLineHeight() * 2.0f;
 
+                        ImVec2 cur_pos = ImGui::GetCursorScreenPos();
                         ImDrawList* draw_list = ImGui::GetWindowDrawList();
-                        ImVec2 p_min = ImGui::GetWindowPos();
-                        ImVec2 p_max(p_min.x + proc_w, p_min.y + node_h);
 
                         ImColor col = get_gui_color(gui_color_id::node_processor);
                         col.Value.w *= 0.7f;
                         if (is_unavail) col.Value.w *= 0.4f;
 
-                        draw_list->AddRectFilled(p_min, p_max, col, 6.0f * dpi_scale);
-                        draw_list->AddRect(p_min, p_max, ImColor(col.Value.x * 1.2f, col.Value.y * 1.2f, col.Value.z * 1.2f, col.Value.w), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+                        connection_pin_data p_in, p_out;
+                        std::vector<expanded_port_draw_info> deferred;
 
-                        float text_width = ImGui::CalcTextSize(name).x;
-                        float text_x = p_min.x + (proc_w - text_width) * 0.5f;
-                        if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
-                        ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
-                        
-                        draw_list->PushClipRect(p_min, p_max, true);
-                        draw_list->AddText(text_pos, ImColor(1.0f, 1.0f, 1.0f, col.Value.w), name);
-                        draw_list->PopClipRect();
+                        auto conn_it = reg_view.get_connections().find(conn_hash);
+                        auto* conn = conn_it != reg_view.get_connections().end() ? conn_it->second.get() : nullptr;
+
+                        draw_connection_node(
+                            ctrl,
+                            lang,
+                            conn,
+                            conn_hash,
+                            dpi_scale,
+                            draw_list,
+                            cur_pos,
+                            proc_w,
+                            0.0f,
+                            proc_w,
+                            node_h,
+                            node_h,
+                            1,
+                            proc_w,
+                            true, // is_drag_preview
+                            name,
+                            node_type_processor,
+                            0,
+                            0.0f,
+                            col,
+                            p_in,
+                            p_out,
+                            is_unavail,
+                            nullptr,
+                            0, // port_hash = 0 avoids tooltip or action triggers
+                            0.0f,
+                            deferred
+                        );
 
                         ImGui::Dummy(ImVec2(proc_w, node_h));
                     }

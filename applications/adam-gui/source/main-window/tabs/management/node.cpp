@@ -772,7 +772,7 @@ namespace adam::gui
         ImVec2 p_max(node_x + current_node_w, node_y + node_h);
             
         draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
-        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f, color.Value.w), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
 
         ImGui::SetCursorScreenPos(p_min);
         ImGui::PushID((const void*)(intptr_t)(get_unique_node_id(port_hash, hash, stage) ^ 0xABCD));
@@ -928,7 +928,7 @@ namespace adam::gui
             if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
             ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
             draw_list->PushClipRect(p_min, p_max, true);
-            draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
+            draw_list->AddText(text_pos, ImColor(1.0f, 1.0f, 1.0f, color.Value.w), name);
             draw_list->PopClipRect();
         }
 
