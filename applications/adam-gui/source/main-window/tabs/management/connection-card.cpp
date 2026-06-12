@@ -585,7 +585,7 @@ namespace adam::gui
                     {
                         s_formats_frame = ImGui::GetFrameCount();
                         available_formats.clear();
-                        available_formats.push_back({ "transparent"_ct, ""_ct });
+                        available_formats.push_back({ "transparent"_ct, "internal"_ct });
                         for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
                         {
                             if (loaded_modules.find(mod_name) != loaded_modules.end())
@@ -596,37 +596,37 @@ namespace adam::gui
                         }
                     }
 
-                    if (is_unavailable)
-                    {
-                        bool is_in_transparent = conn->input_format.empty() || conn->input_format.get_hash() == "transparent"_ct.get_hash();
-                        if (!is_in_transparent && conn->input_format_module.get_hash() != 0 && loaded_modules.find(conn->input_format_module.get_hash()) == loaded_modules.end())
-                        {
-                            input_missing = true;
-                        }
-                        
-                        bool is_out_transparent = conn->output_format.empty() || conn->output_format.get_hash() == "transparent"_ct.get_hash();
-                        if (!is_out_transparent && conn->output_format_module.get_hash() != 0 && loaded_modules.find(conn->output_format_module.get_hash()) == loaded_modules.end())
-                        {
-                            output_missing = true;
-                        }
-                    }
+                     if (is_unavailable)
+                     {
+                         bool is_in_transparent = conn->input_format.get_hash() == "transparent"_ct.get_hash();
+                         if (!is_in_transparent && conn->input_format_module.get_hash() != "internal"_ct.get_hash() && loaded_modules.find(conn->input_format_module.get_hash()) == loaded_modules.end())
+                         {
+                             input_missing = true;
+                         }
+                         
+                         bool is_out_transparent = conn->output_format.get_hash() == "transparent"_ct.get_hash();
+                         if (!is_out_transparent && conn->output_format_module.get_hash() != "internal"_ct.get_hash() && loaded_modules.find(conn->output_format_module.get_hash()) == loaded_modules.end())
+                         {
+                             output_missing = true;
+                         }
+                     }
                 }
 
                 ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y));
                 char in_fmt_str[256];
-                if (conn->input_format.empty() || conn->input_format == "transparent"_ct)
-                {
-                    snprintf(in_fmt_str, sizeof(in_fmt_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
-                }
-                else
-                {
-                    snprintf(in_fmt_str, sizeof(in_fmt_str), "%s", conn->input_format.c_str());
-                }
-                if (conn->input_format_module.c_str()[0] != '\0')
-                {
-                    size_t len = strlen(in_fmt_str);
-                    snprintf(in_fmt_str + len, sizeof(in_fmt_str) - len, " [%s]", conn->input_format_module.c_str());
-                }
+                 if (conn->input_format == "transparent"_ct)
+                 {
+                     snprintf(in_fmt_str, sizeof(in_fmt_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
+                 }
+                 else
+                 {
+                     snprintf(in_fmt_str, sizeof(in_fmt_str), "%s", conn->input_format.c_str());
+                 }
+                 if (!conn->input_format_module.empty() && conn->input_format_module != "internal"_ct)
+                 {
+                     size_t len = strlen(in_fmt_str);
+                     snprintf(in_fmt_str + len, sizeof(in_fmt_str) - len, " [%s]", conn->input_format_module.c_str());
+                 }
 
                 if (input_missing)
                 {
@@ -656,16 +656,16 @@ namespace adam::gui
                 {
                     for (const auto& [fmt, mod] : available_formats)
                     {
-                        char item_str[256];
-                        if (fmt == "transparent"_ct)
-                            snprintf(item_str, sizeof(item_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
-                        else
-                            snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
-                        if (mod.c_str()[0] != '\0')
-                        {
-                            size_t len = strlen(item_str);
-                            snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
-                        }
+                         char item_str[256];
+                         if (fmt == "transparent"_ct)
+                             snprintf(item_str, sizeof(item_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
+                         else
+                             snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
+                         if (!mod.empty() && mod != "internal"_ct)
+                         {
+                             size_t len = strlen(item_str);
+                             snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
+                         }
                         
                         bool is_selected = (fmt == conn->input_format && mod == conn->input_format_module);
                         if (ImGui::Selectable(item_str, is_selected))
@@ -724,19 +724,19 @@ namespace adam::gui
 
                 ImGui::SetCursorScreenPos(ImVec2(cur_pos.x + avail_x - port_w, cur_pos.y));
                 char out_fmt_str[256];
-                if (conn->output_format.empty() || conn->output_format == "transparent"_ct)
-                {
-                    snprintf(out_fmt_str, sizeof(out_fmt_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
-                }
-                else
-                {
-                    snprintf(out_fmt_str, sizeof(out_fmt_str), "%s", conn->output_format.c_str());
-                }
-                if (conn->output_format_module.c_str()[0] != '\0')
-                {
-                    size_t len = strlen(out_fmt_str);
-                    snprintf(out_fmt_str + len, sizeof(out_fmt_str) - len, " [%s]", conn->output_format_module.c_str());
-                }
+                 if (conn->output_format == "transparent"_ct)
+                 {
+                     snprintf(out_fmt_str, sizeof(out_fmt_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
+                 }
+                 else
+                 {
+                     snprintf(out_fmt_str, sizeof(out_fmt_str), "%s", conn->output_format.c_str());
+                 }
+                 if (!conn->output_format_module.empty() && conn->output_format_module != "internal"_ct)
+                 {
+                     size_t len = strlen(out_fmt_str);
+                     snprintf(out_fmt_str + len, sizeof(out_fmt_str) - len, " [%s]", conn->output_format_module.c_str());
+                 }
 
                 if (output_missing)
                 {
@@ -802,16 +802,16 @@ namespace adam::gui
                 {
                     for (const auto& [fmt, mod] : available_formats)
                     {
-                        char item_str[256];
-                        if (fmt == "transparent"_ct)
-                            snprintf(item_str, sizeof(item_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
-                        else
-                            snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
-                        if (mod.c_str()[0] != '\0')
-                        {
-                            size_t len = strlen(item_str);
-                            snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
-                        }
+                         char item_str[256];
+                         if (fmt == "transparent"_ct)
+                             snprintf(item_str, sizeof(item_str), "%s", get_gui_string(gui_string_id::lbl_data_format_transparent_none, lang));
+                         else
+                             snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
+                         if (!mod.empty() && mod != "internal"_ct)
+                         {
+                             size_t len = strlen(item_str);
+                             snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
+                         }
                         
                         bool is_selected = (fmt == conn->output_format && mod == conn->output_format_module);
                         if (ImGui::Selectable(item_str, is_selected))

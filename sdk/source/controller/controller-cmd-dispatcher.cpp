@@ -825,7 +825,8 @@ namespace adam
                 evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
+            const char* dir_str = params->is_input ? (ctx.ctrl.get_language() == language_german ? "Eingang" : "input") : (ctx.ctrl.get_language() == language_german ? "Ausgang" : "output");
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), dir_str, conn_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -867,7 +868,8 @@ namespace adam
                 evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
+            const char* dir_str = params->is_input ? (ctx.ctrl.get_language() == language_german ? "Eingang" : "input") : (ctx.ctrl.get_language() == language_german ? "Ausgang" : "output");
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), dir_str, conn_str.c_str());
             
             if (it_port != ctx.reg.ports().end())
             {
@@ -1123,43 +1125,8 @@ namespace adam
                 return;
             }
 
-            const data_format* in_fmt  = &data_format_transparent;
-            string_hashed resolved_in_module;
-
-            auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
-            {
-                if (fmt_hash == 0 || fmt_hash == "transparent"_ct.get_hash())
-                    return; // stays transparent
-
-                if (mod_hash != 0)
-                {
-                    auto mod_it = ctx.reg.modules().get_loaded_modules().find(mod_hash);
-                    if (mod_it != ctx.reg.modules().get_loaded_modules().end())
-                    {
-                        auto fmt_it = mod_it->second->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod_it->second->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_it->first;
-                        }
-                    }
-                }
-                else
-                {
-                    for (const auto& [mod_name, mod] : ctx.reg.modules().get_loaded_modules())
-                    {
-                        auto fmt_it = mod->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_name;
-                            break;
-                        }
-                    }
-                }
-            };
-
-            resolve_format(params->format, params->format_module, in_fmt, resolved_in_module);
+            const data_format* in_fmt = ctx.reg.get_data_format(params->format, params->format_module);
+            string_hashed resolved_in_module = in_fmt->get_origin_module() ? in_fmt->get_origin_module()->get_name() : "internal"_ct;
 
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
             {
@@ -1168,7 +1135,7 @@ namespace adam
                     p->set_value(value);
             };
 
-            set_str_param("input_format"_ct,        in_fmt  == &data_format_transparent ? "transparent"_ct : in_fmt->get_name());
+            set_str_param("input_format"_ct, in_fmt->get_name());
             set_str_param("input_format_module"_ct, resolved_in_module);
 
             bool valid_chain = false;
@@ -1235,43 +1202,8 @@ namespace adam
                 return;
             }
 
-            const data_format* out_fmt = &data_format_transparent;
-            string_hashed resolved_out_module;
-
-            auto resolve_format = [&](string_hash fmt_hash, string_hash mod_hash, const data_format*& out_format, string_hashed& out_module)
-            {
-                if (fmt_hash == 0 || fmt_hash == "transparent"_ct.get_hash())
-                    return; // stays transparent
-
-                if (mod_hash != 0)
-                {
-                    auto mod_it = ctx.reg.modules().get_loaded_modules().find(mod_hash);
-                    if (mod_it != ctx.reg.modules().get_loaded_modules().end())
-                    {
-                        auto fmt_it = mod_it->second->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod_it->second->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_it->first;
-                        }
-                    }
-                }
-                else
-                {
-                    for (const auto& [mod_name, mod] : ctx.reg.modules().get_loaded_modules())
-                    {
-                        auto fmt_it = mod->get_data_formats().find(fmt_hash);
-                        if (fmt_it != mod->get_data_formats().end())
-                        {
-                            out_format = fmt_it->second;
-                            out_module = mod_name;
-                            break;
-                        }
-                    }
-                }
-            };
-
-            resolve_format(params->format, params->format_module, out_fmt, resolved_out_module);
+            const data_format* out_fmt = ctx.reg.get_data_format(params->format, params->format_module);
+            string_hashed resolved_out_module = out_fmt->get_origin_module() ? out_fmt->get_origin_module()->get_name() : "internal"_ct;
 
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
             {
@@ -1280,7 +1212,7 @@ namespace adam
                     p->set_value(value);
             };
 
-            set_str_param("output_format"_ct,        out_fmt == &data_format_transparent ? "transparent"_ct : out_fmt->get_name());
+            set_str_param("output_format"_ct, out_fmt->get_name());
             set_str_param("output_format_module"_ct, resolved_out_module);
 
             bool valid_chain = false;
@@ -2267,7 +2199,7 @@ namespace adam
             },
             {
                 log_event::connection_port_added,
-                { "Thread {:d} successfully added port \"{}\" to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich zur Verbindung \"{}\" hinzugefügt." }
+                { "Thread {:d} successfully added port \"{}\" as {} to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als {} zur Verbindung \"{}\" hinzugefügt." }
             },
             {
                 log_event::connection_port_add_failed,
@@ -2275,7 +2207,7 @@ namespace adam
             },
             {
                 log_event::connection_port_removed,
-                { "Thread {:d} successfully removed port \"{}\" from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich von Verbindung \"{}\" entfernt." }
+                { "Thread {:d} successfully removed port \"{}\" as {} from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als {} von Verbindung \"{}\" entfernt." }
             },
             {
                 log_event::connection_port_remove_failed,

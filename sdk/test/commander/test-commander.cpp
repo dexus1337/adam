@@ -898,3 +898,80 @@ TEST_F(commander_test, connection_data_format_changed_sync)
 
     EXPECT_TRUE(cmdr.destroy());
 }
+
+/** @brief Tests the full flow of adding and removing a port to a connection via commander and verifying event synchronization. */
+TEST_F(commander_test, request_connection_port_add_remove_flow)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    // Create a port in the controller's registry
+    adam::port* test_port = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_port("my_test_port"_ct, adam::port_internal::type_name(), 0, &test_port), adam::registry::status_success);
+    ASSERT_NE(test_port, nullptr);
+    
+    // Create a connection in the controller's registry
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_connection("my_test_conn"_ct, &conn), adam::registry::status_success);
+    ASSERT_NE(conn, nullptr);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("my_test_conn"_ct).get_hash();
+    auto port_hash = ("my_test_port"_ct).get_hash();
+
+    // Verify it is initially empty on both sides
+    const auto& conn_view = cmdr.get_registry().get_connections().at(conn_hash);
+    EXPECT_TRUE(conn_view->inputs.empty());
+    EXPECT_TRUE(conn_view->outputs.empty());
+
+    // 1. Request to add as input
+    EXPECT_EQ(cmdr.request_connection_port_add(conn_hash, port_hash, true), adam::response_status::success);
+
+    // Wait for the event to propagate and update the commander's connection view
+    auto start = std::chrono::steady_clock::now();
+    while (conn_view->inputs.empty() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(conn_view->inputs.size(), 1u);
+    EXPECT_EQ(conn_view->inputs[0], port_hash);
+    EXPECT_TRUE(conn_view->outputs.empty());
+
+    // 2. Request to remove from input
+    EXPECT_EQ(cmdr.request_connection_port_remove(conn_hash, port_hash, true), adam::response_status::success);
+
+    // Wait for the event to propagate
+    start = std::chrono::steady_clock::now();
+    while (!conn_view->inputs.empty() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_TRUE(conn_view->inputs.empty());
+
+    // Recreate the port (since it gets auto-destroyed when removed from its last connection)
+    EXPECT_EQ(ctrl.get_registry().create_port("my_test_port"_ct, adam::port_internal::type_name(), 0, &test_port), adam::registry::status_success);
+    ASSERT_NE(test_port, nullptr);
+
+    // 3. Request to add as output
+    EXPECT_EQ(cmdr.request_connection_port_add(conn_hash, port_hash, false), adam::response_status::success);
+
+    // Wait for the event to propagate
+    start = std::chrono::steady_clock::now();
+    while (conn_view->outputs.empty() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(conn_view->outputs.size(), 1u);
+    EXPECT_EQ(conn_view->outputs[0], port_hash);
+    EXPECT_TRUE(conn_view->inputs.empty());
+
+    // 4. Request to remove from output
+    EXPECT_EQ(cmdr.request_connection_port_remove(conn_hash, port_hash, false), adam::response_status::success);
+
+    // Wait for the event to propagate
+    start = std::chrono::steady_clock::now();
+    while (!conn_view->outputs.empty() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_TRUE(conn_view->outputs.empty());
+
+    EXPECT_TRUE(cmdr.destroy());
+}

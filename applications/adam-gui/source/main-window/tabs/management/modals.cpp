@@ -336,7 +336,7 @@ namespace adam::gui
                             adam::string_hash port_hash = pdi.port_hash;
                             adam::port::direction dir = g_target_direction;
                             
-                            ctrl.enqueue_commander_action([&ctrl, conn_hash, port_hash, dir]() { ctrl.commander().request_connection_port_add(conn_hash, port_hash, dir); });
+                            ctrl.enqueue_commander_action([&ctrl, conn_hash, port_hash, dir]() { ctrl.commander().request_connection_port_add(conn_hash, port_hash, dir == adam::port::direction_in); });
                         }
                         if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                         {
@@ -421,7 +421,7 @@ namespace adam::gui
                             adam::string_hash new_port_hash = adam::string_hashed(name_buffer.data()).get_hash();
                             adam::port::direction dir = g_target_direction;
                             
-                            ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_port_hash, dir]() { ctrl.commander().request_port_create(new_name, type_hash, mod_hash); ctrl.commander().request_connection_port_add(conn_hash, new_port_hash, dir); });
+                            ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_port_hash, dir]() { ctrl.commander().request_port_create(new_name, type_hash, mod_hash); ctrl.commander().request_connection_port_add(conn_hash, new_port_hash, dir == adam::port::direction_in); });
 
                             name_buffer[0] = '\0';
                         }

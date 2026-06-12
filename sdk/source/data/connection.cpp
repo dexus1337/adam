@@ -108,17 +108,14 @@ namespace adam
             return false;
 
         bool format_mismatch = false;
-        const data_format* current_format = m_input_format ? m_input_format : &data_format_transparent;
+        const data_format* current_format = m_input_format;
 
         m_processors.iterate([&](const auto& processors)
         {
             for (auto* proc : processors)
             {
                 const data_format* proc_in = proc->get_input_data_format();
-                if (!proc_in) proc_in = &data_format_transparent;
-
                 const data_format* proc_out = proc->get_output_data_format();
-                if (!proc_out) proc_out = &data_format_transparent;
 
                 if (*current_format != *proc_in)
                 {
@@ -133,7 +130,7 @@ namespace adam
         if (format_mismatch)
             return false;
 
-        const data_format* expected_out = m_output_format ? m_output_format : &data_format_transparent;
+        const data_format* expected_out = m_output_format;
 
         if (*current_format != *expected_out)
         {

@@ -30,6 +30,7 @@ namespace adam
     class controller;
     class processor;
     class connection;
+    class module_internal;
 
     /**
      * @class registry
@@ -208,6 +209,12 @@ namespace adam
         /** @brief Marks connections originating from the given module as unavailable. */
         void mark_connections_unavailable(string_hash module_hash);
 
+        /** @brief Retrieves a pointer to a loaded module (either internal or external) by its hashed name. */
+        const module* get_module(string_hash module_hash) const;
+
+        /** @brief Retrieves a pointer to a data format (either from internal or external module) by its hashed name and originating module. */
+        const data_format* get_data_format(string_hash fmt_hash, string_hash mod_hash) const;
+
         /** @brief Deep copies a list of configuration parameters. */
         static void copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source);
 
@@ -227,8 +234,7 @@ namespace adam
         unavailable_connection_map  m_unavailable_connections;  /**< The list of connections that failed to load because their module format was missing. */
         unavailable_processor_map   m_unavailable_processors;   /**< The list of processors that failed to load because their module was missing. */
 
-        port_factory_map            m_default_port_factory;     /**< A map of default factories for creating ports, used when loading configurations that reference ports without specific factory information. */
-        processor_factory_map       m_default_processor_factory;/**< A map of default factories for creating processors, used when loading configurations that reference processors without specific factory information. */
+        std::unique_ptr<module_internal> m_internal_module;          /**< The internal module hosting built-in configurations. */
 
         controller&                 m_controller;               /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
         registry_module_manager     m_modules;                  /**< Manages external modules loaded into the registry. */
