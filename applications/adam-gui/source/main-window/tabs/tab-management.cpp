@@ -216,7 +216,8 @@ namespace adam::gui
                     const char* name = proc_it->second->name.c_str();
                     bool is_unavail = proc_it->second->is_unavailable;
 
-                    ImGui::SetNextWindowPos(ImVec2(ImGui::GetMousePos().x - g_processor_drag_offset.x, ImGui::GetMousePos().y - g_processor_drag_offset.y));
+                    float margin = 4.0f * dpi_scale;
+                    ImGui::SetNextWindowPos(ImVec2(ImGui::GetMousePos().x - g_processor_drag_offset.x - margin, ImGui::GetMousePos().y - g_processor_drag_offset.y - margin));
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
                     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
@@ -233,6 +234,8 @@ namespace adam::gui
                         float node_h = ImGui::GetTextLineHeight() * 2.0f;
 
                         ImVec2 cur_pos = ImGui::GetCursorScreenPos();
+                        cur_pos.x += margin;
+                        cur_pos.y += margin;
                         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
                         ImColor col = get_gui_color(gui_color_id::node_processor);
@@ -275,7 +278,7 @@ namespace adam::gui
                             deferred
                         );
 
-                        ImGui::Dummy(ImVec2(proc_w, node_h));
+                        ImGui::Dummy(ImVec2(proc_w + margin * 2.0f, node_h + margin * 2.0f));
                     }
                     ImGui::End();
                     ImGui::PopStyleVar();
