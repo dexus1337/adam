@@ -236,10 +236,11 @@ namespace adam::gui
                         ImVec2 p_max(p_min.x + proc_w, p_min.y + node_h);
 
                         ImColor col = get_gui_color(gui_color_id::node_processor);
+                        col.Value.w *= 0.7f;
                         if (is_unavail) col.Value.w *= 0.4f;
 
                         draw_list->AddRectFilled(p_min, p_max, col, 6.0f * dpi_scale);
-                        draw_list->AddRect(p_min, p_max, ImColor(col.Value.x * 1.2f, col.Value.y * 1.2f, col.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+                        draw_list->AddRect(p_min, p_max, ImColor(col.Value.x * 1.2f, col.Value.y * 1.2f, col.Value.z * 1.2f, col.Value.w), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
 
                         float text_width = ImGui::CalcTextSize(name).x;
                         float text_x = p_min.x + (proc_w - text_width) * 0.5f;
@@ -247,7 +248,7 @@ namespace adam::gui
                         ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
                         
                         draw_list->PushClipRect(p_min, p_max, true);
-                        draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
+                        draw_list->AddText(text_pos, ImColor(1.0f, 1.0f, 1.0f, col.Value.w), name);
                         draw_list->PopClipRect();
 
                         ImGui::Dummy(ImVec2(proc_w, node_h));

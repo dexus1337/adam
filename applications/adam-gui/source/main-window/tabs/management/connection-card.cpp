@@ -894,21 +894,27 @@ namespace adam::gui
                     int num_processors = static_cast<int>(conn->processors.size());
                     if (num_processors > 0)
                     {
-                        float slot_0_center_x = cur_pos.x + port_w + gap + proc_w * 0.5f;
-                        if (mouse_pos.x < slot_0_center_x)
+                        // Check if mouse is hovering over input port
+                        if (mouse_pos.x >= cur_pos.x && mouse_pos.x <= cur_pos.x + port_w)
                         {
                             target_idx = 0;
                         }
+                        // Check if mouse is hovering over output port
+                        else if (mouse_pos.x >= cur_pos.x + avail_x - port_w && mouse_pos.x <= cur_pos.x + avail_x)
+                        {
+                            target_idx = num_processors - 1;
+                        }
                         else
                         {
-                            target_idx = num_processors;
-                            for (int i = 0; i < num_processors - 1; ++i)
+                            // Check if mouse is hovering over any processor slot
+                            float slot_0_center_x = cur_pos.x + port_w + gap + proc_w * 0.5f;
+                            for (int i = 0; i < num_processors; ++i)
                             {
-                                float center_curr = slot_0_center_x + static_cast<float>(i) * (proc_w + gap);
-                                float center_next = slot_0_center_x + static_cast<float>(i + 1) * (proc_w + gap);
-                                if (mouse_pos.x >= center_curr && mouse_pos.x < center_next)
+                                float slot_left = slot_0_center_x - proc_w * 0.5f + static_cast<float>(i) * (proc_w + gap);
+                                float slot_right = slot_left + proc_w;
+                                if (mouse_pos.x >= slot_left && mouse_pos.x <= slot_right)
                                 {
-                                    target_idx = i + 1;
+                                    target_idx = i;
                                     break;
                                 }
                             }
@@ -1025,6 +1031,10 @@ namespace adam::gui
                 bool is_unavail = (proc_it != ctrl.commander().registry().get_processors().end() && proc_it->second->is_unavailable);
                 ImColor col = proc_col;
                 if (is_unavail) col.Value.w *= 0.4f;
+                if (g_is_dragging_processor && g_dragged_processor_conn_hash == hash && fid == g_dragged_processor_hash)
+                {
+                    col.Value.w *= 0.4f;
+                }
 
                 const char* mod_name = "Unknown";
                 if (is_unavail && proc_it->second->module_name.get_hash() != 0)
