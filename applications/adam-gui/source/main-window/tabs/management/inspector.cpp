@@ -272,7 +272,7 @@ namespace adam::gui
                         bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow, "");
 
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%zu", actual_index);
+                        ImGui::Text("%d", actual_index);
 
                         ImGui::TableSetColumnIndex(2);
                         ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
@@ -317,7 +317,7 @@ namespace adam::gui
                     bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen, "");
 
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%zu", actual_index);
+                    ImGui::Text("%d", actual_index);
 
                     ImGui::TableSetColumnIndex(2);
                     ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());

@@ -451,7 +451,7 @@ namespace adam::gui
                 if (target_idx != current_idx)
                 {
                     procs.erase(it);
-                    if (target_idx > procs.size())
+                    if (target_idx > static_cast<int>(procs.size()))
                         target_idx = static_cast<int>(procs.size());
                     procs.insert(procs.begin() + target_idx, g_dragged_processor_hash);
                     
