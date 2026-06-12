@@ -1,5 +1,5 @@
 #include "tab-configuration.hpp"
-#include "main-window.hpp"
+#include "../main-window.hpp"
 
 namespace adam::gui 
 {

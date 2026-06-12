@@ -7,10 +7,10 @@
 #include <unordered_map>
 #include <array>
 #include <algorithm>
-#include "tab-management.hpp"
-#include "tab-modules.hpp"
-#include "tab-information.hpp"
-#include "tab-configuration.hpp"
+#include "tabs/tab-management.hpp"
+#include "tabs/tab-modules.hpp"
+#include "tabs/tab-information.hpp"
+#include "tabs/tab-configuration.hpp"
 
 namespace adam::gui 
 {

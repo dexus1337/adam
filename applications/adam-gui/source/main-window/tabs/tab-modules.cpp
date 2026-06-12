@@ -1,5 +1,5 @@
 #include "tab-modules.hpp"
-#include "main-window.hpp"
+#include "../main-window.hpp"
 
 #include <imgui.h>
 #include <unordered_map>
@@ -204,7 +204,6 @@ namespace adam::gui
 
                 if (open)
                 {
-                 
                     ImGui::TreePop();
                     ImGui::EndTable();
 
@@ -288,7 +287,6 @@ namespace adam::gui
 
                                     ImGui::EndTable();
                                 }
-                                
                             }
 
                             ImGui::Spacing();
