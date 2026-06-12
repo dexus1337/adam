@@ -39,6 +39,12 @@ namespace adam::gui
         adam::string_hash g_active_drag_hash = 0;
         size_t g_active_drag_target_index = 0;
 
+        struct DragProcessorPayload
+        {
+            adam::string_hash connection;
+            adam::string_hash processor;
+        };
+
         bool g_is_dragging_processor = false;
         adam::string_hash g_dragged_processor_conn_hash = 0;
         adam::string_hash g_dragged_processor_hash = 0;
@@ -2250,6 +2256,7 @@ namespace adam::gui
                     is_being_dragged = true;
                 }
             }
+        }
         bool is_dragging_processor = false;
         if (!is_drag_preview)
         {
@@ -2257,10 +2264,6 @@ namespace adam::gui
             {
                 if (payload->IsDataType("DND_PROCESSOR"))
                 {
-                    struct DragProcessorPayload {
-                        adam::string_hash connection;
-                        adam::string_hash processor;
-                    };
                     auto* p_data = (const DragProcessorPayload*)payload->Data;
                     if (p_data->connection == hash)
                     {
@@ -2750,10 +2753,7 @@ namespace adam::gui
                 {
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
                     {
-                        struct DragProcessorPayload {
-                            adam::string_hash connection;
-                            adam::string_hash processor;
-                        } payload { hash, port_hash };
+                        DragProcessorPayload payload { hash, port_hash };
                         ImGui::SetDragDropPayload("DND_PROCESSOR", &payload, sizeof(payload));
                         ImGui::Text("Move %s", name);
                         ImGui::EndDragDropSource();
@@ -2766,10 +2766,6 @@ namespace adam::gui
                     {
                         if (payload->IsDataType("DND_PROCESSOR"))
                         {
-                            struct DragProcessorPayload {
-                                adam::string_hash connection;
-                                adam::string_hash processor;
-                            };
                             auto* p_data = (const DragProcessorPayload*)payload->Data;
                             if (p_data->connection == hash)
                             {
