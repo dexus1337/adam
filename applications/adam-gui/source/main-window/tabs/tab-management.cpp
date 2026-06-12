@@ -220,8 +220,9 @@ namespace adam::gui
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
                     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
                     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.7f);
-                    if (ImGui::Begin("##drag_processor_preview", nullptr, ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
+                    if (ImGui::Begin("##drag_processor_preview", nullptr, ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground))
                     {
                         float char_width = ImGui::CalcTextSize("x").x;
                         float desired_node_w = char_width * 40.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
@@ -278,7 +279,7 @@ namespace adam::gui
                     }
                     ImGui::End();
                     ImGui::PopStyleVar();
-                    ImGui::PopStyleColor();
+                    ImGui::PopStyleColor(2);
                     ImGui::PopStyleVar(2);
                 }
             }
