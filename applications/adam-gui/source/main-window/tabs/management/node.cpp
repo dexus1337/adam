@@ -777,7 +777,7 @@ namespace adam::gui
         ImGui::SetCursorScreenPos(p_min);
         ImGui::PushID((const void*)(intptr_t)(get_unique_node_id(port_hash, hash, stage) ^ 0xABCD));
         ImGui::SetNextItemAllowOverlap();
-        ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
+        bool clicked = ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
 
         if (type == node_type_processor && !is_drag_preview)
         {
@@ -795,41 +795,6 @@ namespace adam::gui
             }
         }
 
-        if (!is_drag_preview)
-        {
-            if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
-            {
-                if (payload->IsDataType("DND_PROCESSOR"))
-                {
-                    auto* p_data = (const DragProcessorPayload*)payload->Data;
-                    if (p_data->connection == hash)
-                    {
-                        ImVec2 mouse_pos = ImGui::GetMousePos();
-                        if (mouse_pos.x >= p_min.x && mouse_pos.x <= p_max.x && mouse_pos.y >= p_min.y && mouse_pos.y <= p_max.y)
-                        {
-                            if (type == node_type_input)
-                            {
-                                g_active_processor_drag_target_index = 0;
-                            }
-                            else if (type == node_type_output)
-                            {
-                                g_active_processor_drag_target_index = static_cast<int>(conn->processors.size());
-                            }
-                            else if (type == node_type_processor)
-                            {
-                                float center_x = (p_min.x + p_max.x) * 0.5f;
-                                int current_idx = stage - 1;
-                                if (mouse_pos.x < center_x)
-                                    g_active_processor_drag_target_index = current_idx;
-                                else
-                                    g_active_processor_drag_target_index = current_idx + 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         bool is_expanded = false;
         if (port_hash != 0)
         {
@@ -837,7 +802,7 @@ namespace adam::gui
             is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
 
             // Handle Left Click -> Expand
-            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            if (clicked)
             {
                 if (is_expanded)
                     g_expanded_nodes.erase(unique_node_id);

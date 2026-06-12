@@ -36,6 +36,7 @@ namespace adam::gui
     adam::string_hash g_dragged_processor_hash = 0;
     int g_active_processor_drag_target_index = -1;
     ImVec2 g_processor_drag_offset(0, 0);
+    int g_dragged_processor_original_index = -1;
 
     std::unordered_set<uint64_t> g_expanded_nodes;
     std::unordered_set<uint64_t> g_expanded_inject_nodes;

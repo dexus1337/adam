@@ -450,64 +450,7 @@ namespace adam::gui
                 }
             }
         }
-        bool is_dragging_processor = false;
-        if (!is_drag_preview)
-        {
-            if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
-            {
-                if (payload->IsDataType("DND_PROCESSOR"))
-                {
-                    auto* p_data = (const DragProcessorPayload*)payload->Data;
-                    if (p_data->connection == hash)
-                    {
-                        is_dragging_processor = true;
-                        g_is_dragging_processor = true;
-                        g_dragged_processor_conn_hash = hash;
-                        g_dragged_processor_hash = p_data->processor;
-                    }
-                }
-            }
-        }
 
-        if (is_dragging_processor && g_active_processor_drag_target_index != -1)
-        {
-            auto& procs = conn->processors;
-            auto it = std::find(procs.begin(), procs.end(), g_dragged_processor_hash);
-            if (it != procs.end())
-            {
-                int current_idx = static_cast<int>(std::distance(procs.begin(), it));
-                int target_idx = g_active_processor_drag_target_index;
-                if (target_idx != current_idx)
-                {
-                    procs.erase(it);
-                    if (target_idx > static_cast<int>(procs.size()))
-                        target_idx = static_cast<int>(procs.size());
-                    procs.insert(procs.begin() + target_idx, g_dragged_processor_hash);
-                    
-                    g_active_processor_drag_target_index = -1;
-                }
-            }
-        }
-
-        if (!is_drag_preview && g_is_dragging_processor && g_dragged_processor_conn_hash == hash && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-        {
-            auto it = std::find(conn->processors.begin(), conn->processors.end(), g_dragged_processor_hash);
-            if (it != conn->processors.end())
-            {
-                uint32_t final_idx = static_cast<uint32_t>(std::distance(conn->processors.begin(), it));
-                if (ctrl.is_commander_active())
-                {
-                    ctrl.enqueue_commander_action([&ctrl, hash, proc_hash = g_dragged_processor_hash, final_idx]()
-                    {
-                        ctrl.commander().request_connection_processor_reorder(hash, proc_hash, final_idx);
-                    });
-                }
-            }
-            g_is_dragging_processor = false;
-            g_dragged_processor_conn_hash = 0;
-            g_dragged_processor_hash = 0;
-            g_active_processor_drag_target_index = -1;
-        }
 
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
@@ -903,6 +846,138 @@ namespace adam::gui
             {
                 stage_pins_in[i].clear();
                 stage_pins_out[i].clear();
+            }
+
+            // Determine dragging / reordering / snapping for processor
+            bool is_dragging_processor = false;
+            bool inside_card = false;
+            ImVec2 mouse_pos = ImGui::GetMousePos();
+            if (!is_drag_preview)
+            {
+                if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
+                {
+                    if (payload->IsDataType("DND_PROCESSOR"))
+                    {
+                        auto* p_data = (const DragProcessorPayload*)payload->Data;
+                        if (p_data->connection == hash)
+                        {
+                            is_dragging_processor = true;
+                            g_is_dragging_processor = true;
+                            g_dragged_processor_conn_hash = hash;
+                            g_dragged_processor_hash = p_data->processor;
+                            
+                            if (g_dragged_processor_original_index == -1)
+                            {
+                                auto& procs = conn->processors;
+                                auto it = std::find(procs.begin(), procs.end(), g_dragged_processor_hash);
+                                if (it != procs.end())
+                                {
+                                    g_dragged_processor_original_index = static_cast<int>(std::distance(procs.begin(), it));
+                                }
+                            }
+
+                            // Bounding box of the child window
+                            ImVec2 card_min = ImGui::GetWindowPos();
+                            ImVec2 card_max = ImVec2(card_min.x + card_w, card_min.y + child_height);
+                            inside_card = (mouse_pos.x >= card_min.x && mouse_pos.x <= card_max.x &&
+                                           mouse_pos.y >= card_min.y && mouse_pos.y <= card_max.y);
+                        }
+                    }
+                }
+            }
+
+            if (g_is_dragging_processor && g_dragged_processor_conn_hash == hash)
+            {
+                int target_idx = -1;
+                if (inside_card)
+                {
+                    int num_processors = static_cast<int>(conn->processors.size());
+                    if (num_processors > 0)
+                    {
+                        float slot_0_center_x = cur_pos.x + port_w + gap + proc_w * 0.5f;
+                        if (mouse_pos.x < slot_0_center_x)
+                        {
+                            target_idx = 0;
+                        }
+                        else
+                        {
+                            target_idx = num_processors;
+                            for (int i = 0; i < num_processors - 1; ++i)
+                            {
+                                float center_curr = slot_0_center_x + static_cast<float>(i) * (proc_w + gap);
+                                float center_next = slot_0_center_x + static_cast<float>(i + 1) * (proc_w + gap);
+                                if (mouse_pos.x >= center_curr && mouse_pos.x < center_next)
+                                {
+                                    target_idx = i + 1;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Dragged outside -> snap back to original position
+                    target_idx = g_dragged_processor_original_index;
+                }
+
+                if (target_idx != -1)
+                {
+                    auto& procs = conn->processors;
+                    auto it = std::find(procs.begin(), procs.end(), g_dragged_processor_hash);
+                    if (it != procs.end())
+                    {
+                        int current_idx = static_cast<int>(std::distance(procs.begin(), it));
+                        if (target_idx != current_idx)
+                        {
+                            procs.erase(it);
+                            if (target_idx > static_cast<int>(procs.size()))
+                                target_idx = static_cast<int>(procs.size());
+                            procs.insert(procs.begin() + target_idx, g_dragged_processor_hash);
+                        }
+                    }
+                }
+            }
+
+            if (!is_drag_preview && g_is_dragging_processor && g_dragged_processor_conn_hash == hash && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                if (inside_card)
+                {
+                    auto it = std::find(conn->processors.begin(), conn->processors.end(), g_dragged_processor_hash);
+                    if (it != conn->processors.end())
+                    {
+                        uint32_t final_idx = static_cast<uint32_t>(std::distance(conn->processors.begin(), it));
+                        if (ctrl.is_commander_active())
+                        {
+                            ctrl.enqueue_commander_action([&ctrl, hash, proc_hash = g_dragged_processor_hash, final_idx]()
+                            {
+                                ctrl.commander().request_connection_processor_reorder(hash, proc_hash, final_idx);
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    // Dragged outside and released -> restore to original index silently
+                    auto& procs = conn->processors;
+                    auto it = std::find(procs.begin(), procs.end(), g_dragged_processor_hash);
+                    if (it != procs.end())
+                    {
+                        procs.erase(it);
+                        int target_idx = g_dragged_processor_original_index;
+                        if (target_idx >= 0)
+                        {
+                            if (target_idx > static_cast<int>(procs.size()))
+                                target_idx = static_cast<int>(procs.size());
+                            procs.insert(procs.begin() + target_idx, g_dragged_processor_hash);
+                        }
+                    }
+                }
+                g_is_dragging_processor = false;
+                g_dragged_processor_conn_hash = 0;
+                g_dragged_processor_hash = 0;
+                g_active_processor_drag_target_index = -1;
+                g_dragged_processor_original_index = -1;
             }
 
             ImColor in_col = get_gui_color(gui_color_id::node_input);

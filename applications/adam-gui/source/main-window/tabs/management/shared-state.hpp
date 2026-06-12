@@ -110,6 +110,7 @@ namespace adam::gui
     extern adam::string_hash g_dragged_processor_hash;
     extern int g_active_processor_drag_target_index;
     extern ImVec2 g_processor_drag_offset;
+    extern int g_dragged_processor_original_index;
 
     extern std::unordered_set<uint64_t> g_expanded_nodes;
     extern std::unordered_set<uint64_t> g_expanded_inject_nodes;
