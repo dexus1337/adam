@@ -155,93 +155,6 @@ namespace adam
         return status_success;
     }
 
-    registry::status registry::connection_remove_port(string_hash conn_hash, string_hash port_hash, bool is_input)
-    {
-        auto conn_it = m_connections.find(conn_hash);
-        if (conn_it == m_connections.end())
-        {
-            auto unavail_it = m_unavailable_connections.find(conn_hash);
-            if (unavail_it == m_unavailable_connections.end())
-                return status_error_connection_not_found;
-
-            unavail_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
-
-            auto* list = unavail_it->second->get_parameter<configuration_parameter_list>(is_input ? "inputs"_ct : "outputs"_ct);
-            std::vector<string_hashed> remaining_ports;
-
-            for (const auto& [idx_str, param] : list->get_children())
-            {
-                if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
-                {
-                    if (ref->get_target().get_hash() != port_hash)
-                    {
-                        remaining_ports.push_back(ref->get_target());
-                    }
-                }
-            }
-
-            list->clear();
-            for (size_t i = 0; i < remaining_ports.size(); ++i)
-            {
-                auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)));
-                param->set_target(remaining_ports[i]);
-                list->add(std::move(param));
-            }
-
-            return status_success;
-        }
-
-        auto port_it = m_ports.find(port_hash);
-        if (port_it == m_ports.end())
-        {
-            if (is_input)
-            {
-                auto& unavail = conn_it->second->unavailable_inputs();
-                auto it = std::find_if(unavail.begin(), unavail.end(), [port_hash](const string_hashed& sh) { return sh.get_hash() == port_hash; });
-                if (it != unavail.end())
-                    unavail.erase(it);
-            }
-            else
-            {
-                auto& unavail = conn_it->second->unavailable_outputs();
-                auto it = std::find_if(unavail.begin(), unavail.end(), [port_hash](const string_hashed& sh) { return sh.get_hash() == port_hash; });
-                if (it != unavail.end())
-                    unavail.erase(it);
-            }
-        }
-        else
-        {
-            if (is_input)
-            {
-                port_it->second->in_connections().remove(conn_it->second.get());
-                conn_it->second->ports_input().remove(port_it->second.get());
-                auto* inputs_list = conn_it->second->get_parameter<configuration_parameter_list>("inputs"_ct);
-                inputs_list->clear();
-                conn_it->second->ports_input().iterate([&](const auto& inputs) 
-                {
-                    for (size_t i = 0; i < inputs.size(); ++i)
-                        inputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), inputs[i]->get_name()));
-                });
-            }
-            else
-            {
-                port_it->second->out_connections().remove(conn_it->second.get());
-                conn_it->second->ports_output().remove(port_it->second.get());
-                auto* outputs_list = conn_it->second->get_parameter<configuration_parameter_list>("outputs"_ct);
-                outputs_list->clear();
-                conn_it->second->ports_output().iterate([&](const auto& outputs) 
-                {
-                    for (size_t i = 0; i < outputs.size(); ++i)
-                        outputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), outputs[i]->get_name()));
-                });
-            }
-        }
-            
-        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
-
-        return status_success;
-    }
-
     registry::status registry::destroy_port(string_hash hash)
     {
         auto port_it = m_ports.find(hash);
@@ -608,6 +521,97 @@ namespace adam
             outputs_list->add(std::move(param));
         }
 
+        conn_it->second->check_valid_chain();
+        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+        return status_success;
+    }
+
+    registry::status registry::connection_remove_port(string_hash conn_hash, string_hash port_hash, bool is_input)
+    {
+        auto conn_it = m_connections.find(conn_hash);
+        if (conn_it == m_connections.end())
+        {
+            auto unavail_it = m_unavailable_connections.find(conn_hash);
+            if (unavail_it == m_unavailable_connections.end())
+                return status_error_connection_not_found;
+
+            unavail_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+            auto* list = unavail_it->second->get_parameter<configuration_parameter_list>(is_input ? "inputs"_ct : "outputs"_ct);
+            std::vector<string_hashed> remaining_ports;
+
+            for (const auto& [idx_str, param] : list->get_children())
+            {
+                if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                {
+                    if (ref->get_target().get_hash() != port_hash)
+                    {
+                        remaining_ports.push_back(ref->get_target());
+                    }
+                }
+            }
+
+            list->clear();
+            for (size_t i = 0; i < remaining_ports.size(); ++i)
+            {
+                auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)));
+                param->set_target(remaining_ports[i]);
+                list->add(std::move(param));
+            }
+
+            return status_success;
+        }
+
+        auto port_it = m_ports.find(port_hash);
+        if (port_it == m_ports.end())
+        {
+            if (is_input)
+            {
+                auto& unavail = conn_it->second->unavailable_inputs();
+                auto it = std::find_if(unavail.begin(), unavail.end(), [port_hash](const string_hashed& sh) { return sh.get_hash() == port_hash; });
+                if (it != unavail.end())
+                    unavail.erase(it);
+            }
+            else
+            {
+                auto& unavail = conn_it->second->unavailable_outputs();
+                auto it = std::find_if(unavail.begin(), unavail.end(), [port_hash](const string_hashed& sh) { return sh.get_hash() == port_hash; });
+                if (it != unavail.end())
+                    unavail.erase(it);
+            }
+        }
+        else
+        {
+            if (is_input)
+            {
+                port_it->second->in_connections().remove(conn_it->second.get());
+                conn_it->second->ports_input().remove(port_it->second.get());
+                auto* inputs_list = conn_it->second->get_parameter<configuration_parameter_list>("inputs"_ct);
+                inputs_list->clear();
+                conn_it->second->ports_input().iterate([&](const auto& inputs) 
+                {
+                    for (size_t i = 0; i < inputs.size(); ++i)
+                        inputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), inputs[i]->get_name()));
+                });
+            }
+            else
+            {
+                port_it->second->out_connections().remove(conn_it->second.get());
+                conn_it->second->ports_output().remove(port_it->second.get());
+                auto* outputs_list = conn_it->second->get_parameter<configuration_parameter_list>("outputs"_ct);
+                outputs_list->clear();
+                conn_it->second->ports_output().iterate([&](const auto& outputs) 
+                {
+                    for (size_t i = 0; i < outputs.size(); ++i)
+                        outputs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), outputs[i]->get_name()));
+                });
+            }
+        }
+        
+        conn_it->second->check_valid_chain();
+        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
+
         return status_success;
     }
 
@@ -659,7 +663,7 @@ namespace adam
         procs_list->add(std::move(param));
 
         conn_it->second->check_valid_chain();
-            
+        
         return status_success;
     }
 
@@ -723,7 +727,7 @@ namespace adam
         conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
         conn_it->second->check_valid_chain();
-            
+        
         return status_success;
     }
 
@@ -1249,7 +1253,7 @@ namespace adam
 
                     if (modified)
                     {
-                        if (conn->is_started() && !conn->is_valid_chain())
+                        if (conn->is_started() && !conn->check_valid_chain())
                         {
                             conn->stop();
                             event evt_stop(event_type::connection_stopped);
@@ -1346,8 +1350,6 @@ namespace adam
                     it = m_unavailable_processors.erase(it);
                     continue;
                 }
-                else
-                {}
             }
             ++it;
         }
@@ -1397,8 +1399,7 @@ namespace adam
 
                     if (modified)
                     {
-                        conn->check_valid_chain();
-                        if (conn->is_started() && !conn->is_valid_chain())
+                        if (conn->is_started() && !conn->check_valid_chain())
                         {
                             conn->stop();
                             event evt_stop(event_type::connection_stopped);

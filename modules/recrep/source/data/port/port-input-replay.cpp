@@ -52,10 +52,10 @@ namespace adam::modules::recrep
             path_param->set_description(language_german, "Der Pfad zu Aufnahmedatei(en) oder das Verzeichnis."_ct);
             up->add(std::move(path_param));
 
-            auto speed_param = std::make_unique<adam::configuration_parameter_double>("m_speed_param->get_value()"_ct, 1.0);
+            auto speed_param = std::make_unique<adam::configuration_parameter_double>("speed"_ct, 1.0);
             speed_param->set_mode(configuration_parameter_double::value_mode_range);
             speed_param->set_range(0.0, 100.0);
-            speed_param->set_description(language_english, "The replay m_speed_param->get_value() relative to the original recording. 0.0 will send the packets instantly."_ct);
+            speed_param->set_description(language_english, "The replay speed relative to the original recording. 0.0 will send the packets instantly."_ct);
             speed_param->set_description(language_german, "Die Wiedergabegeschwindigkeit relativ zur ursprünglichen Aufnahme. 0.0 sendet die Pakete sofort."_ct);
             up->add(std::move(speed_param));
             
@@ -102,8 +102,8 @@ namespace adam::modules::recrep
         // Constructed from string_hashed_ct literals so no string processing occurs at runtime.
         static const std::unordered_map<string_hash, string_hashed_ct> formats =
         {
-            { "pcap"_ct.get_hash(), ".pcap"_ct },
-            { "rff"_ct.get_hash(),  ".rff"_ct  }
+            { ".pcap"_ct.get_hash(), "pcap"_ct },
+            { ".rff"_ct.get_hash(),  "rff"_ct  }
         };
         return formats;
     }
@@ -120,7 +120,7 @@ namespace adam::modules::recrep
 
         auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
 
-        m_speed_param       = user_params->get<adam::configuration_parameter_double>("m_speed_param->get_value()"_ct);
+        m_speed_param       = user_params->get<adam::configuration_parameter_double>("speed"_ct);
         m_mode_param        = user_params->get<adam::configuration_parameter_string>("mode"_ct);
         m_data_format_param = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
         m_timestamps_param  = user_params->get<adam::configuration_parameter_string>("timestamps"_ct);
@@ -146,7 +146,7 @@ namespace adam::modules::recrep
             if (is_any)
             {
                 const auto it = fmap.find(ext.get_hash());
-                return (it != fmap.end()) ? it->first : 0;
+                return (it != fmap.end()) ? it->second.get_hash() : 0;
             }
             return (ext == expected_ext_hashed) ? param_fmt : 0;
         };
@@ -223,45 +223,91 @@ namespace adam::modules::recrep
 
         auto lang = adam::controller::get().get_language();
 
-        if (fmt_hash == "pcap"_ct)
+        switch (fmt_hash)
         {
-            pcap::file_header fh;
-            m_file_stream.read(reinterpret_cast<char*>(&fh), sizeof(fh));
-
-            if (m_file_stream.gcount() != sizeof(fh))
+            case "pcap"_ct:
             {
-                if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(file_too_small, lang));
-                return false;
-            }
-            if (fh.magic != pcap::file_header::magic_number)
-            {
-                if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
-                return false;
-            }
-            if (fh.ver_maj != pcap::version_major || fh.ver_min != pcap::version_minor)
-            {
-                if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(unsupported_version, lang));
-                return false;
-            }
+                pcap::file_header fh;
+                m_file_stream.read(reinterpret_cast<char*>(&fh), sizeof(fh));
 
-            m_current_file_index++;
-
-            // Scan PCAP to retrieve first/last packet timestamps for the state buffer.
-            std::streampos start_pos = m_file_stream.tellg();
-            pcap::block_header bh;
-            m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
-            if (m_file_stream.gcount() == sizeof(bh))
-            {
-                uint64_t start_ts = static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull;
-                uint64_t end_ts   = start_ts;
-
-                while (get_state() != state_stopped)
+                if (m_file_stream.gcount() != sizeof(fh))
                 {
-                    m_file_stream.seekg(bh.incl_len, std::ios::cur);
-                    m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
-                    if (m_file_stream.gcount() != sizeof(bh)) break;
-                    end_ts = static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull;
+                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(file_too_small, lang));
+                    return false;
                 }
+                if (fh.magic != pcap::file_header::magic_number)
+                {
+                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
+                    return false;
+                }
+                if (fh.ver_maj != pcap::version_major || fh.ver_min != pcap::version_minor)
+                {
+                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(unsupported_version, lang));
+                    return false;
+                }
+
+                m_current_file_index++;
+
+                // Scan PCAP to retrieve first/last packet timestamps for the state buffer.
+                std::streampos start_pos = m_file_stream.tellg();
+                pcap::block_header bh;
+                m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
+                if (m_file_stream.gcount() == sizeof(bh))
+                {
+                    uint64_t start_ts = static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull;
+                    uint64_t end_ts   = start_ts;
+
+                    while (get_state() != state_stopped)
+                    {
+                        m_file_stream.seekg(bh.incl_len, std::ios::cur);
+                        m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
+                        if (m_file_stream.gcount() != sizeof(bh)) break;
+                        end_ts = static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull;
+                    }
+
+                    auto* state_data              = get_state_buffer()->data_as<replay_state_buffer_data>();
+                    state_data->file_time_start   = start_ts;
+                    state_data->file_time_end     = end_ts;
+                    state_data->replay_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
+                    const std::string& filename = m_files[m_current_file_index - 1].first;
+                    std::strncpy(state_data->file_name, filename.c_str(), sizeof(state_data->file_name) - 1);
+                    state_data->file_name[sizeof(state_data->file_name) - 1] = '\0';
+                }
+
+                m_file_stream.clear();
+                m_file_stream.seekg(start_pos);
+                m_is_first_packet = true;
+                return true;
+            }
+            case "rff"_ct:
+            {
+                rff::file_header fh;
+                m_file_stream.read(reinterpret_cast<char*>(&fh), sizeof(fh));
+
+                if (m_file_stream.gcount() != sizeof(fh))
+                {
+                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(file_too_small, lang));
+                    return false;
+                }
+                if (fh.magic != rff::file_header::magic_number)
+                {
+                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
+                    return false;
+                }
+                if (fh.version.major != '1')
+                {
+                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(unsupported_version, lang));
+                    return false;
+                }
+
+                m_current_file_index++;
+
+                auto start_tm = rff::from_time_string(fh.time_start);
+                auto end_tm   = rff::from_time_string(fh.time_end);
+
+                uint64_t start_ts = static_cast<uint64_t>(std::mktime(&start_tm)) * 1000000000ull;
+                uint64_t end_ts   = static_cast<uint64_t>(std::mktime(&end_tm))   * 1000000000ull;
 
                 auto* state_data              = get_state_buffer()->data_as<replay_state_buffer_data>();
                 state_data->file_time_start   = start_ts;
@@ -271,54 +317,11 @@ namespace adam::modules::recrep
                 const std::string& filename = m_files[m_current_file_index - 1].first;
                 std::strncpy(state_data->file_name, filename.c_str(), sizeof(state_data->file_name) - 1);
                 state_data->file_name[sizeof(state_data->file_name) - 1] = '\0';
+
+                m_is_first_packet = true;
+                return true;
+                break;
             }
-
-            m_file_stream.clear();
-            m_file_stream.seekg(start_pos);
-            m_is_first_packet = true;
-            return true;
-        }
-
-        if (fmt_hash == "rff"_ct)
-        {
-            rff::file_header fh;
-            m_file_stream.read(reinterpret_cast<char*>(&fh), sizeof(fh));
-
-            if (m_file_stream.gcount() != sizeof(fh))
-            {
-                if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(file_too_small, lang));
-                return false;
-            }
-            if (fh.magic != rff::file_header::magic_number)
-            {
-                if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
-                return false;
-            }
-            if (fh.version.major != '1')
-            {
-                if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(unsupported_version, lang));
-                return false;
-            }
-
-            m_current_file_index++;
-
-            auto start_tm = rff::from_time_string(fh.time_start);
-            auto end_tm   = rff::from_time_string(fh.time_end);
-
-            uint64_t start_ts = static_cast<uint64_t>(std::mktime(&start_tm)) * 1000000000ull;
-            uint64_t end_ts   = static_cast<uint64_t>(std::mktime(&end_tm))   * 1000000000ull;
-
-            auto* state_data              = get_state_buffer()->data_as<replay_state_buffer_data>();
-            state_data->file_time_start   = start_ts;
-            state_data->file_time_end     = end_ts;
-            state_data->replay_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-
-            const std::string& filename = m_files[m_current_file_index - 1].first;
-            std::strncpy(state_data->file_name, filename.c_str(), sizeof(state_data->file_name) - 1);
-            state_data->file_name[sizeof(state_data->file_name) - 1] = '\0';
-
-            m_is_first_packet = true;
-            return true;
         }
 
         return false;
@@ -382,45 +385,123 @@ namespace adam::modules::recrep
             }
         }
 
-        if (m_file_format == "pcap"_ct)
+        switch (m_file_format)
         {
-            pcap::block_header bh;
-            m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
-            if (m_file_stream.gcount() != sizeof(bh))
+            case "pcap"_ct:
             {
-                if (!open_next_file())
+                pcap::block_header bh;
+                m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
+                if (m_file_stream.gcount() != sizeof(bh))
                 {
-                    set_state(state_inactive);
+                    if (!open_next_file())
+                    {
+                        set_state(state_inactive);
+                        return false;
+                    }
+                    return read(buff);
+                }
+
+                std::chrono::nanoseconds packet_ts(static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + bh.ts_usec * 1000ull);
+
+                // Sleep logic for set speed
+                if (m_speed_param->get_value() > 0.0)
+                {
+                    if (m_is_first_packet)
+                    {
+                        m_is_first_packet           = false;
+                        m_first_packet_timestamp_ns = packet_ts;
+                        m_replay_start_time         = std::chrono::steady_clock::now();
+                    }
+                    else
+                    {
+                        auto elapsed_packet_time    = packet_ts - m_first_packet_timestamp_ns;
+                        auto adjusted_elapsed_time  = std::chrono::duration_cast<std::chrono::nanoseconds>
+                        (
+                            std::chrono::duration<double, std::nano>(static_cast<double>(elapsed_packet_time.count()) / m_speed_param->get_value())
+                        );
+                        auto expected_time          = m_replay_start_time + adjusted_elapsed_time;
+                        
+                        while (is_started())
+                        {
+                            auto now = std::chrono::steady_clock::now();
+                            if (now >= expected_time) break;
+                            
+                            auto sleep_duration = expected_time - now;
+                            if (sleep_duration > std::chrono::milliseconds(5))
+                            {
+                                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                            }
+                            else
+                            {
+                                std::this_thread::sleep_until(expected_time);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                buff = buffer_manager::get().request_buffer(bh.incl_len);
+                if (!buff)
+                {
                     return false;
                 }
-                return read(buff);
-            }
 
-            std::chrono::nanoseconds packet_ts(static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + bh.ts_usec * 1000ull);
-
-            // Sleep logic for set speed
-            if (m_speed_param->get_value() > 0.0)
-            {
-                if (m_is_first_packet)
+                m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.incl_len);
+                buff->set_size(bh.incl_len);
+                
+                if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
                 {
-                    m_is_first_packet           = false;
-                    m_first_packet_timestamp_ns = packet_ts;
-                    m_replay_start_time         = std::chrono::steady_clock::now();
+                    buff->set_timestamp(static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull);
                 }
                 else
                 {
-                    auto elapsed_packet_time    = packet_ts - m_first_packet_timestamp_ns;
-                    auto adjusted_elapsed_time  = std::chrono::duration_cast<std::chrono::nanoseconds>
+                    buff->set_timestamp();
+                }
+
+                return true;
+            }
+            case "rff"_ct:
+            {
+                rff::block_header bh;
+                m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
+                if (m_file_stream.gcount() != sizeof(bh))
+                {
+                    if (!open_next_file())
+                    {
+                        set_state(state_inactive);
+                        return false;
+                    }
+                    return read(buff);
+                }
+
+                // time_diff_ms is the absolute ms offset from the start of the recording
+                // (file_header.time_start). ALL packets, including the first, are scheduled at
+                // m_replay_start_time + time_diff_ms / speed. A packet at offset 0 sends immediately;
+                // a packet at offset 5000ms delays 5 seconds — which is the intended behaviour.
+                std::chrono::nanoseconds packet_ts_ns(static_cast<uint64_t>(bh.time_diff_ms) * 1000000ull);
+
+                // Sleep logic for set speed
+                if (m_speed_param->get_value() > 0.0)
+                {
+                    if (m_is_first_packet)
+                    {
+                        // Anchor wall-clock baseline at the moment the first read() is entered.
+                        // This absorbs any file-open / header-parse latency without skewing the offset.
+                        m_is_first_packet   = false;
+                        m_replay_start_time = std::chrono::steady_clock::now();
+                    }
+
+                    auto adjusted_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>
                     (
-                        std::chrono::duration<double, std::nano>(static_cast<double>(elapsed_packet_time.count()) / m_speed_param->get_value())
+                        std::chrono::duration<double, std::nano>(static_cast<double>(packet_ts_ns.count()) / m_speed_param->get_value())
                     );
-                    auto expected_time          = m_replay_start_time + adjusted_elapsed_time;
-                    
+                    auto expected_time = m_replay_start_time + adjusted_elapsed_time;
+
                     while (is_started())
                     {
                         auto now = std::chrono::steady_clock::now();
                         if (now >= expected_time) break;
-                        
+
                         auto sleep_duration = expected_time - now;
                         if (sleep_duration > std::chrono::milliseconds(5))
                         {
@@ -433,103 +514,26 @@ namespace adam::modules::recrep
                         }
                     }
                 }
-            }
 
-            buff = buffer_manager::get().request_buffer(bh.incl_len);
-            if (!buff)
-            {
-                return false;
-            }
-
-            m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.incl_len);
-            buff->set_size(bh.incl_len);
-            
-            if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
-            {
-                buff->set_timestamp(static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull);
-            }
-            else
-            {
-                buff->set_timestamp();
-            }
-
-            return true;
-        }
-
-        else if (m_file_format == "rff"_ct)
-        {
-            rff::block_header bh;
-            m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
-            if (m_file_stream.gcount() != sizeof(bh))
-            {
-                if (!open_next_file())
-                {
-                    set_state(state_inactive);
+                buff = buffer_manager::get().request_buffer(bh.block_size_bytes);
+                if (!buff)
                     return false;
-                }
-                return read(buff);
-            }
 
-            // time_diff_ms is the absolute ms offset from the start of the recording
-            // (file_header.time_start). ALL packets, including the first, are scheduled at
-            // m_replay_start_time + time_diff_ms / speed. A packet at offset 0 sends immediately;
-            // a packet at offset 5000ms delays 5 seconds — which is the intended behaviour.
-            std::chrono::nanoseconds packet_ts_ns(static_cast<uint64_t>(bh.time_diff_ms) * 1000000ull);
-
-            // Sleep logic for set speed
-            if (m_speed_param->get_value() > 0.0)
-            {
-                if (m_is_first_packet)
+                m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.block_size_bytes);
+                buff->set_size(bh.block_size_bytes);
+                
+                if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
                 {
-                    // Anchor wall-clock baseline at the moment the first read() is entered.
-                    // This absorbs any file-open / header-parse latency without skewing the offset.
-                    m_is_first_packet   = false;
-                    m_replay_start_time = std::chrono::steady_clock::now();
+                    buff->set_timestamp(state_data->file_time_start + packet_ts_ns.count());
                 }
-
-                auto adjusted_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>
-                (
-                    std::chrono::duration<double, std::nano>(static_cast<double>(packet_ts_ns.count()) / m_speed_param->get_value())
-                );
-                auto expected_time = m_replay_start_time + adjusted_elapsed_time;
-
-                while (is_started())
+                else
                 {
-                    auto now = std::chrono::steady_clock::now();
-                    if (now >= expected_time) break;
-
-                    auto sleep_duration = expected_time - now;
-                    if (sleep_duration > std::chrono::milliseconds(5))
-                    {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                    }
-                    else
-                    {
-                        std::this_thread::sleep_until(expected_time);
-                        break;
-                    }
+                    buff->set_timestamp();
                 }
-            }
 
-            buff = buffer_manager::get().request_buffer(bh.block_size_bytes);
-            if (!buff)
-                return false;
-
-            m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.block_size_bytes);
-            buff->set_size(bh.block_size_bytes);
-            
-            if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
-            {
-                buff->set_timestamp(state_data->file_time_start + packet_ts_ns.count());
-            }
-            else
-            {
-                buff->set_timestamp();
-            }
-
-            return true;
+                return true;
+            };
         }
-
         return false;
     }
 
@@ -539,15 +543,15 @@ namespace adam::modules::recrep
         {
             {
                 log_event::file_too_small,
-                { "PCAP Replay: Failed to read file header. File is too small.", "PCAP Replay: Fehler beim Lesen des Datei-Headers. Datei ist zu klein." }
+                { "Replay: Failed to read file header. File is too small.", "Replay: Fehler beim Lesen des Datei-Headers. Datei ist zu klein." }
             },
             {
                 log_event::invalid_magic_number,
-                { "PCAP Replay: Invalid magic number in PCAP file.", "PCAP Replay: Ungültige magische Zahl in der PCAP-Datei." }
+                { "Replay: Invalid magic number in file.", "Replay: Ungültige magische Zahl in der Datei." }
             },
             {
                 log_event::unsupported_version,
-                { "PCAP Replay: Unsupported PCAP version.", "PCAP Replay: Nicht unterstützte PCAP-Version." }
+                { "Replay: Unsupported version.", "Replay: Nicht unterstützte Version." }
             }
         };
 
