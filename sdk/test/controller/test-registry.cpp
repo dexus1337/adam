@@ -940,3 +940,69 @@ TEST_F(registry_test, processor_load_save_persistence)
     EXPECT_EQ(order[1], "1"_ct.get_hash());
     EXPECT_EQ(order[2], "2"_ct.get_hash());
 }
+
+/** @brief Tests manual processor reordering inside a connection. */
+TEST_F(registry_test, connection_processor_reordering)
+{
+    adam::test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+    adam::test::mock_module_injector injector(reg, &mock_mod);
+
+    adam::processor* proc1 = nullptr;
+    adam::processor* proc2 = nullptr;
+    adam::processor* proc3 = nullptr;
+    EXPECT_EQ(reg.create_processor("proc_first"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc1), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_second"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc2), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_third"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc3), adam::registry::status_success);
+
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(reg.create_connection("test_conn"_ct, &conn), adam::registry::status_success);
+    EXPECT_EQ(reg.connection_add_processor("test_conn"_ct.get_hash(), "proc_first"_ct.get_hash()), adam::registry::status_success);
+    EXPECT_EQ(reg.connection_add_processor("test_conn"_ct.get_hash(), "proc_second"_ct.get_hash()), adam::registry::status_success);
+    EXPECT_EQ(reg.connection_add_processor("test_conn"_ct.get_hash(), "proc_third"_ct.get_hash()), adam::registry::status_success);
+
+    // Initial order: first, second, third
+    conn->processors().iterate([&](const auto& procs) {
+        ASSERT_EQ(procs.size(), 3u);
+        EXPECT_EQ(procs[0]->get_name(), "proc_first"_ct);
+        EXPECT_EQ(procs[1]->get_name(), "proc_second"_ct);
+        EXPECT_EQ(procs[2]->get_name(), "proc_third"_ct);
+    });
+
+    // Reorder: move first (proc1) to index 1 -> new order: second, first, third
+    EXPECT_EQ(reg.connection_reorder_processor("test_conn"_ct.get_hash(), "proc_first"_ct.get_hash(), 1), adam::registry::status_success);
+
+    conn->processors().iterate([&](const auto& procs) {
+        ASSERT_EQ(procs.size(), 3u);
+        EXPECT_EQ(procs[0]->get_name(), "proc_second"_ct);
+        EXPECT_EQ(procs[1]->get_name(), "proc_first"_ct);
+        EXPECT_EQ(procs[2]->get_name(), "proc_third"_ct);
+    });
+
+    // Verify config parameters match
+    auto* procs_list = dynamic_cast<adam::configuration_parameter_list*>(conn->get_parameters().get("processors"_ct));
+    ASSERT_NE(procs_list, nullptr);
+    EXPECT_EQ(procs_list->get_children().size(), 3u);
+    auto* ref0 = dynamic_cast<adam::configuration_parameter_reference*>(procs_list->get("0"_ct));
+    auto* ref1 = dynamic_cast<adam::configuration_parameter_reference*>(procs_list->get("1"_ct));
+    auto* ref2 = dynamic_cast<adam::configuration_parameter_reference*>(procs_list->get("2"_ct));
+    ASSERT_NE(ref0, nullptr);
+    ASSERT_NE(ref1, nullptr);
+    ASSERT_NE(ref2, nullptr);
+    EXPECT_EQ(ref0->get_target(), "proc_second"_ct);
+    EXPECT_EQ(ref1->get_target(), "proc_first"_ct);
+    EXPECT_EQ(ref2->get_target(), "proc_third"_ct);
+
+    // Move third to index 0 -> new order: third, second, first
+    EXPECT_EQ(reg.connection_reorder_processor("test_conn"_ct.get_hash(), "proc_third"_ct.get_hash(), 0), adam::registry::status_success);
+
+    conn->processors().iterate([&](const auto& procs) {
+        ASSERT_EQ(procs.size(), 3u);
+        EXPECT_EQ(procs[0]->get_name(), "proc_third"_ct);
+        EXPECT_EQ(procs[1]->get_name(), "proc_second"_ct);
+        EXPECT_EQ(procs[2]->get_name(), "proc_first"_ct);
+    });
+}

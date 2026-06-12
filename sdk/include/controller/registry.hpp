@@ -166,6 +166,9 @@ namespace adam
         /** @brief Removes a processor from an existing connection. */
         status connection_remove_processor(string_hash conn_hash, string_hash processor_hash);
 
+        /** @brief Reorders a processor in an existing connection. */
+        status connection_reorder_processor(string_hash conn_hash, string_hash processor_hash, uint32_t new_index);
+
         /** @brief Saves the entire configuration tree to a binary file. */
         bool save(string_hashed::view filepath) const override;
 

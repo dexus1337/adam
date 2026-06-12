@@ -684,6 +684,16 @@ namespace adam
         return send_command(cmd);
     }
 
+    response_status commander::request_connection_processor_reorder(string_hash conn_hash, string_hash processor_hash, uint32_t new_index)
+    {
+        command cmd(command_type::connection_processor_reorder);
+        auto* data = cmd.data_as<messages::connection_processor_reorder_data>();
+        data->connection = conn_hash;
+        data->processor = processor_hash;
+        data->new_index = new_index;
+        return send_command(cmd);
+    }
+
     response_status commander::request_processor_parameter_set(string_hash processor_hash, const string_hashed& param_name, int64_t value)
     {
         command cmd(command_type::processor_set_parameter);

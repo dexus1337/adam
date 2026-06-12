@@ -985,6 +985,49 @@ namespace adam
             ctx.set_single_response_status(response_status::success);
         });
 
+        register_handler(command_type::connection_processor_reorder, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_processor_reorder_data>();
+
+            std::string conn_str;
+            auto it_conn = ctx.reg.connections().find(params->connection);
+            if (it_conn != ctx.reg.connections().end())
+                conn_str = it_conn->second->get_name().c_str();
+
+            std::string processor_str;
+            auto it_proc = ctx.reg.processors().find(params->processor);
+            if (it_proc != ctx.reg.processors().end())
+                processor_str = it_proc->second->get_name().c_str();
+
+            registry::status res = ctx.reg.connection_reorder_processor(params->connection, params->processor, params->new_index);
+
+            if (res != registry::status_success)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                uint64_t processor_hash = static_cast<uint64_t>(params->processor);
+                auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_reorder_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, conn_hash, status_text);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
+
+            event evt(event_type::connection_processor_reordered);
+            auto* evt_data = evt.data_as<messages::connection_processor_reorder_data>();
+            *evt_data = *params;
+            evt_data->edited = current_time;
+            if (it_conn != ctx.reg.connections().end())
+                evt_data->valid_chain = it_conn->second->is_valid_chain();
+            else
+                evt_data->valid_chain = false;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_reordered, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str(), conn_str.c_str(), params->new_index);
+
+            ctx.set_single_response_status(response_status::success);
+        });
+
         register_handler(command_type::connection_sorting_index_change, [](const command* cmds, size_t, command_context& ctx) 
         {
             auto params = cmds->get_data_as<messages::connection_property_change_data>();
@@ -2253,6 +2296,14 @@ namespace adam
             {
                 log_event::connection_processor_remove_failed,
                 { "Thread {:d} failed to remove processor {:d} from connection {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht von Verbindung {:d} entfernen: {}" }
+            },
+            {
+                log_event::connection_processor_reordered,
+                { "Thread {:d} successfully reordered processor \"{}\" in connection \"{}\" to index {:d}.", "Thread {:d} hat Prozessor \"{}\" in Verbindung \"{}\" erfolgreich auf Index {:d} verschoben." }
+            },
+            {
+                log_event::connection_processor_reorder_failed,
+                { "Thread {:d} failed to reorder processor {:d} in connection {:d}: {}", "Thread {:d} konnte Prozessor {:d} in Verbindung {:d} nicht auf den gewünschten Index verschieben: {}" }
             },
             {
                 log_event::connection_input_inspector_created,

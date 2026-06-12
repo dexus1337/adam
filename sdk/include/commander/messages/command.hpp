@@ -57,6 +57,7 @@ namespace adam
         connection_port_remove,
         connection_processor_add,
         connection_processor_remove,
+        connection_processor_reorder,
         connection_sorting_index_change,
         connection_color_change,
 

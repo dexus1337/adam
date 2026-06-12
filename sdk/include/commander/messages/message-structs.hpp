@@ -229,6 +229,16 @@ namespace adam
         };
         static_assert(sizeof(connection_processor_add_data) <= command::get_max_data_length(), "connection_processor_add_data exceeds maximum command data size");
         
+        struct connection_processor_reorder_data
+        {
+            string_hash connection;
+            string_hash processor;
+            uint32_t new_index;
+            bool valid_chain;
+            uint64_t edited;
+        };
+        static_assert(sizeof(connection_processor_reorder_data) <= command::get_max_data_length(), "connection_processor_reorder_data exceeds maximum command data size");
+
         struct connection_property_change_data 
         {
             string_hash connection;

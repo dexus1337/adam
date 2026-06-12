@@ -727,6 +727,93 @@ namespace adam
         return status_success;
     }
 
+    registry::status registry::connection_reorder_processor(string_hash conn_hash, string_hash processor_hash, uint32_t new_index)
+    {
+        auto conn_it = m_connections.find(conn_hash);
+        if (conn_it == m_connections.end())
+        {
+            auto unavail_it = m_unavailable_connections.find(conn_hash);
+            if (unavail_it == m_unavailable_connections.end())
+                return status_error_connection_not_found;
+
+            unavail_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+            auto* list = unavail_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+            std::vector<string_hashed> procs;
+            string_hashed target_proc;
+            bool found = false;
+
+            for (const auto& [idx_str, param] : list->get_children())
+            {
+                if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                {
+                    if (ref->get_target().get_hash() == processor_hash)
+                    {
+                        target_proc = ref->get_target();
+                        found = true;
+                    }
+                    else
+                    {
+                        procs.push_back(ref->get_target());
+                    }
+                }
+            }
+
+            if (!found)
+                return status_error_port_not_found;
+
+            if (new_index > procs.size())
+                new_index = static_cast<uint32_t>(procs.size());
+
+            procs.insert(procs.begin() + new_index, target_proc);
+
+            list->clear();
+            for (size_t i = 0; i < procs.size(); ++i)
+            {
+                auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)));
+                param->set_target(procs[i]);
+                list->add(std::move(param));
+            }
+
+            return status_success;
+        }
+
+        auto processor_it = m_processors.find(processor_hash);
+        if (processor_it == m_processors.end())
+            return status_error_port_not_found;
+
+        std::vector<processor*> procs;
+        conn_it->second->processors().iterate([&](const auto& active_procs)
+        {
+            procs = active_procs;
+        });
+
+        auto it = std::find(procs.begin(), procs.end(), processor_it->second.get());
+        if (it == procs.end())
+            return status_error_port_not_found;
+
+        procs.erase(it);
+        if (new_index > procs.size())
+            new_index = static_cast<uint32_t>(procs.size());
+
+        procs.insert(procs.begin() + new_index, processor_it->second.get());
+
+        conn_it->second->processors().reorder(procs);
+
+        auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+        procs_list->clear();
+        for (size_t i = 0; i < procs.size(); ++i)
+        {
+            procs_list->add(std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(i)), procs[i]->get_name()));
+        }
+
+        conn_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
+
+        conn_it->second->check_valid_chain();
+
+        return status_success;
+    }
+
     bool registry::save(string_hashed::view filepath) const 
     {
         std::ofstream ofs(std::string(filepath), std::ios::binary);

@@ -39,6 +39,11 @@ namespace adam::gui
         adam::string_hash g_active_drag_hash = 0;
         size_t g_active_drag_target_index = 0;
 
+        bool g_is_dragging_processor = false;
+        adam::string_hash g_dragged_processor_conn_hash = 0;
+        adam::string_hash g_dragged_processor_hash = 0;
+        int g_active_processor_drag_target_index = -1;
+
         std::unordered_set<uint64_t> g_expanded_nodes;
         
         std::unordered_set<uint64_t> g_expanded_inject_nodes;
@@ -2245,6 +2250,67 @@ namespace adam::gui
                     is_being_dragged = true;
                 }
             }
+        bool is_dragging_processor = false;
+        if (!is_drag_preview)
+        {
+            if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
+            {
+                if (payload->IsDataType("DND_PROCESSOR"))
+                {
+                    struct DragProcessorPayload {
+                        adam::string_hash connection;
+                        adam::string_hash processor;
+                    };
+                    auto* p_data = (const DragProcessorPayload*)payload->Data;
+                    if (p_data->connection == hash)
+                    {
+                        is_dragging_processor = true;
+                        g_is_dragging_processor = true;
+                        g_dragged_processor_conn_hash = hash;
+                        g_dragged_processor_hash = p_data->processor;
+                    }
+                }
+            }
+        }
+
+        if (is_dragging_processor && g_active_processor_drag_target_index != -1)
+        {
+            auto& procs = conn->processors;
+            auto it = std::find(procs.begin(), procs.end(), g_dragged_processor_hash);
+            if (it != procs.end())
+            {
+                int current_idx = static_cast<int>(std::distance(procs.begin(), it));
+                int target_idx = g_active_processor_drag_target_index;
+                if (target_idx != current_idx)
+                {
+                    procs.erase(it);
+                    if (target_idx > procs.size())
+                        target_idx = static_cast<int>(procs.size());
+                    procs.insert(procs.begin() + target_idx, g_dragged_processor_hash);
+                    
+                    g_active_processor_drag_target_index = -1;
+                }
+            }
+        }
+
+        if (!is_drag_preview && g_is_dragging_processor && g_dragged_processor_conn_hash == hash && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        {
+            auto it = std::find(conn->processors.begin(), conn->processors.end(), g_dragged_processor_hash);
+            if (it != conn->processors.end())
+            {
+                uint32_t final_idx = static_cast<uint32_t>(std::distance(conn->processors.begin(), it));
+                if (ctrl.is_commander_active())
+                {
+                    ctrl.enqueue_commander_action([&ctrl, hash, proc_hash = g_dragged_processor_hash, final_idx]()
+                    {
+                        ctrl.commander().request_connection_processor_reorder(hash, proc_hash, final_idx);
+                    });
+                }
+            }
+            g_is_dragging_processor = false;
+            g_dragged_processor_conn_hash = 0;
+            g_dragged_processor_hash = 0;
+            g_active_processor_drag_target_index = -1;
         }
 
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
@@ -2679,6 +2745,59 @@ namespace adam::gui
                 ImGui::PushID((const void*)(intptr_t)(get_unique_node_id(port_hash, hash, stage) ^ 0xABCD));
                 ImGui::SetNextItemAllowOverlap();
                 ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
+
+                if (type == node_type_processor && !is_drag_preview)
+                {
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+                    {
+                        struct DragProcessorPayload {
+                            adam::string_hash connection;
+                            adam::string_hash processor;
+                        } payload { hash, port_hash };
+                        ImGui::SetDragDropPayload("DND_PROCESSOR", &payload, sizeof(payload));
+                        ImGui::Text("Move %s", name);
+                        ImGui::EndDragDropSource();
+                    }
+                }
+
+                if (!is_drag_preview)
+                {
+                    if (const ImGuiPayload* payload = ImGui::GetDragDropPayload())
+                    {
+                        if (payload->IsDataType("DND_PROCESSOR"))
+                        {
+                            struct DragProcessorPayload {
+                                adam::string_hash connection;
+                                adam::string_hash processor;
+                            };
+                            auto* p_data = (const DragProcessorPayload*)payload->Data;
+                            if (p_data->connection == hash)
+                            {
+                                ImVec2 mouse_pos = ImGui::GetMousePos();
+                                if (mouse_pos.x >= p_min.x && mouse_pos.x <= p_max.x && mouse_pos.y >= p_min.y && mouse_pos.y <= p_max.y)
+                                {
+                                    if (type == node_type_input)
+                                    {
+                                        g_active_processor_drag_target_index = 0;
+                                    }
+                                    else if (type == node_type_output)
+                                    {
+                                        g_active_processor_drag_target_index = static_cast<int>(conn->processors.size());
+                                    }
+                                    else if (type == node_type_processor)
+                                    {
+                                        float center_x = (p_min.x + p_max.x) * 0.5f;
+                                        int current_idx = stage - 1;
+                                        if (mouse_pos.x < center_x)
+                                            g_active_processor_drag_target_index = current_idx;
+                                        else
+                                            g_active_processor_drag_target_index = current_idx + 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 bool is_expanded = false;
                 if (port_hash != 0 && !is_drag_preview)

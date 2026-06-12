@@ -729,6 +729,29 @@ namespace adam
             }
         });
 
+        register_handler(event_type::connection_processor_reordered, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::connection_processor_reorder_data>();
+            std::lock_guard<const registry_view> lg(ctx.cmdr.registry());
+            auto it = ctx.cmdr.registry().connections().find(data->connection);
+            if (it != ctx.cmdr.registry().connections().end())
+            {
+                auto& procs = it->second->processors;
+                auto pit = std::find(procs.begin(), procs.end(), data->processor);
+                if (pit != procs.end())
+                {
+                    procs.erase(pit);
+                }
+                uint32_t new_idx = data->new_index;
+                if (new_idx > procs.size())
+                    new_idx = static_cast<uint32_t>(procs.size());
+                procs.insert(procs.begin() + new_idx, data->processor);
+
+                it->second->edited = data->edited;
+                it->second->valid_chain = data->valid_chain;
+            }
+        });
+
         register_handler(event_type::connection_sorting_index_changed, [](const event* events, size_t, event_context& ctx) 
         {
             auto* data = events[0].get_data_as<messages::connection_property_change_data>();

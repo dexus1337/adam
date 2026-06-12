@@ -51,6 +51,7 @@ namespace adam
         connection_port_removed,
         connection_processor_added,
         connection_processor_removed,
+        connection_processor_reordered,
         connection_input_inspector_created,
         connection_input_inspector_destroyed,
         connection_output_inspector_created,

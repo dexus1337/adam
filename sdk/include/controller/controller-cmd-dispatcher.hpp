@@ -110,6 +110,8 @@ namespace adam
             connection_processor_add_failed,
             connection_processor_removed,
             connection_processor_remove_failed,
+            connection_processor_reordered,
+            connection_processor_reorder_failed,
             connection_input_inspector_created,
             connection_input_inspector_create_failed,
             connection_input_inspector_destroyed,
