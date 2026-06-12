@@ -1,5 +1,13 @@
 #pragma once
 
+/**
+ * @file    shared-state.hpp
+ * @author  dexus1337
+ * @brief   Header containing structural and helper declarations for management tab component components.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include <adam-sdk.hpp>
 #include <imgui.h>
 #include <vector>
@@ -40,7 +48,7 @@ namespace adam::gui
         node_type_converter
     };
 
-    struct expanded_port_render_info
+    struct expanded_port_draw_info
     {
         node_type type;
         int stage;
@@ -139,7 +147,16 @@ namespace adam::gui
 
     int inject_text_resize_callback(ImGuiInputTextCallbackData* data);
     std::pair<bool, std::vector<uint8_t>> parse_hex_bytes(const std::string& input);
-    void fill_hex_preview(const uint8_t* data, size_t data_len, size_t max_bytes, char* hex_buf, size_t hex_buf_size, char* ascii_buf, size_t ascii_buf_size);
+    void fill_hex_preview
+    (
+        const uint8_t* data,
+        size_t data_len,
+        size_t max_bytes,
+        char* hex_buf,
+        size_t hex_buf_size,
+        char* ascii_buf,
+        size_t ascii_buf_size
+    );
     void draw_direction_badge(adam::port::direction dir, bool is_used, adam::language lang);
 
     std::function<void(adam::buffer*)> make_inspector_buffer_callback(adam::string_hash port_hash);

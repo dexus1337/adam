@@ -218,12 +218,18 @@ namespace adam::gui
 
         void save_window_state();
 
-        void render();
+        void draw();
 
     private:
-        void render_menu_bar(adam::language lang);
-        void render_log_window(adam::language lang, float& log_height_val, float max_height, float status_bar_height);
-        void render_performance_overlay(adam::language lang);
+        void draw_menu_bar(adam::language lang);
+        void draw_log_window
+        (
+            adam::language lang,
+            float& log_height_val,
+            float max_height,
+            float status_bar_height
+        );
+        void draw_performance_overlay(adam::language lang);
 
         gui_controller& m_ctrl;
         SDL_Window* m_window;

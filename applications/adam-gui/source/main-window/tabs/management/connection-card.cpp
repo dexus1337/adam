@@ -1,3 +1,11 @@
+/**
+ * @file    connection-card.cpp
+ * @author  dexus1337
+ * @brief   Implementation of connection card rendering and layout logic.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include "connection-card.hpp"
 #include "shared-state.hpp"
 #include "node.hpp"
@@ -13,7 +21,13 @@
 
 namespace adam::gui
 {
-    void render_top_control_bar(gui_controller& ctrl, adam::language lang, int& sort_mode, bool& show_inspector)
+    void draw_top_control_bar
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        int& sort_mode,
+        bool& show_inspector
+    )
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
         ImGui::AlignTextToFramePadding();
@@ -50,7 +64,8 @@ namespace adam::gui
         ImGui::Checkbox(inspector_lbl, &show_inspector);
     }
 
-    void draw_connection_card_header(
+    void draw_connection_card_header
+    (
         gui_controller& ctrl,
         adam::language lang,
         int sort_mode,
@@ -59,7 +74,8 @@ namespace adam::gui
         bool is_drag_preview,
         float dpi_scale,
         float port_w,
-        bool is_unavailable)
+        bool is_unavailable
+    )
     {
         bool commander_active = ctrl.is_commander_active();
         const auto& connections = ctrl.commander().registry().get_connections();
@@ -252,7 +268,8 @@ namespace adam::gui
         }
     }
 
-    void draw_connection_lines(
+    void draw_connection_lines
+    (
         ImDrawList* draw_list,
         float dpi_scale,
         bool is_light_theme,
@@ -263,7 +280,8 @@ namespace adam::gui
         const ImVec2& cur_pos,
         const std::vector<std::vector<connection_pin_data>>& stage_pins_in,
         const std::vector<std::vector<connection_pin_data>>& stage_pins_out,
-        adam::connection_view* conn)
+        adam::connection_view* conn
+    )
     {
         ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
         ImColor grey_col = is_light_theme ? ImColor(210, 210, 210, 80) : ImColor(70, 70, 70, 80);
@@ -338,7 +356,8 @@ namespace adam::gui
         }
     }
 
-    void draw_connection_card_footer(
+    void draw_connection_card_footer
+    (
         gui_controller& ctrl,
         adam::language lang,
         adam::connection_view* conn,
@@ -347,7 +366,8 @@ namespace adam::gui
         float current_y,
         float start_x,
         float avail_x,
-        float avail_w)
+        float avail_w
+    )
     {
         (void)ctrl;
         const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
@@ -390,7 +410,16 @@ namespace adam::gui
         }
     }
 
-    void render_connection_card(gui_controller& ctrl, adam::language lang, int sort_mode, adam::string_hash hash, adam::connection_view* conn, bool is_drag_preview, float card_w)
+    void draw_connection_card
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        int sort_mode,
+        adam::string_hash hash,
+        adam::connection_view* conn,
+        bool is_drag_preview,
+        float card_w
+    )
     {
         if (!conn) return;
 
@@ -558,7 +587,7 @@ namespace adam::gui
 
         if (!is_drag_preview) ImGui::BeginGroup();
 
-        static std::vector<expanded_port_render_info> deferred_expansions;
+        static std::vector<expanded_port_draw_info> deferred_expansions;
         deferred_expansions.clear();
 
         if (is_being_dragged) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.4f);
@@ -1007,7 +1036,15 @@ namespace adam::gui
         ImGui::PopID();
     }
 
-    void render_connections_list(gui_controller& ctrl, adam::language lang, int sort_mode, float& card_width, const std::vector<std::pair<adam::string_hash, adam::connection_view*>>& sorted_connections, bool is_dragging_connection)
+    void draw_connections_list
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        int sort_mode,
+        float& card_width,
+        const std::vector<std::pair<adam::string_hash, adam::connection_view*>>& sorted_connections,
+        bool is_dragging_connection
+    )
     {
         if (!ImGui::BeginChild("ConnectionsList", ImVec2(0, -(ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y)), false))
         {
@@ -1021,7 +1058,7 @@ namespace adam::gui
             auto hash = sorted_connections[i].first;
             auto* conn = sorted_connections[i].second;
 
-            render_connection_card(ctrl, lang, sort_mode, hash, conn, false, card_width);
+            draw_connection_card(ctrl, lang, sort_mode, hash, conn, false, card_width);
 
             if (sort_mode == 6 && is_dragging_connection)
             {

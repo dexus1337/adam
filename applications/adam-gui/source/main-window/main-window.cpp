@@ -380,7 +380,7 @@ namespace adam::gui
         }
     }
 
-    void main_window::render()
+    void main_window::draw()
     {
         adam::language lang;
         if (m_ctrl.is_commander_active())
@@ -449,7 +449,7 @@ namespace adam::gui
 
         if (ImGui::BeginMenuBar())
         {
-            render_menu_bar(lang);
+            draw_menu_bar(lang);
             ImGui::EndMenuBar();
         }
         
@@ -478,7 +478,7 @@ namespace adam::gui
                     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
                     if (ImGui::BeginChild("##management_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
                     {
-                        render_tab_management(m_ctrl, lang);
+                        draw_tab_management(m_ctrl, lang);
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();
@@ -489,7 +489,7 @@ namespace adam::gui
                     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
                     if (ImGui::BeginChild("##modules_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
                     {
-                        render_tab_modules(m_ctrl, lang, m_module_paths_table_id, m_modules_table_id);
+                        draw_tab_modules(m_ctrl, lang, m_module_paths_table_id, m_modules_table_id);
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();
@@ -500,7 +500,7 @@ namespace adam::gui
                     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
                     if (ImGui::BeginChild("##information_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
                     {
-                        render_tab_information(m_ctrl, lang);
+                        draw_tab_information(m_ctrl, lang);
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();
@@ -511,7 +511,7 @@ namespace adam::gui
                     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
                     if (ImGui::BeginChild("##configuration_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
                     {
-                        render_tab_configuration(m_ctrl, lang);
+                        draw_tab_configuration(m_ctrl, lang);
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();
@@ -523,7 +523,7 @@ namespace adam::gui
 
         if (m_p_show_log->get_value())
         {
-            render_log_window(lang, log_height_val, max_height, status_bar_height);
+            draw_log_window(lang, log_height_val, max_height, status_bar_height);
         }
 
         // Status bar
@@ -553,11 +553,11 @@ namespace adam::gui
 
         if (m_p_show_performance->get_value())
         {
-            render_performance_overlay(lang);
+            draw_performance_overlay(lang);
         }
     }
 
-    void main_window::render_menu_bar(adam::language lang)
+    void main_window::draw_menu_bar(adam::language lang)
     {
         if (ImGui::BeginMenu(get_gui_string(gui_string_id::menu_view, lang)))
         {
@@ -684,7 +684,13 @@ namespace adam::gui
         }
     }
 
-    void main_window::render_log_window(adam::language lang, float& log_height_val, float max_height, float status_bar_height)
+    void main_window::draw_log_window
+    (
+        adam::language lang,
+        float& log_height_val,
+        float max_height,
+        float status_bar_height
+    )
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
         
@@ -784,7 +790,7 @@ namespace adam::gui
         ImGui::PopID();
     }
 
-    void main_window::render_performance_overlay(adam::language lang)
+    void main_window::draw_performance_overlay(adam::language lang)
     {
         int location = static_cast<int>(m_p_perf_ovly_location->get_value());
         static bool custom_pos_initialized = false;

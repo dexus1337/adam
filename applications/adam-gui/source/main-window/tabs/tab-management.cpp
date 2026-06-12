@@ -1,3 +1,11 @@
+/**
+ * @file    tab-management.cpp
+ * @author  dexus1337
+ * @brief   Implementation of the management tab drawing entry point.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include "tab-management.hpp"
 #include "../main-window.hpp"
 
@@ -22,7 +30,7 @@
 
 namespace adam::gui
 {
-    void render_tab_management(gui_controller& ctrl, adam::language lang)
+    void draw_tab_management(gui_controller& ctrl, adam::language lang)
     {
         static bool show_inspector = false;
         if (g_request_open_inspector)
@@ -47,10 +55,10 @@ namespace adam::gui
         last_frame_inspector_count = current_inspector_count;
         bool commander_active   = ctrl.is_commander_active();
 
-        render_delete_connection_modal(ctrl, lang);
-        render_create_connection_modal(ctrl, lang);
-        render_add_create_port_modal(ctrl, lang);
-        render_add_create_processor_modal(ctrl, lang);
+        draw_delete_connection_modal(ctrl, lang);
+        draw_create_connection_modal(ctrl, lang);
+        draw_add_create_port_modal(ctrl, lang);
+        draw_add_create_processor_modal(ctrl, lang);
 
         auto& reg_view = ctrl.commander().registry();
         std::lock_guard<const adam::registry_view> lock(reg_view);
@@ -60,7 +68,7 @@ namespace adam::gui
         static adam::configuration_parameter_integer* sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(ctrl.get_parameters().get("connection_sort_mode"_ct));
         int sort_mode = static_cast<int>(sort_mode_param->get_value());
         
-        render_top_control_bar(ctrl, lang, sort_mode, show_inspector);
+        draw_top_control_bar(ctrl, lang, sort_mode, show_inspector);
 
         ImGui::Spacing();
 
@@ -153,7 +161,7 @@ namespace adam::gui
 
         static float card_width = ImGui::GetContentRegionAvail().x;
         
-        render_connections_list(ctrl, lang, sort_mode, card_width, sorted_connections, g_is_dragging_connection);
+        draw_connections_list(ctrl, lang, sort_mode, card_width, sorted_connections, g_is_dragging_connection);
 
         if (sort_mode == 6 && g_is_dragging_connection && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
@@ -188,7 +196,7 @@ namespace adam::gui
                     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.7f); // Restore native ImGui drag preview transparency
                     if (ImGui::Begin("##drag_preview", nullptr, ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
                     {
-                        render_connection_card(ctrl, lang, sort_mode, dragged_hash, it->second.get(), true, card_width);
+                        draw_connection_card(ctrl, lang, sort_mode, dragged_hash, it->second.get(), true, card_width);
                     }
                     ImGui::End();
                     ImGui::PopStyleVar();
@@ -223,7 +231,7 @@ namespace adam::gui
         if (show_inspector)
         {
             ImGui::EndChild();
-            render_inspector_subwindow(ctrl, lang, left_w, avail_w, content_h);
+            draw_inspector_subwindow(ctrl, lang, left_w, avail_w, content_h);
             if (avail_w > 0.0f)
             {
                 left_ratio = left_w / avail_w;

@@ -1,53 +1,90 @@
 #pragma once
 
+/**
+ * @file    connection-card.hpp
+ * @author  dexus1337
+ * @brief   Header for connection card drawing functions.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include <adam-sdk.hpp>
 #include <vector>
 #include <utility>
 #include <imgui.h>
+#include "shared-state.hpp"
 
 namespace adam::gui
 {
     class gui_controller;
 
-    void render_top_control_bar(gui_controller& ctrl, adam::language lang, int& sort_mode, bool& show_inspector);
-
-    void draw_connection_card_header(
+    void draw_top_control_bar
+    (
         gui_controller& ctrl,
         adam::language lang,
-        adam::string_hash hash,
-        adam::connection_view* conn,
-        bool is_unavailable,
-        float card_width,
-        float dpi_scale);
+        int& sort_mode,
+        bool& show_inspector
+    );
 
-    void draw_connection_lines(
-        ImDrawList* draw_list,
-        int total_stages,
-        float dpi_scale);
-
-    void draw_connection_card_footer(
-        gui_controller& ctrl,
-        adam::language lang,
-        adam::string_hash hash,
-        adam::connection_view* conn,
-        bool is_unavailable,
-        float card_width,
-        float dpi_scale);
-
-    void render_connection_card(
+    void draw_connection_card_header
+    (
         gui_controller& ctrl,
         adam::language lang,
         int sort_mode,
         adam::string_hash hash,
         adam::connection_view* conn,
         bool is_drag_preview,
-        float card_w);
+        float dpi_scale,
+        float port_w,
+        bool is_unavailable
+    );
 
-    void render_connections_list(
+    void draw_connection_lines
+    (
+        ImDrawList* draw_list,
+        float dpi_scale,
+        bool is_light_theme,
+        int total_stages,
+        size_t max_rows,
+        float row_height,
+        float avail_x,
+        const ImVec2& cur_pos,
+        const std::vector<std::vector<connection_pin_data>>& stage_pins_in,
+        const std::vector<std::vector<connection_pin_data>>& stage_pins_out,
+        adam::connection_view* conn
+    );
+
+    void draw_connection_card_footer
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        adam::connection_view* conn,
+        bool is_drag_preview,
+        float port_w,
+        float current_y,
+        float start_x,
+        float avail_x,
+        float avail_w
+    );
+
+    void draw_connection_card
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        int sort_mode,
+        adam::string_hash hash,
+        adam::connection_view* conn,
+        bool is_drag_preview,
+        float card_w
+    );
+
+    void draw_connections_list
+    (
         gui_controller& ctrl,
         adam::language lang,
         int sort_mode,
         float& card_width,
         const std::vector<std::pair<adam::string_hash, adam::connection_view*>>& sorted_connections,
-        bool is_dragging_connection);
+        bool is_dragging_connection
+    );
 }

@@ -1,3 +1,11 @@
+/**
+ * @file    node.cpp
+ * @author  dexus1337
+ * @brief   Implementation of drawing functions for port and processor connection nodes.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include "node.hpp"
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
@@ -30,13 +38,15 @@ namespace adam::gui
         return h;
     }
 
-    void draw_expanded_port_node(
+    void draw_expanded_port_node
+    (
         gui_controller& ctrl,
         adam::language lang,
         const adam::registry_view& registry,
         float dpi_scale,
         ImDrawList* draw_list,
-        const expanded_port_render_info& info)
+        const expanded_port_draw_info& info
+    )
     {
         float exp_pad = 8.0f * dpi_scale;
         ImVec2 exp_min(info.p_max.x - info.current_node_w, info.p_max.y - 1.5f * dpi_scale);
@@ -314,8 +324,8 @@ namespace adam::gui
                 
                 auto* sorted_list = dynamic_cast<const adam::configuration_parameter_list_sorted*>(user_params);
 
-                // Render each param via a lambda to avoid building an intermediate vector every frame
-                auto render_param = [&](const adam::string_hashed& param_name, adam::configuration_parameter* param_ptr)
+                // Draw each param via a lambda to avoid building an intermediate vector every frame
+                auto draw_param = [&](const adam::string_hashed& param_name, adam::configuration_parameter* param_ptr)
                 {
                     auto param_type = param_ptr->get_type();
                     
@@ -569,13 +579,13 @@ namespace adam::gui
                     {
                         auto* param_ptr = sorted_list->get(hash);
                         if (param_ptr)
-                            render_param(param_ptr->get_name(), param_ptr);
+                            draw_param(param_ptr->get_name(), param_ptr);
                     }
                 }
                 else
                 {
                     for (const auto& [param_name, param_ptr] : user_params->get_children())
-                        render_param(param_name, param_ptr.get());
+                        draw_param(param_name, param_ptr.get());
                 }
 
                 if (disable_params) ImGui::EndDisabled();
@@ -704,7 +714,8 @@ namespace adam::gui
         ImGui::EndChild();
     }
 
-    bool draw_connection_node(
+    bool draw_connection_node
+    (
         gui_controller& ctrl,
         adam::language lang,
         adam::connection_view* conn,
@@ -731,7 +742,8 @@ namespace adam::gui
         const char* unavail_module,
         adam::string_hash port_hash,
         float extra_y,
-        std::vector<expanded_port_render_info>& deferred_expansions)
+        std::vector<expanded_port_draw_info>& deferred_expansions
+    )
     {
         bool is_light_theme = false;
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));

@@ -1,3 +1,11 @@
+/**
+ * @file    tab-modules.cpp
+ * @author  dexus1337
+ * @brief   Implementation of the modules tab drawing functions.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include "tab-modules.hpp"
 #include "../main-window.hpp"
 
@@ -10,7 +18,13 @@
 
 namespace adam::gui 
 {
-    void render_tab_modules(gui_controller& ctrl, adam::language lang, int module_paths_table_id, int modules_table_id)
+    void draw_tab_modules
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        int module_paths_table_id,
+        int modules_table_id
+    )
     {
         bool commander_active = ctrl.is_commander_active();
         

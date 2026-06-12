@@ -1,3 +1,11 @@
+/**
+ * @file    shared-state.cpp
+ * @author  dexus1337
+ * @brief   Implementation of shared globals, parsing, and telemetry callback helpers.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
 #include "controller/controller.hpp"
@@ -143,10 +151,16 @@ namespace adam::gui
         return {is_valid, bytes};
     }
 
-    void fill_hex_preview(
-        const uint8_t* data, size_t data_len, size_t max_bytes,
-        char* hex_buf,  size_t hex_buf_size,
-        char* ascii_buf, size_t ascii_buf_size)
+    void fill_hex_preview
+    (
+        const uint8_t* data,
+        size_t data_len,
+        size_t max_bytes,
+        char* hex_buf,
+        size_t hex_buf_size,
+        char* ascii_buf,
+        size_t ascii_buf_size
+    )
     {
         char* p_hex   = hex_buf;
         char* p_ascii = ascii_buf;

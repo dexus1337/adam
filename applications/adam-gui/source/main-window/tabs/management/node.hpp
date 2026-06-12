@@ -1,5 +1,13 @@
 #pragma once
 
+/**
+ * @file    node.hpp
+ * @author  dexus1337
+ * @brief   Declarations for drawing port and processor connection nodes.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include <adam-sdk.hpp>
 #include <imgui.h>
 #include <vector>
@@ -11,15 +19,18 @@ namespace adam::gui
 
     float get_expanded_node_height(uint64_t uid, float dpi_scale);
 
-    void draw_expanded_port_node(
+    void draw_expanded_port_node
+    (
         gui_controller& ctrl,
         adam::language lang,
         const adam::registry_view& registry,
         float dpi_scale,
         ImDrawList* draw_list,
-        const expanded_port_render_info& info);
+        const expanded_port_draw_info& info
+    );
 
-    bool draw_connection_node(
+    bool draw_connection_node
+    (
         gui_controller& ctrl,
         adam::language lang,
         adam::connection_view* conn,
@@ -46,5 +57,6 @@ namespace adam::gui
         const char* unavail_module,
         adam::string_hash port_hash,
         float extra_y,
-        std::vector<expanded_port_render_info>& deferred_expansions);
+        std::vector<expanded_port_draw_info>& deferred_expansions
+    );
 }

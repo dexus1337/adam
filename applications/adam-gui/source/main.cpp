@@ -115,7 +115,7 @@ int main(int, char**)
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        ui_window.render();
+        ui_window.draw();
 
         // Swap Buffers
         ImGui::Render();

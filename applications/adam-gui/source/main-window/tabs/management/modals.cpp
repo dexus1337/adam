@@ -1,3 +1,11 @@
+/**
+ * @file    modals.cpp
+ * @author  dexus1337
+ * @brief   Implementation of popup modals for creating and deleting connections, ports, and processors.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include "modals.hpp"
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
@@ -9,7 +17,7 @@
 
 namespace adam::gui
 {
-    void render_delete_connection_modal(gui_controller& ctrl, adam::language lang)
+    void draw_delete_connection_modal(gui_controller& ctrl, adam::language lang)
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
         if (g_request_delete_popup)
@@ -49,7 +57,7 @@ namespace adam::gui
         ImGui::EndPopup();
     }
 
-    void render_create_connection_modal(gui_controller& ctrl, adam::language lang)
+    void draw_create_connection_modal(gui_controller& ctrl, adam::language lang)
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
         if (!ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
@@ -93,7 +101,7 @@ namespace adam::gui
         ImGui::EndPopup();
     }
 
-    void render_add_create_port_modal(gui_controller& ctrl, adam::language lang)
+    void draw_add_create_port_modal(gui_controller& ctrl, adam::language lang)
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
@@ -444,7 +452,7 @@ namespace adam::gui
         ImGui::EndPopup();
     }
 
-    void render_add_create_processor_modal(gui_controller& ctrl, adam::language lang)
+    void draw_add_create_processor_modal(gui_controller& ctrl, adam::language lang)
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
@@ -589,7 +597,7 @@ namespace adam::gui
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
         
         // Helper lambda for existing tables
-        auto render_existing_table = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float height) {
+        auto draw_existing_table = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float height) {
             if (ImGui::BeginChild(title, ImVec2(half_w, height), true))
             {
                 ImGui::TextUnformatted(title);
@@ -655,7 +663,7 @@ namespace adam::gui
         };
 
         // Helper lambda for new tables
-        auto render_new_table = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float height) {
+        auto draw_new_table = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float height) {
             if (ImGui::BeginChild(title, ImVec2(half_w, height), true))
             {
                 ImGui::TextUnformatted(title);
@@ -735,15 +743,15 @@ namespace adam::gui
 
         ImGui::BeginGroup();
         float half_h = (child_h - ImGui::GetStyle().ItemSpacing.y) * 0.5f;
-        render_existing_table("Existing Filters", existing_filters, half_h);
-        render_existing_table("Existing Converters", existing_converters, half_h);
+        draw_existing_table("Existing Filters", existing_filters, half_h);
+        draw_existing_table("Existing Converters", existing_converters, half_h);
         ImGui::EndGroup();
 
         ImGui::SameLine();
         
         ImGui::BeginGroup();
-        render_new_table("New Filters", new_filters, half_h);
-        render_new_table("New Converters", new_converters, half_h);
+        draw_new_table("New Filters", new_filters, half_h);
+        draw_new_table("New Converters", new_converters, half_h);
         ImGui::EndGroup();
 
         ImGui::PopStyleColor();

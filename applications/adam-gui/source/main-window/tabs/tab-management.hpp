@@ -1,5 +1,13 @@
 #pragma once
 
+/**
+ * @file    tab-management.hpp
+ * @author  dexus1337
+ * @brief   Header for the management tab drawing entry point.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include <adam-sdk.hpp>
 #include "management/shared-state.hpp"
 #include "management/modals.hpp"
@@ -11,5 +19,5 @@ namespace adam::gui
 {
     class gui_controller;
 
-    void render_tab_management(gui_controller& ctrl, adam::language lang);
+    void draw_tab_management(gui_controller& ctrl, adam::language lang);
 }

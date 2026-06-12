@@ -1,3 +1,11 @@
+/**
+ * @file    inspector.cpp
+ * @author  dexus1337
+ * @brief   Source containing diagnostic data telemetry inspector drawing implementations.
+ * @version 1.0
+ * @date    12.06.2026
+ */
+
 #include "inspector.hpp"
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
@@ -11,7 +19,15 @@
 
 namespace adam::gui
 {
-    static void render_inspector_hex_dump(const uint8_t* data, size_t size, int actual_index, float inspector_height, float dpi_scale, adam::language lang)
+    static void draw_inspector_hex_dump
+    (
+        const uint8_t* data,
+        size_t size,
+        int actual_index,
+        float inspector_height,
+        float dpi_scale,
+        adam::language lang
+    )
     {
         size_t display_len = size;
         size_t num_rows = (display_len + 15) / 16;
@@ -202,7 +218,16 @@ namespace adam::gui
         ImGui::PopStyleColor();
     }
 
-    static void render_inspector_frames_table(const char* name, adam::string_hash hash, std::map<adam::string_hash, adam::gui::inspection_port_data>& data_map, float inspector_height, float dpi_scale, adam::language lang, uint64_t id_modifier)
+    static void draw_inspector_frames_table
+    (
+        const char* name,
+        adam::string_hash hash,
+        std::map<adam::string_hash, adam::gui::inspection_port_data>& data_map,
+        float inspector_height,
+        float dpi_scale,
+        adam::language lang,
+        uint64_t id_modifier
+    )
     {
         std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
         auto& port_data = data_map[hash];
@@ -360,7 +385,7 @@ namespace adam::gui
 
                 if (expanded_nodes.count(actual_index) > 0)
                 {
-                    render_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, actual_index, inspector_height, dpi_scale, lang);
+                    draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, actual_index, inspector_height, dpi_scale, lang);
                 }
 
                 current_pushed_id = actual_index;
@@ -428,7 +453,7 @@ namespace adam::gui
         ImGui::PopID();
     }
 
-    void render_inspector_view(gui_controller& ctrl, adam::language lang)
+    void draw_inspector_view(gui_controller& ctrl, adam::language lang)
     {
         if (!ctrl.is_commander_active())
         {
@@ -751,7 +776,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        render_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, inspector_height, dpi_scale, lang, 0x1111111111111111ULL);
+                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, inspector_height, dpi_scale, lang, 0x1111111111111111ULL);
                         conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                         if (conn_table_open) setup_columns();
                     }
@@ -888,7 +913,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        render_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, inspector_height, dpi_scale, lang, 0x2222222222222222ULL);
+                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, inspector_height, dpi_scale, lang, 0x2222222222222222ULL);
                         if (!is_last_connection)
                         {
                             conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
@@ -1081,7 +1106,7 @@ namespace adam::gui
                 {
                     if (table_open) ImGui::EndTable();
                     
-                    render_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, inspector_height, dpi_scale, lang, 0x3333333333333333ULL);
+                    draw_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, inspector_height, dpi_scale, lang, 0x3333333333333333ULL);
 
                     if (!is_last_port)
                     {
@@ -1152,7 +1177,14 @@ namespace adam::gui
         ImGui::EndDisabled();
     }
 
-    void render_inspector_subwindow(gui_controller& ctrl, adam::language lang, float& left_w, float avail_w, float content_h)
+    void draw_inspector_subwindow
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        float& left_w,
+        float avail_w,
+        float content_h
+    )
     {
         ImGui::SameLine();
 
@@ -1176,7 +1208,7 @@ namespace adam::gui
         ImGui::SameLine();
 
         ImGui::BeginChild("InspectorRegion", ImVec2(0, content_h), false);
-        render_inspector_view(ctrl, lang);
+        draw_inspector_view(ctrl, lang);
         ImGui::EndChild();
     }
 }
