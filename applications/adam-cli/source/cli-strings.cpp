@@ -78,7 +78,24 @@ namespace adam::cli
             { cmd_string_id::desc_clean,                  { "Clears the terminal screen", "Leert den Terminalbildschirm" } },
             { cmd_string_id::desc_clear,                  { "Clears the terminal screen", "Leert den Terminalbildschirm" } },
             { cmd_string_id::desc_exit,                   { "Exits the application cleanly", "Beendet die Anwendung sauber" } },
-            { cmd_string_id::desc_quit,                   { "Exits the application cleanly", "Beendet die Anwendung sauber" } }
+            { cmd_string_id::desc_quit,                   { "Exits the application cleanly", "Beendet die Anwendung sauber" } },
+            { cmd_string_id::desc_proc_create,            { "Creates a new processor", "Erstellt einen neuen Prozessor" } },
+            { cmd_string_id::usage_proc_create,           { "Usage: proc_create <name> <type> [module] [filter|converter]", "Verwendung: proc_create <name> <type> [module] [filter|converter]" } },
+            { cmd_string_id::desc_proc_destroy,           { "Destroys a processor by name", "Zerstört einen Prozessor nach Namen" } },
+            { cmd_string_id::usage_proc_destroy,          { "Usage: proc_destroy <name>", "Verwendung: proc_destroy <name>" } },
+            { cmd_string_id::desc_proc_rename,            { "Renames a processor", "Benennt einen Prozessor um" } },
+            { cmd_string_id::usage_proc_rename,           { "Usage: proc_rename <old_name> <new_name>", "Verwendung: proc_rename <old_name> <new_name>" } },
+            { cmd_string_id::desc_proc_params,            { "Lists all parameters of a processor", "Listet alle Parameter eines Prozessors auf" } },
+            { cmd_string_id::usage_proc_params,           { "Usage: proc_params <processor_name>", "Verwendung: proc_params <processor_name>" } },
+            { cmd_string_id::desc_proc_set_param,         { "Sets a parameter of a processor", "Setzt einen Parameter eines Prozessors" } },
+            { cmd_string_id::usage_proc_set_param,        { "Usage: proc_set_param <processor_name> <param_name> <value>", "Verwendung: proc_set_param <processor_name> <param_name> <value>" } },
+            { cmd_string_id::desc_proc_list,              { "Lists all processors", "Listet alle Prozessoren auf" } },
+            { cmd_string_id::desc_conn_add_proc,          { "Adds a processor to a connection", "Fügt einen Prozessor zu einer Verbindung hinzu" } },
+            { cmd_string_id::usage_conn_add_proc,         { "Usage: conn_add_proc <conn_name> <proc_name>", "Verwendung: conn_add_proc <conn_name> <proc_name>" } },
+            { cmd_string_id::desc_conn_rm_proc,           { "Removes a processor from a connection", "Entfernt einen Prozessor aus einer Verbindung" } },
+            { cmd_string_id::usage_conn_rm_proc,          { "Usage: conn_rm_proc <conn_name> <proc_name>", "Verwendung: conn_rm_proc <conn_name> <proc_name>" } },
+            { cmd_string_id::desc_conn_reorder_proc,      { "Reorders a processor in a connection", "Ändert die Reihenfolge eines Prozessors in einer Verbindung" } },
+            { cmd_string_id::usage_conn_reorder_proc,     { "Usage: conn_reorder_proc <conn_name> <proc_name> <new_index>", "Verwendung: conn_reorder_proc <conn_name> <proc_name> <new_index>" } }
         };
 
         auto it = translations.find(id);

@@ -75,7 +75,24 @@ namespace adam::cli
         desc_clean,
         desc_clear,
         desc_exit,
-        desc_quit
+        desc_quit,
+        desc_proc_create,
+        usage_proc_create,
+        desc_proc_destroy,
+        usage_proc_destroy,
+        desc_proc_rename,
+        usage_proc_rename,
+        desc_proc_params,
+        usage_proc_params,
+        desc_proc_set_param,
+        usage_proc_set_param,
+        desc_proc_list,
+        desc_conn_add_proc,
+        usage_conn_add_proc,
+        desc_conn_rm_proc,
+        usage_conn_rm_proc,
+        desc_conn_reorder_proc,
+        usage_conn_reorder_proc
     };
 
     const char* get_cli_string(cmd_string_id id, adam::language lang);

@@ -274,6 +274,20 @@ namespace adam::gui
             return;
         }
 
+        static int port_open_frame = -1;
+        if (ImGui::IsWindowAppearing())
+        {
+            port_open_frame = ImGui::GetFrameCount();
+        }
+
+        if (ImGui::IsMouseClicked(0) && ImGui::GetFrameCount() > port_open_frame + 1)
+        {
+            if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
         if (ImGui::IsKeyPressed(ImGuiKey_Escape))
         {
             ImGui::CloseCurrentPopup();
@@ -585,6 +599,20 @@ namespace adam::gui
             return;
         }
 
+        static int proc_open_frame = -1;
+        if (ImGui::IsWindowAppearing())
+        {
+            proc_open_frame = ImGui::GetFrameCount();
+        }
+
+        if (ImGui::IsMouseClicked(0) && ImGui::GetFrameCount() > proc_open_frame + 1)
+        {
+            if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
         if (ImGui::IsKeyPressed(ImGuiKey_Escape))
         {
             ImGui::CloseCurrentPopup();
@@ -596,163 +624,203 @@ namespace adam::gui
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
         
-        // Helper lambda for existing tables
-        auto draw_existing_table = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float height) {
-            if (ImGui::BeginChild(title, ImVec2(half_w, height), true))
+        // Helper lambda for existing tables content
+        auto draw_existing_table_content = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float width, float height) {
+            ImGui::TextUnformatted(title);
+            ImGui::Separator();
+
+            if (ImGui::BeginTable(title, 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(width, height)))
             {
-                ImGui::TextUnformatted(title);
-                ImGui::Separator();
+                ImGui::TableSetupScrollFreeze(0, 1);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_processor_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, 0.6f);
+                ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableHeadersRow();
 
-                if (ImGui::BeginTable(title, 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
+                for (const auto& [mod_name, procs] : grouped_data)
                 {
-                    ImGui::TableSetupScrollFreeze(0, 1);
-                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_processor_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
-                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, 0.6f);
-                    ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
-                    ImGui::TableHeadersRow();
+                    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
 
-                    for (const auto& [mod_name, procs] : grouped_data)
+                    for (const auto& pdi : procs)
                     {
-                        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
+                        bool is_used = used_processors_ptr && std::find(used_processors_ptr->begin(), used_processors_ptr->end(), pdi.proc_hash) != used_processors_ptr->end();
 
-                        for (const auto& pdi : procs)
+                        ImGui::TableNextRow();
+                        
+                        if (is_used || pdi.is_unavailable)
                         {
-                            bool is_used = used_processors_ptr && std::find(used_processors_ptr->begin(), used_processors_ptr->end(), pdi.proc_hash) != used_processors_ptr->end();
+                            ImGui::BeginDisabled();
+                        }
 
-                            ImGui::TableNextRow();
-                            
-                            if (is_used || pdi.is_unavailable)
-                            {
-                                ImGui::BeginDisabled();
-                            }
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Indent();
+                        ImGui::TextUnformatted(pdi.type_name.c_str());
+                        ImGui::Unindent();
 
-                            ImGui::TableSetColumnIndex(0);
-                            ImGui::Indent();
-                            ImGui::TextUnformatted(pdi.type_name.c_str());
-                            ImGui::Unindent();
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::TextUnformatted(pdi.proc_name.c_str());
 
-                            ImGui::TableSetColumnIndex(1);
-                            ImGui::TextUnformatted(pdi.proc_name.c_str());
-
-                            ImGui::TableSetColumnIndex(2);
-                            ImGui::PushID((const void*)(intptr_t)pdi.proc_hash);
-                            if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang)))
-                            {
-                                adam::string_hash conn_hash = g_target_connection.get_hash();
-                                adam::string_hash proc_hash = pdi.proc_hash;
-                                ctrl.enqueue_commander_action([&ctrl, conn_hash, proc_hash]() { ctrl.commander().request_connection_processor_add(conn_hash, proc_hash); });
-                            }
-                            if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                            {
-                                ImGui::SetTooltip(get_gui_string(gui_string_id::tt_module_missing, lang), pdi.module_name.c_str());
-                            }
-                            ImGui::PopID();
-                            
-                            if (is_used || pdi.is_unavailable)
-                            {
-                                ImGui::EndDisabled();
-                            }
+                        ImGui::TableSetColumnIndex(2);
+                        ImGui::PushID((const void*)(intptr_t)pdi.proc_hash);
+                        if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang)))
+                        {
+                            adam::string_hash conn_hash = g_target_connection.get_hash();
+                            adam::string_hash proc_hash = pdi.proc_hash;
+                            ctrl.enqueue_commander_action([&ctrl, conn_hash, proc_hash]() { ctrl.commander().request_connection_processor_add(conn_hash, proc_hash); });
+                        }
+                        if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                        {
+                            ImGui::SetTooltip(get_gui_string(gui_string_id::tt_module_missing, lang), pdi.module_name.c_str());
+                        }
+                        ImGui::PopID();
+                        
+                        if (is_used || pdi.is_unavailable)
+                        {
+                            ImGui::EndDisabled();
                         }
                     }
-                    ImGui::EndTable();
                 }
+                ImGui::EndTable();
             }
-            ImGui::EndChild();
         };
 
-        // Helper lambda for new tables
-        auto draw_new_table = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float height) {
-            if (ImGui::BeginChild(title, ImVec2(half_w, height), true))
+        // Helper lambda for new tables content
+        auto draw_new_table_content = [&](const char* title, const std::map<std::string, std::vector<processor_display_info>>& grouped_data, float width, float height) {
+            ImGui::TextUnformatted(title);
+            ImGui::Separator();
+
+            if (ImGui::BeginTable(title, 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(width, height)))
             {
-                ImGui::TextUnformatted(title);
-                ImGui::Separator();
+                ImGui::TableSetupScrollFreeze(0, 1);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_processor_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, 0.6f);
+                ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableHeadersRow();
 
-                if (ImGui::BeginTable(title, 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
+                for (const auto& [mod_name, procs] : grouped_data)
                 {
-                    ImGui::TableSetupScrollFreeze(0, 1);
-                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_processor_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
-                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, 0.6f);
-                    ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
-                    ImGui::TableHeadersRow();
+                    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
 
-                    for (const auto& [mod_name, procs] : grouped_data)
+                    for (const auto& pdi : procs)
                     {
-                        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                        ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
+                        ImGui::Indent();
+                        ImGui::TextUnformatted(pdi.type_name.c_str());
+                        ImGui::Unindent();
 
-                        for (const auto& pdi : procs)
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::PushID((const void*)(intptr_t)pdi.proc_hash);
+                        auto& name_buffer = new_proc_names[pdi.proc_hash];
+                        ImGui::SetNextItemWidth(-1.0f);
+                        ImGui::InputText("##NewName", name_buffer.data(), name_buffer.size());
+
+                        ImGui::TableSetColumnIndex(2);
+                        bool has_name = name_buffer[0] != '\0';
+                        
+                        if (has_name)
                         {
-                            ImGui::TableNextRow();
-                            ImGui::TableSetColumnIndex(0);
-                            ImGui::Indent();
-                            ImGui::TextUnformatted(pdi.type_name.c_str());
-                            ImGui::Unindent();
-
-                            ImGui::TableSetColumnIndex(1);
-                            ImGui::PushID((const void*)(intptr_t)pdi.proc_hash);
-                            auto& name_buffer = new_proc_names[pdi.proc_hash];
-                            ImGui::SetNextItemWidth(-1.0f);
-                            ImGui::InputText("##NewName", name_buffer.data(), name_buffer.size());
-
-                            ImGui::TableSetColumnIndex(2);
-                            bool has_name = name_buffer[0] != '\0';
-                            
-                            if (has_name)
+                            adam::string_hash proposed_hash = adam::string_hashed(name_buffer.data()).get_hash();
+                            if (ctrl.commander().registry().get_processors().find(proposed_hash) != ctrl.commander().registry().get_processors().end())
                             {
-                                adam::string_hash proposed_hash = adam::string_hashed(name_buffer.data()).get_hash();
-                                if (ctrl.commander().registry().get_processors().find(proposed_hash) != ctrl.commander().registry().get_processors().end())
-                                {
-                                    has_name = false;
-                                }
+                                has_name = false;
                             }
-                            
-                            if (!has_name)
-                            {
-                                ImGui::BeginDisabled();
-                            }
-                            
-                            if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang)))
-                            {
-                                adam::string_hashed new_name(name_buffer.data());
-                                adam::string_hash type_hash = pdi.proc_hash;
-                                adam::string_hash mod_hash = pdi.module_hash;
-                                adam::string_hash conn_hash = g_target_connection.get_hash();
-                                adam::string_hash new_proc_hash = adam::string_hashed(name_buffer.data()).get_hash();
-                                bool is_filter = pdi.is_filter;
-                                
-                                ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_proc_hash, is_filter]() { ctrl.commander().request_processor_create(new_name, type_hash, mod_hash, is_filter); ctrl.commander().request_connection_processor_add(conn_hash, new_proc_hash); });
-
-                                name_buffer[0] = '\0';
-                            }
-                            
-                            if (!has_name)
-                            {
-                                ImGui::EndDisabled();
-                            }
-                            ImGui::PopID();
                         }
+                        
+                        if (!has_name)
+                        {
+                            ImGui::BeginDisabled();
+                        }
+                        
+                        if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang)))
+                        {
+                            adam::string_hashed new_name(name_buffer.data());
+                            adam::string_hash type_hash = pdi.proc_hash;
+                            adam::string_hash mod_hash = pdi.module_hash;
+                            adam::string_hash conn_hash = g_target_connection.get_hash();
+                            adam::string_hash new_proc_hash = adam::string_hashed(name_buffer.data()).get_hash();
+                            bool is_filter = pdi.is_filter;
+                            
+                            ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_proc_hash, is_filter]() { ctrl.commander().request_processor_create(new_name, type_hash, mod_hash, is_filter); ctrl.commander().request_connection_processor_add(conn_hash, new_proc_hash); });
+
+                            name_buffer[0] = '\0';
+                        }
+                        
+                        if (!has_name)
+                        {
+                            ImGui::EndDisabled();
+                        }
+                        ImGui::PopID();
                     }
-                    ImGui::EndTable();
                 }
+                ImGui::EndTable();
             }
-            ImGui::EndChild();
         };
 
-        ImGui::BeginGroup();
-        float half_h = (child_h - ImGui::GetStyle().ItemSpacing.y) * 0.5f;
-        draw_existing_table("Existing Filters", existing_filters, half_h);
-        draw_existing_table("Existing Converters", existing_converters, half_h);
-        ImGui::EndGroup();
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
+        float half_h = (child_h - ImGui::GetStyle().ItemSpacing.y * 2.0f) * 0.5f;
 
-        ImGui::SameLine();
-        
-        ImGui::BeginGroup();
-        draw_new_table("New Filters", new_filters, half_h);
-        draw_new_table("New Converters", new_converters, half_h);
-        ImGui::EndGroup();
+        // Draw Filters (same type, same child)
+        if (ImGui::BeginChild("FiltersChild", ImVec2(0.0f, half_h), true, ImGuiWindowFlags_NoScrollbar))
+        {
+            float avail_w = ImGui::GetContentRegionAvail().x;
+            float col_w = (avail_w - spacing * 2.0f - 12.0f * dpi_scale) * 0.5f;
+            float title_h = ImGui::GetTextLineHeightWithSpacing();
+            float table_h = ImGui::GetContentRegionAvail().y - title_h - ImGui::GetStyle().ItemSpacing.y * 2.0f - 16.0f * dpi_scale;
+
+            // Left: Existing Filters
+            ImGui::BeginGroup();
+            draw_existing_table_content(get_gui_string(gui_string_id::lbl_existing_filters, lang), existing_filters, col_w, table_h);
+            ImGui::EndGroup();
+
+            ImGui::SameLine();
+
+            // Vertical Separator
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddLine(p, ImVec2(p.x, p.y + table_h + title_h), ImGui::GetColorU32(ImGuiCol_Separator));
+            ImGui::Dummy(ImVec2(spacing, 0.0f));
+            ImGui::SameLine();
+
+            // Right: New Filters
+            ImGui::BeginGroup();
+            draw_new_table_content(get_gui_string(gui_string_id::lbl_new_filters, lang), new_filters, col_w, table_h);
+            ImGui::EndGroup();
+        }
+        ImGui::EndChild();
+
+        ImGui::Spacing();
+
+        // Draw Converters (same type, same child)
+        if (ImGui::BeginChild("ConvertersChild", ImVec2(0.0f, half_h), true, ImGuiWindowFlags_NoScrollbar))
+        {
+            float avail_w = ImGui::GetContentRegionAvail().x;
+            float col_w = (avail_w - spacing * 2.0f - 12.0f * dpi_scale) * 0.5f;
+            float title_h = ImGui::GetTextLineHeightWithSpacing();
+            float table_h = ImGui::GetContentRegionAvail().y - title_h - ImGui::GetStyle().ItemSpacing.y * 2.0f - 16.0f * dpi_scale;
+
+            // Left: Existing Converters
+            ImGui::BeginGroup();
+            draw_existing_table_content(get_gui_string(gui_string_id::lbl_existing_converters, lang), existing_converters, col_w, table_h);
+            ImGui::EndGroup();
+
+            ImGui::SameLine();
+
+            // Vertical Separator
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddLine(p, ImVec2(p.x, p.y + table_h + title_h), ImGui::GetColorU32(ImGuiCol_Separator));
+            ImGui::Dummy(ImVec2(spacing, 0.0f));
+            ImGui::SameLine();
+
+            // Right: New Converters
+            ImGui::BeginGroup();
+            draw_new_table_content(get_gui_string(gui_string_id::lbl_new_converters, lang), new_converters, col_w, table_h);
+            ImGui::EndGroup();
+        }
+        ImGui::EndChild();
 
         ImGui::PopStyleColor();
 

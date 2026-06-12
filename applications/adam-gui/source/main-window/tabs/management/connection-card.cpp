@@ -284,7 +284,7 @@ namespace adam::gui
     )
     {
         ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
-        ImColor grey_col = is_light_theme ? ImColor(210, 210, 210, 80) : ImColor(70, 70, 70, 80);
+        ImColor grey_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_invalid_light) : get_gui_color(gui_color_id::node_connection_line_invalid);
         float line_thickness = 5.f * dpi_scale;
 
         if (conn->processors.empty() && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))

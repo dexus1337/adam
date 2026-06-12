@@ -283,6 +283,11 @@ int main()
                         for (const auto& [hash, p] : ctx.cmd.get_registry().get_connections())
                             candidates.push_back(std::string(p->name.c_str()));
                     }
+                    else if (cmd.find("proc_") == 0 && cmd != "proc_create" && cmd != "proc_list")
+                    {
+                        for (const auto& [hash, p] : ctx.cmd.get_registry().get_processors())
+                            candidates.push_back(std::string(p->name.c_str()));
+                    }
                     
                     if (!candidates.empty()) handle_matches(candidates, arg, base);
                 }
@@ -327,6 +332,56 @@ int main()
                             if (!candidates.empty()) handle_matches(candidates, arg, base);
                         }
                     }
+                }
+                else if (tokens[0] == "proc_set_param" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string proc_name = tokens[1];
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    auto it = ctx.cmd.get_registry().get_processors().find(adam::string_hashed(proc_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_processors().end())
+                    {
+                        std::vector<std::string> candidates;
+                        for (const auto& [hash, p] : it->second->user_params.get_children())
+                            candidates.push_back(std::string(p->get_name().c_str()));
+                        if (!candidates.empty()) handle_matches(candidates, arg, base);
+                    }
+                }
+                else if (tokens[0] == "proc_set_param" && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                {
+                    std::string proc_name = tokens[1];
+                    std::string param_name = tokens[2];
+                    std::string arg = (tokens.size() == 4) ? tokens[3] : "";
+                    auto it = ctx.cmd.get_registry().get_processors().find(adam::string_hashed(proc_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_processors().end())
+                    {
+                        auto* param = it->second->user_params.get(adam::string_hashed(param_name.c_str()).get_hash());
+                        if (param)
+                        {
+                            std::vector<std::string> candidates;
+                            if (param->get_type() == adam::configuration_parameter::type_boolean)
+                            {
+                                candidates = {"true", "false"};
+                            }
+                            else if (param->get_type() == adam::configuration_parameter::type_string)
+                            {
+                                auto* p = static_cast<adam::configuration_parameter_string*>(param);
+                                if (p->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                                {
+                                    for (const auto& [phash, pval] : p->get_presets())
+                                        candidates.push_back(std::string(pval->get_value().c_str()));
+                                }
+                            }
+                            if (!candidates.empty()) handle_matches(candidates, arg, base);
+                        }
+                    }
+                }
+                else if ((tokens[0] == "conn_add_proc" || tokens[0] == "conn_rm_proc" || tokens[0] == "conn_reorder_proc") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    std::vector<std::string> candidates;
+                    for (const auto& [hash, p] : ctx.cmd.get_registry().get_processors())
+                        candidates.push_back(std::string(p->name.c_str()));
+                    if (!candidates.empty()) handle_matches(candidates, arg, base);
                 }
             }
             continue;
