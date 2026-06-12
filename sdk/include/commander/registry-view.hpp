@@ -27,6 +27,7 @@
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
+#include "commander/messages/message-serializer.hpp"
 
 #ifdef ADAM_CPU_X64
 #include <immintrin.h>
@@ -36,50 +37,6 @@ namespace adam
 {
     namespace detail
     {
-        template<typename MessageType>
-        struct message_deserializer
-        {
-            const MessageType* messages;
-            size_t max_messages;
-            size_t& msg_idx;
-            size_t& unused_off;
-            size_t& unused_size;
-
-            message_deserializer(const MessageType* msgs, size_t max_msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
-                : messages(msgs), max_messages(max_msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
-            {
-            }
-
-            void read_bytes(void* dest, size_t size) 
-            {
-                uint8_t* ptr = static_cast<uint8_t*>(dest);
-                size_t remaining = size;
-                while (remaining > 0) 
-                {
-                    if (unused_size == 0) 
-                    {
-                        msg_idx++;
-                        if (msg_idx >= max_messages) return;
-                        unused_off = 0;
-                        unused_size = MessageType::get_max_data_length();
-                    }
-                    size_t to_read = std::min(remaining, unused_size);
-                    std::memcpy(ptr, messages[msg_idx].template get_data_as<uint8_t>() + unused_off, to_read);
-                    unused_off += to_read;
-                    unused_size -= to_read;
-                    ptr += to_read;
-                    remaining -= to_read;
-                }
-            }
-            
-            template<typename ViewType>
-            ViewType read_view() 
-            {
-                ViewType view;
-                read_bytes(&view, sizeof(ViewType));
-                return view;
-            }
-        };
 
         template<typename MessageType>
         void deserialize_user_parameters(uint16_t count, message_deserializer<MessageType>& deserializer, configuration_parameter_list& user_params) 

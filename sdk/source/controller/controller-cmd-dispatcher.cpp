@@ -8,6 +8,7 @@
 #include "data/inspector.hpp"
 #include "commander/messages/event.hpp"
 #include "commander/messages/message-structs.hpp"
+#include "commander/messages/message-serializer.hpp"
 #include "data/connection.hpp"
 #include "data/processor.hpp"
 #include "data/port/port-input.hpp"
@@ -32,70 +33,7 @@ namespace adam
     namespace 
     {
         template<typename msg_type>
-        struct message_serializer
-        {
-            std::vector<msg_type>& messages;
-            size_t& msg_idx;
-            size_t& unused_off;
-            size_t& unused_size;
-
-            message_serializer(std::vector<msg_type>& msgs, size_t& initial_idx, size_t& initial_off, size_t& initial_size)
-                : messages(msgs), msg_idx(initial_idx), unused_off(initial_off), unused_size(initial_size) 
-            {
-            }
-
-            void ensure_space(size_t needed_size) 
-            {
-                if (unused_size < needed_size) 
-                {
-                    messages[msg_idx].set_extended(true);
-                    msg_idx++;
-                    auto type = messages[0].get_type();
-                    if (msg_idx >= messages.size()) 
-                        messages.emplace_back(type);
-                    unused_off = 0;
-                    unused_size = msg_type::get_max_data_length();
-                }
-            }
-
-            void write_bytes(const void* data, size_t size) 
-            {
-                const uint8_t* ptr = static_cast<const uint8_t*>(data);
-                size_t remaining = size;
-                while (remaining > 0) 
-                {
-                    if (unused_size == 0) 
-                    {
-                        messages[msg_idx].set_extended(true);
-                        msg_idx++;
-                        auto type = messages[0].get_type();
-                        if (msg_idx >= messages.size()) 
-                            messages.emplace_back(type);
-                        unused_off = 0;
-                        unused_size = msg_type::get_max_data_length();
-                    }
-                    size_t to_write = std::min(remaining, unused_size);
-                    std::memcpy(messages[msg_idx].template data_as<uint8_t>() + unused_off, ptr, to_write);
-                    unused_off += to_write;
-                    unused_size -= to_write;
-                    ptr += to_write;
-                    remaining -= to_write;
-                }
-            }
-            
-            template<typename view_type>
-            view_type* allocate_view() 
-            {
-                ensure_space(sizeof(view_type));
-                view_type* view = reinterpret_cast<view_type*>(messages[msg_idx].template data_as<uint8_t>() + unused_off);
-                unused_off += sizeof(view_type);
-                unused_size -= sizeof(view_type);
-                return view;
-            }
-        };
-
-        template<typename msg_type>
-        void serialize_user_parameters(const configuration_parameter_list* user_param, message_serializer<msg_type>& serializer) 
+        void serialize_user_parameters(const configuration_parameter_list* user_param, detail::message_serializer<msg_type>& serializer) 
         {
             if (!user_param) return;
 
@@ -294,7 +232,7 @@ namespace adam
                         size_t unused_off     = sizeof(port::basic_info);
                         size_t unused_size    = response::get_max_data_length() - unused_off;
 
-                        message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
+                        detail::message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
                         serialize_user_parameters(user_param, serializer);
                     }
 
@@ -367,7 +305,7 @@ namespace adam
                         size_t unused_off     = sizeof(processor::basic_info);
                         size_t unused_size    = response::get_max_data_length() - unused_off;
 
-                        message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
+                        detail::message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
                         serialize_user_parameters(user_param, serializer);
                     }
 
@@ -1409,7 +1347,7 @@ namespace adam
                     size_t unused_off = sizeof(port::basic_info);
                     size_t unused_size = event::get_max_data_length() - unused_off;
 
-                    message_serializer<event> serializer(events, evt_idx, unused_off, unused_size);
+                    detail::message_serializer<event> serializer(events, evt_idx, unused_off, unused_size);
                     serialize_user_parameters(user_param, serializer);
                 }
             }
