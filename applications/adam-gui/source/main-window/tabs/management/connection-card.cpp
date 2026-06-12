@@ -945,45 +945,57 @@ namespace adam::gui
                 }
             }
 
-            if (!is_drag_preview && g_is_dragging_processor && g_dragged_processor_conn_hash == hash && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            if (!is_drag_preview && g_is_dragging_processor && g_dragged_processor_conn_hash == hash)
             {
-                if (inside_card)
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
                 {
-                    auto it = std::find(conn->processors.begin(), conn->processors.end(), g_dragged_processor_hash);
-                    if (it != conn->processors.end())
+                    if (inside_card)
                     {
-                        uint32_t final_idx = static_cast<uint32_t>(std::distance(conn->processors.begin(), it));
-                        if (ctrl.is_commander_active())
+                        auto it = std::find(conn->processors.begin(), conn->processors.end(), g_dragged_processor_hash);
+                        if (it != conn->processors.end())
                         {
-                            ctrl.enqueue_commander_action([&ctrl, hash, proc_hash = g_dragged_processor_hash, final_idx]()
+                            uint32_t final_idx = static_cast<uint32_t>(std::distance(conn->processors.begin(), it));
+                            if (ctrl.is_commander_active())
                             {
-                                ctrl.commander().request_connection_processor_reorder(hash, proc_hash, final_idx);
-                            });
+                                ctrl.enqueue_commander_action([&ctrl, hash, proc_hash = g_dragged_processor_hash, final_idx]()
+                                {
+                                    ctrl.commander().request_connection_processor_reorder(hash, proc_hash, final_idx);
+                                });
+                            }
                         }
                     }
-                }
-                else
-                {
-                    // Dragged outside and released -> restore to original index silently
-                    auto& procs = conn->processors;
-                    auto it = std::find(procs.begin(), procs.end(), g_dragged_processor_hash);
-                    if (it != procs.end())
+                    else
                     {
-                        procs.erase(it);
-                        int target_idx = g_dragged_processor_original_index;
-                        if (target_idx >= 0)
+                        // Dragged outside and released -> restore to original index silently
+                        auto& procs = conn->processors;
+                        auto it = std::find(procs.begin(), procs.end(), g_dragged_processor_hash);
+                        if (it != procs.end())
                         {
-                            if (target_idx > static_cast<int>(procs.size()))
-                                target_idx = static_cast<int>(procs.size());
-                            procs.insert(procs.begin() + target_idx, g_dragged_processor_hash);
+                            procs.erase(it);
+                            int target_idx = g_dragged_processor_original_index;
+                            if (target_idx >= 0)
+                            {
+                                if (target_idx > static_cast<int>(procs.size()))
+                                    target_idx = static_cast<int>(procs.size());
+                                procs.insert(procs.begin() + target_idx, g_dragged_processor_hash);
+                            }
                         }
                     }
+                    g_is_dragging_processor = false;
+                    g_dragged_processor_conn_hash = 0;
+                    g_dragged_processor_hash = 0;
+                    g_active_processor_drag_target_index = -1;
+                    g_dragged_processor_original_index = -1;
                 }
-                g_is_dragging_processor = false;
-                g_dragged_processor_conn_hash = 0;
-                g_dragged_processor_hash = 0;
-                g_active_processor_drag_target_index = -1;
-                g_dragged_processor_original_index = -1;
+                else if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                {
+                    // Safety cleanup if we missed the release event
+                    g_is_dragging_processor = false;
+                    g_dragged_processor_conn_hash = 0;
+                    g_dragged_processor_hash = 0;
+                    g_active_processor_drag_target_index = -1;
+                    g_dragged_processor_original_index = -1;
+                }
             }
 
             ImColor in_col = get_gui_color(gui_color_id::node_input);
@@ -1041,15 +1053,16 @@ namespace adam::gui
                     mod_name = proc_it->second->module_name.c_str();
 
                 connection_pin_data p_in, p_out;
+                bool is_node_drag_preview = is_drag_preview || (g_is_dragging_processor && g_dragged_processor_conn_hash == hash && fid == g_dragged_processor_hash);
                 if (compact_processors)
                 {
                     char short_name[16];
                     snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
-                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_drag_preview, short_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
+                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, short_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
                 }
                 else
                 {
-                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_drag_preview, proc_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
+                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, proc_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
                 }
                 p_in.format_name = "transparent";
                 p_out.format_name = "transparent";
