@@ -204,6 +204,60 @@ namespace adam::gui
                     ImGui::PopStyleVar(2);
                 }
             }
+            else if (payload->IsDataType("DND_PROCESSOR") && payload->Data)
+            {
+                auto* p_data = (const DragProcessorPayload*)payload->Data;
+                adam::string_hash conn_hash = p_data->connection;
+                adam::string_hash proc_hash = p_data->processor;
+                
+                auto proc_it = reg_view.get_processors().find(proc_hash);
+                if (proc_it != reg_view.get_processors().end())
+                {
+                    const char* name = proc_it->second->name.c_str();
+                    bool is_unavail = proc_it->second->is_unavailable;
+
+                    ImGui::SetNextWindowPos(ImVec2(ImGui::GetMousePos().x - g_processor_drag_offset.x, ImGui::GetMousePos().y - g_processor_drag_offset.y));
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+                    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.7f);
+                    if (ImGui::Begin("##drag_processor_preview", nullptr, ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
+                    {
+                        float char_width = ImGui::CalcTextSize("x").x;
+                        float desired_node_w = char_width * 40.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+                        float approx_avail_x = card_width - ImGui::GetStyle().WindowPadding.x * 2.0f;
+                        float port_w = std::min(desired_node_w, approx_avail_x * 0.25f);
+                        if (port_w < char_width * 15.0f) port_w = char_width * 15.0f;
+                        float proc_w = port_w;
+                        float node_h = ImGui::GetTextLineHeight() * 2.0f;
+
+                        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                        ImVec2 p_min = ImGui::GetWindowPos();
+                        ImVec2 p_max(p_min.x + proc_w, p_min.y + node_h);
+
+                        ImColor col = get_gui_color(gui_color_id::node_processor);
+                        if (is_unavail) col.Value.w *= 0.4f;
+
+                        draw_list->AddRectFilled(p_min, p_max, col, 6.0f * dpi_scale);
+                        draw_list->AddRect(p_min, p_max, ImColor(col.Value.x * 1.2f, col.Value.y * 1.2f, col.Value.z * 1.2f), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+
+                        float text_width = ImGui::CalcTextSize(name).x;
+                        float text_x = p_min.x + (proc_w - text_width) * 0.5f;
+                        if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
+                        ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
+                        
+                        draw_list->PushClipRect(p_min, p_max, true);
+                        draw_list->AddText(text_pos, ImColor(255, 255, 255), name);
+                        draw_list->PopClipRect();
+
+                        ImGui::Dummy(ImVec2(proc_w, node_h));
+                    }
+                    ImGui::End();
+                    ImGui::PopStyleVar();
+                    ImGui::PopStyleColor();
+                    ImGui::PopStyleVar(2);
+                }
+            }
         }
 
         if (!commander_active) ImGui::BeginDisabled();

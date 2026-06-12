@@ -781,11 +781,16 @@ namespace adam::gui
 
         if (type == node_type_processor && !is_drag_preview)
         {
-            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+            if (ImGui::IsItemActivated())
+            {
+                ImVec2 mouse_pos = ImGui::GetMousePos();
+                g_processor_drag_offset = ImVec2(mouse_pos.x - p_min.x, mouse_pos.y - p_min.y);
+            }
+
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID | ImGuiDragDropFlags_SourceNoPreviewTooltip))
             {
                 DragProcessorPayload payload { hash, port_hash };
                 ImGui::SetDragDropPayload("DND_PROCESSOR", &payload, sizeof(payload));
-                ImGui::Text("Move %s", name);
                 ImGui::EndDragDropSource();
             }
         }
