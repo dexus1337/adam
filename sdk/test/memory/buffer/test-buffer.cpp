@@ -47,13 +47,31 @@ TEST_F(buffer_test, get_handle)
     adam::buffer_handle handle = buf->get_handle();
     
     EXPECT_NE(handle.thread_id, 0u);
-    EXPECT_NE(handle.data_format_hash, 0u);
-    EXPECT_EQ(handle.capacity, buf->get_capacity());
-    EXPECT_EQ(handle.size, buf->get_size());
     EXPECT_GE(handle.offset, 0u);
-    EXPECT_EQ(handle.timestamp, ts);
 
     buf->release();
+}
+
+/** @brief Tests buffer referencing (chaining) via handles. */
+TEST_F(buffer_test, chaining)
+{
+    adam::buffer* buf1 = adam::buffer_manager::get().request_buffer(512);
+    adam::buffer* buf2 = adam::buffer_manager::get().request_buffer(512);
+    ASSERT_NE(buf1, nullptr);
+    ASSERT_NE(buf2, nullptr);
+
+    // Chain buf2 onto buf1
+    buf1->set_referenced_buffer_handle(buf2->get_handle());
+
+    // Verify it was chained correctly
+    adam::buffer_handle chained_handle = buf1->get_referenced_buffer_handle();
+    EXPECT_TRUE(chained_handle.is_valid());
+    EXPECT_EQ(chained_handle.thread_id, buf2->get_handle().thread_id);
+    EXPECT_EQ(chained_handle.offset, buf2->get_handle().offset);
+    EXPECT_EQ(chained_handle.memory_index, buf2->get_handle().memory_index);
+
+    buf1->release();
+    buf2->release();
 }
 
 /** @brief Tests setting and getting the size of the buffer. */

@@ -103,8 +103,9 @@ graph TD
     BufB -.->|Points to| SharedMem
 ```
 
-* **Zero-Copy Buffer Handles (`buffer_handle`)**: Instead of copying byte arrays over IPC, ADAM passes a tiny 32-byte POD handle containing a shared memory chunk ID, capacity, size class, byte offset, format hash, and creation timestamp. The receiver resolves this handle back into a raw virtual address pointing to the exact same shared memory.
-* **Cross-Process Reference Counting**: The reference count atomics (`m_ref_count`) are allocated directly inside the shared memory segment. This enables correct, thread-safe object lifecycles across process boundaries; once all processes call `release()` and the reference count hits zero, the buffer returns to the manager.
+* **Zero-Copy Buffer Handles (`buffer_handle`)**: Instead of passing all metadata over IPC, ADAM passes an ultra-compact 12-byte POD handle containing only a shared memory segment index (`memory_index`), byte offset (`offset`), and the creator's thread ID (`thread_id`).
+* **Shared Memory Buffer Header (`buffer::header`)**: All buffer metadata (including capacity, size, start position, data format hash, timestamp, and a handle referencing another buffer for chaining) is stored in a structured header directly at the start of the buffer's shared memory segment.
+* **Cross-Process Reference Counting**: The reference count atomics are part of the `buffer::header` allocated inside the shared memory segment. This enables correct, thread-safe object lifecycles across process boundaries; once all processes call `release()` and the reference count hits zero, the buffer returns to the manager.
 * **Capacity Classes & Segment Pooling**: The `buffer_manager` splits memory into 30 power-of-two size classes (up to 4GB segments). Large contiguous shared memory files (chunks of 16MB by default) are allocated and split into pool blocks of these size classes.
 * **Thread-Local Caching**: Highly inspired by `tcmalloc` and `jemalloc`, threads running data pipelines maintain a local pool of reusable buffers (`buffer_thread_cache`) to avoid global lock contention during high-speed routing. If the local cache runs empty, it requests a batch (32 buffers) from the global pool using a lightweight `std::atomic_flag` spinlock.
 

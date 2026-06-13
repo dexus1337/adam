@@ -93,7 +93,6 @@ TEST_F(buffer_manager_test, oversized_buffer)
     buf->release();
 }
 
-#ifndef ADAM_PLATFORM_WINDOWS //TODO: why does this only deadlock on windows???
 /** @brief Tests that multiple threads can request and return memory safely without race conditions. */
 TEST_F(buffer_manager_test, multithreading)
 {
@@ -128,7 +127,6 @@ TEST_F(buffer_manager_test, multithreading)
     t2.join();
     t3.join();
 }
-#endif
 
 /** @brief Benchmark test comparing buffer_manager to standard malloc/free. */
 TEST_F(buffer_manager_test, benchmark_vs_malloc)

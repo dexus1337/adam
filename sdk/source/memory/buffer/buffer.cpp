@@ -5,14 +5,10 @@
 namespace adam 
 {
     buffer::buffer() 
-     :  m_ref_count(nullptr), 
+     :  m_header(nullptr), 
         m_data(nullptr),
         m_data_format(&data_format_transparent),
-        m_capacity(0),
-        m_size(0),
-        m_memory_index(0), 
-        m_thread_id(0),
-        m_offset(0),
+        m_handle(),
         m_is_resolved(false)
     {
     }
@@ -23,7 +19,7 @@ namespace adam
 
     void buffer::release() 
     {
-        if (m_ref_count && m_ref_count->fetch_sub(1, std::memory_order_acq_rel) == 1)
+        if (m_header && m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
         {
             buffer_manager::get().return_buffer(this);
         }
@@ -31,13 +27,18 @@ namespace adam
 
     buffer_handle buffer::get_handle() const 
     {
-        return buffer_handle(m_size, m_capacity, m_memory_index, m_offset, m_data_format ? m_data_format->get_name().get_hash() : 0, m_thread_id, m_timestamp);
+        return m_handle;
     }
 
     bool buffer::fill_data(const void* in_data, uint32_t len, uint32_t offset)
     {
+        if (!m_header)
+        {
+            return false;
+        }
+
         // Prevent out-of-bounds writing
-        if (offset + len > m_capacity)
+        if (offset + len > m_header->capacity)
         {
             return false;
         }
@@ -46,11 +47,20 @@ namespace adam
         std::memcpy(static_cast<uint8_t*>(m_data) + offset, in_data, len);
         
         // Extend the size tracker if we wrote past the previous end
-        if (offset + len > m_size)
+        if (offset + len > m_header->size)
         {
-            m_size = offset + len;
+            m_header->size = offset + len;
         }
 
         return true;
+    }
+
+    void buffer::set_data_format(const data_format* format)
+    {
+        m_data_format = format;
+        if (m_header)
+        {
+            m_header->data_format_hash = format ? format->get_name().get_hash() : 0;
+        }
     }
 }

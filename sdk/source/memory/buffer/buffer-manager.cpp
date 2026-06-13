@@ -136,8 +136,9 @@ namespace adam
 
         buffer* buf = local_list.back();
         local_list.pop_back();
-        buf->m_ref_count->store(1, std::memory_order_relaxed);
-        buf->m_size = 0;
+        buf->m_header->ref_count.store(1, std::memory_order_relaxed);
+        buf->m_header->size = 0;
+        buf->m_header->next_buffer.set_invalid();
         
         return buf;
     }
@@ -155,7 +156,7 @@ namespace adam
         
         // Local buffer: Try to transition it back to the free state to recycle immediately.
         uint32_t expected = 0;
-        if (buffer->m_ref_count->compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
+        if (buffer->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
         {
             uint8_t capacity_class = get_capacity_class(buffer->get_capacity());
             auto& local_list = t_cache.free_lists[capacity_class];
@@ -209,14 +210,9 @@ namespace adam
         buffer* raw_buf = m_resolved_free_list.back();
         m_resolved_free_list.pop_back();
         
-        raw_buf->m_memory_index = handle.memory_index;
-        raw_buf->m_thread_id = handle.thread_id;
-        raw_buf->m_offset = handle.offset;
-        raw_buf->m_capacity = handle.capacity;
-        raw_buf->m_size = handle.size;
-        raw_buf->m_ref_count = reinterpret_cast<std::atomic<uint32_t>*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
-        raw_buf->m_data = static_cast<uint8_t*>(target_mem->get()) + handle.offset + 8;
-        raw_buf->m_timestamp = handle.timestamp;
+        raw_buf->m_handle = handle;
+        raw_buf->m_header = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
+        raw_buf->m_data = static_cast<uint8_t*>(static_cast<void*>(raw_buf->m_header)) + raw_buf->m_header->start_position;
         raw_buf->m_is_resolved = true;
         raw_buf->m_data_format = &data_format_transparent;
         
@@ -258,8 +254,8 @@ namespace adam
         os::thread_id tid = os::get_current_thread_id();
         adam::string_hashed mem_name(memory_name_prefix + std::to_string(tid) + "_" + std::to_string(m_block_counter));
         
-        // 8 bytes padding per buffer to store the shared reference count
-        uint64_t actual_chunk_size = buffer_size + 8;
+        // Allocate space for the header region + buffer payload size
+        uint64_t actual_chunk_size = buffer_size + sizeof(buffer::header);
         uint64_t memory_size = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
         uint64_t chunks = memory_size / actual_chunk_size;
         
@@ -277,19 +273,22 @@ namespace adam
         for (uint64_t i = 0; i < chunks; ++i)
         {
             buffer* buf = &block[i];
-            buf->m_capacity = static_cast<uint32_t>(buffer_size);
-            buf->m_size = 0;
-            buf->m_offset = static_cast<uint32_t>(i * actual_chunk_size);
-            buf->m_memory_index = m_block_counter;
-            buf->m_thread_id = tid;
-            buf->m_timestamp = 0;
+            buf->m_handle = buffer_handle(m_block_counter, static_cast<uint32_t>(i * actual_chunk_size), tid);
             buf->m_is_resolved = false;
             buf->m_data_format = &data_format_transparent;
             
-            buf->m_ref_count = reinterpret_cast<std::atomic<uint32_t>*>(static_cast<uint8_t*>(new_mem->get()) + buf->m_offset);
-            new (buf->m_ref_count) std::atomic<uint32_t>(buffer_free_state); // Initialize cross-process atomic
+            buf->m_header = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(new_mem->get()) + buf->m_handle.offset);
+            new (buf->m_header) buffer::header();
             
-            buf->m_data = static_cast<uint8_t*>(new_mem->get()) + buf->m_offset + 8;
+            buf->m_header->ref_count.store(buffer_free_state, std::memory_order_relaxed);
+            buf->m_header->capacity = static_cast<uint32_t>(buffer_size);
+            buf->m_header->size = 0;
+            buf->m_header->start_position = sizeof(buffer::header);
+            buf->m_header->data_format_hash = data_format_transparent.get_name().get_hash();
+            buf->m_header->timestamp = 0;
+            buf->m_header->next_buffer = buffer_handle();
+            
+            buf->m_data = static_cast<uint8_t*>(static_cast<void*>(buf->m_header)) + buf->m_header->start_position;
             
             new_buffers.push_back(buf);
         }
@@ -314,7 +313,7 @@ namespace adam
     bool buffer_manager::scavenge_pool_blocks(uint8_t capacity_class)
     {
         uint64_t buffer_size = 1ULL << (capacity_class + 7); 
-        uint64_t actual_chunk_size = buffer_size + 8;
+        uint64_t actual_chunk_size = buffer_size + sizeof(buffer::header);
         uint64_t memory_size = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
         uint64_t chunks = memory_size / actual_chunk_size;
         
@@ -331,10 +330,10 @@ namespace adam
                 
                 // If ref_count is exactly 0, it means all remote and local processes have released it!
                 // Fast relaxed load to avoid dirtying the cache line if the buffer is still in use
-                if (buf->m_ref_count->load(std::memory_order_relaxed) == 0)
+                if (buf->m_header->ref_count.load(std::memory_order_relaxed) == 0)
                 {
                     uint32_t expected = 0;
-                    if (buf->m_ref_count->compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
+                    if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
                     {
                         recovered.push_back(buf);
                     }

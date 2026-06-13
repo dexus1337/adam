@@ -31,22 +31,20 @@ namespace adam
      * @struct buffer_handle
      * @brief A lightweight, POD structure used to safely send a buffer's location across IPC queues.
      */
-    struct buffer_handle
+    #pragma pack(push, 1)
+    struct ADAM_SDK_API buffer_handle
     {
-        uint32_t size;                  /**< The size of the buffer payload. */
-        uint32_t capacity;              /**< The full capacity of the buffer. Also used for checking validity. If 0, invalid */
         uint32_t memory_index;          /**< The globally unique index of the shared memory segment. */
         uint32_t offset;                /**< The offset within the shared memory segment. */
-        string_hash data_format_hash;   /**< The hash of the name of the data format. */
         os::thread_id thread_id;        /**< The ID of the thread that created the memory block. */
-        uint64_t timestamp;             /**< The timestamp when the buffer was populated. */
 
-        bool is_valid() const { return capacity != 0; }
-        void set_invalid() { capacity = 0; }
+        bool is_valid() const { return thread_id != 0; }
+        void set_invalid() { thread_id = 0; }
 
-        buffer_handle() : capacity(0) {}
-        buffer_handle(uint32_t size, uint32_t capacity, uint32_t memory_index, uint32_t offset, string_hash data_format_hash, os::thread_id thread_id, uint64_t timestamp) : size(size), capacity(capacity), memory_index(memory_index), offset(offset), data_format_hash(data_format_hash), thread_id(thread_id), timestamp(timestamp) { }
+        buffer_handle() : memory_index(0), offset(0), thread_id(0) {}
+        buffer_handle(uint32_t memory_index, uint32_t offset, os::thread_id thread_id) : memory_index(memory_index), offset(offset), thread_id(thread_id) {}
     };
+    #pragma pack(pop)
 
     /**
      * @class buffer
@@ -59,21 +57,24 @@ namespace adam
         friend struct std::default_delete<buffer[]>;
 
     public:
+        // The reference count takes sizeof(std::atomic<uint32_t>) = 4 bytes, but we pad it to 8 bytes (sizeof(uint64_t))
+        // to ensure the subsequent data payload (m_data) is aligned to an 8-byte boundary.
+        static constexpr uint32_t ref_count_padding = sizeof(uint64_t);
 
         const void* get_data()                  const { return m_data; }
 
         template<typename T>
         const T* get_data_as()                  const { return reinterpret_cast<const T*>(m_data); }
 
-        uint32_t get_capacity()                 const { return m_capacity; }
-        uint32_t get_size()                     const { return m_size; }
+        uint32_t get_capacity()                 const { return m_header ? m_header->capacity : 0; }
+        uint32_t get_size()                     const { return m_header ? m_header->size : 0; }
         const data_format* get_data_format()    const { return m_data_format; }
 
-        uint64_t get_timestamp()                const { return m_timestamp; }
-        void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { m_timestamp = ts; }
+        uint64_t get_timestamp()                const { return m_header ? m_header->timestamp : 0; }
+        void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { if (m_header) m_header->timestamp = ts; }
 
         /** @brief Returns the current reference count. Useful for debugging and testing. */
-        uint32_t get_ref_count() const { return m_ref_count ? m_ref_count->load(std::memory_order_relaxed) : 0; }
+        uint32_t get_ref_count() const { return m_header ? m_header->ref_count.load(std::memory_order_relaxed) : 0; }
 
         /** @brief IPC support: Creates a lightweight handle safe for cross-process transmission. */
         buffer_handle get_handle() const;
@@ -86,16 +87,40 @@ namespace adam
         template<typename T>
         T* data_as()                                    { return reinterpret_cast<T*>(m_data); }
 
-        void set_size(uint32_t size)                    { m_size = size; }
-        void set_data_format(const data_format* format) { m_data_format = format; }
+        void set_size(uint32_t size)                    { if (m_header) m_header->size = size; }
+        void set_data_format(const data_format* format);
 
         /** @brief Adds a reference to the buffer. */
-        void add_ref() { m_ref_count->fetch_add(1, std::memory_order_relaxed); }
+        void add_ref() { if (m_header) m_header->ref_count.fetch_add(1, std::memory_order_relaxed); }
         
         /** @brief Releases a reference, returning it to the manager if it reaches 0. */
         void release();
 
+        /** @brief Get the handle of another referenced buffer (by handle). */
+        buffer_handle get_referenced_buffer_handle() const { return m_header ? m_header->next_buffer : buffer_handle(); }
+
+        /** @brief Set reference to another buffer (by handle). */
+        void set_referenced_buffer_handle(const buffer_handle& handle) { if (m_header) m_header->next_buffer = handle; }
+
     protected:
+
+        #pragma pack(push, 1)
+        struct header
+        {
+            std::atomic<uint32_t> ref_count;
+            uint32_t capacity;
+            uint32_t size;
+            uint32_t start_position;
+            string_hash data_format_hash;
+            uint64_t timestamp;
+            buffer_handle next_buffer;
+            uint32_t padding; // Align payload to 8-byte boundary
+
+            header() 
+                : ref_count(0), capacity(0), size(0), start_position(0), data_format_hash(0), timestamp(0), next_buffer(), padding(0) 
+            {}
+        };
+        #pragma pack(pop)
 
         /** @brief Constructs a new buffer object. */
         buffer();
@@ -103,15 +128,10 @@ namespace adam
         /** @brief Destroys the buffer object and cleans up resources. */
         ~buffer();
 
-        std::atomic<uint32_t>* m_ref_count; /**< Pointer to the shared reference count. */
+        header* m_header;                   /**< Pointer to the shared memory header region. */
         void* m_data;                       /**< Pointer to the actual memory buffer data. */
         const data_format* m_data_format;   /**< Optional pointer to a data format describing the contents of this buffer, used for automatic parsing/serialization in the ADAM system. */
-        uint32_t m_capacity;                /**< The capacity of the memory buffer in bytes. */
-        uint32_t m_size;                    /**< The current size of the data in the buffer. */
-        uint32_t m_memory_index;            /**< The unique index of the shared memory instance hosting this buffer. */
-        os::thread_id m_thread_id;          /**< The thread id that created the shared memory instance hosting this buffer. */
-        uint32_t m_offset;                  /**< The offset inside the shared memory instance. */
-        uint64_t m_timestamp;               /**< The timestamp of the buffer. */
+        buffer_handle m_handle;             /**< The buffer handle. */
         bool m_is_resolved;                 /**< Indicates whether this buffer has been resolved from a handle. */
     };
 }
