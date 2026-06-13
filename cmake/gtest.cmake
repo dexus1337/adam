@@ -29,12 +29,29 @@ function(setup_gtest TARGET_NAME)
 
     # Automatically copy gtest DLLs to the output directory
     if(MSVC)
-        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "$ENV{GTEST_ROOT}/lib/gtest.dll"
-                "$ENV{GTEST_ROOT}/lib/gtest_main.dll"
-                $<TARGET_FILE_DIR:${TARGET_NAME}>
-        )
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            target_link_directories(${TARGET_NAME} 
+                PRIVATE $ENV{GTEST_ROOT}/lib-msvc/debug
+            )
+
+            add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$ENV{GTEST_ROOT}/lib-msvc/debug/gtest.dll"
+                    "$ENV{GTEST_ROOT}/lib-msvc/debug/gtest_main.dll"
+                    $<TARGET_FILE_DIR:${TARGET_NAME}>
+            )
+        else()
+            target_link_directories(${TARGET_NAME} 
+                PRIVATE $ENV{GTEST_ROOT}/lib-msvc/release
+            )
+
+            add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$ENV{GTEST_ROOT}/lib-msvc/release/gtest.dll"
+                    "$ENV{GTEST_ROOT}/lib-msvc/release/gtest_main.dll"
+                    $<TARGET_FILE_DIR:${TARGET_NAME}>
+            )
+        endif()
     endif()
 
     
