@@ -975,3 +975,289 @@ TEST_F(commander_test, request_connection_port_add_remove_flow)
 
     EXPECT_TRUE(cmdr.destroy());
 }
+
+/** @brief Tests the full flow of creating, renaming, and destroying a processor via commander. */
+TEST_F(commander_test, request_processor_lifecycle_flow)
+{
+    adam::controller& ctrl = adam::controller::get();
+
+    // Setup mock module with mock processor factory
+    cmdr_test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &cmdr_test::global_mock_proc_factory);
+    cmdr_test::mock_module_injector injector(ctrl.get_registry(), &mock_mod);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    // 1. Request processor creation
+    adam::response_status status = cmdr.request_processor_create("test_proc"_ct, "mock-converter"_ct, "mock_mod"_ct, false);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    auto proc_hash = ("test_proc"_ct).get_hash();
+
+    // Wait for the event to propagate and update commander's registry view
+    auto start = std::chrono::steady_clock::now();
+    while (!cmdr.get_registry().get_processors().contains(proc_hash) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    ASSERT_TRUE(cmdr.get_registry().get_processors().contains(proc_hash));
+    EXPECT_EQ(cmdr.get_registry().get_processors().at(proc_hash)->name.get_hash(), proc_hash);
+
+    // 2. Request processor rename
+    status = cmdr.request_processor_rename(proc_hash, "renamed_proc"_ct);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    auto new_proc_hash = ("renamed_proc"_ct).get_hash();
+
+    // Wait for rename event
+    start = std::chrono::steady_clock::now();
+    while (!cmdr.get_registry().get_processors().contains(new_proc_hash) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    EXPECT_TRUE(cmdr.get_registry().get_processors().contains(new_proc_hash));
+    EXPECT_FALSE(cmdr.get_registry().get_processors().contains(proc_hash));
+
+    // 3. Request processor destroy
+    status = cmdr.request_processor_destroy(new_proc_hash);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    // Wait for destroy event
+    start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_processors().contains(new_proc_hash) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    EXPECT_FALSE(cmdr.get_registry().get_processors().contains(new_proc_hash));
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests attaching, reordering, and removing processors on a connection via commander. */
+TEST_F(commander_test, request_connection_processor_flow)
+{
+    adam::controller& ctrl = adam::controller::get();
+
+    // Setup mock module with mock processor factory
+    cmdr_test::mock_module mock_mod("mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &cmdr_test::global_mock_proc_factory);
+    cmdr_test::mock_module_injector injector(ctrl.get_registry(), &mock_mod);
+
+    // Create processors and connection in controller registry
+    adam::processor* proc1 = nullptr;
+    adam::processor* proc2 = nullptr;
+    adam::connection* conn = nullptr;
+    ASSERT_EQ(ctrl.get_registry().create_processor("p1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc1), adam::registry::status_success);
+    ASSERT_EQ(ctrl.get_registry().create_processor("p2"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc2), adam::registry::status_success);
+    ASSERT_EQ(ctrl.get_registry().create_connection("test_conn"_ct, &conn), adam::registry::status_success);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("test_conn"_ct).get_hash();
+    auto p1_hash = ("p1"_ct).get_hash();
+    auto p2_hash = ("p2"_ct).get_hash();
+
+    const auto& conn_view = cmdr.get_registry().get_connections().at(conn_hash);
+    EXPECT_TRUE(conn_view->processors.empty());
+
+    // 1. Add p1 to connection
+    EXPECT_EQ(cmdr.request_connection_processor_add(conn_hash, p1_hash), adam::response_status::success);
+    auto start = std::chrono::steady_clock::now();
+    while (conn_view->processors.size() < 1 && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    
+    ASSERT_EQ(conn_view->processors.size(), 1u);
+    EXPECT_EQ(conn_view->processors[0], p1_hash);
+
+    // 2. Add p2 to connection
+    EXPECT_EQ(cmdr.request_connection_processor_add(conn_hash, p2_hash), adam::response_status::success);
+    start = std::chrono::steady_clock::now();
+    while (conn_view->processors.size() < 2 && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    
+    ASSERT_EQ(conn_view->processors.size(), 2u);
+    EXPECT_EQ(conn_view->processors[0], p1_hash);
+    EXPECT_EQ(conn_view->processors[1], p2_hash);
+
+    // 3. Reorder processors (move p1 to index 1, making order [p2, p1])
+    EXPECT_EQ(cmdr.request_connection_processor_reorder(conn_hash, p1_hash, 1), adam::response_status::success);
+    start = std::chrono::steady_clock::now();
+    while (conn_view->processors[0] != p2_hash && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(conn_view->processors[0], p2_hash);
+    EXPECT_EQ(conn_view->processors[1], p1_hash);
+
+    // 4. Remove p2 from connection
+    EXPECT_EQ(cmdr.request_connection_processor_remove(conn_hash, p2_hash), adam::response_status::success);
+    start = std::chrono::steady_clock::now();
+    while (conn_view->processors.size() > 1 && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    ASSERT_EQ(conn_view->processors.size(), 1u);
+    EXPECT_EQ(conn_view->processors[0], p1_hash);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests the lifecycle of creating, starting, stopping, renaming, and destroying a port via commander. */
+TEST_F(commander_test, request_port_lifecycle_flow)
+{
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    // 1. Request port creation
+    adam::response_status status = cmdr.request_port_create("test_port"_ct, adam::port_internal::type_name(), 0);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    auto port_hash = ("test_port"_ct).get_hash();
+
+    // Wait for creation event
+    auto start = std::chrono::steady_clock::now();
+    while (!cmdr.get_registry().get_ports().contains(port_hash) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    ASSERT_TRUE(cmdr.get_registry().get_ports().contains(port_hash));
+    const auto& port_view = cmdr.get_registry().get_ports().at(port_hash);
+    EXPECT_FALSE(port_view->started);
+
+    // 2. Request port start
+    status = cmdr.request_port_start(port_hash);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    // Wait for start event
+    start = std::chrono::steady_clock::now();
+    while (!port_view->started && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_TRUE(port_view->started);
+
+    // 3. Request port stop
+    status = cmdr.request_port_stop(port_hash);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    // Wait for stop event
+    start = std::chrono::steady_clock::now();
+    while (port_view->started && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_FALSE(port_view->started);
+
+    // 4. Request port rename
+    status = cmdr.request_port_rename(port_hash, "renamed_port"_ct);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    auto new_port_hash = ("renamed_port"_ct).get_hash();
+
+    // Wait for rename event
+    start = std::chrono::steady_clock::now();
+    while (!cmdr.get_registry().get_ports().contains(new_port_hash) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    EXPECT_TRUE(cmdr.get_registry().get_ports().contains(new_port_hash));
+    EXPECT_FALSE(cmdr.get_registry().get_ports().contains(port_hash));
+
+    // 5. Request port destroy
+    status = cmdr.request_port_destroy(new_port_hash);
+    EXPECT_EQ(status, adam::response_status::success);
+
+    // Wait for destroy event
+    start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_ports().contains(new_port_hash) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    EXPECT_FALSE(cmdr.get_registry().get_ports().contains(new_port_hash));
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests connection property modifications (rename, sorting index, color, format) via commander. */
+TEST_F(commander_test, request_connection_properties_flow)
+{
+    adam::controller& ctrl = adam::controller::get();
+    adam::connection* conn = nullptr;
+    ASSERT_EQ(ctrl.get_registry().create_connection("prop_conn"_ct, &conn), adam::registry::status_success);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("prop_conn"_ct).get_hash();
+
+    // 1. Request connection rename
+    EXPECT_EQ(cmdr.request_connection_rename(conn_hash, "renamed_conn"_ct), adam::response_status::success);
+
+    auto new_conn_hash = ("renamed_conn"_ct).get_hash();
+
+    auto start = std::chrono::steady_clock::now();
+    while (!cmdr.get_registry().get_connections().contains(new_conn_hash) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    ASSERT_TRUE(cmdr.get_registry().get_connections().contains(new_conn_hash));
+    const auto& new_conn_view = cmdr.get_registry().get_connections().at(new_conn_hash);
+
+    // 2. Sorting index change
+    EXPECT_EQ(cmdr.request_connection_sorting_index_change(new_conn_hash, 13), adam::response_status::success);
+    start = std::chrono::steady_clock::now();
+    while (new_conn_view->sorting_index != 13 && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(new_conn_view->sorting_index, 13u);
+
+    // 3. Color change
+    EXPECT_EQ(cmdr.request_connection_color_change(new_conn_hash, 0x00FF00), adam::response_status::success);
+    start = std::chrono::steady_clock::now();
+    while (new_conn_view->color != 0x00FF00 && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(new_conn_view->color, 0x00FF00u);
+
+    // 4. Data formats
+    EXPECT_EQ(cmdr.request_connection_set_input_data_format(new_conn_hash, "transparent"_ct.get_hash(), 0), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_connection_set_output_data_format(new_conn_hash, "transparent"_ct.get_hash(), 0), adam::response_status::success);
+    
+    start = std::chrono::steady_clock::now();
+    while ((new_conn_view->input_format.get_hash() != "transparent"_ct.get_hash() || 
+            new_conn_view->output_format.get_hash() != "transparent"_ct.get_hash()) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    EXPECT_EQ(new_conn_view->input_format.get_hash(), "transparent"_ct.get_hash());
+    EXPECT_EQ(new_conn_view->output_format.get_hash(), "transparent"_ct.get_hash());
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests that disable() shuts down connection queues. */
+TEST_F(commander_test, commander_disable_flow)
+{
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+    EXPECT_TRUE(cmdr.is_active());
+
+    EXPECT_TRUE(cmdr.disable());
+    EXPECT_FALSE(cmdr.is_active());
+
+    EXPECT_TRUE(cmdr.destroy());
+}
