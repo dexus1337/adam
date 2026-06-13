@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt for the SDK
+# CMakeLists.txt for the SDK
 
 include(../cmake/gtest.cmake)
 enable_testing()
@@ -36,7 +36,10 @@ add_executable(adam-sdk-test ${test_source_files})
 
 target_include_directories(adam-sdk-test 
     PRIVATE include/    # Test doesnt need to share headers with others
-    PRIVATE source/     # Internal to this lib
+)
+
+target_compile_definitions(adam-sdk-test
+    PRIVATE ADAM_USE_SHARED_SDK
 )
 
 target_link_libraries(adam-sdk-test 
@@ -47,14 +50,6 @@ target_link_libraries(adam-sdk-test
 set_target_properties(adam-sdk-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
 )
-
-# Automatically copy the required DLLs to the test executable's directory after building
-add_custom_command(TARGET adam-sdk-test POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:adam-sdk>
-        $<TARGET_FILE_DIR:adam-sdk-test>
-)
-
 
 setup_gtest(adam-sdk-test)
 

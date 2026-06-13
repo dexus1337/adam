@@ -1,9 +1,11 @@
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "os/os.hpp"
 
 
 #include "data/connection.hpp"
 #include "data/inspector.hpp"
+#include "data/parser.hpp"
+#include "memory/buffer/buffer.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 
@@ -69,7 +71,7 @@ namespace adam
         stat_data->total_bytes_discarded    = 0;
     }
 
-    bool port::handle_data(buffer* buffer, data_direction dir)
+    bool port::handle_data(buffer* buf, data_direction dir)
     {
         bool result = true;
 
@@ -79,18 +81,22 @@ namespace adam
         m_inspectors.iterate([&](const auto& active_inspectors) 
         {
             for (const auto& data_inspector : active_inspectors) 
-                data_inspector->handle_data(buffer);
+                data_inspector->handle_data(buf);
         });
 
         auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
 
         stat_data->total_buffers_handled++;
-        stat_data->total_bytes_handled += buffer->get_size();
+        stat_data->total_bytes_handled += buf->get_size();
         
         switch (dir)
         {
             case data_direction_in:
             {
+                // Parse data for each datatype
+                for (auto& [hash, format] : m_formats)
+                    format->get_parser()->parse(buf, m_parse_cache[hash]);
+
                 // Send data to connections
                 m_in_connections.iterate([&](const auto& connections) 
                 {
@@ -98,7 +104,15 @@ namespace adam
                     {
                         if (!conn->is_valid_chain()) continue;
 
-                        result &= conn->handle_data(buffer);
+                        adam::buffer* internal_data = nullptr;
+                        
+                        if (conn->get_input_format() != &data_format_transparent)
+                            internal_data = m_parse_cache.at(conn->get_input_format()->get_name().get_hash()); 
+
+                        result &= conn->handle_data(internal_data ? internal_data : buf);
+
+                        if (internal_data)
+                            internal_data->release();
                     }
                 });
 
@@ -109,11 +123,11 @@ namespace adam
                 if (m_use_spinlock)
                 {
                     spinlock::guard lock(m_spinlock);
-                    result &= write(buffer);
+                    result &= write(buf);
                 }
                 else
                 {
-                    result &= write(buffer);
+                    result &= write(buf);
                 }
                 break;
             }
@@ -168,5 +182,58 @@ namespace adam
         m_state_buffer = buffer_manager::get().request_buffer(state_buffer_size);
         
         reset_state_buffer();
+    }
+
+    void port::add_inspector(std::shared_ptr<data_inspector> inspector)
+    {
+        m_inspectors.push_back(inspector);
+    }
+
+    void port::remove_inspector(std::shared_ptr<data_inspector> inspector)
+    {
+        m_inspectors.remove(inspector);
+    }
+
+    void port::add_as_connection_input(connection* conn)
+    {
+        m_in_connections.push_back(conn);
+        rebuild_formats_database();
+    }
+
+    void port::remove_as_connection_input(connection* conn)
+    {
+        m_in_connections.remove(conn);
+        rebuild_formats_database();
+    }
+
+    void port::add_as_connection_output(connection* conn)
+    {
+        m_out_connections.push_back(conn);
+    }
+
+    void port::remove_as_connection_output(connection* conn)
+    {
+        m_out_connections.remove(conn);
+    }
+
+    void port::rebuild_formats_database()
+    {
+        m_formats.clear();
+
+        m_in_connections.iterate([&](const auto& conns)
+        {
+            for (auto* conn : conns)
+            {
+                if (!conn->is_valid_chain()) 
+                    continue;
+
+                const data_format* fmt = conn->get_input_format();
+                if (fmt && fmt != &data_format_transparent)
+                {
+                    m_formats.emplace(fmt->get_name().get_hash(), fmt);
+                    m_parse_cache.emplace(fmt->get_name().get_hash(), nullptr); // Ensure cache entry
+                }
+            }
+        });
     }
 }

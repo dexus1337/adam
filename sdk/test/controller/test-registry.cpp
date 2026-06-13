@@ -6,9 +6,9 @@
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "configuration/parameters/configuration-parameter-reference.hpp"
-#include "data/port/port-input.hpp"
-#include "data/port/port-output.hpp"
-#include "data/port/port-internal.hpp"
+#include "data/port-types/port-input.hpp"
+#include "data/port-types/port-output.hpp"
+#include "data/port-types/port-internal.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 #include "module/module.hpp"
@@ -64,7 +64,7 @@ namespace adam::test
             return type;
         }
 
-        bool handle_data(adam::buffer*& buffer) override
+        bool handle_data(adam::buffer*& buf) override
         {
             return true;
         }

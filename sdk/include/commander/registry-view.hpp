@@ -10,7 +10,7 @@
 
 #include "api/api-sdk.hpp"
 #include "types/string-hashed.hpp"
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
@@ -29,17 +29,15 @@
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "commander/messages/message-serializer.hpp"
 
-#ifdef ADAM_CPU_X64
-#include <immintrin.h>
-#endif
+#include "os/os.hpp"
 
 namespace adam 
 {
     namespace detail
     {
 
-        template<typename MessageType>
-        void deserialize_user_parameters(uint16_t count, message_deserializer<MessageType>& deserializer, configuration_parameter_list& user_params) 
+        template<typename msg_type>
+        void deserialize_user_parameters(uint16_t count, message_deserializer<msg_type>& deserializer, configuration_parameter_list& user_params) 
         {
             for (uint16_t i = 0; i < count; ++i)
             {
@@ -108,7 +106,6 @@ namespace adam
         uint32_t sorting_index;
         uint32_t color;
 
-        /** @brief Input and output data formats of this connection. */
         string_hashed input_format;
         string_hashed input_format_module;
         string_hashed output_format;
@@ -136,18 +133,10 @@ namespace adam
 
         void lock() const
         {
-            while (m_lock.test_and_set(std::memory_order_acquire))
-            {
-                while (m_lock.test(std::memory_order_relaxed))
-                {
-                    #ifdef ADAM_CPU_X64
-                    _mm_pause(); // Hardware pause (no OS yield) to reduce power and memory bus saturation
-                    #endif
-                }
-            }
+            spinlock::acquire(m_lock);
         }
 
-        void unlock() const { m_lock.clear(std::memory_order_release); }
+        void unlock() const { spinlock::release(m_lock); }
 
         void clear()
         {

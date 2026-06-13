@@ -1,14 +1,16 @@
 #include "data/connection.hpp"
 
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "data/processor.hpp"
 #include "data/format.hpp"
 #include "data/inspector.hpp"
+#include "data/encoder.hpp"
 #include "controller/controller.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/message-structs.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
+#include "memory/buffer/buffer.hpp"
 
 
 namespace adam 
@@ -52,7 +54,7 @@ namespace adam
 
     connection::~connection() {}
 
-    bool connection::handle_data(buffer* buffer)
+    bool connection::handle_data(buffer* buf)
     {
         bool result = true;
 
@@ -60,28 +62,37 @@ namespace adam
         m_inspectors_input.iterate([&](const auto& inspectors) 
         {
             for (const auto& inspector : inspectors) 
-                inspector->handle_data(buffer);
+                inspector->handle_data(buf);
         });
 
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
         {
             for (auto* processor : processors) 
-                result &= processor->handle_data(buffer);
+                result &= processor->handle_data(buf);
         });
 
         // Run data through output inspectors
         m_inspectors_output.iterate([&](const auto& inspectors) 
         {
             for (const auto& inspector : inspectors) 
-                inspector->handle_data(buffer);
+                inspector->handle_data(buf);
         });
+
+        // Run data through output encoder
+        if (m_output_format != &data_format_transparent)
+        {
+            buffer* encoded_buf = nullptr;
+            m_output_format->get_encoder()->encode(encoded_buf, buf);
+
+            buf = encoded_buf;
+        }
 
         // Forward to all output ports
         m_ports_output.iterate([&](const auto& outputs) 
         {
             for (auto* output_port : outputs) 
-                result &= output_port->handle_data(buffer, data_direction_out);
+                result &= output_port->handle_data(buf, data_direction_out);
         });
 
         return result;
@@ -202,13 +213,13 @@ namespace adam
         auto is_used_elsewhere = [&](port* p)
         {
             bool is_used = false;
-            p->in_connections().iterate([&](const auto& conns)
+            p->get_in_connections().iterate([&](const auto& conns)
             {
                 for (auto* c : conns)
                     if (c != this && c->is_started()) is_used = true;
             });
             if (is_used) return true;
-            p->out_connections().iterate([&](const auto& conns)
+            p->get_out_connections().iterate([&](const auto& conns)
             {
                 for (auto* c : conns)
                     if (c != this && c->is_started()) is_used = true;

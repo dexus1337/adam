@@ -7,7 +7,7 @@
 #include "commander/messages/message-structs.hpp"
 #include "commander/messages/response.hpp"
 #include "resources/language-strings.hpp"
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "module/module.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"

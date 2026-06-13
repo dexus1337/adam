@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "data/connection.hpp"
-#include "data/port/port.hpp"
-#include "data/port/port-internal.hpp"
+#include "data/port.hpp"
+#include "data/port-types/port-internal.hpp"
 #include "data/processor.hpp"
 #include "data/format.hpp"
 #include "module/module.hpp"
@@ -11,9 +11,39 @@
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "controller/registry.hpp"
 #include "data/inspector.hpp"
+#include "data/parser.hpp"
+#include "data/encoder.hpp"
 #include <atomic>
 
+
 using namespace adam::string_hashed_ct_literals;
+
+class mock_parser : public adam::parser
+{
+public:
+    mock_parser() : adam::parser() {}
+    bool parse(adam::buffer* buf, adam::buffer*& internal_data) override
+    {
+        internal_data = buf;
+        if (internal_data)
+            internal_data->add_ref();
+        return true;
+    }
+};
+
+class mock_encoder : public adam::encoder
+{
+public:
+    mock_encoder() : adam::encoder() {}
+    bool encode(adam::buffer*& buf, adam::buffer* internal_data) override
+    {
+        buf = internal_data;
+        if (buf)
+            buf->add_ref();
+        return true;
+    }
+};
+
 
 class connection_test : public ::testing::Test
 {
@@ -50,9 +80,9 @@ protected:
 
         const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "test"; return type; }
 
-        bool handle_data(adam::buffer*& buffer) override
+        bool handle_data(adam::buffer*& buf) override
         {
-            (void)buffer;
+            (void)buf;
             return true;
         }
     };
@@ -125,8 +155,10 @@ TEST_F(connection_test, connection_data_forwarding_multiple_outputs)
 
 TEST_F(connection_test, connection_data_forwarding_with_processor)
 {
-    adam::data_format formatA("formatA");
-    adam::data_format formatB("formatB");
+    mock_parser parserA;
+    mock_encoder encoderB;
+    adam::data_format formatA("formatA", &parserA);
+    adam::data_format formatB("formatB", nullptr, &encoderB);
 
     test_port in_port("in_port"_ct);
     in_port.start();

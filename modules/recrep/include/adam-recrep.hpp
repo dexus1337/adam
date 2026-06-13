@@ -10,5 +10,5 @@
 
 #include "api/api-recrep.hpp"
 #include "module/module-recrep.hpp"
-#include "data/port/port-input-replay.hpp"
-#include "data/port/port-output-recording.hpp"
+#include "data/port-types/port-input-replay.hpp"
+#include "data/port-types/port-output-recording.hpp"

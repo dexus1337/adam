@@ -3,7 +3,7 @@
 /**
  * @file    format-can.hpp
  * @author  dexus1337
- * @brief   Defines the can data format with its parsers and deserializers
+ * @brief   Defines the can data format with its parser and encoder
  * @version 1.0
  * @date    25.04.2026
  */

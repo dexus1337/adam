@@ -3,7 +3,7 @@
 #include "commander/commander.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/message-structs.hpp"
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "module/module.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"

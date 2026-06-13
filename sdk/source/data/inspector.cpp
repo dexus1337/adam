@@ -42,13 +42,13 @@ namespace adam
     }
 
     /** @brief Data management routine */
-    bool data_inspector::handle_data(buffer* buffer)
+    bool data_inspector::handle_data(buffer* buf)
     {
-        buffer->add_ref();
+        buf->add_ref();
         
-        if (!m_buffer_queue.push(buffer->get_handle()))
+        if (!m_buffer_queue.push(buf->get_handle()))
         {
-            buffer->release();
+            buf->release();
             return false;
         }
         return true;

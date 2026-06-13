@@ -16,6 +16,7 @@
 #include <cstdint>
 
 #include "string-hashed-ct.hpp"
+#include "hash/rapidhash.h"
 
 
 namespace adam 
@@ -25,7 +26,7 @@ namespace adam
      * @brief A class for handling hashed strings in the ADAM system.
      */
     template<typename char_type>
-    class ADAM_SDK_API string_hashed_template : public std::basic_string<char_type>
+    class string_hashed_template : public std::basic_string<char_type>
     {
     public:
 
@@ -100,6 +101,58 @@ namespace adam
         hash_datatype m_hash;    /**< The hash value of the string, used for efficient comparisons. */
 
     };
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>::string_hashed_template() : string_type(), m_hash(0) {}
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>::string_hashed_template(view vv) : string_type(vv), m_hash(0)
+    {
+        calculate_hash();
+    }
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>::string_hashed_template(const char_type* str) : string_type(str), m_hash(0)
+    {
+        calculate_hash();
+    }
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>::string_hashed_template(const string_hashed_template& other) : string_type(other), m_hash(other.m_hash) {}
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>::string_hashed_template(const string_hashed_ct_template<char_type>& ct_str)
+        : string_type(ct_str.c_str()), m_hash(ct_str.get_hash())
+    {
+    }
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>::~string_hashed_template() {}
+
+    template<typename char_type>
+    inline void string_hashed_template<char_type>::calculate_hash()
+    {
+        m_hash = string_type::empty() ? 0 : rapidhash(string_type::data(), string_type::length() * sizeof(char_type));
+    }
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>& string_hashed_template<char_type>::operator=(const string_hashed_template& other)
+    {
+        if (this != &other) 
+        {
+            string_type::operator=(other);
+            m_hash = other.m_hash;
+        }
+        return *this;
+    }
+
+    template<typename char_type>
+    inline string_hashed_template<char_type>& string_hashed_template<char_type>::operator=(const string_hashed_ct_template<char_type>& other)
+    {
+        string_type::operator=(other.c_str());
+        m_hash = other.get_hash();
+        return *this;
+    }
 
     using string_hashed          = string_hashed_template<char>;
     using wstring_hashed         = string_hashed_template<wchar_t>;

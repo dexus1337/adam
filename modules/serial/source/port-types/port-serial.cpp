@@ -1,4 +1,4 @@
-#include "data/port/port-serial.hpp"
+#include "data/port-types/port-serial.hpp"
 
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"

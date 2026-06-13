@@ -17,7 +17,7 @@ namespace adam
 {
     class module;
     class parser;
-    class serializer;
+    class encoder;
 
     /**
      * @class data_format
@@ -27,36 +27,29 @@ namespace adam
     {
     public:
 
-        /** @brief Constructs a new data_format object. */
-        data_format(const string_hashed& name, parser* parser = nullptr, serializer* serializer = nullptr, const module* orig_module = nullptr);
-
-        /** @brief Constructs a new data_format object. */
-        data_format(const data_format& df);
-
-        /** @brief Destroys the data_format object and cleans up resources. */
+        data_format(const string_hashed& name, parser* parser = nullptr, encoder* encoder = nullptr, const module* orig_module = nullptr);
         ~data_format();
 
         const string_hashed&    get_name()          const { return m_str_name; }
         parser*                 get_parser()        const { return m_parser; }
-        serializer*             get_serializer()    const { return m_serializer; } 
+        encoder*                get_encoder()       const { return m_encoder; } 
         const module*           get_origin_module() const { return m_module; }
 
-        /** @brief Assigns the value of another data_format object to this one. */
-        data_format& operator=(const data_format& other);
+        data_format(const data_format&)               = delete;
+        data_format& operator=(const data_format&)    = delete;
+        data_format(data_format&&)                    = delete;
+        data_format& operator=(data_format&&)         = delete;
 
-        /** @brief Checks if this data_format object is equal to another. Uses the hashed name for comparison. */
-        bool operator==(const data_format& other) const { return m_str_name == other.m_str_name; }
-
-        /** @brief Checks if this data_format object is not equal to another. Uses the hashed name for comparison. */
-        bool operator!=(const data_format& other) const { return m_str_name != other.m_str_name; }
+        bool operator==(const data_format& other) const { return &other == this; }
+        bool operator!=(const data_format& other) const { return &other != this; }
 
     protected:
 
         string_hashed   m_str_name;     /**< The name of the data format, used for identification and lookup in the ADAM system. */
         parser*         m_parser;       /**< A pointer to the parser associated with this data format, responsible for parsing data in this format. */
-        serializer*     m_serializer;   /**< A pointer to the serializer associated with this data format, responsible for serializing data in this format. */
+        encoder*        m_encoder;      /**< A pointer to the encoder associated with this data format, responsible for encoding data in this format. */
         const module*   m_module;       /**< The origin this dataformat comes from */
     };
 
-    static const data_format data_format_transparent = data_format( "transparent" );   /**< A predefined data format representing raw, unprocessed data that can be passed through the system without any parsing or serialization. */
+    extern ADAM_SDK_API data_format data_format_transparent;  /**< A predefined data format representing raw, unprocessed data that can be passed through the system without any parsing or encoding. */
 }

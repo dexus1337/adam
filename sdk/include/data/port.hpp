@@ -21,6 +21,7 @@
 #include <cstring>
 #include <thread>
 #include <atomic>
+#include <unordered_map>
 
 namespace adam 
 {
@@ -113,22 +114,12 @@ namespace adam
         };
         
 
-        /** @brief Retrieves the default configuration parameters for ports. */
         static const configuration_parameter_list& get_default_parameters();
 
-        /** @brief Destroys the port object and cleans up resources. */
         virtual ~port();
 
         virtual const string_hashed_ct& get_type_name() const = 0;
-
-        /** @brief Gets the supported data flow direction capabilities of this port. */
         virtual direction get_direction() const = 0;
-
-        // Data format is now owned by the connection, not the port.
-
-        vector_double_buffer<std::shared_ptr<data_inspector>>&  inspectors()        { return m_inspectors; }
-        vector_double_buffer<connection*>&                      in_connections()    { return m_in_connections; }
-        vector_double_buffer<connection*>&                      out_connections()   { return m_out_connections; }
 
         buffer*             get_state_buffer()      const { return m_state_buffer; }
         state_buffer_data*  get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
@@ -136,10 +127,25 @@ namespace adam
         state get_state() const { return get_state_buffer_data()->cur_state; }
         bool is_started() const { return m_started != nullptr && m_started->get_value(); }
 
+        const vector_double_buffer<std::shared_ptr<data_inspector>>&  get_inspectors()        const { return m_inspectors; }
+        const vector_double_buffer<connection*>&                      get_in_connections()    const { return m_in_connections; }
+        const vector_double_buffer<connection*>&                      get_out_connections()   const { return m_out_connections; }
+
+        void add_inspector(std::shared_ptr<data_inspector> inspector);
+        void remove_inspector(std::shared_ptr<data_inspector> inspector);
+
+        void add_as_connection_input(connection* conn);
+        void remove_as_connection_input(connection* conn);
+
+        void add_as_connection_output(connection* conn);
+        void remove_as_connection_output(connection* conn);
+
+        void rebuild_formats_database();
+
         virtual void reset_state_buffer();
 
         /** @brief Data management routine */
-        virtual bool handle_data(buffer* buffer, data_direction dir);
+        virtual bool handle_data(buffer* buf, data_direction dir);
 
         /** @brief Starts the port. */
         virtual bool start();
@@ -160,21 +166,23 @@ namespace adam
 
         void set_state(state cur) { get_state_buffer_data()->cur_state = cur; }
 
-        /** @brief Constructs a new port object. */
         port(const string_hashed& item_name, uint32_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
 
-        bool m_b_threaded;                                                          /**< Indicates whether this port runs in its own Thread or not */
-        std::thread m_thread;                                                       /**< The thread object for threaded ports */
+        bool                                                    m_b_threaded;       /**< Indicates whether this port runs in its own Thread or not */
+        std::thread                                             m_thread;           /**< The thread object for threaded ports */
 
         vector_double_buffer<connection*>                       m_in_connections;   /**< Connections where this port acts as an input. */
         vector_double_buffer<connection*>                       m_out_connections;  /**< Connections where this port acts as an output. */
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;       /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
-        buffer* m_state_buffer;                                                     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
+        std::unordered_map<string_hash, const data_format*>     m_formats;          /**< Database of unique data formats active on this port. */
+        std::unordered_map<string_hash, buffer*>                m_parse_cache;      /**< Cache of parsed data formats active on this port. */
 
-        configuration_parameter_boolean* m_started;                                 /**< Cached pointer to the started parameter as it will be frequently accessed. */
+        buffer*                                                 m_state_buffer;     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
 
-        bool m_use_spinlock;                                                        /**< If true, a spinlock will be used to protect the write method access. */
-        std::atomic_flag m_spinlock = ATOMIC_FLAG_INIT;                             /**< Spinlock used for write synchronization. */
+        configuration_parameter_boolean*                        m_started;          /**< Cached pointer to the started parameter as it will be frequently accessed. */
+
+        bool                                                    m_use_spinlock;     /**< If true, a spinlock will be used to protect the write method access. */
+        std::atomic_flag                                        m_spinlock = ATOMIC_FLAG_INIT; /**< Spinlock used for write synchronization. */
     };
 }

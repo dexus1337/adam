@@ -3,7 +3,7 @@
 /**
  * @file    format-asterix.hpp
  * @author  dexus1337
- * @brief   Defines the asterix format with its parsers and deserializers
+ * @brief   Defines the asterix format with its parser and encoder
  * @version 1.0
  * @date    10.06.2026
  */

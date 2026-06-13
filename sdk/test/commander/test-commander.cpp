@@ -7,8 +7,8 @@
 #include <version/version.hpp>
 #include <module/module.hpp>
 #include <data/connection.hpp>
-#include <data/port/port.hpp>
-#include <data/port/port-internal.hpp>
+#include <data/port.hpp>
+#include <data/port-types/port-internal.hpp>
 #include <memory/buffer/buffer-manager.hpp>
 #include <algorithm>
 #include <commander/registry-view.hpp>
@@ -36,7 +36,7 @@ namespace cmdr_test
             return type;
         }
 
-        bool handle_data(adam::buffer*& buffer) override
+        bool handle_data(adam::buffer*& buf) override
         {
             return true;
         }
@@ -974,4 +974,4 @@ TEST_F(commander_test, request_connection_port_add_remove_flow)
     EXPECT_TRUE(conn_view->outputs.empty());
 
     EXPECT_TRUE(cmdr.destroy());
-}
+}

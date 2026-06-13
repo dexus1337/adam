@@ -10,7 +10,7 @@
 
 #include "api/api-sdk.hpp"
 #include "types/string-hashed.hpp"
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "resources/language.hpp"
 
 #include <vector>
@@ -22,9 +22,7 @@
 #include <atomic>
 #include <mutex>
 
-#ifdef ADAM_CPU_X64
-#include <immintrin.h>
-#endif
+#include "os/os.hpp"
 
 namespace adam 
 {
@@ -78,18 +76,10 @@ namespace adam
 
         void lock() const
         {
-            while (m_lock.test_and_set(std::memory_order_acquire))
-            {
-                while (m_lock.test(std::memory_order_relaxed))
-                {
-                    #ifdef ADAM_CPU_X64
-                    _mm_pause(); // Hardware pause (no OS yield) to reduce power and memory bus saturation
-                    #endif
-                }
-            }
+            spinlock::acquire(m_lock);
         }
 
-        void unlock() const { m_lock.clear(std::memory_order_release); }
+        void unlock() const { spinlock::release(m_lock); }
 
         /** @brief Extracts the type and module names for a given port hash. */
         void extract_port_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const;

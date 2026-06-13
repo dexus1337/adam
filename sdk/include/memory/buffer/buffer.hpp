@@ -34,15 +34,16 @@ namespace adam
     #pragma pack(push, 1)
     struct ADAM_SDK_API buffer_handle
     {
-        uint32_t memory_index;          /**< The globally unique index of the shared memory segment. */
-        uint32_t offset;                /**< The offset within the shared memory segment. */
-        os::thread_id thread_id;        /**< The ID of the thread that created the memory block. */
+        uint32_t        memory_index;   /**< The globally unique index of the shared memory segment. */
+        uint32_t        offset;         /**< The offset within the shared memory segment. */
+        uint32_t        capacity;       /**< The capacity of the buffer. */
+        os::thread_id   thread_id;      /**< The ID of the thread that created the memory block. */
 
         bool is_valid() const { return thread_id != 0; }
         void set_invalid() { thread_id = 0; }
 
         buffer_handle() {}
-        buffer_handle(uint32_t memory_index, uint32_t offset, os::thread_id thread_id) : memory_index(memory_index), offset(offset), thread_id(thread_id) {}
+        buffer_handle(uint32_t memory_index, uint32_t offset, uint32_t capacity, os::thread_id thread_id) : memory_index(memory_index), offset(offset), capacity(capacity), thread_id(thread_id) {}
     };
     #pragma pack(pop)
 
@@ -96,11 +97,11 @@ namespace adam
         /** @brief Releases a reference, returning it to the manager if it reaches 0. */
         void release();
 
-        /** @brief Get the handle of another referenced buffer (by handle). */
-        buffer_handle get_referenced_buffer_handle() const { return m_header ? m_header->next_buffer : buffer_handle(); }
+        /** @brief Get the buffer that is referenced by this buffer (by handle). */
+        buffer* get_referenced_buffer() const { return m_reference; }
 
         /** @brief Set reference to another buffer (by handle). */
-        void set_referenced_buffer_handle(const buffer_handle& handle) { m_header->next_buffer = handle; }
+        void set_referenced_buffer(buffer* buf);
 
     protected:
 
@@ -108,17 +109,12 @@ namespace adam
         struct header
         {
             std::atomic<uint32_t> ref_count;
-            uint32_t capacity;
-            uint32_t size;
-            uint32_t start_pos;
-            string_hash data_format_hash;
-            uint64_t timestamp;
-            buffer_handle next_buffer;
-            uint32_t padding; // Align payload to 8-byte boundary
-
-            header() 
-                : ref_count(0), capacity(0), size(0), start_pos(0), data_format_hash(0), timestamp(0), next_buffer(), padding(0) 
-            {}
+            uint32_t              capacity;
+            uint32_t              start_pos;
+            uint32_t              size;
+            string_hash           data_format_hash;
+            uint64_t              timestamp;
+            buffer_handle         reference;
         };
         #pragma pack(pop)
 
@@ -128,10 +124,11 @@ namespace adam
         /** @brief Destroys the buffer object and cleans up resources. */
         ~buffer();
 
-        header* m_header;                   /**< Pointer to the shared memory header region. */
-        void* m_data;                       /**< Pointer to the actual memory buffer data. */
-        const data_format* m_data_format;   /**< Optional pointer to a data format describing the contents of this buffer, used for automatic parsing/serialization in the ADAM system. */
-        buffer_handle m_handle;             /**< The buffer handle. */
-        bool m_is_resolved;                 /**< Indicates whether this buffer has been resolved from a handle. */
+        header*               m_header;                   /**< Pointer to the shared memory header region. */
+        buffer*               m_reference;                /**< Pointer to the referenced buffer. */
+        void*                 m_data;                     /**< Pointer to the actual memory buffer data. */
+        const data_format*    m_data_format;              /**< Optional pointer to a data format describing the contents of this buffer, used for automatic parsing/serialization in the ADAM system. */
+        buffer_handle         m_handle;                   /**< The buffer handle. */
+        bool                  m_is_resolved;              /**< Indicates whether this buffer has been resolved from a handle. */
     };
 }

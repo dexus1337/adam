@@ -124,7 +124,7 @@ namespace adam
         void set_output_format(const data_format* fmt) { m_output_format = fmt; check_valid_chain(); }
 
         /** @brief Data input routine. Data arrives here, gets passed through processors and then to output ports */
-        bool handle_data(buffer* buffer);
+        bool handle_data(buffer* buf);
 
         /** @brief Returns true if the connection has a valid data chain. */
         bool check_valid_chain();

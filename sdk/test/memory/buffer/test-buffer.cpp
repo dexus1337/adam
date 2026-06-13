@@ -61,10 +61,10 @@ TEST_F(buffer_test, chaining)
     ASSERT_NE(buf2, nullptr);
 
     // Chain buf2 onto buf1
-    buf1->set_referenced_buffer_handle(buf2->get_handle());
+    buf1->set_referenced_buffer(buf2);
 
     // Verify it was chained correctly
-    adam::buffer_handle chained_handle = buf1->get_referenced_buffer_handle();
+    adam::buffer_handle chained_handle = buf1->get_referenced_buffer()->get_handle();
     EXPECT_TRUE(chained_handle.is_valid());
     EXPECT_EQ(chained_handle.thread_id, buf2->get_handle().thread_id);
     EXPECT_EQ(chained_handle.offset, buf2->get_handle().offset);

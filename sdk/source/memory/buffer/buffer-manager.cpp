@@ -110,30 +110,30 @@ namespace adam
         local_list.pop_back();
         buf->m_header->ref_count.store(1, std::memory_order_relaxed);
         buf->m_header->size = 0;
-        buf->m_header->next_buffer.set_invalid();
+        buf->m_header->reference.set_invalid();
         
         return buf;
     }
 
-    void buffer_manager::return_buffer(buffer* buffer)
+    void buffer_manager::return_buffer(buffer* buf)
     {
         // If this is a remote buffer, we don't try to reuse it locally.
         // We just delete our local surrogate object and leave the shared ref_count at 0.
         // The owner process will automatically scavenge it!
-        if (buffer->m_is_resolved)
+        if (buf->m_is_resolved)
         {
-            destroy_resolved_buffer(buffer);
+            destroy_resolved_buffer(buf);
             return;
         }
         
         // Local buffer: Try to transition it back to the free state to recycle immediately.
         uint32_t expected = 0;
-        if (buffer->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
+        if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
         {
-            uint8_t capacity_class = get_capacity_class(buffer->get_capacity());
+            uint8_t capacity_class = get_capacity_class(buf->get_capacity());
             auto& local_list = t_cache.free_lists[capacity_class];
 
-            local_list.push_back(buffer);
+            local_list.push_back(buf);
 
             if (local_list.size() >= max_thread_cache_size)
                 return_batch(capacity_class, local_list); // Hits the spinlock
@@ -201,11 +201,11 @@ namespace adam
             m_resolved_free_list.pop_back();
         }
         
-        raw_buf->m_handle = handle;
-        raw_buf->m_header = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
-        raw_buf->m_data = static_cast<uint8_t*>(static_cast<void*>(raw_buf->m_header)) + raw_buf->m_header->start_pos;
-        raw_buf->m_is_resolved = true;
-        raw_buf->m_data_format = &data_format_transparent;
+        raw_buf->m_handle       = handle;
+        raw_buf->m_header       = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
+        raw_buf->m_data         = static_cast<uint8_t*>(static_cast<void*>(raw_buf->m_header)) + sizeof(buffer::header);
+        raw_buf->m_is_resolved  = true;
+        raw_buf->m_data_format  = &data_format_transparent;
         
         return raw_buf;
     }
@@ -225,19 +225,12 @@ namespace adam
         destroy();
     }
 
-    uint8_t buffer_manager::get_capacity_class(uint32_t size) const
-    {
-        if (size <= 128) 
-            return 0;
-        
-        uint8_t capacity_class = static_cast<uint8_t>(std::bit_width(size - 1) - 7);
-        return std::min<uint8_t>(capacity_class, static_cast<uint8_t>(num_capacity_classes - 1));
-    }
+
 
     bool buffer_manager::allocate_pool_block(uint8_t capacity_class)
     {
         // The actual size this class represents (128, 256, 512, 1024...)
-        uint64_t buffer_size = 1ULL << (capacity_class + 7); 
+        uint32_t capacity = get_class_capacity(capacity_class); 
         
         // Heavy OS lock (mmap/CreateFileMapping are slow, don't use spinlocks here!)
         std::unique_lock<std::shared_mutex> mem_lock(m_memory_mutex);
@@ -246,9 +239,9 @@ namespace adam
         adam::string_hashed mem_name(memory_name_prefix + std::to_string(tid) + "_" + std::to_string(m_block_counter));
         
         // Allocate space for the header region + buffer payload size
-        uint64_t actual_chunk_size = buffer_size + sizeof(buffer::header);
-        uint64_t memory_size = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
-        uint64_t chunks = memory_size / actual_chunk_size;
+        uint64_t actual_chunk_size  = capacity + sizeof(buffer::header);
+        uint64_t memory_size        = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
+        uint64_t chunks             = memory_size / actual_chunk_size;
         
         auto new_mem = std::make_unique<memory>(mem_name);
         if (!new_mem->create(memory_size))
@@ -263,23 +256,21 @@ namespace adam
         
         for (uint64_t i = 0; i < chunks; ++i)
         {
-            buffer* buf = &block[i];
-            buf->m_handle = buffer_handle(m_block_counter, static_cast<uint32_t>(i * actual_chunk_size), tid);
-            buf->m_is_resolved = false;
-            buf->m_data_format = &data_format_transparent;
-            
-            buf->m_header = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(new_mem->get()) + buf->m_handle.offset);
+            buffer* buf         = &block[i];
+            buf->m_handle       = buffer_handle(m_block_counter, static_cast<uint32_t>(i * actual_chunk_size), capacity, tid);
+            buf->m_is_resolved  = false;
+            buf->m_data_format  = &data_format_transparent;
+            buf->m_header       = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(new_mem->get()) + buf->m_handle.offset);
             
             buf->m_header->ref_count.store(buffer_free_state, std::memory_order_relaxed);
-            buf->m_header->capacity = static_cast<uint32_t>(buffer_size);
-            buf->m_header->size = 0;
-            buf->m_header->start_pos = sizeof(buffer::header);
+            buf->m_header->capacity         = static_cast<uint32_t>(capacity);
+            buf->m_header->size             = 0;
+            buf->m_header->start_pos        = 0;
             buf->m_header->data_format_hash = data_format_transparent.get_name().get_hash();
-            buf->m_header->timestamp = 0;
-            buf->m_header->next_buffer = buffer_handle();
-            
-            buf->m_data = static_cast<uint8_t*>(static_cast<void*>(buf->m_header)) + buf->m_header->start_pos;
-            
+            buf->m_header->timestamp        = 0;
+            buf->m_data                     = static_cast<uint8_t*>(static_cast<void*>(buf->m_header)) + sizeof(buffer::header);
+            buf->set_referenced_buffer(nullptr);
+
             new_buffers.push_back(buf);
         }
         
@@ -302,10 +293,10 @@ namespace adam
 
     bool buffer_manager::scavenge_pool_blocks(uint8_t capacity_class)
     {
-        uint64_t buffer_size = 1ULL << (capacity_class + 7); 
-        uint64_t actual_chunk_size = buffer_size + sizeof(buffer::header);
-        uint64_t memory_size = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
-        uint64_t chunks = memory_size / actual_chunk_size;
+        uint64_t capacity           = get_class_capacity(capacity_class); 
+        uint64_t actual_chunk_size  = capacity + sizeof(buffer::header);
+        uint64_t memory_size        = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
+        uint64_t chunks             = memory_size / actual_chunk_size;
         
         std::shared_lock<std::shared_mutex> mem_lock(m_memory_mutex);
         
@@ -320,14 +311,12 @@ namespace adam
                 
                 // If ref_count is exactly 0, it means all remote and local processes have released it!
                 // Fast relaxed load to avoid dirtying the cache line if the buffer is still in use
-                if (buf->m_header->ref_count.load(std::memory_order_relaxed) == 0)
-                {
-                    uint32_t expected = 0;
-                    if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
-                    {
-                        recovered.push_back(buf);
-                    }
-                }
+                if (buf->m_header->ref_count.load(std::memory_order_relaxed) != 0)
+                    continue;
+
+                uint32_t expected = 0;
+                if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
+                    recovered.push_back(buf);
             }
         }
         

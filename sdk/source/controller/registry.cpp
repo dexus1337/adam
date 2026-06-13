@@ -4,7 +4,7 @@
 #include "configuration/configuration-item.hpp"
 #include "module/module.hpp"
 #include "module/module-internal.hpp"
-#include "data/port/port-internal.hpp"
+#include "data/port-types/port-internal.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 #include "data/connection.hpp"
@@ -326,13 +326,13 @@ namespace adam
             it->second->ports_input().iterate([&](const auto& inputs)
             {
                 for (auto* p : inputs)
-                    p->in_connections().remove(it->second.get());
+                    p->remove_as_connection_input(it->second.get());
             });
 
             it->second->ports_output().iterate([&](const auto& outputs)
             {
                 for (auto* p : outputs)
-                    p->out_connections().remove(it->second.get());
+                    p->remove_as_connection_output(it->second.get());
             });
 
             it->second->processors().iterate([&](const auto& processors)
@@ -438,7 +438,7 @@ namespace adam
 
         if (is_input)
         {
-            port_it->second->in_connections().push_back(conn_it->second.get());
+            port_it->second->add_as_connection_input(conn_it->second.get());
             conn_it->second->ports_input().push_back(port_it->second.get());
             auto* inputs_list = conn_it->second->get_parameter<configuration_parameter_list>("inputs"_ct);
             auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(inputs_list->get_children().size())));
@@ -447,7 +447,7 @@ namespace adam
         }
         else
         {
-            port_it->second->out_connections().push_back(conn_it->second.get());
+            port_it->second->add_as_connection_output(conn_it->second.get());
             conn_it->second->ports_output().push_back(port_it->second.get());
             auto* outputs_list = conn_it->second->get_parameter<configuration_parameter_list>("outputs"_ct);
             auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(outputs_list->get_children().size())));
@@ -519,7 +519,7 @@ namespace adam
         {
             if (is_input)
             {
-                port_it->second->in_connections().remove(conn_it->second.get());
+                port_it->second->remove_as_connection_input(conn_it->second.get());
                 conn_it->second->ports_input().remove(port_it->second.get());
                 auto* inputs_list = conn_it->second->get_parameter<configuration_parameter_list>("inputs"_ct);
                 inputs_list->clear();
@@ -531,7 +531,7 @@ namespace adam
             }
             else
             {
-                port_it->second->out_connections().remove(conn_it->second.get());
+                port_it->second->remove_as_connection_output(conn_it->second.get());
                 conn_it->second->ports_output().remove(port_it->second.get());
                 auto* outputs_list = conn_it->second->get_parameter<configuration_parameter_list>("outputs"_ct);
                 outputs_list->clear();
@@ -1001,7 +1001,7 @@ namespace adam
                         if (port_it != m_ports.end())
                         {
                             new_conn->ports_input().push_back(port_it->second.get());
-                            port_it->second->in_connections().push_back(new_conn);
+                            port_it->second->add_as_connection_input(new_conn);
                         }
                         else if (m_unavailable_ports.count(hash))
                         {
@@ -1022,7 +1022,7 @@ namespace adam
                         if (port_it != m_ports.end())
                         {
                             new_conn->ports_output().push_back(port_it->second.get());
-                            port_it->second->out_connections().push_back(new_conn);
+                            port_it->second->add_as_connection_output(new_conn);
                         }
                         else if (m_unavailable_ports.count(hash))
                         {
@@ -1146,7 +1146,7 @@ namespace adam
                         if (in_it != unavail_in.end())
                         {
                             conn->ports_input().push_back(new_port);
-                            new_port->in_connections().push_back(conn.get());
+                            new_port->add_as_connection_input(conn.get());
                             unavail_in.erase(in_it);
                             modified = true;
                         }
@@ -1160,7 +1160,7 @@ namespace adam
                         if (out_it != unavail_out.end())
                         {
                             conn->ports_output().push_back(new_port);
-                            new_port->out_connections().push_back(conn.get());
+                            new_port->add_as_connection_output(conn.get());
                             unavail_out.erase(out_it);
                             modified = true;
                         }
@@ -1463,7 +1463,7 @@ namespace adam
                                 if (port_it != m_ports.end())
                                 {
                                     new_conn->ports_input().push_back(port_it->second.get());
-                                    port_it->second->in_connections().push_back(new_conn);
+                                    port_it->second->add_as_connection_input(new_conn);
                                 }
                                 else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
                                 {
@@ -1482,7 +1482,7 @@ namespace adam
                                 if (port_it != m_ports.end())
                                 {
                                     new_conn->ports_output().push_back(port_it->second.get());
-                                    port_it->second->out_connections().push_back(new_conn);
+                                    port_it->second->add_as_connection_output(new_conn);
                                 }
                                 else if (m_unavailable_ports.find(port_hash) != m_unavailable_ports.end())
                                 {
@@ -1600,13 +1600,13 @@ namespace adam
                 it->second->ports_input().iterate([&](const auto& inputs)
                 {
                     for (auto* p : inputs)
-                        p->in_connections().remove(it->second.get());
+                        p->remove_as_connection_input(it->second.get());
                 });
 
                 it->second->ports_output().iterate([&](const auto& outputs)
                 {
                     for (auto* p : outputs)
-                        p->out_connections().remove(it->second.get());
+                        p->remove_as_connection_output(it->second.get());
                 });
 
                 it->second->processors().iterate([&](const auto& processors)

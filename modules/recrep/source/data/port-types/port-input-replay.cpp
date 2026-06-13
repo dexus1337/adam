@@ -1,10 +1,10 @@
-#include "data/port/port-input-replay.hpp"
+#include "data/port-types/port-input-replay.hpp"
 
 #include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/formats/pcap.hpp"
 #include "data/formats/rff.hpp"
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "resources/language-strings.hpp"
 #include <chrono>
 #include <filesystem>

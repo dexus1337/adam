@@ -26,6 +26,17 @@ function(setup_gtest TARGET_NAME)
             PRIVATE  pthread
         )
     endif(UNIX)
+
+    # Automatically copy gtest DLLs to the output directory
+    if(MSVC)
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$ENV{GTEST_ROOT}/lib/gtest.dll"
+                "$ENV{GTEST_ROOT}/lib/gtest_main.dll"
+                $<TARGET_FILE_DIR:${TARGET_NAME}>
+        )
+    endif()
+
     
 
 endfunction()

@@ -21,6 +21,8 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <bit>
+#include <algorithm>
 
 #ifdef ADAM_PLATFORM_WINDOWS
 #include <windows.h>
@@ -44,11 +46,11 @@ namespace adam
 
         friend struct buffer_thread_cache;
 
-        static ADAM_CONSTEXPR uint8_t num_capacity_classes   = 30;               /**< Covers up to 4GB buffers safely. */
-        static ADAM_CONSTEXPR uint64_t default_chunk_size    = 16 * 1024 * 1024; /**< 16 MB memory chunk allocations. */
-        static ADAM_CONSTEXPR size_t batch_transfer_size     = 32;               /**< Buffers to transfer at once. */
-        static ADAM_CONSTEXPR size_t max_thread_cache_size   = 64;               /**< Max local buffers before returning a batch. */
-        static ADAM_CONSTEXPR uint32_t buffer_free_state     = 0xFFFFFFFF;       /**< Special state indicating a buffer is in the free list. */
+        static ADAM_CONSTEXPR uint8_t   num_capacity_classes    = 30;               /**< Covers up to 4GB buffers safely. */
+        static ADAM_CONSTEXPR uint64_t  default_chunk_size      = 16 * 1024 * 1024; /**< 16 MB memory chunk allocations. */
+        static ADAM_CONSTEXPR size_t    batch_transfer_size     = 32;               /**< Buffers to transfer at once. */
+        static ADAM_CONSTEXPR size_t    max_thread_cache_size   = 64;               /**< Max local buffers before returning a batch. */
+        static ADAM_CONSTEXPR uint32_t  buffer_free_state       = 0xffffffff;       /**< Special state indicating a buffer is in the free list. */
 
         /** @brief Retrieves the singleton instance of the buffer_manager. */
         static buffer_manager& get();
@@ -69,7 +71,7 @@ namespace adam
         buffer* request_buffer(uint32_t size);
 
         /** @brief Returns a buffer back to the manager for cleanup and reuse. */
-        void return_buffer(buffer* buffer);
+        void return_buffer(buffer* buf);
 
         /** @brief Resolves a buffer handle received over IPC into a usable buffer object. */
         buffer* resolve_handle(const buffer_handle& handle);
@@ -85,7 +87,20 @@ namespace adam
         ~buffer_manager();
 
         /** @brief Helper to get the power-of-two size class index. */
-        uint8_t get_capacity_class(uint32_t size) const;
+        inline uint8_t get_capacity_class(uint32_t capacity) const
+        {
+            if (capacity <= 128) 
+                return 0;
+            
+            uint8_t capacity_class = static_cast<uint8_t>(std::bit_width(capacity - 1) - 7);
+            return std::min<uint8_t>(capacity_class, static_cast<uint8_t>(num_capacity_classes - 1));
+        }
+
+        /** @brief Helper to get capacity size from a capacity class index. */
+        inline uint32_t get_class_capacity(uint8_t capacity_class) const
+        {
+            return 1ul << (capacity_class + 7);
+        }
         
         /** @brief Helper to allocate a new large memory chunk and split it into buffers for the given pool. */
         bool allocate_pool_block(uint8_t capacity_class);

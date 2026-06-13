@@ -10,8 +10,8 @@
 
  
 #include "api/api-sdk.hpp"
-#include "data/port/port-input.hpp"
-#include "data/port/port-output.hpp"
+#include "data/port-types/port-input.hpp"
+#include "data/port-types/port-output.hpp"
 
 
 namespace adam 

@@ -10,7 +10,7 @@
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
 #include "controller/controller.hpp"
-#include <data/port/port-input-replay.hpp>
+#include <data/port-types/port-input-replay.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstring>

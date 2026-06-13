@@ -14,12 +14,12 @@ namespace adam::modules::asterix
         m_format_output = &data_format_transparent;
     }
 
-    bool asterix_to_text_converter::handle_data(buffer*& buffer) 
+    bool asterix_to_text_converter::handle_data(buffer*& buf) 
     {
         static const char* test_text_str = "we converted to text";
         
-        std::strcpy(buffer->data_as<char>(), test_text_str);
-        buffer->set_size(uint32_t(std::strlen(test_text_str)));
+        std::strcpy(buf->data_as<char>(), test_text_str);
+        buf->set_size(uint32_t(std::strlen(test_text_str)));
 
         return true;
     }

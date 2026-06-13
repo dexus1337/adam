@@ -26,7 +26,7 @@
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "controller/controller.hpp"
 #include "module/module.hpp"
-#include "data/port/port-input-replay.hpp"
+#include "data/port-types/port-input-replay.hpp"
 
 namespace adam::gui
 {

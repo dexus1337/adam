@@ -29,6 +29,6 @@ namespace adam::modules::asterix
 
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
         
-        virtual bool handle_data(buffer*& buffer) override;
+        virtual bool handle_data(buffer*& buf) override;
     };
 }

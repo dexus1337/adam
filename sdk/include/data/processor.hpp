@@ -102,7 +102,7 @@ namespace adam
         virtual const string_hashed_ct& get_type_name() const = 0;
 
         /** @brief Data management routine, arrives here, and may be changed to another buffer */
-        virtual bool handle_data(buffer*& buffer) = 0;
+        virtual bool handle_data(buffer*& buf) = 0;
 
     protected:
 

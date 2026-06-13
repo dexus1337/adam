@@ -117,11 +117,11 @@ namespace adam
                 }
             }
             
-            template<typename ViewType>
-            ViewType read_view() 
+            template<typename view_type>
+            view_type read_view() 
             {
-                ViewType view;
-                read_bytes(&view, sizeof(ViewType));
+                view_type view;
+                read_bytes(&view, sizeof(view_type));
                 return view;
             }
         };

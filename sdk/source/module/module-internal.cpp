@@ -1,5 +1,5 @@
 #include "module/module-internal.hpp"
-#include "data/port/port-internal.hpp"
+#include "data/port-types/port-internal.hpp"
 #include "data/format.hpp"
 #include "controller/registry.hpp"
 #include "factory/factory.hpp"

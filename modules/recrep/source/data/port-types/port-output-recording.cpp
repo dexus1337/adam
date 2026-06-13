@@ -1,4 +1,4 @@
-#include "data/port/port-output-recording.hpp"
+#include "data/port-types/port-output-recording.hpp"
 #include "os/os.hpp"
 
 #include "configuration/configuration-item.hpp"
@@ -6,7 +6,7 @@
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "controller/controller.hpp"
-#include "data/port/port-output.hpp"
+#include "data/port-types/port-output.hpp"
 #include "resources/language-strings.hpp"
 #include "data/formats/pcap.hpp"
 #include "data/formats/rff.hpp"

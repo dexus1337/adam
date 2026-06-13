@@ -1,6 +1,6 @@
 #include "module/module.hpp"
 
-#include "data/port/port-serial.hpp"
+#include "data/port-types/port-serial.hpp"
 
 
 namespace adam::modules::serial

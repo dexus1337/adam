@@ -2,7 +2,7 @@
 #include "controller/controller.hpp"
 #include "controller/registry.hpp"
 #include "resources/language-strings.hpp"
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "data/format.hpp"
 #include "module/module.hpp"
 #include "data/inspector.hpp"
@@ -11,8 +11,8 @@
 #include "commander/messages/message-serializer.hpp"
 #include "data/connection.hpp"
 #include "data/processor.hpp"
-#include "data/port/port-input.hpp"
-#include "data/port/port-output.hpp"
+#include "data/port-types/port-input.hpp"
+#include "data/port-types/port-output.hpp"
 #include "configuration/parameters/configuration-parameter.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
@@ -811,9 +811,9 @@ namespace adam
             
             if (it_port != ctx.reg.ports().end())
             {
-                it_port->second->in_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
-                it_port->second->out_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
-                if (it_port->second->in_connections().empty() && it_port->second->out_connections().empty())
+                it_port->second->get_in_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+                it_port->second->get_out_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
+                if (it_port->second->get_in_connections().empty() && it_port->second->get_out_connections().empty())
                 {
                     ctx.reg.destroy_port(params->port);
                     event evt_del(event_type::port_destroyed);
@@ -1425,8 +1425,8 @@ namespace adam
                     }
                 };
 
-                renamed_it->second->in_connections().iterate(update_timestamp);
-                renamed_it->second->out_connections().iterate(update_timestamp);
+                renamed_it->second->get_in_connections().iterate(update_timestamp);
+                renamed_it->second->get_out_connections().iterate(update_timestamp);
             }
 
             event evt(event_type::port_renamed);
@@ -1672,7 +1672,7 @@ namespace adam
                 return;
             }
 
-            port->second->inspectors().push_back(new_inspector);
+            port->second->add_inspector(new_inspector);
             ctx.thread_inspectors.emplace(params->port, new_inspector);
 
             auto name_view = port_name.c_str();
@@ -1697,7 +1697,7 @@ namespace adam
             std::string port_str = port != ctx.reg.ports().end() ? std::string(port->second->get_name().c_str()) : std::to_string(static_cast<uint64_t>(params->port));
 
             if (port != ctx.reg.ports().end())
-                port->second->inspectors().remove(it->second);
+                port->second->remove_inspector(it->second);
 
             ctx.thread_inspectors.erase(it);
 

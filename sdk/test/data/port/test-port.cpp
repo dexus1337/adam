@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "configuration/parameters/configuration-parameter-boolean.hpp"

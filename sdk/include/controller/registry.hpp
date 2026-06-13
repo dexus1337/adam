@@ -19,7 +19,7 @@
 #include "factory/factory.hpp"
 #include "resources/language.hpp"
 #include "controller/registry-module-manager.hpp"
-#include "data/port/port.hpp"
+#include "data/port.hpp"
 #include "data/connection.hpp"
 #include "data/processor.hpp"
 #include "types/string-hashed.hpp"
