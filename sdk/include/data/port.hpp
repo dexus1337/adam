@@ -12,6 +12,7 @@
 #include "api/api-sdk.hpp"
 #include "configuration/configuration-item.hpp"
 #include "types/vector-double-buffer.hpp"
+#include "types/map-double-buffer.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/message-structs.hpp"
 #include "memory/buffer/buffer.hpp"
@@ -22,9 +23,12 @@
 #include <thread>
 #include <atomic>
 #include <unordered_map>
+#include <mutex>
+#include <shared_mutex>
 
 namespace adam 
 {
+
     class connection;
     class data_inspector;
 
@@ -175,7 +179,7 @@ namespace adam
         vector_double_buffer<connection*>                       m_out_connections;  /**< Connections where this port acts as an output. */
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;       /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
-        std::unordered_map<string_hash, const data_format*>     m_formats;          /**< Database of unique data formats active on this port. */
+        map_double_buffer<string_hash, const data_format*>      m_formats;          /**< Database of unique data formats active on this port. */
         std::unordered_map<string_hash, buffer*>                m_parse_cache;      /**< Cache of parsed data formats active on this port. */
 
         buffer*                                                 m_state_buffer;     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */

@@ -118,10 +118,10 @@ namespace adam
         bool is_valid_chain() const { return m_b_valid_data_chain; }
 
         /** @brief Sets the input data format for this connection. */
-        void set_input_format(const data_format* fmt)  { m_input_format = fmt; check_valid_chain(); }
+        void set_input_format(const data_format* fmt);
 
         /** @brief Sets the output data format for this connection. */
-        void set_output_format(const data_format* fmt) { m_output_format = fmt; check_valid_chain(); }
+        void set_output_format(const data_format* fmt);
 
         /** @brief Data input routine. Data arrives here, gets passed through processors and then to output ports */
         bool handle_data(buffer* buf);

@@ -32,18 +32,15 @@ set_target_properties(adam-sdk PROPERTIES
 )
 
 # Create the test application
-add_executable(adam-sdk-test ${test_source_files})
+add_executable(adam-sdk-test ${test_source_files} ${sdk_source_files})
 
 target_include_directories(adam-sdk-test 
     PRIVATE include/    # Test doesnt need to share headers with others
+    PRIVATE source/     # Internal to this lib
 )
 
 target_compile_definitions(adam-sdk-test
-    PRIVATE ADAM_USE_SHARED_SDK
-)
-
-target_link_libraries(adam-sdk-test 
-    PRIVATE adam-sdk
+    PRIVATE ADAM_SDK_EXPORTS
 )
 
 # Set the output directory for the executable

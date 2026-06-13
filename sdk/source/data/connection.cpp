@@ -54,6 +54,32 @@ namespace adam
 
     connection::~connection() {}
 
+    void connection::set_input_format(const data_format* fmt)
+    {
+        m_input_format = fmt;
+        check_valid_chain();
+        m_ports_input.iterate([](const auto& inputs)
+        {
+            for (auto* in : inputs)
+            {
+                in->rebuild_formats_database();
+            }
+        });
+    }
+
+    void connection::set_output_format(const data_format* fmt)
+    {
+        m_output_format = fmt;
+        check_valid_chain();
+        m_ports_input.iterate([](const auto& inputs)
+        {
+            for (auto* in : inputs)
+            {
+                in->rebuild_formats_database();
+            }
+        });
+    }
+
     bool connection::handle_data(buffer* buf)
     {
         bool result = true;
@@ -129,10 +155,7 @@ namespace adam
                 const data_format* proc_out = proc->get_output_data_format();
 
                 if (*current_format != *proc_in)
-                {
                     format_mismatch = true;
-                    break;
-                }
 
                 current_format = proc_out;
             }
@@ -144,36 +167,17 @@ namespace adam
         const data_format* expected_out = m_output_format;
 
         if (*current_format != *expected_out)
-        {
             return false;
-        }
 
         m_b_valid_data_chain = true;
 
         return true;
     }
 
-    namespace
-    {
-        void dispatch_command_safe(const command& cmd)
-        {
-            auto* active_context = controller::get().get_context();
-            if (active_context)
-            {
-                controller::get().dispatcher().dispatch(&cmd, 1, *active_context);
-            }
-            else
-            {
-                std::vector<response> dummy_resps(1);
-                command_context dummy_ctx { os::get_current_thread_id(), controller::get().get_registry(), controller::get(), dummy_resps, {} };
-                controller::get().dispatcher().dispatch(&cmd, 1, dummy_ctx);
-            }
-        }
-    }
-
     bool connection::start()
     {
         bool result = true;
+        auto& ctrl  = controller::get();
 
         m_ports_input.iterate([&](const auto& inputs) 
         {
@@ -183,7 +187,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    dispatch_command_safe(cmd);
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
                 }
             }
         });
@@ -196,7 +200,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    dispatch_command_safe(cmd);
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
                 }
             }
         });
@@ -209,6 +213,7 @@ namespace adam
     bool connection::stop()
     {
         bool result = true;
+        auto& ctrl  = controller::get();
 
         auto is_used_elsewhere = [&](port* p)
         {
@@ -235,7 +240,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    dispatch_command_safe(cmd);
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
                 }
             }
         });
@@ -248,7 +253,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    dispatch_command_safe(cmd);
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
                 }
             }
         });

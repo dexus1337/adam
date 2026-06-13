@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include "commander/messages/message-structs.hpp"
 #include "data/connection.hpp"
 #include "data/port.hpp"
 #include "data/port-types/port-internal.hpp"
@@ -24,6 +25,21 @@ public:
     mock_parser() : adam::parser() {}
     bool parse(adam::buffer* buf, adam::buffer*& internal_data) override
     {
+        internal_data = buf;
+        if (internal_data)
+            internal_data->add_ref();
+        return true;
+    }
+};
+
+class counting_mock_parser : public adam::parser
+{
+public:
+    std::atomic<int> parse_count = 0;
+    counting_mock_parser() : adam::parser() {}
+    bool parse(adam::buffer* buf, adam::buffer*& internal_data) override
+    {
+        parse_count++;
         internal_data = buf;
         if (internal_data)
             internal_data->add_ref();
@@ -269,4 +285,135 @@ TEST_F(connection_test, connection_output_inspector_receives_data)
     inspector->destroy();
     in_port.stop();
     out_port.stop();
+}
+
+TEST_F(connection_test, connection_format_runtime_change_dataflow)
+{
+    counting_mock_parser parserA;
+    counting_mock_parser parserB;
+    mock_encoder encoderA;
+    mock_encoder encoderB;
+
+    adam::data_format formatA("formatA", &parserA, &encoderA);
+    adam::data_format formatB("formatB", &parserB, &encoderB);
+
+    test_port in_port("in_port"_ct);
+    in_port.start();
+
+    test_port out_port("out_port"_ct);
+    out_port.start();
+
+    adam::connection conn("conn"_ct);
+
+    // Wire them up
+    conn.ports_input().push_back(&in_port);
+    in_port.add_as_connection_input(&conn);
+
+    conn.ports_output().push_back(&out_port);
+    out_port.add_as_connection_output(&conn);
+
+    // 1. Initial format set to formatA
+    conn.set_input_format(&formatA);
+    conn.set_output_format(&formatA);
+
+    EXPECT_TRUE(conn.check_valid_chain());
+    EXPECT_TRUE(conn.start());
+
+    // Send first data packet
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
+    buf->set_size(10);
+
+    // Call handle_data directly on the port to trigger full parsing and forwarding pipeline
+    EXPECT_TRUE(in_port.handle_data(buf, adam::data_direction_in));
+
+    // Verify formatA parser was invoked, and formatB parser was not
+    EXPECT_EQ(parserA.parse_count.load(), 1);
+    EXPECT_EQ(parserB.parse_count.load(), 0);
+
+    // Verify output port received the buffer
+    auto* stats = out_port.get_state_buffer()->data_as<adam::port::state_buffer_data>();
+    EXPECT_EQ(stats->total_buffers_handled, 1u);
+
+    // 2. Change format at runtime to formatB
+    conn.set_input_format(&formatB);
+    conn.set_output_format(&formatB);
+
+    // Send second data packet
+    EXPECT_TRUE(in_port.handle_data(buf, adam::data_direction_in));
+
+    // Verify formatB parser was invoked now, and formatA parser count stayed at 1
+    EXPECT_EQ(parserA.parse_count.load(), 1);
+    EXPECT_EQ(parserB.parse_count.load(), 1);
+
+    // Verify output port received the second buffer
+    EXPECT_EQ(stats->total_buffers_handled, 2u);
+
+    buf->release();
+    in_port.stop();
+    out_port.stop();
+}
+
+TEST_F(connection_test, connection_same_port_multiple_formats)
+{
+    counting_mock_parser parserA;
+    counting_mock_parser parserB;
+    mock_encoder encoderA;
+    mock_encoder encoderB;
+
+    adam::data_format formatA("formatA", &parserA, &encoderA);
+    adam::data_format formatB("formatB", &parserB, &encoderB);
+
+    test_port in_port("in_port"_ct);
+    in_port.start();
+
+    test_port out_port_A("out_port_A"_ct);
+    out_port_A.start();
+
+    test_port out_port_B("out_port_B"_ct);
+    out_port_B.start();
+
+    adam::connection conn_A("conn_A"_ct);
+    adam::connection conn_B("conn_B"_ct);
+
+    // Wire up conn_A (in_port -> out_port_A, formatA)
+    conn_A.ports_input().push_back(&in_port);
+    in_port.add_as_connection_input(&conn_A);
+    conn_A.ports_output().push_back(&out_port_A);
+    out_port_A.add_as_connection_output(&conn_A);
+    conn_A.set_input_format(&formatA);
+    conn_A.set_output_format(&formatA);
+
+    // Wire up conn_B (in_port -> out_port_B, formatB)
+    conn_B.ports_input().push_back(&in_port);
+    in_port.add_as_connection_input(&conn_B);
+    conn_B.ports_output().push_back(&out_port_B);
+    out_port_B.add_as_connection_output(&conn_B);
+    conn_B.set_input_format(&formatB);
+    conn_B.set_output_format(&formatB);
+
+    EXPECT_TRUE(conn_A.check_valid_chain());
+    EXPECT_TRUE(conn_B.check_valid_chain());
+    EXPECT_TRUE(conn_A.start());
+    EXPECT_TRUE(conn_B.start());
+
+    // Send a single buffer
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
+    buf->set_size(10);
+
+    EXPECT_TRUE(in_port.handle_data(buf, adam::data_direction_in));
+
+    // Verify both parsers were invoked exactly once
+    EXPECT_EQ(parserA.parse_count.load(), 1);
+    EXPECT_EQ(parserB.parse_count.load(), 1);
+
+    // Verify both output ports received the data
+    auto* stats_A = out_port_A.get_state_buffer()->data_as<adam::port::state_buffer_data>();
+    auto* stats_B = out_port_B.get_state_buffer()->data_as<adam::port::state_buffer_data>();
+    EXPECT_EQ(stats_A->total_buffers_handled, 1u);
+    EXPECT_EQ(stats_B->total_buffers_handled, 1u);
+
+    buf->release();
+    in_port.stop();
+    out_port_A.stop();
+    out_port_B.stop();
 }

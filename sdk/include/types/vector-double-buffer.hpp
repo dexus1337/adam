@@ -56,12 +56,12 @@ namespace adam
             {
                 std::unique_lock lock(m_mutex);
                 auto it = std::find(m_pending.begin(), m_pending.end(), element);
-            if (it != m_pending.end())
-            {
+                if (it != m_pending.end())
+                {
                     m_pending.erase(it);
-            }
-            else
-            {
+                }
+                else
+                {
                     return false;  // Element not found
                 }
             }
@@ -108,16 +108,15 @@ namespace adam
          *     }
          * });
          */
-        template<typename Func>
-        void iterate(Func func) const
+        template<typename iter_fn>
+        void iterate(iter_fn func) const
         {
             // Check dirty flag (cheap atomic read, no lock)
             if (m_dirty.load(std::memory_order_acquire))
             {
                 // Synchronize buffers (minimal lock time)
                 std::unique_lock lock(m_mutex);
-                std::swap(const_cast<std::vector<T>&>(m_active), 
-                         const_cast<std::vector<T>&>(m_pending));
+                std::swap(const_cast<std::vector<T>&>(m_active), const_cast<std::vector<T>&>(m_pending));
                 
                 // Keep the pending buffer in sync so future push_back/remove operations don't lose state
                 const_cast<std::vector<T>&>(m_pending) = m_active;

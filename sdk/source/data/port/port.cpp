@@ -93,8 +93,19 @@ namespace adam
         {
             case data_direction_in:
             {
+                bool formats_updated = m_formats.is_dirty();
+                auto& active_formats = m_formats.get_active();
+                if (formats_updated || m_parse_cache.empty() != active_formats.empty())
+                {
+                    m_parse_cache.clear();
+                    for (auto& [hash, format] : active_formats)
+                    {
+                        m_parse_cache[hash] = nullptr;
+                    }
+                }
+
                 // Parse data for each datatype
-                for (auto& [hash, format] : m_formats)
+                for (auto& [hash, format] : active_formats)
                     format->get_parser()->parse(buf, m_parse_cache[hash]);
 
                 // Send data to connections
@@ -107,7 +118,11 @@ namespace adam
                         adam::buffer* internal_data = nullptr;
                         
                         if (conn->get_input_format() != &data_format_transparent)
-                            internal_data = m_parse_cache.at(conn->get_input_format()->get_name().get_hash()); 
+                        {
+                            auto it = m_parse_cache.find(conn->get_input_format()->get_name().get_hash());
+                            if (it != m_parse_cache.end())
+                                internal_data = it->second;
+                        }
 
                         result &= conn->handle_data(internal_data ? internal_data : buf);
 
@@ -218,7 +233,7 @@ namespace adam
 
     void port::rebuild_formats_database()
     {
-        m_formats.clear();
+        std::unordered_map<string_hash, const data_format*> new_formats;
 
         m_in_connections.iterate([&](const auto& conns)
         {
@@ -230,10 +245,11 @@ namespace adam
                 const data_format* fmt = conn->get_input_format();
                 if (fmt && fmt != &data_format_transparent)
                 {
-                    m_formats.emplace(fmt->get_name().get_hash(), fmt);
-                    m_parse_cache.emplace(fmt->get_name().get_hash(), nullptr); // Ensure cache entry
+                    new_formats.emplace(fmt->get_name().get_hash(), fmt);
                 }
             }
         });
+
+        m_formats.update(new_formats);
     }
 }
