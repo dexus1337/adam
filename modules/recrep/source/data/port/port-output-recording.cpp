@@ -1,4 +1,5 @@
 #include "data/port/port-output-recording.hpp"
+#include "os/os.hpp"
 
 #include "configuration/configuration-item.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
@@ -129,7 +130,7 @@ namespace adam::modules::recrep
         bool do_lock = acquire_spinlock && m_use_spinlock;
         if (do_lock)
         {
-            while (m_spinlock.test_and_set(std::memory_order_acquire)) { std::this_thread::yield(); }
+            spinlock::acquire(m_spinlock);
         }
 
         if (m_file_stream.is_open())
@@ -141,7 +142,7 @@ namespace adam::modules::recrep
 
         if (do_lock)
         {
-            m_spinlock.clear(std::memory_order_release);
+            spinlock::release(m_spinlock);
         }
     }
 

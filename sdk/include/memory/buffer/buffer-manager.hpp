@@ -20,6 +20,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 
 #ifdef ADAM_PLATFORM_WINDOWS
 #include <windows.h>
@@ -109,7 +110,8 @@ namespace adam
 
         global_buffer_pool m_pools[num_capacity_classes];                           /**< Global pool indexed by power of 2 size classes. */
 
-        std::mutex m_memory_mutex;                                                  /**< Protects the underlying memory and buffer vectors. */
+        mutable std::shared_mutex m_memory_mutex;                                   /**< Protects the underlying memory and buffer vectors. */
+        std::mutex m_resolved_mutex;                                                /**< Protects the resolved free list and resolved blocks. */
         std::unordered_map<uint64_t, std::unique_ptr<memory>> m_memory_blocks;      /**< Backing memory segments mapped by unique 64-bit index. */
         std::vector<std::unique_ptr<uint8_t[]>> m_pool_blocks[num_capacity_classes];/**< Contiguous blocks of raw memory for the global pool. */
         std::vector<std::unique_ptr<uint8_t[]>> m_resolved_blocks;                  /**< Chunked allocations for resolved buffers. */

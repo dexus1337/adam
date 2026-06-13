@@ -41,7 +41,7 @@ namespace adam
         bool is_valid() const { return thread_id != 0; }
         void set_invalid() { thread_id = 0; }
 
-        buffer_handle() : memory_index(0), offset(0), thread_id(0) {}
+        buffer_handle() {}
         buffer_handle(uint32_t memory_index, uint32_t offset, os::thread_id thread_id) : memory_index(memory_index), offset(offset), thread_id(thread_id) {}
     };
     #pragma pack(pop)
@@ -71,7 +71,7 @@ namespace adam
         const data_format* get_data_format()    const { return m_data_format; }
 
         uint64_t get_timestamp()                const { return m_header ? m_header->timestamp : 0; }
-        void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { if (m_header) m_header->timestamp = ts; }
+        void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { m_header->timestamp = ts; }
 
         /** @brief Returns the current reference count. Useful for debugging and testing. */
         uint32_t get_ref_count() const { return m_header ? m_header->ref_count.load(std::memory_order_relaxed) : 0; }
@@ -82,16 +82,16 @@ namespace adam
         /** @brief Copies data into the buffer safely. */
         bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
 
-        void* data()                                    { return m_data; }
+        void* data()    { return m_data; }
 
         template<typename T>
-        T* data_as()                                    { return reinterpret_cast<T*>(m_data); }
+        T* data_as()    { return reinterpret_cast<T*>(m_data); }
 
-        void set_size(uint32_t size)                    { if (m_header) m_header->size = size; }
+        void set_size(uint32_t size) { m_header->size = size; }
         void set_data_format(const data_format* format);
 
         /** @brief Adds a reference to the buffer. */
-        void add_ref() { if (m_header) m_header->ref_count.fetch_add(1, std::memory_order_relaxed); }
+        void add_ref() { m_header->ref_count.fetch_add(1, std::memory_order_relaxed); }
         
         /** @brief Releases a reference, returning it to the manager if it reaches 0. */
         void release();
@@ -100,7 +100,7 @@ namespace adam
         buffer_handle get_referenced_buffer_handle() const { return m_header ? m_header->next_buffer : buffer_handle(); }
 
         /** @brief Set reference to another buffer (by handle). */
-        void set_referenced_buffer_handle(const buffer_handle& handle) { if (m_header) m_header->next_buffer = handle; }
+        void set_referenced_buffer_handle(const buffer_handle& handle) { m_header->next_buffer = handle; }
 
     protected:
 
@@ -110,14 +110,14 @@ namespace adam
             std::atomic<uint32_t> ref_count;
             uint32_t capacity;
             uint32_t size;
-            uint32_t start_position;
+            uint32_t start_pos;
             string_hash data_format_hash;
             uint64_t timestamp;
             buffer_handle next_buffer;
             uint32_t padding; // Align payload to 8-byte boundary
 
             header() 
-                : ref_count(0), capacity(0), size(0), start_position(0), data_format_hash(0), timestamp(0), next_buffer(), padding(0) 
+                : ref_count(0), capacity(0), size(0), start_pos(0), data_format_hash(0), timestamp(0), next_buffer(), padding(0) 
             {}
         };
         #pragma pack(pop)

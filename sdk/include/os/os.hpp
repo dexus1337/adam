@@ -11,6 +11,11 @@
  
 #include "api/api-sdk.hpp"
 #include <cstdint>
+#include <atomic>
+
+#ifdef ADAM_CPU_X64
+#include <immintrin.h>
+#endif
 
 #ifdef      ADAM_PLATFORM_LINUX
 #include <sys/syscall.h>
@@ -20,6 +25,33 @@
 #include <windows.h>
 #endif
 
+namespace adam::spinlock
+{
+    inline void acquire(std::atomic_flag& lock)
+    {
+        while (lock.test_and_set(std::memory_order_acquire))
+        {
+            while (lock.test(std::memory_order_relaxed))
+            {
+                #ifdef ADAM_CPU_X64
+                _mm_pause(); // Hardware pause (no OS yield) to reduce power and memory bus saturation
+                #endif
+            }
+        }
+    }
+
+    inline void release(std::atomic_flag& lock)
+    {
+        lock.clear(std::memory_order_release);
+    }
+
+    struct guard
+    {
+        std::atomic_flag& m_lock;
+        guard(std::atomic_flag& lock) : m_lock(lock) { acquire(m_lock); }
+        ~guard() { release(m_lock); }
+    };
+}
 
 namespace adam::os
 {

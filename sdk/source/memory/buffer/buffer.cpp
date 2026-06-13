@@ -32,11 +32,6 @@ namespace adam
 
     bool buffer::fill_data(const void* in_data, uint32_t len, uint32_t offset)
     {
-        if (!m_header)
-        {
-            return false;
-        }
-
         // Prevent out-of-bounds writing
         if (offset + len > m_header->capacity)
         {

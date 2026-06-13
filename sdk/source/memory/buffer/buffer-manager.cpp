@@ -15,39 +15,8 @@
 #include <unistd.h>
 #endif
 
-#ifdef ADAM_CPU_X64
-#include <immintrin.h>
-#endif
-
 namespace adam 
 {
-    namespace 
-    {
-        inline void acquire_spinlock(std::atomic_flag& lock)
-        {
-            while (lock.test_and_set(std::memory_order_acquire))
-            {
-                while (lock.test(std::memory_order_relaxed))
-                {
-                    #ifdef ADAM_CPU_X64
-                    _mm_pause(); // Hardware pause (no OS yield) to reduce power and memory bus saturation
-                    #endif
-                }
-            }
-        }
-
-        inline void release_spinlock(std::atomic_flag& lock)
-        {
-            lock.clear(std::memory_order_release);
-        }
-
-        struct spinlock_guard
-        {
-            std::atomic_flag& m_lock;
-            spinlock_guard(std::atomic_flag& lock) : m_lock(lock) { acquire_spinlock(m_lock); }
-            ~spinlock_guard() { release_spinlock(m_lock); }
-        };
-    }
 
     /** @brief Defines the thread-local cache structure. */
     struct buffer_thread_cache
@@ -87,7 +56,7 @@ namespace adam
 
     bool buffer_manager::destroy()
     {
-        std::lock_guard<std::mutex> lock(m_memory_mutex);
+        std::unique_lock<std::shared_mutex> lock(m_memory_mutex);
         
         // Clear the global free lists to prevent dangling pointers
         for (uint8_t i = 0; i < num_capacity_classes; ++i)
@@ -95,7 +64,7 @@ namespace adam
             auto& pool = m_pools[i];
             
             {
-                spinlock_guard slock(pool.lock);
+                spinlock::guard slock(pool.lock);
                 pool.free_list.clear();
             }
         }
@@ -103,8 +72,11 @@ namespace adam
         for (uint8_t i = 0; i < num_capacity_classes; ++i)
             m_pool_blocks[i].clear();
             
-        m_resolved_blocks.clear();
-        m_resolved_free_list.clear();
+        {
+            std::lock_guard<std::mutex> resolved_lock(m_resolved_mutex);
+            m_resolved_blocks.clear();
+            m_resolved_free_list.clear();
+        }
         
         for (auto& pair : m_memory_blocks)
         {
@@ -170,49 +142,68 @@ namespace adam
 
     buffer* buffer_manager::resolve_handle(const buffer_handle& handle)
     {
-        std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
-        
         uint64_t map_key = (static_cast<uint64_t>(handle.thread_id) << 32) | static_cast<uint32_t>(handle.memory_index);
         
         memory* target_mem = nullptr;
-        auto it = m_memory_blocks.find(map_key);
         
-        if (it != m_memory_blocks.end())
+        // 1. Acquire shared lock for reading m_memory_blocks
         {
-            target_mem = it->second.get();
+            std::shared_lock<std::shared_mutex> shared_lock(m_memory_mutex);
+            auto it = m_memory_blocks.find(map_key);
+            if (it != m_memory_blocks.end())
+            {
+                target_mem = it->second.get();
+            }
         }
-        else
+        
+        // 2. If not found, acquire unique lock and insert
+        if (!target_mem)
         {
-            adam::string_hashed mem_name(memory_name_prefix + std::to_string(handle.thread_id) + "_" + std::to_string(handle.memory_index));
-            auto new_mem = std::make_unique<memory>(mem_name);
-            
-            if (!new_mem->open())
-                return nullptr;
+            std::unique_lock<std::shared_mutex> unique_lock(m_memory_mutex);
+            // Double check inside the lock
+            auto it = m_memory_blocks.find(map_key);
+            if (it != m_memory_blocks.end())
+            {
+                target_mem = it->second.get();
+            }
+            else
+            {
+                adam::string_hashed mem_name(memory_name_prefix + std::to_string(handle.thread_id) + "_" + std::to_string(handle.memory_index));
+                auto new_mem = std::make_unique<memory>(mem_name);
                 
-            target_mem = new_mem.get();
-            m_memory_blocks[map_key] = std::move(new_mem);
+                if (!new_mem->open())
+                    return nullptr;
+                    
+                target_mem = new_mem.get();
+                m_memory_blocks[map_key] = std::move(new_mem);
+            }
         }
         
-        if (m_resolved_free_list.empty())
+        // 3. Acquire resolved free list lock
+        buffer* raw_buf = nullptr;
         {
-            ADAM_CONSTEXPR size_t chunk_size = 1024;
-            
-            // Allocate raw memory to avoid the constructor call overhead
-            auto raw_block = std::unique_ptr<uint8_t[]>(new uint8_t[chunk_size * sizeof(buffer)]);
-            buffer* new_block = reinterpret_cast<buffer*>(raw_block.get());
-            
-            for (size_t i = 0; i < chunk_size; ++i)
-                m_resolved_free_list.push_back(&new_block[i]);
+            std::lock_guard<std::mutex> resolved_lock(m_resolved_mutex);
+            if (m_resolved_free_list.empty())
+            {
+                ADAM_CONSTEXPR size_t chunk_size = 1024;
                 
-            m_resolved_blocks.push_back(std::move(raw_block));
+                // Allocate raw memory to avoid the constructor call overhead
+                auto raw_block = std::unique_ptr<uint8_t[]>(new uint8_t[chunk_size * sizeof(buffer)]);
+                buffer* new_block = reinterpret_cast<buffer*>(raw_block.get());
+                
+                for (size_t i = 0; i < chunk_size; ++i)
+                    m_resolved_free_list.push_back(&new_block[i]);
+                    
+                m_resolved_blocks.push_back(std::move(raw_block));
+            }
+            
+            raw_buf = m_resolved_free_list.back();
+            m_resolved_free_list.pop_back();
         }
-        
-        buffer* raw_buf = m_resolved_free_list.back();
-        m_resolved_free_list.pop_back();
         
         raw_buf->m_handle = handle;
         raw_buf->m_header = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(target_mem->get()) + handle.offset);
-        raw_buf->m_data = static_cast<uint8_t*>(static_cast<void*>(raw_buf->m_header)) + raw_buf->m_header->start_position;
+        raw_buf->m_data = static_cast<uint8_t*>(static_cast<void*>(raw_buf->m_header)) + raw_buf->m_header->start_pos;
         raw_buf->m_is_resolved = true;
         raw_buf->m_data_format = &data_format_transparent;
         
@@ -221,7 +212,7 @@ namespace adam
 
     void buffer_manager::destroy_resolved_buffer(buffer* buf)
     {
-        std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
+        std::lock_guard<std::mutex> resolved_lock(m_resolved_mutex);
         m_resolved_free_list.push_back(buf);
     }
 
@@ -249,7 +240,7 @@ namespace adam
         uint64_t buffer_size = 1ULL << (capacity_class + 7); 
         
         // Heavy OS lock (mmap/CreateFileMapping are slow, don't use spinlocks here!)
-        std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
+        std::unique_lock<std::shared_mutex> mem_lock(m_memory_mutex);
         
         os::thread_id tid = os::get_current_thread_id();
         adam::string_hashed mem_name(memory_name_prefix + std::to_string(tid) + "_" + std::to_string(m_block_counter));
@@ -278,17 +269,16 @@ namespace adam
             buf->m_data_format = &data_format_transparent;
             
             buf->m_header = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(new_mem->get()) + buf->m_handle.offset);
-            new (buf->m_header) buffer::header();
             
             buf->m_header->ref_count.store(buffer_free_state, std::memory_order_relaxed);
             buf->m_header->capacity = static_cast<uint32_t>(buffer_size);
             buf->m_header->size = 0;
-            buf->m_header->start_position = sizeof(buffer::header);
+            buf->m_header->start_pos = sizeof(buffer::header);
             buf->m_header->data_format_hash = data_format_transparent.get_name().get_hash();
             buf->m_header->timestamp = 0;
             buf->m_header->next_buffer = buffer_handle();
             
-            buf->m_data = static_cast<uint8_t*>(static_cast<void*>(buf->m_header)) + buf->m_header->start_position;
+            buf->m_data = static_cast<uint8_t*>(static_cast<void*>(buf->m_header)) + buf->m_header->start_pos;
             
             new_buffers.push_back(buf);
         }
@@ -297,11 +287,11 @@ namespace adam
         m_memory_blocks[map_key] = std::move(new_mem);
         m_pool_blocks[capacity_class].push_back(std::move(raw_block));
         
-        // Quickly acquire spinlock, push the thousands of buffers, and release
         auto& pool = m_pools[capacity_class];
 
+        // Quickly acquire spinlock, push the thousands of buffers, and release
         {
-            spinlock_guard lock(pool.lock);
+            spinlock::guard lock(pool.lock);
             pool.free_list.insert(pool.free_list.end(), new_buffers.begin(), new_buffers.end());
         }
         
@@ -317,7 +307,7 @@ namespace adam
         uint64_t memory_size = std::max(static_cast<uint64_t>(default_chunk_size), actual_chunk_size);
         uint64_t chunks = memory_size / actual_chunk_size;
         
-        std::lock_guard<std::mutex> mem_lock(m_memory_mutex);
+        std::shared_lock<std::shared_mutex> mem_lock(m_memory_mutex);
         
         std::vector<buffer*> recovered;
         
@@ -347,7 +337,7 @@ namespace adam
         auto& pool = m_pools[capacity_class];
 
         {
-            spinlock_guard lock(pool.lock);
+            spinlock::guard lock(pool.lock);
             pool.free_list.insert(pool.free_list.end(), recovered.begin(), recovered.end());
         }
         
@@ -361,7 +351,7 @@ namespace adam
         while (true)
         {
             {
-                spinlock_guard lock(pool.lock);
+                spinlock::guard lock(pool.lock);
                 if (!pool.free_list.empty())
                 {
                     size_t count = std::min(static_cast<size_t>(batch_transfer_size), pool.free_list.size());
@@ -389,7 +379,7 @@ namespace adam
         auto& pool = m_pools[capacity_class];
 
         {
-            spinlock_guard lock(pool.lock);
+            spinlock::guard lock(pool.lock);
             size_t count = std::min(static_cast<size_t>(batch_transfer_size), local_list.size());
             auto start_it = local_list.end() - count;
             pool.free_list.insert(pool.free_list.end(), start_it, local_list.end());

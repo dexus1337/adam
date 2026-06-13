@@ -1,4 +1,5 @@
 #include "data/port/port.hpp"
+#include "os/os.hpp"
 
 
 #include "data/connection.hpp"
@@ -107,12 +108,8 @@ namespace adam
             {
                 if (m_use_spinlock)
                 {
-                    while (m_spinlock.test_and_set(std::memory_order_acquire))
-                    {
-                        std::this_thread::yield();
-                    }
+                    spinlock::guard lock(m_spinlock);
                     result &= write(buffer);
-                    m_spinlock.clear(std::memory_order_release);
                 }
                 else
                 {

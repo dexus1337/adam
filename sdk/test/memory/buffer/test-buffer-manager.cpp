@@ -93,6 +93,70 @@ TEST_F(buffer_manager_test, oversized_buffer)
     buf->release();
 }
 
+/** @brief Tests resolving a buffer handle back into a buffer object. */
+TEST_F(buffer_manager_test, resolve_handle)
+{
+    auto& mgr = adam::buffer_manager::get();
+    
+    adam::buffer* buf = mgr.request_buffer(256);
+    ASSERT_NE(buf, nullptr);
+    
+    buf->set_size(100);
+    buf->set_timestamp(42);
+    
+    const char* payload = "Test data for handle resolution";
+    buf->fill_data(payload, static_cast<uint32_t>(strlen(payload) + 1));
+    
+    adam::buffer_handle handle = buf->get_handle();
+    EXPECT_TRUE(handle.is_valid());
+    
+    // Resolve the handle
+    adam::buffer* resolved = mgr.resolve_handle(handle);
+    ASSERT_NE(resolved, nullptr);
+    
+    EXPECT_EQ(resolved->get_capacity(), buf->get_capacity());
+    EXPECT_EQ(resolved->get_size(), buf->get_size());
+    EXPECT_EQ(resolved->get_timestamp(), buf->get_timestamp());
+    EXPECT_STREQ(resolved->get_data_as<char>(), payload);
+    
+    // Release both (resolved buffer release will recycle the surrogate)
+    resolved->release();
+    buf->release();
+}
+
+/** @brief Tests that multiple threads can concurrently resolve buffer handles safely. */
+TEST_F(buffer_manager_test, concurrent_resolve)
+{
+    auto& mgr = adam::buffer_manager::get();
+    
+    adam::buffer* buf = mgr.request_buffer(256);
+    ASSERT_NE(buf, nullptr);
+    adam::buffer_handle handle = buf->get_handle();
+    
+    auto thread_worker = [&]() 
+    {
+        for (int i = 0; i < 100; ++i)
+        {
+            adam::buffer* resolved = mgr.resolve_handle(handle);
+            if (resolved)
+            {
+                EXPECT_EQ(resolved->get_capacity(), buf->get_capacity());
+                resolved->release();
+            }
+        }
+    };
+    
+    std::thread t1(thread_worker);
+    std::thread t2(thread_worker);
+    std::thread t3(thread_worker);
+    
+    t1.join();
+    t2.join();
+    t3.join();
+    
+    buf->release();
+}
+
 /** @brief Tests that multiple threads can request and return memory safely without race conditions. */
 TEST_F(buffer_manager_test, multithreading)
 {
