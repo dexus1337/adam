@@ -103,9 +103,11 @@ graph TD
     BufB -.->|Points to| SharedMem
 ```
 
-* **Zero-Copy Buffer Handles (`buffer_handle`)**: Instead of passing all metadata over IPC, ADAM passes an ultra-compact 12-byte POD handle containing only a shared memory segment index (`memory_index`), byte offset (`offset`), and the creator's thread ID (`thread_id`).
-* **Shared Memory Buffer Header (`buffer::header`)**: All buffer metadata (including capacity, size, start position, data format hash, timestamp, and a handle referencing another buffer for chaining) is stored in a structured header directly at the start of the buffer's shared memory segment.
-* **Cross-Process Reference Counting**: The reference count atomics are part of the `buffer::header` allocated inside the shared memory segment. This enables correct, thread-safe object lifecycles across process boundaries; once all processes call `release()` and the reference count hits zero, the buffer returns to the manager.
+* **Zero-Copy Buffer Handles (`buffer_handle`)**: Instead of passing all metadata over IPC, ADAM passes an ultra-compact 16-byte POD handle containing a shared memory segment index (`memory_index`), byte offset (`offset`), payload capacity (`capacity`), and the creator's thread ID (`thread_id`).
+* **Shared Memory Buffer Header (`buffer::header`)**: All buffer metadata (including capacity, size, start position, data format hash, timestamp, and a `buffer_handle` referencing another buffer for chaining) is stored in a structured header directly at the start of the buffer's shared memory segment.
+* **Buffer Chaining (Zero-Copy Linking)**: The `buffer` class supports linking or chaining buffer objects together using `set_referenced_buffer()` and `get_referenced_buffer()`. This embeds the target buffer's handle directly inside the structured shared memory header, allowing complex, multi-part buffers to be transmitted across process boundaries without payload copying.
+* **Cross-Process Reference Counting**: Reference counting atomics are part of the `buffer::header` allocated within the shared memory segment. This enables correct, thread-safe object lifecycles across process boundaries. Once all processes call `release()` and the reference count hits zero, the buffer returns to the manager.
+* **Surrogate Buffer Resolution**: When a client process calls `resolve_handle()`, the `buffer_manager` instantiates a lightweight local surrogate `buffer` object mapping to the shared memory header/payload and marks it as resolved. Releasing a surrogate buffer recycles the local object back to a dedicated free list rather than returning the shared segment memory back to global pools prematurely.
 * **Capacity Classes & Segment Pooling**: The `buffer_manager` splits memory into 30 power-of-two size classes (up to 4GB segments). Large contiguous shared memory files (chunks of 16MB by default) are allocated and split into pool blocks of these size classes.
 * **Thread-Local Caching**: Highly inspired by `tcmalloc` and `jemalloc`, threads running data pipelines maintain a local pool of reusable buffers (`buffer_thread_cache`) to avoid global lock contention during high-speed routing. If the local cache runs empty, it requests a batch (32 buffers) from the global pool using a lightweight `std::atomic_flag` spinlock.
 
@@ -138,7 +140,9 @@ ADAM provides a structured pipeline for routing, filtering, and converting data 
           break;
   }
   ```
-* **Double Buffering (`vector_double_buffer`)**: To allow lock-free iteration of connections, ports, and inspectors during hot-path data processing, ADAM implements double buffering. Readers iterate through a stable active vector (`m_active`) without locks. When a write occurs (e.g., adding a connection), the writer updates a pending vector (`m_pending`) under a mutex and marks the dirty flag. The next reader thread performs a cheap atomic swap to update the active cache.
+* **Double Buffering Synchronization**: To allow lock-free reads and iterations during hot-path data processing, ADAM implements two double-buffering patterns:
+  * **`vector_double_buffer`**: Used for list structures (e.g., connections, ports, and inspectors). Readers iterate through a stable active vector (`m_active`) without locks. When a write occurs, the writer updates a pending vector (`m_pending`) under a mutex and sets a dirty flag. The next read operation performs a cheap atomic swap to update the active cache.
+  * **`map_double_buffer`**: A generic thread-safe double-buffered map. Readers obtain lock-free read access to a stable active `std::unordered_map` (`get_active()`). Write modifications completely overwrite a pending map under a lock and set a dirty flag; the next read operation automatically swaps/updates the active map with the pending changes.
 
 ---
 
