@@ -100,16 +100,15 @@ namespace adam
     {
         const module* mod = get_module(mod_hash);
         if (!mod)
-            return &data_format_transparent;
+            return nullptr;
 
         auto fmt_it = mod->get_data_formats().find(fmt_hash);
         if (fmt_it != mod->get_data_formats().end())
-        {
             return fmt_it->second;
-        }
 
-        return &data_format_transparent;
+        return nullptr;
     }
+    
     registry::status registry::create_port(const string_hashed& name, string_hash type, string_hash type_module, port** out_port)
     {
         if (out_port) 

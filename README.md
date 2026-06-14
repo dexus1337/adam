@@ -146,18 +146,20 @@ ADAM provides a structured pipeline for routing, filtering, and converting data 
 
 ---
 
-## 🧩 Dynamic Modules (Plugins)
+## 🧩 Modules (Plugins)
 
-ADAM modules are shared libraries (`.dll` on Windows, `.so` on Linux) loaded at runtime. Each module must implement and export the core entry point:
-
-```cpp
-extern "C" adam::module* get_adam_module();
-```
+ADAM modules can be integrated in two ways:
+1. **Dynamic (External):** Compiled as shared libraries (`.dll` on Windows, `.so` on Linux) and loaded at runtime. These must export the core entry point:
+   ```cpp
+   extern "C" adam::module* get_adam_module();
+   ```
+2. **Static (Internal):** Built directly into the daemon for core functionality that must always be present (e.g., the `essential` module).
 
 The repository features the following built-in modules:
 
 | Module | Description | Port Types | Custom Formats / Processors |
 | :--- | :--- | :--- | :--- |
+| **`essential`** | Core internal module for basic functionality (Static). | `internal` | `transparent` format, `frame_aligner` filter. |
 | **`recrep`** | Handles recording and replaying streams. | `replay` (Ingress), `recording` (Egress) | Data-format independent stream serializations. |
 | **`asterix`** | Aviation radar formatting. | N/A (Format module) | Eurocontrol ASTERIX parsing/converters. |
 | **`can`** | CAN bus serial handling. | `can` port | Custom CAN frame mapping converters. |

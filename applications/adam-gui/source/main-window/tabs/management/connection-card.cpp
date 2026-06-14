@@ -612,7 +612,7 @@ namespace adam::gui
                 ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y));
                 char in_fmt_str[256];
                 snprintf(in_fmt_str, sizeof(in_fmt_str), "%s", conn->input_format.c_str());
-                  if (!conn->input_format_module.empty() && !ctrl.commander().get_modules().is_module_internal(conn->input_format_module))
+                  if (!conn->input_format_module.empty())
                   {
                       size_t len = strlen(in_fmt_str);
                       snprintf(in_fmt_str + len, sizeof(in_fmt_str) - len, " [%s]", conn->input_format_module.c_str());
@@ -648,7 +648,7 @@ namespace adam::gui
                     {
                          char item_str[256];
                          snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
-                         if (!mod.empty() && !ctrl.commander().get_modules().is_module_internal(mod))
+                         if (!mod.empty())
                          {
                              size_t len = strlen(item_str);
                              snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
@@ -712,7 +712,7 @@ namespace adam::gui
                 ImGui::SetCursorScreenPos(ImVec2(cur_pos.x + avail_x - port_w, cur_pos.y));
                 char out_fmt_str[256];
                 snprintf(out_fmt_str, sizeof(out_fmt_str), "%s", conn->output_format.c_str());
-                  if (!conn->output_format_module.empty() && !ctrl.commander().get_modules().is_module_internal(conn->output_format_module))
+                  if (!conn->output_format_module.empty())
                   {
                       size_t len = strlen(out_fmt_str);
                       snprintf(out_fmt_str + len, sizeof(out_fmt_str) - len, " [%s]", conn->output_format_module.c_str());
@@ -784,7 +784,7 @@ namespace adam::gui
                     {
                          char item_str[256];
                          snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
-                         if (!mod.empty() && !ctrl.commander().get_modules().is_module_internal(mod))
+                         if (!mod.empty())
                          {
                              size_t len = strlen(item_str);
                              snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
@@ -996,8 +996,6 @@ namespace adam::gui
                 
                 if (!conn->input_format.empty())
                     p_out.format_name = conn->input_format.c_str();
-                else
-                    p_out.format_name = "transparent";
                 stage_pins_out[0].push_back(p_out);
                 current_in_y += row_height;
 
@@ -1041,8 +1039,10 @@ namespace adam::gui
                 {
                     draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, proc_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
                 }
-                p_in.format_name = "transparent";
-                p_out.format_name = "transparent";
+                if (!conn->input_format.empty())
+                    p_in.format_name = conn->input_format.c_str();
+                if (!conn->output_format.empty())
+                    p_out.format_name = conn->output_format.c_str();
                 stage_pins_in[current_stage].push_back(p_in);
                 stage_pins_out[current_stage].push_back(p_out);
                 current_stage++;
@@ -1065,8 +1065,6 @@ namespace adam::gui
                 bool is_exp = draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_drag_preview, it != ports.end() ? it->second->name.c_str() : "Unknown Output", node_type_output, total_stages - 1, 0.0f, col, p_in, p_out, is_unavail, mod_name, pid, current_out_y, deferred_expansions);
                 if (!conn->output_format.empty())
                     p_in.format_name = conn->output_format.c_str();
-                else
-                    p_in.format_name = "transparent";
                 stage_pins_in[total_stages - 1].push_back(p_in);
                 current_out_y += row_height;
 

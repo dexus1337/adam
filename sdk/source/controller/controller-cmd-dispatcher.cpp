@@ -213,11 +213,8 @@ namespace adam
                     
                     port_info->type = prt->get_type_name().get_hash();
                     
-                    if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct)))
-                        port_info->type_module = mod_param->get_value().get_hash();
-                    else
-                        port_info->type_module = "essential"_ct.get_hash();
-
+                    port_info->type_module = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct))->get_value().get_hash();
+                   
                     port_info->state_buffer_handle  = prt->get_state_buffer()->get_handle();
                     port_info->dir                      = prt->get_direction();
                     port_info->is_unavailable           = false;
@@ -225,16 +222,13 @@ namespace adam
 
                     auto* user_param = dynamic_cast<configuration_parameter_list*>(prt->get_parameters().get("user_parameters"_ct));
 
-                    if (user_param)
-                    {
-                        port_info->user_parameters = static_cast<uint16_t>(user_param->get_children().size());
-                        
-                        size_t unused_off     = sizeof(port::basic_info);
-                        size_t unused_size    = response::get_max_data_length() - unused_off;
+                    port_info->user_parameters = static_cast<uint16_t>(user_param->get_children().size());
+                    
+                    size_t unused_off     = sizeof(port::basic_info);
+                    size_t unused_size    = response::get_max_data_length() - unused_off;
 
-                        detail::message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
-                        serialize_user_parameters(user_param, serializer);
-                    }
+                    detail::message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
+                    serialize_user_parameters(user_param, serializer);
 
                     resp_idx++;
 
@@ -353,7 +347,7 @@ namespace adam
                 if (conn->get_input_format())
                     conn_info->input_format = conn->get_input_format()->get_name().get_hash();
                 else
-                    conn_info->input_format = "transparent"_ct.get_hash();
+                    conn_info->input_format = 0;
                 
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("input_format_module"_ct)))
                     conn_info->input_format_module = param->get_value().get_hash();
@@ -363,7 +357,7 @@ namespace adam
                 if (conn->get_output_format())
                     conn_info->output_format = conn->get_output_format()->get_name().get_hash();
                 else
-                    conn_info->output_format = "transparent"_ct.get_hash();
+                    conn_info->output_format = 0;
                 
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("output_format_module"_ct)))
                     conn_info->output_format_module = param->get_value().get_hash();
@@ -430,7 +424,7 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct)))
                     conn_info->input_format = param->get_value().get_hash();
                 else
-                    conn_info->input_format = "transparent"_ct.get_hash();
+                    conn_info->input_format = 0;
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format_module"_ct)))
                     conn_info->input_format_module = param->get_value().get_hash();
                 else
@@ -439,7 +433,7 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format"_ct)))
                     conn_info->output_format = param->get_value().get_hash();
                 else
-                    conn_info->output_format = "transparent"_ct.get_hash();
+                    conn_info->output_format = 0;
                 if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format_module"_ct)))
                     conn_info->output_format_module = param->get_value().get_hash();
                 else
@@ -575,7 +569,7 @@ namespace adam
             connection* new_conn = nullptr;
             registry::status res = ctx.reg.create_connection(name, &new_conn);
 
-            if (res != registry::status_success)
+            if (res != registry::status_success || !new_conn)
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
@@ -585,19 +579,21 @@ namespace adam
             }
 
             uint64_t current_time = static_cast<uint64_t>(std::time(nullptr));
-            if (new_conn)
-            {
-                if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_created"_ct)))
-                    param->set_value(current_time);
-                if (auto* param = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_edited"_ct)))
-                    param->set_value(current_time);
-            }
+
+            dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_created"_ct))->set_value(current_time);
+            dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("date_edited"_ct))->set_value(current_time);
 
             event evt(event_type::connection_created);
             auto* evt_data = evt.data_as<connection::basic_info>();
             *evt_data = *params;
-            evt_data->created = current_time;
-            evt_data->edited = current_time;
+            evt_data->created                   = current_time;
+            evt_data->edited                    = current_time;
+            evt_data->input_format              = new_conn->get_input_format()->get_name().get_hash();
+            evt_data->output_format             = new_conn->get_output_format()->get_name().get_hash();
+            evt_data->sorting_index             = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("sorting_index"_ct))->get_value();
+            evt_data->input_format_module       = dynamic_cast<configuration_parameter_string*>(new_conn->get_parameters().get("input_format_module"_ct))->get_value().get_hash();
+            evt_data->output_format_module      = dynamic_cast<configuration_parameter_string*>(new_conn->get_parameters().get("output_format_module"_ct))->get_value().get_hash();
+
             ctx.ctrl.broadcast_event(evt);
 
             auto name_view = name.c_str();

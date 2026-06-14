@@ -16,7 +16,6 @@ namespace adam
 {
     module_view::module_view()
     {
-        register_internal_module(&internal_module_essential);
     }
 
     void module_view::extract_port_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const

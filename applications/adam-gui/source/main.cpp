@@ -15,10 +15,13 @@ using namespace adam::string_hashed_ct_literals;
 static ADAM_CONSTEXPR int event_redraw_count            = 3;
 static ADAM_CONSTEXPR int perf_overlay_redraw_time      = 2000;
 
-adam::gui::gui_controller gui_ctrl;
+std::unique_ptr<adam::gui::gui_controller> g_gui_ctrl;
     
 int main(int, char**) 
 {
+    g_gui_ctrl = std::make_unique<adam::gui::gui_controller>();
+    auto& gui_ctrl = *g_gui_ctrl;
+
     SDL_Window* window = nullptr;
     SDL_GLContext gl_context = nullptr;
     const char* glsl_version = nullptr;

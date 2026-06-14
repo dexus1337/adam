@@ -182,7 +182,7 @@ namespace adam::gui
 
                         if (is_loaded)
                         {
-                            if (g_target_direction == adam::port::direction_invalid || (pdi.direction & g_target_direction) != adam::port::direction_invalid)
+                            if (g_target_direction == adam::port::direction_invalid || (pdi.direction & g_target_direction) != adam::port::direction_invalid || pdi.direction == adam::port::direction_invalid)
                             {
                                 new_grouped[pdi.module_name].push_back(pdi);
                             }
