@@ -119,7 +119,7 @@ TEST_F(controller_cmd_dispatcher_test, connection_set_input_data_format_dispatch
     auto* data = cmd.data_as<adam::messages::connection_data_format_data>();
     data->connection = conn_name.get_hash();
     data->format = "transparent"_ct.get_hash();
-    data->format_module = 0;
+    data->format_module = "essential"_ct.get_hash();
 
     std::vector<adam::response> resps;
     resps.emplace_back();

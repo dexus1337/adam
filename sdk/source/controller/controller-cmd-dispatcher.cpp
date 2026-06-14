@@ -99,13 +99,13 @@ namespace adam
 
     void controller_cmd_dispatcher::dispatch(const command* cmds, size_t count, command_context& ctx) const
     {
-        auto* prev_ctx = ctx.ctrl.get_context();
-        ctx.ctrl.set_context(&ctx);
+        auto* prev_ctx = ctx.ctrl.get_command_ctx();
+        ctx.ctrl.set_command_ctx(&ctx);
 
         if (!cmds || count == 0)
         {
             ctx.set_single_response_status(response_status::invalid);
-            ctx.ctrl.set_context(prev_ctx);
+            ctx.ctrl.set_command_ctx(prev_ctx);
             return;
         }
 
@@ -113,12 +113,12 @@ namespace adam
         if (it != m_handlers.end())
         {
             it->second(cmds, count, ctx);
-            ctx.ctrl.set_context(prev_ctx);
+            ctx.ctrl.set_command_ctx(prev_ctx);
             return;
         }
         
         ctx.set_single_response_status(response_status::unknown);
-        ctx.ctrl.set_context(prev_ctx);
+        ctx.ctrl.set_command_ctx(prev_ctx);
     }
 
     void controller_cmd_dispatcher::register_default_handlers()
@@ -214,9 +214,9 @@ namespace adam
                     port_info->type = prt->get_type_name().get_hash();
                     
                     if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct)))
-                        port_info->type_module = mod_param->get_value().empty() ? 0 : mod_param->get_value().get_hash();
+                        port_info->type_module = mod_param->get_value().get_hash();
                     else
-                        port_info->type_module = 0;
+                        port_info->type_module = "essential"_ct.get_hash();
 
                     port_info->state_buffer_handle  = prt->get_state_buffer()->get_handle();
                     port_info->dir                      = prt->get_direction();
@@ -1064,7 +1064,7 @@ namespace adam
             }
 
             const data_format* in_fmt = ctx.reg.get_data_format(params->format, params->format_module);
-            string_hashed resolved_in_module = in_fmt->get_origin_module() ? in_fmt->get_origin_module()->get_name() : "internal"_ct;
+            string_hashed resolved_in_module = in_fmt->get_origin_module() ? in_fmt->get_origin_module()->get_name() : "essential"_ct;
 
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
             {
@@ -1141,7 +1141,7 @@ namespace adam
             }
 
             const data_format* out_fmt = ctx.reg.get_data_format(params->format, params->format_module);
-            string_hashed resolved_out_module = out_fmt->get_origin_module() ? out_fmt->get_origin_module()->get_name() : "internal"_ct;
+            string_hashed resolved_out_module = out_fmt->get_origin_module() ? out_fmt->get_origin_module()->get_name() : "essential"_ct;
 
             auto set_str_param = [&](const string_hashed_ct& key, const string_hashed& value)
             {
@@ -1550,7 +1550,7 @@ namespace adam
                 }
                 else
                 {
-                    auto hash_str = std::format("0x{:X}", static_cast<uint64_t>(params->port));
+                    auto hash_str = std::format("{:x}", static_cast<uint64_t>(params->port));
                     ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, hash_str.c_str());
                 }
                 ctx.set_single_response_status(response_status::failed);
@@ -1578,7 +1578,7 @@ namespace adam
                 }
                 else
                 {
-                    auto hash_str = std::format("0x{:X}", static_cast<uint64_t>(params->port));
+                    auto hash_str = std::format("{:x}", static_cast<uint64_t>(params->port));
                     ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, hash_str.c_str());
                 }
                 ctx.set_single_response_status(response_status::failed);

@@ -207,11 +207,16 @@ TEST_F(controller_test, context_management)
 {
     adam::controller& ctrl = adam::controller::get();
     
+    // By default, get_command_ctx() should return the internal default context
+    EXPECT_EQ(ctrl.get_command_ctx(), &ctrl.get_default_command_ctx());
+    
     std::vector<adam::response> dummy_responses;
     adam::command_context ctx { adam::os::get_current_thread_id(), ctrl.get_registry(), ctrl, dummy_responses, {} };
     
-    ctrl.set_context(&ctx);
-    EXPECT_EQ(ctrl.get_context(), &ctx);
-    ctrl.set_context(nullptr);
-    EXPECT_EQ(ctrl.get_context(), nullptr);
+    ctrl.set_command_ctx(&ctx);
+    EXPECT_EQ(ctrl.get_command_ctx(), &ctx);
+    
+    // Clearing the context should fall back to the default context
+    ctrl.set_command_ctx(nullptr);
+    EXPECT_EQ(ctrl.get_command_ctx(), &ctrl.get_default_command_ctx());
 }

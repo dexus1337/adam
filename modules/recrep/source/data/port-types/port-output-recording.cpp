@@ -20,7 +20,7 @@
 
 namespace adam::modules::recrep
 {
-    const configuration_parameter_list& port_output_recording::get_default_parameters()
+    const configuration_parameter_list& port_output_recording::get_user_parameters()
     {
         static adam::configuration_parameter_list params = []() 
         {
@@ -89,7 +89,7 @@ namespace adam::modules::recrep
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
-        add_parameters(port_output_recording::get_default_parameters());
+        add_parameters(port_output_recording::get_user_parameters());
 
         port_output::m_use_spinlock = true; // Need to lock write method, as writing asynchronously on a single file stream is not thread safe.
     }

@@ -13,6 +13,15 @@ namespace adam
     configuration_parameter_string::configuration_parameter_string(const string_hashed& name, const string_hashed_ct& default_value, std::unique_ptr<configuration_parameter_string> regex_param)
         : configuration_parameter(name), m_value(default_value), m_value_default(default_value), m_mode(value_mode_regex), m_regex(std::move(regex_param)) {}
 
+    configuration_parameter_string::configuration_parameter_string(const string_hashed& name, const string_hashed& default_value)
+        : configuration_parameter(name), m_value(default_value), m_value_default(default_value), m_mode(value_mode_any) {}
+        
+    configuration_parameter_string::configuration_parameter_string(const string_hashed& name, const string_hashed& default_value, presets_container presets)
+        : configuration_parameter(name), m_value(default_value), m_value_default(default_value), m_mode(value_mode_preset), m_presets(std::move(presets)) {}
+
+    configuration_parameter_string::configuration_parameter_string(const string_hashed& name, const string_hashed& default_value, std::unique_ptr<configuration_parameter_string> regex_param)
+        : configuration_parameter(name), m_value(default_value), m_value_default(default_value), m_mode(value_mode_regex), m_regex(std::move(regex_param)) {}
+
     configuration_parameter_string::~configuration_parameter_string() {}
 
     std::unique_ptr<configuration_parameter> configuration_parameter_string::clone() const

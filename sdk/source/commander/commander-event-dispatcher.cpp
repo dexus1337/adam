@@ -143,19 +143,16 @@ namespace adam
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
                 
-                if (view->type_module.get_hash() != 0)
+                const auto* mod = ctx.cmdr.get_modules().get_module(view->type_module.get_hash());
+                if (mod)
                 {
-                    auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->type_module.get_hash());
-                    if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                    const auto& factories = mod->get_port_factories();
+                    auto fact_it = factories.find(view->type);
+                    if (fact_it != factories.end() && fact_it->second.parameters)
                     {
-                        const auto& factories = mod_it->second.second->get_port_factories();
-                        auto fact_it = factories.find(view->type);
-                        if (fact_it != factories.end() && fact_it->second.parameters)
+                        if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
                         {
-                            if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                            {
-                                view->user_params = *factory_user_params;
-                            }
+                            view->user_params = *factory_user_params;
                         }
                     }
                 }
@@ -208,19 +205,16 @@ namespace adam
                     std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                     ctx.cmdr.get_modules().extract_port_type_and_module(info->type, info->type_module, view->type, view->type_module);
                     
-                    if (view->type_module.get_hash() != 0)
+                    const auto* mod = ctx.cmdr.get_modules().get_module(view->type_module.get_hash());
+                    if (mod)
                     {
-                        auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->type_module.get_hash());
-                        if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                        const auto& factories = mod->get_port_factories();
+                        auto fact_it = factories.find(view->type);
+                        if (fact_it != factories.end() && fact_it->second.parameters)
                         {
-                            const auto& factories = mod_it->second.second->get_port_factories();
-                            auto fact_it = factories.find(view->type);
-                            if (fact_it != factories.end() && fact_it->second.parameters)
+                            if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
                             {
-                                if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                                {
-                                    view->user_params = *factory_user_params;
-                                }
+                                view->user_params = *factory_user_params;
                             }
                         }
                     }
@@ -378,22 +372,19 @@ namespace adam
                 std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                 ctx.cmdr.get_modules().extract_processor_type_and_module(info->type, info->type_module, view->type, view->module_name);
                 string_hashed dummy_mod;
-                ctx.cmdr.get_modules().extract_datatype_and_module(info->input_datatype, 0, view->input_datatype, dummy_mod);
-                ctx.cmdr.get_modules().extract_datatype_and_module(info->output_datatype, 0, view->output_datatype, dummy_mod);
+                ctx.cmdr.get_modules().extract_datatype_and_module(info->input_datatype, info->input_datatype_module, view->input_datatype, dummy_mod);
+                ctx.cmdr.get_modules().extract_datatype_and_module(info->output_datatype, info->output_datatype_module, view->output_datatype, dummy_mod);
                 
-                if (view->module_name.get_hash() != 0)
+                const auto* mod = ctx.cmdr.get_modules().get_module(view->module_name.get_hash());
+                if (mod)
                 {
-                    auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->module_name.get_hash());
-                    if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                    const auto& factories = mod->get_processor_factories();
+                    auto fact_it = factories.find(view->type);
+                    if (fact_it != factories.end() && fact_it->second.parameters)
                     {
-                        const auto& factories = mod_it->second.second->get_processor_factories();
-                        auto fact_it = factories.find(view->type);
-                        if (fact_it != factories.end() && fact_it->second.parameters)
+                        if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
                         {
-                            if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                            {
-                                view->user_params = *factory_user_params;
-                            }
+                            view->user_params = *factory_user_params;
                         }
                     }
                 }
@@ -444,22 +435,19 @@ namespace adam
                     std::lock_guard<const module_view> mod_lg(ctx.cmdr.modules());
                     ctx.cmdr.get_modules().extract_processor_type_and_module(info->type, info->type_module, view->type, view->module_name);
                     string_hashed dummy_mod;
-                    ctx.cmdr.get_modules().extract_datatype_and_module(info->input_datatype, 0, view->input_datatype, dummy_mod);
-                    ctx.cmdr.get_modules().extract_datatype_and_module(info->output_datatype, 0, view->output_datatype, dummy_mod);
+                    ctx.cmdr.get_modules().extract_datatype_and_module(info->input_datatype, info->input_datatype_module, view->input_datatype, dummy_mod);
+                    ctx.cmdr.get_modules().extract_datatype_and_module(info->output_datatype, info->output_datatype_module, view->output_datatype, dummy_mod);
                     
-                    if (view->module_name.get_hash() != 0)
+                    const auto* mod = ctx.cmdr.get_modules().get_module(view->module_name.get_hash());
+                    if (mod)
                     {
-                        auto mod_it = ctx.cmdr.get_modules().get_loaded().find(view->module_name.get_hash());
-                        if (mod_it != ctx.cmdr.get_modules().get_loaded().end() && mod_it->second.second)
+                        const auto& factories = mod->get_processor_factories();
+                        auto fact_it = factories.find(view->type);
+                        if (fact_it != factories.end() && fact_it->second.parameters)
                         {
-                            const auto& factories = mod_it->second.second->get_processor_factories();
-                            auto fact_it = factories.find(view->type);
-                            if (fact_it != factories.end() && fact_it->second.parameters)
+                            if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
                             {
-                                if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                                {
-                                    view->user_params = *factory_user_params;
-                                }
+                                view->user_params = *factory_user_params;
                             }
                         }
                     }

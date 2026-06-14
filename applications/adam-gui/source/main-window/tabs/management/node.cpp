@@ -77,19 +77,8 @@ namespace adam::gui
                 stats = p_it->second->statistic_buffer->data_as<adam::port::state_buffer_data>();
                 has_stats = true;
             }
-            if (p_it->second->type.get_hash() == ("internal"_ct).get_hash())
-            {
-                p_type = "internal";
-                p_module = "Internal";
-            }
-            else
-            {
-                p_type = p_it->second->type.c_str();
-                if (p_it->second->type_module.get_hash() != 0)
-                    p_module = p_it->second->type_module.c_str();
-                else
-                    p_module = "Unknown Module";
-            }
+            p_type = p_it->second->type.c_str();
+            p_module = p_it->second->type_module.c_str();
         }
         else if (!is_port && proc_it != registry.get_processors().end())
         {
@@ -100,10 +89,7 @@ namespace adam::gui
                 has_stats = true;
             }
             p_type = proc_it->second->type.c_str();
-            if (proc_it->second->module_name.get_hash() != 0)
-                p_module = proc_it->second->module_name.c_str();
-            else
-                p_module = "Unknown Module";
+            p_module = proc_it->second->module_name.c_str();
         }
 
         ImGui::SetCursorScreenPos(ImVec2(exp_min.x + exp_pad, exp_min.y + exp_pad));

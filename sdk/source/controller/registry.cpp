@@ -2,8 +2,9 @@
 
 #include "controller/controller.hpp"
 #include "configuration/configuration-item.hpp"
+#include "module/internals/module-essential.hpp"
 #include "module/module.hpp"
-#include "module/module-internal.hpp"
+#include "module/internals/module-essential.hpp"
 #include "data/port-types/port-internal.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
@@ -58,11 +59,12 @@ namespace adam
         m_ports(),
         m_processors(),
         m_connections(),
-        m_internal_module(std::make_unique<module_internal>()),
         m_controller(ctrl),
         m_modules(ctrl)
     {
         add_parameters(get_default_parameters());
+
+        register_internal_module(&internal_module_essential);
 
         if (!load("adam-config.bin"))
             m_modules.scan_for_modules();
@@ -77,16 +79,37 @@ namespace adam
         return get_parameter<configuration_parameter_list>("module_paths"_ct);
     }
 
-    void registry::clear()
+    const module* registry::get_module(string_hash module_hash) const
     {
-        m_ports.clear();
-        m_processors.clear();
-        m_connections.clear();
-        m_unavailable_ports.clear();
-        m_unavailable_processors.clear();
-        m_unavailable_connections.clear();
+        auto it = m_modules.get_internal_modules().find(module_hash);
+        if (it != m_modules.get_internal_modules().end())
+        {
+            return it->second;
+        }
+
+        auto loaded_it = m_modules.get_loaded_modules().find(module_hash);
+        if (loaded_it != m_modules.get_loaded_modules().end())
+        {
+            return loaded_it->second;
+        }
+
+        return nullptr;
     }
 
+    const data_format* registry::get_data_format(string_hash fmt_hash, string_hash mod_hash) const
+    {
+        const module* mod = get_module(mod_hash);
+        if (!mod)
+            return &data_format_transparent;
+
+        auto fmt_it = mod->get_data_formats().find(fmt_hash);
+        if (fmt_it != mod->get_data_formats().end())
+        {
+            return fmt_it->second;
+        }
+
+        return &data_format_transparent;
+    }
     registry::status registry::create_port(const string_hashed& name, string_hash type, string_hash type_module, port** out_port)
     {
         if (out_port) 
@@ -94,11 +117,6 @@ namespace adam
 
         if (m_ports.find(name) != m_ports.end())
             return status_error_port_already_exists;
-
-        if (type_module == 0)
-        {
-            type_module = "internal"_ct.get_hash();
-        }
 
         const module* mod = get_module(type_module);
         if (!mod)
@@ -117,11 +135,8 @@ namespace adam
         if (!new_port)
             return status_error_creation_failed;
 
-        if (type_module != "internal"_ct.get_hash())
-        {
-            if (auto* mod_param = new_port->get_parameter<configuration_parameter_string>("type_origin_module"_ct))
-                mod_param->set_value(mod->get_name());
-        }
+        if (auto* mod_param = new_port->get_parameter<configuration_parameter_string>("type_origin_module"_ct))
+            mod_param->set_value(mod->get_name());
 
         auto ptr = new_port.get();
         m_ports.emplace(name, std::move(new_port));
@@ -202,11 +217,6 @@ namespace adam
         if (m_processors.find(name) != m_processors.end())
             return status_error_port_already_exists;
 
-        if (type_module == 0)
-        {
-            type_module = "internal"_ct.get_hash();
-        }
-
         const module* mod = get_module(type_module);
         if (!mod)
             return status_error_module_not_found;
@@ -226,11 +236,6 @@ namespace adam
 
         new_processor->m_format_input  = get_data_format(processor_factory.input_datatype, processor_factory.input_datatype_module);
         new_processor->m_format_output = get_data_format(processor_factory.output_datatype, processor_factory.output_datatype_module);
-
-        if (type_module != "internal"_ct.get_hash())
-        {
-            new_processor->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->set_value(mod->get_name());
-        }
 
         new_processor->get_parameter<configuration_parameter_boolean>("is_filter"_ct)->set_value(is_filter);
 
@@ -942,7 +947,7 @@ namespace adam
         auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format, bool& missing_module)
         {
             missing_module = false;
-            if (!mod_name.empty() && mod_name != "internal"_ct && !get_module(mod_name.get_hash()))
+            if (!mod_name.empty() && !get_module(mod_name.get_hash()))
             {
                 missing_module = true;
             }
@@ -1059,6 +1064,21 @@ namespace adam
         return ifs.good();
     }
 
+    void registry::clear()
+    {
+        m_ports.clear();
+        m_processors.clear();
+        m_connections.clear();
+        m_unavailable_ports.clear();
+        m_unavailable_processors.clear();
+        m_unavailable_connections.clear();
+    }
+
+    void registry::register_internal_module(const module* mod)
+    {
+        m_modules.register_internal_module(mod);
+    }
+
     void registry::resume_active_items()
     {
         if (!m_ports.empty() || !m_connections.empty())
@@ -1125,7 +1145,7 @@ namespace adam
     {
         for (auto it = m_unavailable_ports.begin(); it != m_unavailable_ports.end();)
         {
-            if (it->second->type_module == module_hash || it->second->type_module == 0)
+            if (it->second->type_module == module_hash)
             {
                 port* new_port = nullptr;
                 status stat = create_port(it->second->get_name(), it->second->type, it->second->type_module, &new_port);
@@ -1193,7 +1213,7 @@ namespace adam
         {
             string_hashed type_module = it->second->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->get_value();
 
-            if (type_module.get_hash() == module_hash && module_hash != 0)
+            if (type_module.get_hash() == module_hash)
             {
                 auto port_hash = it->first;
                 auto port_name = it->second->get_name();
@@ -1295,17 +1315,17 @@ namespace adam
                             if (procs_list)
                             {
                                 for (auto& [idx_str, param] : procs_list->get_children())
-                                {
-                                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                                     {
-                                        auto p_it = m_processors.find(ref->get_target().get_hash());
-                                        if (p_it != m_processors.end())
+                                    if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
                                         {
-                                            conn->processors().push_back(p_it->second.get());
+                                            auto p_it = m_processors.find(ref->get_target().get_hash());
+                                            if (p_it != m_processors.end())
+                                            {
+                                                conn->processors().push_back(p_it->second.get());
+                                            }
                                         }
                                     }
                                 }
-                            }
 
                             conn->check_valid_chain();
                         }
@@ -1347,7 +1367,7 @@ namespace adam
         {
             string_hashed type_module = it->second->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->get_value();
 
-            if (type_module.get_hash() == module_hash && module_hash != 0)
+            if (type_module.get_hash() == module_hash)
             {
                 auto processor_hash = it->first;
                 auto processor_name = it->second->get_name();
@@ -1414,22 +1434,19 @@ namespace adam
     {
         for (auto it = m_unavailable_connections.begin(); it != m_unavailable_connections.end();)
         {
+            string_hashed in_fmt  = it->second->get_parameter<configuration_parameter_string>("input_format"_ct)->get_value();
             string_hashed in_mod  = it->second->get_parameter<configuration_parameter_string>("input_format_module"_ct)->get_value();
+
+            string_hashed out_fmt = it->second->get_parameter<configuration_parameter_string>("output_format"_ct)->get_value();
             string_hashed out_mod = it->second->get_parameter<configuration_parameter_string>("output_format_module"_ct)->get_value();
 
-            string_hashed in_fmt  = it->second->get_parameter<configuration_parameter_string>("input_format"_ct)->get_value();
-            string_hashed out_fmt = it->second->get_parameter<configuration_parameter_string>("output_format"_ct)->get_value();
-                
-            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct;
-            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct;
+            bool in_matches = in_mod.get_hash() == module_hash;
+            bool out_matches = out_mod.get_hash() == module_hash;
 
-            bool in_matches = !is_in_transparent && in_mod.get_hash() == module_hash;
-            bool out_matches = !is_out_transparent && out_mod.get_hash() == module_hash;
-
-            if (in_matches || out_matches || module_hash == 0 || (is_in_transparent && is_out_transparent))
+            if (in_matches || out_matches)
             {
-                bool in_missing = (!is_in_transparent && !in_mod.empty() && in_mod != "internal"_ct && !get_module(in_mod.get_hash()));
-                bool out_missing = (!is_out_transparent && !out_mod.empty() && out_mod != "internal"_ct && !get_module(out_mod.get_hash()));
+                bool in_missing = !in_mod.empty() && !get_module(in_mod.get_hash());
+                bool out_missing = !out_mod.empty() && !get_module(out_mod.get_hash());
 
                 if (!in_missing && !out_missing)
                 {
@@ -1583,11 +1600,8 @@ namespace adam
             string_hashed in_fmt  = it->second->get_parameter<configuration_parameter_string>("input_format"_ct)->get_value();
             string_hashed out_fmt = it->second->get_parameter<configuration_parameter_string>("output_format"_ct)->get_value();
                 
-            bool is_in_transparent = in_fmt.empty() || in_fmt == "transparent"_ct;
-            bool is_out_transparent = out_fmt.empty() || out_fmt == "transparent"_ct;
-
-            bool in_matches = !is_in_transparent && in_mod.get_hash() == module_hash;
-            bool out_matches = !is_out_transparent && out_mod.get_hash() == module_hash;
+            bool in_matches = in_mod.get_hash() == module_hash;
+            bool out_matches = out_mod.get_hash() == module_hash;
 
             if (in_matches || out_matches)
             {
@@ -1786,9 +1800,9 @@ namespace adam
             }
         };
 
-        for (const auto& [name, param] : source->get_children()) 
-            copy_single_parameter(name, param);
-    }
+            for (const auto& [name, param] : source->get_children())
+                copy_single_parameter(name, param);
+        }
 
     std::string_view registry::get_status_text(status status, language lang)
     {
@@ -1807,61 +1821,5 @@ namespace adam
         auto it = translations.find(static_cast<int>(status));
         if (it != translations.end()) return it->second[static_cast<size_t>(lang)];
         return "Unknown registry status.";
-    }
-
-    const module* registry::get_module(string_hash module_hash) const
-    {
-        if (module_hash == "internal"_ct.get_hash())
-        {
-            return m_internal_module.get();
-        }
-
-        auto it = m_modules.get_loaded_modules().find(module_hash);
-        if (it != m_modules.get_loaded_modules().end())
-        {
-            return it->second;
-        }
-
-        return nullptr;
-    }
-
-    const data_format* registry::get_data_format(string_hash fmt_hash, string_hash mod_hash) const
-    {
-        if (fmt_hash == 0 || fmt_hash == "transparent"_ct.get_hash())
-        {
-            return &data_format_transparent;
-        }
-
-        if (mod_hash == 0)
-        {
-            mod_hash = "internal"_ct.get_hash();
-        }
-
-        const module* mod = get_module(mod_hash);
-        if (!mod)
-        {
-            return &data_format_transparent;
-        }
-
-        auto fmt_it = mod->get_data_formats().find(fmt_hash);
-        if (fmt_it != mod->get_data_formats().end())
-        {
-            return fmt_it->second;
-        }
-
-        // Backwards compatibility: if mod_hash is internal but fmt_hash not found, search loaded modules
-        if (mod_hash == "internal"_ct.get_hash())
-        {
-            for (const auto& [name, m] : m_modules.get_loaded_modules())
-            {
-                auto it = m->get_data_formats().find(fmt_hash);
-                if (it != m->get_data_formats().end())
-                {
-                    return it->second;
-                }
-            }
-        }
-
-        return &data_format_transparent;
     }
 }

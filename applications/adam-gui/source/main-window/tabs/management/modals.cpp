@@ -137,7 +137,6 @@ namespace adam::gui
                 std::lock_guard<const adam::registry_view> reg_lock(ctrl.commander().registry());
 
                 const auto& db              = ctrl.get_commander().get_modules().database();
-                const auto& loaded_modules  = ctrl.get_commander().get_modules().get_loaded();
                 const auto& reg_ports       = ctrl.commander().registry().get_ports();
                 const auto& reg_conns       = ctrl.commander().registry().get_connections();
 
@@ -156,7 +155,7 @@ namespace adam::gui
 
                 for (const auto& [mod_hash, mod_info] : db)
                 {
-                    bool is_loaded = loaded_modules.find(mod_hash) != loaded_modules.end();
+                    bool is_loaded = ctrl.get_commander().get_modules().is_module_loaded(mod_hash);
 
                     for (const auto& [port_name, port_dir] : mod_info.ports)
                     {
@@ -191,23 +190,6 @@ namespace adam::gui
                     }
                 }
 
-                {
-                    port_display_info pdi;
-                    pdi.module_hash = 0;
-                    pdi.module_name = "Internal";
-                    pdi.port_name = "internal";
-                    pdi.type_name = "internal";
-                    pdi.port_hash = ("internal"_ct).get_hash();
-                    pdi.direction = adam::port::direction_inout;
-                    pdi.is_unavailable = false;
-
-                    if (g_target_direction == adam::port::direction_invalid || (pdi.direction & g_target_direction) != adam::port::direction_invalid)
-                    {
-                        new_grouped[pdi.module_name].push_back(pdi);
-                        known_port_types[pdi.port_hash] = pdi;
-                    }
-                }
-
                 for (const auto& [p_hash, p_view] : reg_ports)
                 {
                     port_display_info pdi;
@@ -225,35 +207,26 @@ namespace adam::gui
                     }
                     else
                     {
-                        if (p_view->type.get_hash() == ("internal"_ct).get_hash())
+                        if (p_view->type_module.get_hash() != 0)
                         {
-                            pdi.module_name = "Internal";
-                            pdi.module_hash = 0;
-                            pdi.type_name = "internal";
+                            pdi.module_name = p_view->type_module.c_str();
+                            pdi.module_hash = p_view->type_module.get_hash();
                         }
                         else
                         {
-                            if (p_view->type_module.get_hash() != 0)
-                            {
-                                pdi.module_name = p_view->type_module.c_str();
-                                pdi.module_hash = p_view->type_module.get_hash();
-                            }
-                            else
-                            {
-                                pdi.module_name = "Unknown Module";
-                                pdi.module_hash = 0;
-                            }
-                            
-                            if (!p_view->type.empty())
-                            {
-                                pdi.type_name = p_view->type.c_str();
-                            }
-                            else
-                            {
-                                char hash_buf[32];
-                                snprintf(hash_buf, sizeof(hash_buf), "0x%llx", static_cast<unsigned long long>(p_view->type.get_hash()));
-                                pdi.type_name = std::string("Unknown (Hash: ") + hash_buf + ")";
-                            }
+                            pdi.module_name = "Unknown Module";
+                            pdi.module_hash = 0;
+                        }
+                        
+                        if (!p_view->type.empty())
+                        {
+                            pdi.type_name = p_view->type.c_str();
+                        }
+                        else
+                        {
+                            char hash_buf[32];
+                            snprintf(hash_buf, sizeof(hash_buf), "0x%llx", static_cast<unsigned long long>(p_view->type.get_hash()));
+                            pdi.type_name = std::string("Unknown (Hash: ") + hash_buf + ")";
                         }
                     }
 
@@ -495,7 +468,6 @@ namespace adam::gui
                 std::lock_guard<const adam::registry_view> reg_lock(ctrl.commander().registry());
 
                 const auto& db              = ctrl.get_commander().get_modules().database();
-                const auto& loaded_modules  = ctrl.get_commander().get_modules().get_loaded();
                 const auto& reg_procs       = ctrl.commander().registry().get_processors();
                 const auto& reg_conns       = ctrl.commander().registry().get_connections();
 
@@ -507,7 +479,7 @@ namespace adam::gui
 
                 for (const auto& [mod_hash, mod_info] : db)
                 {
-                    bool is_loaded = loaded_modules.find(mod_hash) != loaded_modules.end();
+                    bool is_loaded = ctrl.get_commander().get_modules().is_module_loaded(mod_hash);
 
                     for (const auto& proc : mod_info.processors)
                     {
@@ -618,7 +590,6 @@ namespace adam::gui
             ImGui::CloseCurrentPopup();
         }
 
-        float half_w = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
         float bottom_h = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 4.0f + 4.0f * dpi_scale;
         float child_h = ImGui::GetContentRegionAvail().y - bottom_h;
 

@@ -1,4 +1,6 @@
 #include <gtest/gtest.h>
+
+#include "module/module.hpp"
 #include "commander/module-view.hpp"
 #include "types/string-hashed.hpp"
 
@@ -30,7 +32,9 @@ TEST_F(module_view_test, initial_state)
     EXPECT_TRUE(view.get_unavailable().empty());
     EXPECT_TRUE(view.get_loaded().empty());
     EXPECT_TRUE(view.get_paths().empty());
-    EXPECT_TRUE(view.database().empty());
+    EXPECT_EQ(view.database().size(), 1u);
+    EXPECT_TRUE(view.is_module_loaded("essential"_ct));
+    EXPECT_TRUE(view.is_module_internal("essential"_ct));
 }
 
 TEST_F(module_view_test, load_and_unload_module)
@@ -110,12 +114,14 @@ TEST_F(module_view_test, update_module_database_ignores_duplicates)
     info.name = mod_name;
     view.database()[mod_name] = info;
 
+    auto oldmodcount = view.database().size();
+
     // Since it's already in the database, this should exit early without attempting os::load_library
     view.update_module_database(mod_name, mod_path, 100);
 
     // Verification is implicit: if it didn't exit early, it would try to open a fake path, 
     // but the database size stays exactly what we set it to.
-    EXPECT_EQ(view.database().size(), 1u);
+    EXPECT_EQ(view.database().size(), oldmodcount);
 }
 
 TEST_F(module_view_test, clear_removes_all_elements)
@@ -142,7 +148,7 @@ TEST_F(module_view_test, clear_removes_all_elements)
     EXPECT_TRUE(view.get_unavailable().empty());
     EXPECT_TRUE(view.get_loaded().empty());
     EXPECT_TRUE(view.get_paths().empty());
-    EXPECT_TRUE(view.database().empty());
+    EXPECT_EQ(view.database().size(), 1u);
 }
 
 TEST_F(module_view_test, thread_safety_locking)
@@ -170,4 +176,35 @@ TEST_F(module_view_test, thread_safety_locking)
 
     // Now the background thread must have acquired the lock
     EXPECT_TRUE(thread_acquired_lock.load());
+}
+
+string_hashed mock_name("another_internal");
+class dummy_internal_module : public module
+{
+public:
+    dummy_internal_module(const string_hashed& name) : module(name, make_version(2, 0, 0), sdk_version) {}
+};
+
+dummy_internal_module second_mod(mock_name);
+TEST_F(module_view_test, multiple_internal_modules)
+{
+    
+    view.register_internal_module(&second_mod);
+
+    // Verify database and loaded check
+    EXPECT_EQ(view.database().size(), 2u);
+    EXPECT_TRUE(view.is_module_loaded(mock_name));
+    EXPECT_TRUE(view.is_module_loaded(mock_name.get_hash()));
+    EXPECT_TRUE(view.is_module_internal(mock_name));
+    EXPECT_TRUE(view.is_module_internal(mock_name.get_hash()));
+
+    // Verify default internal module is also loaded and internal
+    EXPECT_TRUE(view.is_module_loaded("essential"_ct));
+    EXPECT_TRUE(view.is_module_internal("essential"_ct));
+
+    // Clear and check it still rebuilds the database for both
+    view.clear();
+    EXPECT_EQ(view.database().size(), 2u);
+    EXPECT_TRUE(view.is_module_loaded(mock_name));
+    EXPECT_TRUE(view.is_module_internal(mock_name));
 }

@@ -3,6 +3,7 @@
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/connection.hpp"
 #include "data/inspector.hpp"
+#include "module/internals/module-essential.hpp"
 
 namespace adam 
 {
@@ -11,6 +12,7 @@ namespace adam
     {
         port::m_b_threaded = false;
         get_parameter<configuration_parameter_string>("type"_ct)->set_value(type_name());
+        get_parameter<configuration_parameter_string>("type_origin_module"_ct)->set_value(internal_module_essential.get_name());
     }
 
     port_internal::~port_internal() {}

@@ -1,4 +1,5 @@
 #include "memory/buffer/buffer.hpp"
+
 #include "memory/buffer/buffer-manager.hpp"
 #include "data/format.hpp"
 
@@ -18,17 +19,19 @@ namespace adam
     {
     }
 
-    void buffer::release() 
+    void buffer::set_data_format(const data_format* format)
     {
-        if (m_header && m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
-        {
-            buffer_manager::get().return_buffer(this);
-        }
+        m_data_format = format;
+        m_header->data_format_hash = format ? format->get_name().get_hash() : 0;
     }
 
-    buffer_handle buffer::get_handle() const 
+    void buffer::set_referenced_buffer(buffer* buf)
     {
-        return m_handle;
+        m_reference = buf;
+        if (buf)
+            m_header->reference = buf->get_handle();
+        else
+            m_header->reference.set_invalid();
     }
 
     bool buffer::fill_data(const void* in_data, uint32_t len, uint32_t offset)
@@ -50,22 +53,13 @@ namespace adam
 
         return true;
     }
-
-    void buffer::set_data_format(const data_format* format)
+    
+    void buffer::release() 
     {
-        m_data_format = format;
-        if (m_header)
+        if (m_header && m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
         {
-            m_header->data_format_hash = format ? format->get_name().get_hash() : 0;
+            buffer_manager::get().return_buffer(this);
         }
     }
 
-    void buffer::set_referenced_buffer(buffer* buf)
-    {
-        m_reference = buf;
-        if (buf)
-            m_header->reference = buf->get_handle();
-        else
-            m_header->reference.set_invalid();
-    }
 }

@@ -54,6 +54,15 @@ namespace adam
         /** @brief Constructs a new configuration_parameter_string object for 'regex' mode. */
         configuration_parameter_string(const string_hashed& name, const string_hashed_ct& default_value, std::unique_ptr<configuration_parameter_string> regex_param);
 
+        /** @brief Constructs a new configuration_parameter_string object for 'any' mode. */
+        configuration_parameter_string(const string_hashed& name, const string_hashed& default_value);
+
+        /** @brief Constructs a new configuration_parameter_string object for 'preset' mode. */
+        configuration_parameter_string(const string_hashed& name, const string_hashed& default_value, presets_container presets);
+
+        /** @brief Constructs a new configuration_parameter_string object for 'regex' mode. */
+        configuration_parameter_string(const string_hashed& name, const string_hashed& default_value, std::unique_ptr<configuration_parameter_string> regex_param);
+
         /** @brief Constructs a new configuration_parameter_string from a string literal, enabling automatic compile-time hashing. */
         template<size_t N>
         configuration_parameter_string(const string_hashed& name, const char (&default_value)[N]) : configuration_parameter(name), m_value(string_hashed_ct(default_value)), m_value_default(default_value) {}
@@ -70,7 +79,7 @@ namespace adam
         bool set_value(const string_hashed& value);
         string_hashed& value() { return m_value; }
 
-        const string_hashed_ct& get_default_value() const { return m_value_default; }
+        const string_hashed& get_default_value() const { return m_value_default; }
         void reset_to_default() { m_value = m_value_default; }
 
         value_mode get_mode() const { return m_mode; }
@@ -85,7 +94,7 @@ namespace adam
     private:
 
         string_hashed                                   m_value;
-        string_hashed_ct                                m_value_default;
+        string_hashed                                   m_value_default;
 
         value_mode                                      m_mode;
         presets_container                               m_presets;

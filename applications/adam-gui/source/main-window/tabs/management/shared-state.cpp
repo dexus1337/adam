@@ -231,17 +231,12 @@ namespace adam::gui
             
             adam::gui::inspected_buffer ib;
             ib.timestamp = buf->get_timestamp();
-            if (ib.timestamp == 0)
-                ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
             
             ib.size = buf->get_size();
             ib.offset = static_cast<uint32_t>(port_data.data_pool.size());
             
-            if (ib.size > 0 && buf->get_data())
-            {
-                const uint8_t* ptr = buf->get_data_as<uint8_t>();
-                port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
-            }
+            const uint8_t* ptr = buf->get_begin_as<uint8_t>();
+            port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
             
             port_data.buffers.push_back(ib);
         };

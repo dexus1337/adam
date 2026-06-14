@@ -12,6 +12,7 @@
 #include "api/api-sdk.hpp"
 
 #include <unordered_map>
+#include <vector>
 #include <thread>
 #include <format>
 #include <mutex>
@@ -132,24 +133,21 @@ namespace adam
             this->log(adam::log(t, runtime_fmt, std::forward<args_type>(args)...));
         }
 
-        /** @brief Sets the default language for logs etc. */
-        void set_language(language lang) { if (m_lang_param) m_lang_param->set_value(static_cast<int64_t>(lang)); }
-        language get_language() const { return m_lang_param ? m_lang_param->get_value_as<language>() : language_english; }
+        language                            get_language()              const { return m_lang_param ? m_lang_param->get_value_as<language>() : language_english; }
+        const controller_cmd_dispatcher&    get_dispatcher()            const { return m_dispatcher; }
+        const registry&                     get_registry()              const { return m_registry; }
+        const command_context&              get_default_command_ctx()   const { return m_internal_context; }
+
+        void                                set_language(language lang) { if (m_lang_param) m_lang_param->set_value(static_cast<int64_t>(lang)); }
+        controller_cmd_dispatcher&          dispatcher()                { return m_dispatcher; }
+        registry&                           get_registry()              { return m_registry; }
+        command_context&                    default_command_ctx()       { return m_internal_context; }
 
         /** @brief Broadcasts an event to all connected commanders. */
         void broadcast_event(const event& e);
 
-        controller_cmd_dispatcher& dispatcher() { return m_dispatcher; }
-        const controller_cmd_dispatcher& get_dispatcher() const { return m_dispatcher; }
-
-        registry& get_registry() { return m_registry; }
-        const registry& get_registry() const { return m_registry; }
-
-        /** @brief Gets the current command context for the calling thread. */
-        command_context* get_context() const;
-
-        /** @brief Sets the current command context for the calling thread. */
-        void set_context(command_context* ctx);
+        command_context* get_command_ctx() const;
+        void set_command_ctx(command_context* ctx);
 
     protected:
 
@@ -301,6 +299,9 @@ namespace adam
         std::mutex              m_destroy_mutex;
         std::condition_variable m_destroy_cv;
         destroy_state           m_destroy_state = destroy_state_none;
+
+        std::vector<response>   m_internal_responses;
+        command_context         m_internal_context;
 
     };
 }

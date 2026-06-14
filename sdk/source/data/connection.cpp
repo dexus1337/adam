@@ -5,6 +5,7 @@
 #include "data/format.hpp"
 #include "data/inspector.hpp"
 #include "data/encoder.hpp"
+#include "module/module.hpp"
 #include "controller/controller.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "commander/messages/command.hpp"
@@ -17,21 +18,21 @@ namespace adam
 {
     const configuration_parameter_list& connection::get_default_parameters()
     {
-        static adam::configuration_parameter_list params = []() 
+        static configuration_parameter_list params = []() 
         {
-            adam::configuration_parameter_list p;
-            p.add(std::make_unique<adam::configuration_parameter_boolean>("started"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_list>("inputs"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_list_sorted>("processors"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_list>("outputs"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_integer>("date_created"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_integer>("date_edited"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_integer>("color_code"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_integer>("sorting_index"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_string>("input_format"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_string>("input_format_module"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_string>("output_format"_ct));
-            p.add(std::make_unique<adam::configuration_parameter_string>("output_format_module"_ct));
+            configuration_parameter_list p;
+            p.add(std::make_unique<configuration_parameter_boolean>("started"_ct));
+            p.add(std::make_unique<configuration_parameter_list>("inputs"_ct));
+            p.add(std::make_unique<configuration_parameter_list_sorted>("processors"_ct));
+            p.add(std::make_unique<configuration_parameter_list>("outputs"_ct));
+            p.add(std::make_unique<configuration_parameter_integer>("date_created"_ct));
+            p.add(std::make_unique<configuration_parameter_integer>("date_edited"_ct));
+            p.add(std::make_unique<configuration_parameter_integer>("color_code"_ct));
+            p.add(std::make_unique<configuration_parameter_integer>("sorting_index"_ct));
+            p.add(std::make_unique<configuration_parameter_string>("input_format"_ct,           data_format_transparent.get_name()));
+            p.add(std::make_unique<configuration_parameter_string>("input_format_module"_ct,    data_format_transparent.get_origin_module()->get_name()));
+            p.add(std::make_unique<configuration_parameter_string>("output_format"_ct,          data_format_transparent.get_name()));
+            p.add(std::make_unique<configuration_parameter_string>("output_format_module"_ct,   data_format_transparent.get_origin_module()->get_name()));
             return p;
         }();
         return params;
@@ -106,7 +107,7 @@ namespace adam
         });
 
         // Run data through output encoder
-        if (m_output_format != &data_format_transparent)
+        if (m_output_format->get_encoder())
         {
             buffer* encoded_buf = nullptr;
             m_output_format->get_encoder()->encode(encoded_buf, buf);
@@ -187,7 +188,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
                 }
             }
         });
@@ -200,7 +201,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
                 }
             }
         });
@@ -240,7 +241,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
                 }
             }
         });
@@ -253,7 +254,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_context());
+                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
                 }
             }
         });

@@ -186,7 +186,7 @@ TEST_F(commander_test, request_port_parameter_set_flow)
     
     // Create a port in the controller's registry and add user parameters of all types
     adam::port* test_port = nullptr;
-    EXPECT_EQ(ctrl.get_registry().create_port("param_test_port"_ct, adam::port_internal::type_name(), 0, &test_port), adam::registry::status_success);
+    EXPECT_EQ(ctrl.get_registry().create_port("param_test_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &test_port), adam::registry::status_success);
     ASSERT_NE(test_port, nullptr);
     
     auto* user_params = test_port->parameters().get<adam::configuration_parameter_list>("user_parameters"_ct);
@@ -906,7 +906,7 @@ TEST_F(commander_test, request_connection_port_add_remove_flow)
     
     // Create a port in the controller's registry
     adam::port* test_port = nullptr;
-    EXPECT_EQ(ctrl.get_registry().create_port("my_test_port"_ct, adam::port_internal::type_name(), 0, &test_port), adam::registry::status_success);
+    EXPECT_EQ(ctrl.get_registry().create_port("my_test_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &test_port), adam::registry::status_success);
     ASSERT_NE(test_port, nullptr);
     
     // Create a connection in the controller's registry
@@ -948,7 +948,7 @@ TEST_F(commander_test, request_connection_port_add_remove_flow)
     EXPECT_TRUE(conn_view->inputs.empty());
 
     // Recreate the port (since it gets auto-destroyed when removed from its last connection)
-    EXPECT_EQ(ctrl.get_registry().create_port("my_test_port"_ct, adam::port_internal::type_name(), 0, &test_port), adam::registry::status_success);
+    EXPECT_EQ(ctrl.get_registry().create_port("my_test_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &test_port), adam::registry::status_success);
     ASSERT_NE(test_port, nullptr);
 
     // 3. Request to add as output
@@ -1115,7 +1115,7 @@ TEST_F(commander_test, request_port_lifecycle_flow)
     ASSERT_TRUE(cmdr.connect());
 
     // 1. Request port creation
-    adam::response_status status = cmdr.request_port_create("test_port"_ct, adam::port_internal::type_name(), 0);
+    adam::response_status status = cmdr.request_port_create("test_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash());
     EXPECT_EQ(status, adam::response_status::success);
 
     auto port_hash = ("test_port"_ct).get_hash();
@@ -1232,8 +1232,8 @@ TEST_F(commander_test, request_connection_properties_flow)
     EXPECT_EQ(new_conn_view->color, 0x00FF00u);
 
     // 4. Data formats
-    EXPECT_EQ(cmdr.request_connection_set_input_data_format(new_conn_hash, "transparent"_ct.get_hash(), 0), adam::response_status::success);
-    EXPECT_EQ(cmdr.request_connection_set_output_data_format(new_conn_hash, "transparent"_ct.get_hash(), 0), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_connection_set_input_data_format(new_conn_hash, "transparent"_ct.get_hash(), "essential"_ct.get_hash()), adam::response_status::success);
+    EXPECT_EQ(cmdr.request_connection_set_output_data_format(new_conn_hash, "transparent"_ct.get_hash(), "essential"_ct.get_hash()), adam::response_status::success);
     
     start = std::chrono::steady_clock::now();
     while ((new_conn_view->input_format.get_hash() != "transparent"_ct.get_hash() || 

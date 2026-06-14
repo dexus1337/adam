@@ -26,13 +26,8 @@ namespace adam
     {
     public:
     
-        /** @brief Constructs a new configuration_parameter_list object. */
         configuration_parameter_list();
-
-        /** @brief Constructs a new configuration_parameter_list object. */
         configuration_parameter_list(const string_hashed& name);
-
-        /** @brief Copy constructor. Performs a deep copy of all child parameters. */
         configuration_parameter_list(const configuration_parameter_list& other);
 
         /** @brief Copy assignment operator. Performs a deep copy of all child parameters. */

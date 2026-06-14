@@ -73,8 +73,7 @@ namespace adam
         {
             factory_data() = default;
             factory_data(factory<T>* ptr) : factory_ptr(ptr), parameters(nullptr) {}
-            factory_data(factory<T>* ptr, const configuration_parameter_list* params) 
-                : factory_ptr(ptr), parameters(params) {}
+            factory_data(factory<T>* ptr, const configuration_parameter_list* params) : factory_ptr(ptr), parameters(params) {}
 
             factory<T>*                         factory_ptr = nullptr;
             const configuration_parameter_list* parameters = nullptr;
@@ -84,8 +83,7 @@ namespace adam
         {
             factory_data_port() = default;
             factory_data_port(factory<port>* ptr) : factory_data<port>(ptr), direction(port::direction_invalid) {}
-            factory_data_port(factory<port>* ptr, const configuration_parameter_list* params, port::direction dir) 
-                : factory_data<port>(ptr, params), direction(dir) {}
+            factory_data_port(factory<port>* ptr, const configuration_parameter_list* params, port::direction dir)  : factory_data<port>(ptr, params), direction(dir) {}
 
             port::direction direction = port::direction_invalid;
         }; 
@@ -93,7 +91,7 @@ namespace adam
         struct factory_data_processor : public factory_data<processor>
         {
             factory_data_processor() = default;
-            factory_data_processor(factory<processor>* ptr, const configuration_parameter_list* params, string_hash idt, string_hash idtm, string_hash odt, string_hash odtm) 
+            factory_data_processor(factory<processor>* ptr, const configuration_parameter_list* params, string_hash idt = 0, string_hash idtm = 0, string_hash odt = 0, string_hash odtm = 0) 
                 : factory_data<processor>(ptr, params), input_datatype(idt), input_datatype_module(idtm), output_datatype(odt), output_datatype_module(odtm) {}
 
             string_hash input_datatype;
@@ -128,8 +126,14 @@ namespace adam
         /** @brief Retrieves the list of configured module paths. */
         const configuration_parameter_list* get_module_paths() const;
 
+        /** @brief Retrieves a pointer to a loaded module (either internal or external) by its hashed name. */
+        const module* get_module(string_hash module_hash) const;
+
+        /** @brief Retrieves a pointer to a data format (either from internal or external module) by its hashed name and originating module. */
+        const data_format* get_data_format(string_hash fmt_hash, string_hash mod_hash) const;
+
         /** @brief Creates a new port using the appropriate factory and adds it to the registry. Returns the status of the operation. */
-        status create_port(const string_hashed& name, string_hash type, string_hash type_module = 0, port** out_port = nullptr);
+        status create_port(const string_hashed& name, string_hash type, string_hash type_module = adam::string_hashed_ct("essential").get_hash(), port** out_port = nullptr);
 
         /** @brief Destroys a port from the registry by its hash, and cleans up its connections. */
         status destroy_port(string_hash hash);
@@ -138,7 +142,7 @@ namespace adam
         status rename_port(string_hash hash, const string_hashed& new_name);
 
         /** @brief Creates a new processor using the appropriate factory and adds it to the registry. Returns the status of the operation. */
-        status create_processor(const string_hashed& name, string_hash type, string_hash type_module = 0, bool is_filter = false, processor** out_processor = nullptr);
+        status create_processor(const string_hashed& name, string_hash type, string_hash type_module = adam::string_hashed_ct("essential").get_hash(), bool is_filter = false, processor** out_processor = nullptr);
 
         /** @brief Destroys a processor from the registry by its hash, and cleans up its connections. */
         status destroy_processor(string_hash hash);
@@ -179,6 +183,9 @@ namespace adam
         /** @brief Clears all configuration items and parameters */
         void clear();
 
+        /** @brief Registers a statically compiled internal module in the registry. */
+        void register_internal_module(const module* mod);
+
         /** @brief Resumes active items based on their loaded configuration, must be called after system initialization */
         void resume_active_items();
 
@@ -209,12 +216,6 @@ namespace adam
         /** @brief Marks connections originating from the given module as unavailable. */
         void mark_connections_unavailable(string_hash module_hash);
 
-        /** @brief Retrieves a pointer to a loaded module (either internal or external) by its hashed name. */
-        const module* get_module(string_hash module_hash) const;
-
-        /** @brief Retrieves a pointer to a data format (either from internal or external module) by its hashed name and originating module. */
-        const data_format* get_data_format(string_hash fmt_hash, string_hash mod_hash) const;
-
         /** @brief Deep copies a list of configuration parameters. */
         static void copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source);
 
@@ -233,8 +234,6 @@ namespace adam
         unavailable_port_map        m_unavailable_ports;        /**< The list of ports that failed to load because their module was missing. */
         unavailable_connection_map  m_unavailable_connections;  /**< The list of connections that failed to load because their module format was missing. */
         unavailable_processor_map   m_unavailable_processors;   /**< The list of processors that failed to load because their module was missing. */
-
-        std::unique_ptr<module_internal> m_internal_module;          /**< The internal module hosting built-in configurations. */
 
         controller&                 m_controller;               /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
         registry_module_manager     m_modules;                  /**< Manages external modules loaded into the registry. */

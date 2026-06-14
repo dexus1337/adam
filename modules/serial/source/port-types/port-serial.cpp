@@ -17,7 +17,7 @@
 
 namespace adam::modules::serial
 {
-    const configuration_parameter_list& port_serial::get_default_parameters()
+    const configuration_parameter_list& port_serial::get_user_parameters()
     {
         static adam::configuration_parameter_list params = []() 
         {
@@ -141,7 +141,7 @@ namespace adam::modules::serial
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
-        add_parameters(port_serial::get_default_parameters());
+        add_parameters(port_serial::get_user_parameters());
 
         auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
         m_rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct);

@@ -1,23 +1,26 @@
 #include "commander/module-view.hpp"
+
+
 #include "os/os.hpp"
 #include "module/module.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/port.hpp"
+#include "module/internals/module-essential.hpp"
+
 #include <mutex>
+
 
 namespace adam 
 {
+    module_view::module_view()
+    {
+        register_internal_module(&internal_module_essential);
+    }
+
     void module_view::extract_port_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const
     {
-        if (type_hash == "internal"_ct.get_hash())
-        {
-            out_type = "internal"_ct;
-            out_module = ""_ct;
-            return;
-        }
-
         auto it = m_database.find(module_hash);
         if (it != m_database.end())
         {
@@ -35,13 +38,6 @@ namespace adam
 
     void module_view::extract_datatype_and_module(string_hash datatype_hash, string_hash module_hash, string_hashed& out_datatype, string_hashed& out_module) const
     {
-        if (datatype_hash == "transparent"_ct.get_hash() || datatype_hash == 0)
-        {
-            out_datatype = "transparent"_ct;
-            out_module = ""_ct;
-            return;
-        }
-
         auto it = m_database.find(module_hash);
         if (it != m_database.end())
         {
@@ -74,50 +70,105 @@ namespace adam
         }
     }
     
-    void module_view::update_module_database(const string_hashed& name, const string_hashed& path, uint32_t version)
+    void module_view::update_module_database(const string_hashed& name, const string_hashed& path, uint32_t version, module* mod)
     {
         if (m_database.find(name) != m_database.end())
             return; // Already grabbed
 
-        void* handle = os::load_library(path.c_str());
-        if (handle)
+        module* mod_ptr = mod;
+        void* library_handle = nullptr;
+
+        if (!mod_ptr)
         {
-            auto get_mod = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::get_entry_point_name().c_str()));
-            if (get_mod)
+            void* handle = os::load_library(path.c_str());
+            if (handle)
             {
-                module* mod_ptr = get_mod();
-                if (mod_ptr)
+                auto get_mod = reinterpret_cast<module::get_adam_module_fn>(os::get_library_symbol(handle, module::get_entry_point_name().c_str()));
+                if (get_mod)
                 {
-                    module_info info;
-                    info.name = name;
-                    info.path = path;
-                    info.version = version;
-                    
-                    for (size_t i = 0; i < languages_count; ++i)
-                        info.descriptions[i] = mod_ptr->get_description(static_cast<language>(i));
-                        
-                    for (const auto& [fmt_name, fmt_ptr] : mod_ptr->get_data_formats())
-                        info.data_formats.push_back(fmt_ptr->get_name());
-                        
-                    for (const auto& [port_name, port_factory] : mod_ptr->get_port_factories())
-                        info.ports.push_back({port_name, port_factory.direction});
-                    
-                    for (const auto& [proc_name, proc_factory] : mod_ptr->get_processor_factories())
-                    {
-                        bool is_filter = (proc_factory.input_datatype == proc_factory.output_datatype);
-                        info.processors.push_back({proc_name, is_filter});
-                    }
-                        
-                    m_database[name] = std::move(info);
+                    mod_ptr = get_mod();
+                    library_handle = handle;
+                }
+                else
+                {
+                    os::unload_library(handle);
                 }
             }
-            os::unload_library(handle);
         }
+
+        if (mod_ptr)
+        {
+            module_info info;
+            info.name = name;
+            info.path = path;
+            info.version = version;
+            
+            for (size_t i = 0; i < languages_count; ++i)
+                info.descriptions[i] = mod_ptr->get_description(static_cast<language>(i));
+                
+            for (const auto& [fmt_name, fmt_ptr] : mod_ptr->get_data_formats())
+                info.data_formats.push_back(fmt_ptr->get_name());
+                
+            for (const auto& [port_name, port_factory] : mod_ptr->get_port_factories())
+                info.ports.push_back({port_name, port_factory.direction});
+            
+            for (const auto& [proc_name, proc_factory] : mod_ptr->get_processor_factories())
+            {
+                bool is_filter = (proc_factory.input_datatype == proc_factory.output_datatype);
+                info.processors.push_back({proc_name, is_filter});
+            }
+                
+            m_database[name] = std::move(info);
+
+            if (library_handle)
+            {
+                os::unload_library(library_handle);
+            }
+        }
+    }
+
+    void module_view::register_internal_module(const module* mod)
+    {
+        if (mod)
+        {
+            m_internal_modules.emplace(mod->get_name(), mod);
+            update_module_database(mod->get_name(), ""_ct, mod->get_version(), const_cast<module*>(mod));
+        }
+    }
+
+    const module* module_view::get_module(string_hash name_hash) const
+    {
+        auto internal_it = m_internal_modules.find(name_hash);
+        if (internal_it != m_internal_modules.end())
+            return internal_it->second;
+
+        auto loaded_it = m_loaded_modules.find(name_hash);
+        if (loaded_it != m_loaded_modules.end())
+            return loaded_it->second.second;
+
+        return nullptr;
+    }
+
+    bool module_view::is_module_loaded(string_hash name_hash) const
+    {
+        if (m_internal_modules.find(name_hash) != m_internal_modules.end())
+            return true;
+        if (m_loaded_modules.find(name_hash) != m_loaded_modules.end())
+            return true;
+        return false;
+    }
+
+    bool module_view::is_module_internal(string_hash name_hash) const
+    {
+        return m_internal_modules.find(name_hash) != m_internal_modules.end();
     }
 
     void module_view::load_module(const string_hashed& name, const string_hashed& path, uint32_t version)
     {
         update_module_database(name, path, version);
+
+        if (m_internal_modules.find(name) != m_internal_modules.end())
+            return;
 
         if (m_loaded_modules.find(name) != m_loaded_modules.end())
             return;
@@ -166,5 +217,11 @@ namespace adam
         m_loaded_modules.clear();
         m_database.clear();
         m_paths.clear();
+
+        // Re-initialize all registered internal modules in database
+        for (const auto& [name, mod] : m_internal_modules)
+        {
+            update_module_database(name, ""_ct, mod->get_version(), const_cast<module*>(mod));
+        }
     }
 }

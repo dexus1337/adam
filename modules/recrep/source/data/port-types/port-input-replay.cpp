@@ -17,7 +17,7 @@
 
 namespace adam::modules::recrep
 {
-    const configuration_parameter_list& port_input_replay::get_default_parameters()
+    const configuration_parameter_list& port_input_replay::get_user_parameters()
     {
         static adam::configuration_parameter_list params = []() 
         {
@@ -91,7 +91,7 @@ namespace adam::modules::recrep
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
-        add_parameters(port_input_replay::get_default_parameters());
+        add_parameters(port_input_replay::get_user_parameters());
     }
 
     port_input_replay::~port_input_replay() {}

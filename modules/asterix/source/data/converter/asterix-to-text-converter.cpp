@@ -1,5 +1,8 @@
 #include "data/converter/asterix-to-text-converter.hpp"
+
+
 #include "data/format-asterix.hpp"
+#include "module/internals/module-essential.hpp"
 
 #include <cstring>
 
@@ -9,6 +12,7 @@ namespace adam::modules::asterix
     asterix_to_text_converter::asterix_to_text_converter(const string_hashed& name) : adam::converter(name) 
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
+        get_parameter<configuration_parameter_string>("type_origin_module"_ct)->set_value(internal_module_essential.get_name());
 
         m_format_input  = &data_format_asterix;
         m_format_output = &data_format_transparent;

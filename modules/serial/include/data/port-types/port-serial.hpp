@@ -26,15 +26,12 @@ namespace adam::modules::serial
 
         static ADAM_CONSTEXPR string_hashed_ct type_name() { return "serial"_ct; }
 
-        static const configuration_parameter_list& get_default_parameters();
+        static const configuration_parameter_list& get_user_parameters();
 
-        /** @brief Constructs a new input port object. */
         port_serial(const string_hashed& item_name);
+        virtual ~port_serial();
 
-        /** @brief Destroys the input port object and cleans up resources. */
-        ~port_serial();
-
-        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
         
         /** @brief Starts the port. Initializes Serial Communication */
         virtual bool start();

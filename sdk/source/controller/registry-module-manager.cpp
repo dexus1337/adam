@@ -15,7 +15,9 @@
 
 namespace adam
 {
-    registry_module_manager::registry_module_manager(controller& ctrl) : m_controller(ctrl) {}
+    registry_module_manager::registry_module_manager(controller& ctrl) : m_controller(ctrl) 
+    {
+    }
 
     registry_module_manager::~registry_module_manager() 
     {
@@ -57,6 +59,10 @@ namespace adam
             {
                 log_event::module_removed,
                 { "Removed module \"{}\"", "Modul \"{}\" entfernt" }
+            },
+            {
+                log_event::module_not_loaded,
+                { "Failed to unload: module with hash {:x} is not loaded", "Entladen fehlgeschlagen: Modul mit Hash {:x} ist nicht geladen" }
             }
         };
 
@@ -73,10 +79,21 @@ namespace adam
         return language_strings::unknown_type_message("registry_module_manager::log_event", event, lang);
     }
 
-    const module* registry_module_manager::get_loaded_module(const string_hashed& name) const 
+    void registry_module_manager::register_internal_module(const module* mod)
     {
-        auto it = m_loaded_modules.find(name);
+        if (mod)
+        {
+            m_internal_modules.emplace(mod->get_name(), mod);
+        }
+    }
 
+    const module* registry_module_manager::get_module(string_hash name) const 
+    {
+        auto it_internal = m_internal_modules.find(name);
+        if (it_internal != m_internal_modules.end())
+            return it_internal->second;
+
+        auto it = m_loaded_modules.find(name);
         if (it != m_loaded_modules.end()) 
             return it->second;
 
@@ -122,10 +139,11 @@ namespace adam
                     }
                 }
             }
-        catch (const std::filesystem::filesystem_error& e)
-        {
-            continue;
-        }
+            catch (const std::filesystem::filesystem_error& e)
+            {
+                (void)e;
+                continue;
+            }
         }
 
         auto is_valid_path = [&](const string_hashed& path) 
@@ -140,6 +158,11 @@ namespace adam
         // 1. Unload and remove loaded modules
         for (auto it = m_loaded_modules.begin(); it != m_loaded_modules.end();)
         {
+            if (!it->second->get_module_handle())
+            {
+                ++it;
+                continue;
+            }
             if (!is_valid_path(it->second->get_filepath()))
             {
                 string_hashed name = it->first;
@@ -363,39 +386,42 @@ namespace adam
         return false;
     }
 
-    bool registry_module_manager::unload_module(const string_hashed& name)
+    bool registry_module_manager::unload_module(string_hash name)
     {
         auto it = m_loaded_modules.find(name);
         if (it == m_loaded_modules.end()) 
         {
-            m_controller.log(log::error, get_log_event_text(log_event::module_unload_failed, m_controller.get_language()), name.c_str());
+            m_controller.log(log::error, get_log_event_text(log_event::module_not_loaded, m_controller.get_language()), name);
             return false;
         }
 
-        m_controller.get_registry().mark_ports_unavailable(name.get_hash());
-        m_controller.get_registry().mark_processors_unavailable(name.get_hash());
-        m_controller.get_registry().mark_connections_unavailable(name.get_hash());
+        m_controller.get_registry().mark_ports_unavailable(name);
+        m_controller.get_registry().mark_processors_unavailable(name);
+        m_controller.get_registry().mark_connections_unavailable(name);
 
-        const module* mod = it->second;
-        uint32_t version = mod->get_version();
-        string_hashed path_str = mod->get_filepath();
-        uintptr_t handle = mod->get_module_handle();
+        const auto& path_str = it->second->get_filepath();
+        uint32_t    version  = it->second->get_version();
+        uintptr_t   handle   = it->second->get_module_handle();
 
-        if (!os::unload_library(reinterpret_cast<void*>(handle)))
+        if (handle)
         {
-            m_controller.log(log::error, get_log_event_text(log_event::module_unload_failed, m_controller.get_language()), name.c_str());
-            return false;
+            if (!os::unload_library(reinterpret_cast<void*>(handle)))
+            {
+                m_controller.log(log::error, get_log_event_text(log_event::module_unload_failed, m_controller.get_language()), it->first.c_str());
+                return false;
+            }
         }
 
-        m_loaded_modules.erase(it);
-        m_available_modules.emplace(name, std::make_pair(version, path_str));
+        m_available_modules.emplace(it->first, std::make_pair(version, path_str));
 
-        m_controller.log(log::info, get_log_event_text(log_event::module_unloaded, m_controller.get_language()), name.c_str());
+        m_controller.log(log::info, get_log_event_text(log_event::module_unloaded, m_controller.get_language()), it->first.c_str());
 
         event evt(event_type::module_unloaded);
         auto* mod_info = evt.data_as<module::basic_info>();
-        mod_info->setup(module::basic_info::available, name.c_str(), path_str.c_str(), version);
+        mod_info->setup(module::basic_info::available, it->first.c_str(), path_str.c_str(), version);
         m_controller.broadcast_event(evt);
+
+        m_loaded_modules.erase(it);
 
         return true;
     }
@@ -408,7 +434,8 @@ namespace adam
             m_controller.get_registry().mark_processors_unavailable(name.get_hash());
             m_controller.get_registry().mark_connections_unavailable(name.get_hash());
             uintptr_t handle = mod->get_module_handle();
-            os::unload_library(reinterpret_cast<void*>(handle));
+            if (handle)
+                os::unload_library(reinterpret_cast<void*>(handle));
         }
 
         m_loaded_modules.clear();

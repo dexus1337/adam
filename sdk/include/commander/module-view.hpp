@@ -27,7 +27,7 @@
 namespace adam 
 {
     class module;
-    
+
     struct port_info
     {
         string_hashed name;
@@ -61,24 +61,26 @@ namespace adam
         using map_available_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;
         using map_unavailable_modules = std::unordered_map<string_hashed, std::tuple<uint32_t, string_hashed, uint8_t>>;
         using map_loaded_modules      = std::unordered_map<string_hashed, std::pair<uint32_t, module*>>;
+        using map_internal_modules    = std::unordered_map<string_hashed, const module*>;
+        using map_database            = std::unordered_map<string_hashed, module_info>;
+
+        module_view();
 
         map_available_modules&              available()     { return m_available_modules; }
         map_unavailable_modules&            unavailable()   { return m_unavailable_modules; }
         map_loaded_modules&                 loaded()        { return m_loaded_modules; }
+        map_internal_modules&               internal()      { return m_internal_modules; }
+        map_database&                       database()      { return m_database; }
         std::vector<string_hashed>&         paths()         { return m_paths; }
-        std::unordered_map<string_hashed, module_info>& database() { return m_database; }
 
         const map_available_modules&        get_available()     const { return m_available_modules; }
         const map_unavailable_modules&      get_unavailable()   const { return m_unavailable_modules; }
         const map_loaded_modules&           get_loaded()        const { return m_loaded_modules; }
+        const map_internal_modules&         get_internal()      const { return m_internal_modules; }
+        const map_database&                 database()          const { return m_database; }
         const std::vector<string_hashed>&   get_paths()         const { return m_paths; }
-        const std::unordered_map<string_hashed, module_info>& database() const { return m_database; }
 
-        void lock() const
-        {
-            spinlock::acquire(m_lock);
-        }
-
+        void lock()   const { spinlock::acquire(m_lock); }
         void unlock() const { spinlock::release(m_lock); }
 
         /** @brief Extracts the type and module names for a given port hash. */
@@ -90,7 +92,12 @@ namespace adam
         /** @brief Extracts the type and module names for a given data processor hash. */
         void extract_processor_type_and_module(string_hash type_hash, string_hash module_hash, string_hashed& out_type, string_hashed& out_module) const;
 
-        void update_module_database(const string_hashed& name, const string_hashed& path, uint32_t version);
+        void update_module_database(const string_hashed& name, const string_hashed& path, uint32_t version, module* mod = nullptr);
+
+        void register_internal_module(const module* mod);
+        const module* get_module(string_hash name_hash) const;
+        bool is_module_loaded(string_hash name_hash) const;
+        bool is_module_internal(string_hash name_hash) const;
 
         void load_module(const string_hashed& name, const string_hashed& path, uint32_t version);
 
@@ -99,12 +106,13 @@ namespace adam
         void clear();
 
     private:
-        mutable std::atomic_flag    m_lock = ATOMIC_FLAG_INIT;
-        map_available_modules       m_available_modules;
-        map_unavailable_modules     m_unavailable_modules;
-        map_loaded_modules          m_loaded_modules;
-        std::unordered_map<string_hashed, void*> m_handles;
-        std::unordered_map<string_hashed, module_info> m_database;
-        std::vector<string_hashed>  m_paths;
+        mutable std::atomic_flag                            m_lock = ATOMIC_FLAG_INIT;
+        map_available_modules                               m_available_modules;
+        map_unavailable_modules                             m_unavailable_modules;
+        map_loaded_modules                                  m_loaded_modules;
+        std::unordered_map<string_hashed, void*>            m_handles;
+        std::unordered_map<string_hashed, module_info>      m_database;
+        std::vector<string_hashed>                          m_paths;
+        std::unordered_map<string_hashed, const module*>    m_internal_modules;
     };
 }

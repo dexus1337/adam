@@ -94,19 +94,23 @@ namespace adam
         m_log_outstream(std::cout.rdbuf()),
         m_lang_param(nullptr),
         m_dispatcher(),
-        m_registry(*this)
+        m_registry(*this),
+        m_internal_responses(1),
+        m_internal_context{ 0, m_registry, *this, m_internal_responses }
     {
         m_lang_param = static_cast<configuration_parameter_integer*>(m_registry.get_parameters().get("language"_ct));
     }
 
     controller::~controller() {}
 
-    command_context* controller::get_context() const
+    command_context* controller::get_command_ctx() const
     {
-        return t_current_context;
+        if (t_current_context)
+            return t_current_context;
+        return const_cast<command_context*>(&m_internal_context);
     }
 
-    void controller::set_context(command_context* ctx)
+    void controller::set_command_ctx(command_context* ctx)
     {
         t_current_context = ctx;
     }

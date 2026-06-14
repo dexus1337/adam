@@ -17,6 +17,12 @@ else()
     add_compile_definitions(ADAM_BUILD_RELEASE)
 endif()
 
+# Disable annoying warnings 
+if(MSVC)
+    add_compile_options(/wd4251) # exporting std lib classes in DLLs when using MSVC
+    add_compile_options(/wd4996) # use of std::xxx (deprecated/dangerous functions)
+endif()
+
 # Add subdirectories in order of dependency
 add_subdirectory(sdk)
 add_subdirectory(libraries)

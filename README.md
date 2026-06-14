@@ -207,3 +207,12 @@ cmake --build out --config Release
 ```
 
 The resulting binaries will be populated inside `out/bin`. Run `adam` first to spawn the main IPC server, then connect using `adam-cli` or `adam-gui`.
+
+---
+
+## 🔮 Future & Planned Features
+
+This section is for noting down ideas and planned improvements for future implementation:
+
+* **[ ] Data Inspector - Comparison** - Show exact diffs of two or more messages side by side and highlight all differences.
+

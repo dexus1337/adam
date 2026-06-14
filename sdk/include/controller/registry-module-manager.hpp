@@ -39,7 +39,8 @@ namespace adam
             module_load_failed,
             module_unloaded,
             module_unload_failed,
-            module_removed
+            module_removed,
+            module_not_loaded
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);
@@ -54,24 +55,21 @@ namespace adam
         using map_available_modules     = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;            /**< A type alias for a map of available modules, storing the version and file path indexed by hashed name. */
         using map_unavailable_modules   = std::unordered_map<string_hashed, std::tuple<uint32_t, string_hashed, uint8_t>>;  /**< A type alias for a map of unavailable modules, storing the incompatability reason and file path indexed by hashed name. */
         using map_loaded_modules        = std::unordered_map<string_hashed, const module*>;                                 /**< A type alias for a map of loaded modules, indexed by their hashed string names. */
+        using map_internal_modules      = std::unordered_map<string_hashed, const module*>;                                 /**< A type alias for a map of internal modules, indexed by their hashed string names. */
 
-        /** @brief Constructs a new module manager object. */
         registry_module_manager(controller& ctrl);
-
-        /** @brief Destroys the module manager object and cleans up resources. */
         ~registry_module_manager();
 
-        /** @brief Retrieves a reference to the map of all available modules. */
-        const map_available_modules& get_available_modules() const { return m_available_modules; }
-
-        /** @brief Retrieves a reference to the map of all unavailable modules. */
+        const map_available_modules&   get_available_modules()   const { return m_available_modules; }
         const map_unavailable_modules& get_unavailable_modules() const { return m_unavailable_modules; }
+        const map_loaded_modules&      get_loaded_modules()      const { return m_loaded_modules; }
+        const map_internal_modules&    get_internal_modules()    const { return m_internal_modules; }
 
-        /** @brief Retrieves a reference to the map of all loaded modules. */
-        const map_loaded_modules& get_loaded_modules() const { return m_loaded_modules; }
+        /** @brief Registers a statically compiled internal module in the module manager. */
+        void register_internal_module(const module* mod);
 
         /** @brief Retrieves a pointer to a loaded module by its hashed name. */
-        const module* get_loaded_module(const string_hashed& name) const;
+        const module* get_module(string_hash name) const;
 
         /** @brief Scans known module paths for modules */
         bool scan_for_modules();
@@ -80,7 +78,7 @@ namespace adam
         bool load_module(const string_hashed& name, const module** out_module = nullptr);
 
         /** @brief Unloads a specifically named module, moving it back to the available modules. */
-        bool unload_module(const string_hashed& name);
+        bool unload_module(string_hash name);
 
         /** @brief Clears all cached module data and unloads any currently loaded modules. */
         void clear_and_unload_all();
@@ -90,5 +88,6 @@ namespace adam
         map_available_modules   m_available_modules;    /**< A map of available modules in the system, indexed by their hashed string names for efficient lookup. */
         map_unavailable_modules m_unavailable_modules;  /**< A map of unavailable modules in the system, indexed by their hashed string names for efficient lookup. */
         map_loaded_modules      m_loaded_modules;       /**< A map of loaded modules in the system, indexed by their hashed string names for efficient lookup. */
+        map_internal_modules    m_internal_modules;     /**< A map of internal modules in the system, indexed by their hashed string names for efficient lookup. */
     };
 }

@@ -39,8 +39,8 @@ namespace adam
         uint32_t        capacity;       /**< The capacity of the buffer. */
         os::thread_id   thread_id;      /**< The ID of the thread that created the memory block. */
 
-        bool is_valid() const { return thread_id != 0; }
-        void set_invalid() { thread_id = 0; }
+        inline bool is_valid() const { return thread_id != 0; }
+        inline void set_invalid() { thread_id = 0; }
 
         buffer_handle() {}
         buffer_handle(uint32_t memory_index, uint32_t offset, uint32_t capacity, os::thread_id thread_id) : memory_index(memory_index), offset(offset), capacity(capacity), thread_id(thread_id) {}
@@ -58,50 +58,50 @@ namespace adam
         friend struct std::default_delete<buffer[]>;
 
     public:
+
         // The reference count takes sizeof(std::atomic<uint32_t>) = 4 bytes, but we pad it to 8 bytes (sizeof(uint64_t))
         // to ensure the subsequent data payload (m_data) is aligned to an 8-byte boundary.
         static constexpr uint32_t ref_count_padding = sizeof(uint64_t);
 
-        const void* get_data()                  const { return m_data; }
+        template<typename T>
+        inline const T* get_data_as()                  const { return reinterpret_cast<const T*>(m_data); }
+        template<typename T>
+        inline const T* get_begin_as()                 const { return reinterpret_cast<const T*>(get_data_as<uint8_t>() + m_header->start_pos); }
+        template<typename T>
+        inline const T* get_end_as()                   const { return reinterpret_cast<const T*>(get_data_as<uint8_t>() + m_header->start_pos + m_header->size); }
+
+        inline const void* get_data()                  const { return m_data; }
+        inline const void* get_begin()                 const { return get_begin_as<uint8_t>(); }
+        inline const void* get_end()                   const { return get_end_as<uint8_t>(); }
+        inline uint32_t get_capacity()                 const { return m_header->capacity; }
+        inline uint32_t get_size()                     const { return m_header->size; }
+        inline uint32_t get_start_pos()                const { return m_header->start_pos; }
+        inline const data_format* get_data_format()    const { return m_data_format; }
+        inline uint64_t get_timestamp()                const { return m_header->timestamp; }
+        inline uint32_t get_ref_count()                const { return m_header->ref_count.load(std::memory_order_relaxed); }
+        inline buffer* get_referenced_buffer()         const { return m_reference; }
+        inline const buffer_handle& get_handle()       const { return m_handle; }
 
         template<typename T>
-        const T* get_data_as()                  const { return reinterpret_cast<const T*>(m_data); }
-
-        uint32_t get_capacity()                 const { return m_header ? m_header->capacity : 0; }
-        uint32_t get_size()                     const { return m_header ? m_header->size : 0; }
-        const data_format* get_data_format()    const { return m_data_format; }
-
-        uint64_t get_timestamp()                const { return m_header ? m_header->timestamp : 0; }
-        void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { m_header->timestamp = ts; }
-
-        /** @brief Returns the current reference count. Useful for debugging and testing. */
-        uint32_t get_ref_count() const { return m_header ? m_header->ref_count.load(std::memory_order_relaxed) : 0; }
-
-        /** @brief IPC support: Creates a lightweight handle safe for cross-process transmission. */
-        buffer_handle get_handle() const;
-
-        /** @brief Copies data into the buffer safely. */
-        bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
-
-        void* data()    { return m_data; }
-
+        inline T* begin_as()                           { return reinterpret_cast<T*>(data_as<uint8_t>() + m_header->start_pos); }
         template<typename T>
-        T* data_as()    { return reinterpret_cast<T*>(m_data); }
-
-        void set_size(uint32_t size) { m_header->size = size; }
-        void set_data_format(const data_format* format);
-
-        /** @brief Adds a reference to the buffer. */
-        void add_ref() { m_header->ref_count.fetch_add(1, std::memory_order_relaxed); }
+        inline T* end_as()                             { return reinterpret_cast<T*>(data_as<uint8_t>() + m_header->start_pos + m_header->size); }
+        template<typename T>
+        inline T* data_as()                            { return reinterpret_cast<T*>(m_data); }
         
-        /** @brief Releases a reference, returning it to the manager if it reaches 0. */
-        void release();
+        inline void* data()                            { return data_as<void>(); }
+        inline void* begin()                           { return begin_as<uint8_t>(); }
+        inline void* end()                             { return end_as<uint8_t>(); }
+        inline void set_size(uint32_t size)            { m_header->size = size; }
+        inline void set_start_pos(uint32_t pos)        { m_header->start_pos = pos; }
+        inline void move_start_pos(uint32_t offset)    { m_header->start_pos += offset; m_header->size -= offset; }
+        inline void add_ref()                          { m_header->ref_count.fetch_add(1, std::memory_order_relaxed); }
+        inline void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { m_header->timestamp = ts; }
+        inline void set_referenced_buffer(buffer* buf);
+        inline void set_data_format(const data_format* format);
+        inline void release();
 
-        /** @brief Get the buffer that is referenced by this buffer (by handle). */
-        buffer* get_referenced_buffer() const { return m_reference; }
-
-        /** @brief Set reference to another buffer (by handle). */
-        void set_referenced_buffer(buffer* buf);
+        inline bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
 
     protected:
 
@@ -118,10 +118,7 @@ namespace adam
         };
         #pragma pack(pop)
 
-        /** @brief Constructs a new buffer object. */
         buffer();
-
-        /** @brief Destroys the buffer object and cleans up resources. */
         ~buffer();
 
         header*               m_header;                   /**< Pointer to the shared memory header region. */

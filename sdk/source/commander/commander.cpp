@@ -1,7 +1,5 @@
 #include "commander/commander.hpp"
 
-#include <iostream>
-
 #include "controller/controller.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/message-structs.hpp"
@@ -11,7 +9,9 @@
 #include "module/module.hpp"
 #include "data/connection.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+
 #include <mutex>
+#include <iostream>
 
 
 namespace adam 
@@ -187,6 +187,7 @@ namespace adam
         m_lang = head->lang_info;
 
         std::lock_guard<const module_view> lg(m_module_view);
+
         m_module_view.available().reserve(head->mod_info.available_modules);
         m_module_view.unavailable().reserve(head->mod_info.unavailable_modules);
         m_module_view.loaded().reserve(head->mod_info.loaded_modules);
@@ -251,19 +252,16 @@ namespace adam
             
             m_module_view.extract_port_type_and_module(port_info->type, port_info->type_module, pview->type, pview->type_module);
             
-            if (pview->type_module.get_hash() != 0)
+            const auto* mod = m_module_view.get_module(pview->type_module.get_hash());
+            if (mod)
             {
-                auto mod_it = m_module_view.loaded().find(pview->type_module.get_hash());
-                if (mod_it != m_module_view.loaded().end() && mod_it->second.second)
+                const auto& factories = mod->get_port_factories();
+                auto fact_it = factories.find(pview->type);
+                if (fact_it != factories.end() && fact_it->second.parameters)
                 {
-                    const auto& factories = mod_it->second.second->get_port_factories();
-                    auto fact_it = factories.find(pview->type);
-                    if (fact_it != factories.end() && fact_it->second.parameters)
+                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
                     {
-                        if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                        {
-                            pview->user_params = *factory_user_params;
-                        }
+                        pview->user_params = *factory_user_params;
                     }
                 }
             }
@@ -294,22 +292,19 @@ namespace adam
             
             m_module_view.extract_processor_type_and_module(proc_info->type, proc_info->type_module, proc_view->type, proc_view->module_name);
             string_hashed dummy_mod;
-            m_module_view.extract_datatype_and_module(proc_info->input_datatype, 0, proc_view->input_datatype, dummy_mod);
-            m_module_view.extract_datatype_and_module(proc_info->output_datatype, 0, proc_view->output_datatype, dummy_mod);
+            m_module_view.extract_datatype_and_module(proc_info->input_datatype, proc_info->input_datatype_module, proc_view->input_datatype, dummy_mod);
+            m_module_view.extract_datatype_and_module(proc_info->output_datatype, proc_info->output_datatype_module, proc_view->output_datatype, dummy_mod);
 
-            if (proc_view->module_name.get_hash() != 0)
+            const auto* mod = m_module_view.get_module(proc_view->module_name.get_hash());
+            if (mod)
             {
-                auto mod_it = m_module_view.loaded().find(proc_view->module_name.get_hash());
-                if (mod_it != m_module_view.loaded().end() && mod_it->second.second)
+                const auto& factories = mod->get_processor_factories();
+                auto fact_it = factories.find(proc_view->type);
+                if (fact_it != factories.end() && fact_it->second.parameters)
                 {
-                    const auto& factories = mod_it->second.second->get_processor_factories();
-                    auto fact_it = factories.find(proc_view->type);
-                    if (fact_it != factories.end() && fact_it->second.parameters)
+                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
                     {
-                        if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                        {
-                            proc_view->user_params = *factory_user_params;
-                        }
+                        proc_view->user_params = *factory_user_params;
                     }
                 }
             }
@@ -1004,7 +999,7 @@ namespace adam
                 copy_size = sizeof(cmd_data->data);
             }
                 
-            cmd_data->size = static_cast<uint32_t>(copy_size);
+            cmd_data->size = static_cast<uint16_t>(copy_size);
             
             if (copy_size > 0 && ptr)
             {

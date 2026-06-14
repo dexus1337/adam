@@ -34,6 +34,7 @@ namespace adam
         parser*                 get_parser()        const { return m_parser; }
         encoder*                get_encoder()       const { return m_encoder; } 
         const module*           get_origin_module() const { return m_module; }
+        void                    set_origin_module(const module* mod) { m_module = mod; }
 
         data_format(const data_format&)               = delete;
         data_format& operator=(const data_format&)    = delete;

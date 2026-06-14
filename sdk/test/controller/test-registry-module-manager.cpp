@@ -93,7 +93,7 @@ TEST_F(registry_module_manager_test, load_module_invalid)
     
     auto invalid_mod_name = "invalid_module"_ct;
     EXPECT_FALSE(ctrl.get_registry().modules().load_module(invalid_mod_name));
-    EXPECT_EQ(ctrl.get_registry().modules().get_loaded_module(invalid_mod_name), nullptr);
+    EXPECT_EQ(ctrl.get_registry().modules().get_module(invalid_mod_name.get_hash()), nullptr);
 }
 
 /** @brief Tests that getters for internal module maps return safely without faulting. */

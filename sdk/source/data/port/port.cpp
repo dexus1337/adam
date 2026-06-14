@@ -106,7 +106,10 @@ namespace adam
 
                 // Parse data for each datatype
                 for (auto& [hash, format] : active_formats)
-                    format->get_parser()->parse(buf, m_parse_cache[hash]);
+                {
+                    if (format->get_parser())
+                        format->get_parser()->parse(buf, m_parse_cache[hash]);
+                }
 
                 // Send data to connections
                 m_in_connections.iterate([&](const auto& connections) 
@@ -117,12 +120,9 @@ namespace adam
 
                         adam::buffer* internal_data = nullptr;
                         
-                        if (conn->get_input_format() != &data_format_transparent)
-                        {
-                            auto it = m_parse_cache.find(conn->get_input_format()->get_name().get_hash());
-                            if (it != m_parse_cache.end())
-                                internal_data = it->second;
-                        }
+                        auto it = m_parse_cache.find(conn->get_input_format()->get_name().get_hash());
+                        if (it != m_parse_cache.end())
+                            internal_data = it->second;
 
                         result &= conn->handle_data(internal_data ? internal_data : buf);
 
@@ -243,7 +243,7 @@ namespace adam
                     continue;
 
                 const data_format* fmt = conn->get_input_format();
-                if (fmt && fmt != &data_format_transparent)
+                if (fmt)
                 {
                     new_formats.emplace(fmt->get_name().get_hash(), fmt);
                 }

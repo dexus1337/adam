@@ -50,7 +50,7 @@
 #include "memory/buffer/buffer.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module.hpp"
-#include "module/module-internal.hpp"
+#include "module/internals/module-essential.hpp"
 #include "factory/factory.hpp"
 #include "hash/rapidhash.h"
 #include "hash/rapidhash-ct.h"

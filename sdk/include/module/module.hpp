@@ -41,6 +41,8 @@ namespace adam
 
         typedef adam::module* (*get_adam_module_fn)();  /**< A function pointer type for the module entry point function that modules must export to provide access to their module instance. */
 
+        using description_database = std::array<std::string, static_cast<size_t>(languages_count)>;
+    
         #pragma pack(push, 1) // align to 1 byte
         struct basic_info
         {
@@ -101,7 +103,6 @@ namespace adam
         registry::data_format_map       m_data_formats;             /**< A map of data formats supported by the module. */
         registry::port_factory_map      m_port_factories;           /**< A map of factories for creating ports provided by the module. */
         registry::processor_factory_map m_processor_factories;      /**< A map of factories for creating processors provided by the module. */
-
-        std::array<std::string, static_cast<size_t>(languages_count)> m_descriptions; /**< The multi-language description of the module. */
+        description_database            m_descriptions;             /**< The multi-language description of the module. */
     };
 }

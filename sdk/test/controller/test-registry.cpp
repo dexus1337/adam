@@ -53,15 +53,18 @@ namespace adam::test
     class mock_processor : public adam::processor
     {
     public:
-        mock_processor(const adam::string_hashed& item_name)
-            : adam::processor(item_name)
+        mock_processor(const adam::string_hashed& item_name,
+                       const adam::string_hashed_ct& type_name = "mock-processor-type"_ct,
+                       const adam::string_hashed_ct& module_name = "essential"_ct)
+            : adam::processor(item_name), m_type_name(type_name)
         {
+            get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name);
+            get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(module_name);
         }
 
         const adam::string_hashed_ct& get_type_name() const override
         {
-            static adam::string_hashed_ct type = "mock-processor-type"_ct;
-            return type;
+            return m_type_name;
         }
 
         bool handle_data(adam::buffer*& buf) override
@@ -71,15 +74,32 @@ namespace adam::test
 
         void set_input_format(const adam::data_format* fmt) { m_format_input = fmt; }
         void set_output_format(const adam::data_format* fmt) { m_format_output = fmt; }
+
+    private:
+        adam::string_hashed_ct m_type_name;
     };
 
     class mock_processor_factory : public adam::factory<adam::processor>
     {
     public:
+        mock_processor_factory()
+            : m_type_name("mock-processor-type"_ct), m_module_name("essential"_ct)
+        {
+        }
+
+        mock_processor_factory(const adam::string_hashed_ct& type_name, const adam::string_hashed_ct& module_name)
+            : m_type_name(type_name), m_module_name(module_name)
+        {
+        }
+
         std::unique_ptr<adam::processor> create(const adam::string_hashed& name) const override
         {
-            return std::make_unique<mock_processor>(name);
+            return std::make_unique<mock_processor>(name, m_type_name, m_module_name);
         }
+
+    private:
+        adam::string_hashed_ct m_type_name;
+        adam::string_hashed_ct m_module_name;
     };
 
     class mock_module : public adam::module
@@ -178,7 +198,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     // 2. Create a port
     auto port_name = "my_input_port"_ct;
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), "essential"_ct.get_hash(), &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Change a parameter in the port to verify it restores correctly
@@ -251,19 +271,19 @@ TEST_F(registry_test, create_and_remove_port)
 
     // Attempt to create a port with an invalid type should gracefully fail
     adam::port* invalid_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, "non_existent_type"_ct, 0, &invalid_port), adam::registry::status_error_factory_not_found);
+    EXPECT_EQ(reg.create_port(port_name, "non_existent_type"_ct, "essential"_ct.get_hash(), &invalid_port), adam::registry::status_error_factory_not_found);
     EXPECT_EQ(invalid_port, nullptr);
 
     // Create the port using the internal factory
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), "essential"_ct.get_hash(), &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
     EXPECT_TRUE(reg.ports().contains(port_name));
 
     // Attempt to create a duplicate port should gracefully fail
     adam::port* duplicate_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &duplicate_port), adam::registry::status_error_port_already_exists);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), "essential"_ct.get_hash(), &duplicate_port), adam::registry::status_error_port_already_exists);
     EXPECT_EQ(duplicate_port, nullptr);
     EXPECT_EQ(reg.ports().size(), 1u);
 
@@ -283,7 +303,7 @@ TEST_F(registry_test, clear_registry)
     adam::registry& reg = ctrl.get_registry();
     auto port_name = "test_port_clear"_ct;
     
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), "essential"_ct.get_hash()), adam::registry::status_success);
     EXPECT_EQ(reg.ports().size(), 1u);
     
     reg.clear();
@@ -301,7 +321,7 @@ TEST_F(registry_test, port_type_and_module_persistence)
     auto port_name = "type_test_port"_ct;
 
     adam::port* created_port = nullptr;
-    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), 0, &created_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), "essential"_ct.get_hash(), &created_port), adam::registry::status_success);
     ASSERT_NE(created_port, nullptr);
 
     // Verify type was populated correctly in the constructor
@@ -422,7 +442,7 @@ TEST_F(registry_test, unavailable_port_retry)
     loaded_reg.unavailable_ports().clear();
     auto upi3 = std::make_unique<adam::port::unavailable_info>("test_retry_port"_ct);
     upi3->type = adam::port_internal::type_name().get_hash();
-    upi3->type_module = 0; 
+    upi3->type_module = "essential"_ct.get_hash(); 
     
     auto type_param3 = std::make_unique<adam::configuration_parameter_string>("type"_ct);
     type_param3->set_value(adam::port_internal::type_name());
@@ -432,7 +452,7 @@ TEST_F(registry_test, unavailable_port_retry)
     
     loaded_reg.connections().at("my_conn"_ct.get_hash())->unavailable_inputs()[0] = "test_retry_port"_ct;
     
-    loaded_reg.retry_unavailable_ports(0);
+    loaded_reg.retry_unavailable_ports("essential"_ct.get_hash());
     
     // Check if it's now available
     EXPECT_TRUE(loaded_reg.get_unavailable_ports().empty());
@@ -460,8 +480,8 @@ TEST_F(registry_test, connection_valid_chain)
     
     adam::port* in_port = nullptr;
     adam::port* out_port = nullptr;
-    reg.create_port("in_port"_ct, adam::port_internal::type_name(), 0, &in_port);
-    reg.create_port("out_port"_ct, adam::port_internal::type_name(), 0, &out_port);
+    reg.create_port("in_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &in_port);
+    reg.create_port("out_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &out_port);
     
     adam::connection* conn = nullptr;
     reg.create_connection("test_valid_conn"_ct, &conn);
@@ -555,12 +575,12 @@ TEST_F(registry_test, unavailable_connections)
     // Simulate removing the module dependency by falling back to transparent format to safely test retry behavior natively
     auto* uconn = reg.get_unavailable_connections().at("unavail_conn"_ct.get_hash()).get();
     auto* fmt_p = dynamic_cast<adam::configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct));
-    fmt_p->set_value(""_ct);
+    fmt_p->set_value(adam::data_format_transparent.get_name());
     
     auto* fmt_p_mod = dynamic_cast<adam::configuration_parameter_string*>(uconn->get_parameters().get("input_format_module"_ct));
-    fmt_p_mod->set_value(""_ct);
+    fmt_p_mod->set_value(adam::data_format_transparent.get_origin_module()->get_name());
     
-    reg.retry_unavailable_connections("my_mod"_ct.get_hash());
+    reg.retry_unavailable_connections(adam::data_format_transparent.get_origin_module()->get_name());
     
     EXPECT_EQ(reg.connections().size(), 1u);
     EXPECT_EQ(reg.get_unavailable_connections().size(), 0u);
@@ -656,14 +676,18 @@ TEST_F(registry_test, unavailable_processors)
     adam::data_format dummy_fmt1("fmt1"_ct, nullptr, nullptr, &mock_mod);
     adam::data_format dummy_fmt2("fmt2"_ct, nullptr, nullptr, &mock_mod);
 
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory, dummy_fmt1.get_name(), 0, dummy_fmt2.get_name(), 0);
+    mock_mod.register_data_format("fmt1"_ct, &dummy_fmt1);
+    mock_mod.register_data_format("fmt2"_ct, &dummy_fmt2);
+
+    adam::test::mock_processor_factory mock_proc_factory("mock-converter"_ct, "mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory, dummy_fmt1.get_name(), mock_mod.get_name().get_hash(), dummy_fmt2.get_name(), mock_mod.get_name().get_hash());
     adam::test::mock_module_injector injector(reg, &mock_mod);
 
     // 2. Create input port, output port, processor, and connection
     adam::port* in_port = nullptr;
     adam::port* out_port = nullptr;
-    EXPECT_EQ(reg.create_port("in_port"_ct, adam::port_internal::type_name(), 0, &in_port), adam::registry::status_success);
-    EXPECT_EQ(reg.create_port("out_port"_ct, adam::port_internal::type_name(), 0, &out_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port("in_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &in_port), adam::registry::status_success);
+    EXPECT_EQ(reg.create_port("out_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &out_port), adam::registry::status_success);
 
     adam::processor* proc = nullptr;
     EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc), adam::registry::status_success);
@@ -866,7 +890,8 @@ TEST_F(registry_test, destroy_processor_updates_connections)
 TEST_F(registry_test, processor_load_save_persistence)
 {
     adam::test::mock_module mock_mod("mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_processor_factory mock_proc_factory("mock-converter"_ct, "mock_mod"_ct);
+    mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
@@ -1005,4 +1030,76 @@ TEST_F(registry_test, connection_processor_reordering)
         EXPECT_EQ(procs[1]->get_name(), "proc_second"_ct);
         EXPECT_EQ(procs[2]->get_name(), "proc_first"_ct);
     });
+}
+
+/** @brief Tests that the internal module is loaded, usable, and can create internal ports and processors. */
+TEST_F(registry_test, internal_module_usability)
+{
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+
+    // 1. Verify internal module is retrieved successfully
+    const adam::module* internal_mod = reg.get_module("essential"_ct.get_hash());
+    ASSERT_NE(internal_mod, nullptr);
+    EXPECT_EQ(internal_mod->get_name(), "essential"_ct);
+
+    // 2. Create an internal port
+    auto port_name = "test_internal_port"_ct;
+    adam::port* created_port = nullptr;
+    EXPECT_EQ(reg.create_port(port_name, adam::port_internal::type_name(), "essential"_ct.get_hash(), &created_port), adam::registry::status_success);
+    ASSERT_NE(created_port, nullptr);
+    EXPECT_EQ(created_port->get_type_name(), adam::port_internal::type_name());
+
+    // Verify type_origin_module is set to "essential"
+    auto* port_origin_param = static_cast<adam::configuration_parameter_string*>(created_port->get_parameters().get("type_origin_module"_ct));
+    ASSERT_NE(port_origin_param, nullptr);
+    EXPECT_EQ(port_origin_param->get_value(), "essential"_ct);
+
+    // 3. Create an internal processor (filter_frame_aligner)
+    auto proc_name = "test_internal_proc"_ct;
+    adam::processor* created_proc = nullptr;
+    EXPECT_EQ(reg.create_processor(proc_name, "filter_frame_aligner"_ct.get_hash(), "essential"_ct.get_hash(), true, &created_proc), adam::registry::status_success);
+    ASSERT_NE(created_proc, nullptr);
+    EXPECT_EQ(created_proc->get_type_name(), "filter_frame_aligner"_ct);
+
+    // Verify type_origin_module is set to "essential"
+    auto* proc_origin_param = static_cast<adam::configuration_parameter_string*>(created_proc->get_parameters().get("type_origin_module"_ct));
+    ASSERT_NE(proc_origin_param, nullptr);
+    EXPECT_EQ(proc_origin_param->get_value(), "essential"_ct);
+}
+
+/** @brief Tests registering multiple statically compiled internal modules and verifying their registry operations. */
+TEST_F(registry_test, multiple_internal_modules)
+{
+    adam::test::local_controller ctrl;
+    adam::registry& reg = ctrl.get_registry();
+
+    // 1. Create and register a second mock internal module
+    auto mock_mod_name = "mock_internal_mod"_ct;
+    auto second_internal_module = std::make_unique<adam::test::mock_module>(mock_mod_name);
+    
+    // Add format and port factory to mock module
+    adam::data_format custom_format("custom_fmt"_ct, nullptr, nullptr, second_internal_module.get());
+    second_internal_module->register_data_format("custom_fmt"_ct, &custom_format);
+
+    static adam::test::mock_processor_factory local_mock_proc_factory("custom_processor"_ct, mock_mod_name);
+    second_internal_module->register_processor_factory("custom_processor"_ct, &local_mock_proc_factory);
+
+    reg.register_internal_module(second_internal_module.get());
+
+    // 2. Verify we can retrieve both the default and the new internal modules
+    EXPECT_NE(reg.get_module("essential"_ct.get_hash()), nullptr);
+    EXPECT_EQ(reg.get_module(mock_mod_name.get_hash()), second_internal_module.get());
+
+    // 3. Create a processor from the new internal module
+    auto proc_name = "test_custom_proc"_ct;
+    adam::processor* created_proc = nullptr;
+    EXPECT_EQ(reg.create_processor(proc_name, "custom_processor"_ct.get_hash(), mock_mod_name.get_hash(), false, &created_proc), adam::registry::status_success);
+    ASSERT_NE(created_proc, nullptr);
+    EXPECT_EQ(created_proc->get_type_name(), "custom_processor"_ct);
+
+    // Verify type_origin_module is set correctly
+    auto* proc_origin_param = static_cast<adam::configuration_parameter_string*>(created_proc->get_parameters().get("type_origin_module"_ct));
+    ASSERT_NE(proc_origin_param, nullptr);
+    EXPECT_EQ(proc_origin_param->get_value(), mock_mod_name);
 }

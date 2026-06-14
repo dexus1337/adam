@@ -35,7 +35,6 @@ namespace adam
 {
     namespace detail
     {
-
         template<typename msg_type>
         void deserialize_user_parameters(uint16_t count, message_deserializer<msg_type>& deserializer, configuration_parameter_list& user_params) 
         {
