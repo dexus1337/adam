@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt for the asterix module
+# CMakeLists.txt for the asterix module
 
 include(../../cmake/gtest.cmake)
 enable_testing()
@@ -56,6 +56,16 @@ target_link_libraries(adam-module-asterix-test
 set_target_properties(adam-module-asterix-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
 )
+
+# On Windows, copy the required DLLs to the test directory so gtest_discover_tests can run
+if(MSVC OR WIN32)
+    add_custom_command(TARGET adam-module-asterix-test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:adam-module-asterix>
+            $<TARGET_FILE:adam-sdk>
+            $<TARGET_FILE_DIR:adam-module-asterix-test>
+    )
+endif()
 
 setup_gtest(adam-module-asterix-test)
 

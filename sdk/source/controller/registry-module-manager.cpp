@@ -399,9 +399,9 @@ namespace adam
         m_controller.get_registry().mark_processors_unavailable(name);
         m_controller.get_registry().mark_connections_unavailable(name);
 
-        const auto& path_str = it->second->get_filepath();
-        uint32_t    version  = it->second->get_version();
-        uintptr_t   handle   = it->second->get_module_handle();
+        string_hashed path_str_cpy = it->second->get_filepath();
+        uint32_t        version  = it->second->get_version();
+        uintptr_t       handle   = it->second->get_module_handle();
 
         if (handle)
         {
@@ -412,13 +412,13 @@ namespace adam
             }
         }
 
-        m_available_modules.emplace(it->first, std::make_pair(version, path_str));
+        m_available_modules.emplace(it->first, std::make_pair(version, path_str_cpy));
 
         m_controller.log(log::info, get_log_event_text(log_event::module_unloaded, m_controller.get_language()), it->first.c_str());
 
         event evt(event_type::module_unloaded);
         auto* mod_info = evt.data_as<module::basic_info>();
-        mod_info->setup(module::basic_info::available, it->first.c_str(), path_str.c_str(), version);
+        mod_info->setup(module::basic_info::available, it->first.c_str(), path_str_cpy.c_str(), version);
         m_controller.broadcast_event(evt);
 
         m_loaded_modules.erase(it);

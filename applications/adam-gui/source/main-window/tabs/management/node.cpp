@@ -288,7 +288,7 @@ namespace adam::gui
             ImGui::PushID((const void*)(intptr_t)(info.unique_node_id ^ 0x5555));
             bool param_expanded = g_expanded_param_nodes.count(info.unique_node_id) > 0;
             
-            bool tree_open = ImGui::TreeNodeEx("Parameters", param_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+            bool tree_open = ImGui::TreeNodeEx(get_gui_string(gui_string_id::lbl_parameters, lang), param_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
             if (tree_open != param_expanded)
             {
                 if (tree_open)

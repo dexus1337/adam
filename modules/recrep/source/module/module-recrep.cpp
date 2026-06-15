@@ -24,13 +24,13 @@ namespace adam::modules::recrep
         m_port_factories.emplace
         (
             port_input_replay::type_name(), 
-            registry::factory_data_port(&global_port_input_replay_factory, &port_input_replay::get_default_parameters(), port_input_replay::direction)
+            registry::factory_data_port(&global_port_input_replay_factory, &port_input_replay::get_user_parameters(), port_input_replay::direction)
         );
 
         m_port_factories.emplace
         (
             port_output_recording::type_name(), 
-            registry::factory_data_port(&global_port_output_recording_factory, &port_output_recording::get_default_parameters(), port_output_recording::direction)
+            registry::factory_data_port(&global_port_output_recording_factory, &port_output_recording::get_user_parameters(), port_output_recording::direction)
         );
     }
 

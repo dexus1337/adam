@@ -26,7 +26,7 @@ namespace adam::modules::asterix
         m_processor_factories.emplace
         (
             asterix_to_text_converter::type_name(), 
-            registry::factory_data_processor(&global_processor_factory, &processor::get_default_parameters(), data_format_asterix.get_name(), this->get_name(), 0, 0)
+            registry::factory_data_processor(&global_processor_factory, nullptr /*&asterix_to_text_converter::get_user_parameters()*/, data_format_asterix.get_name(), this->get_name(), 0, 0)
         );
 
     }

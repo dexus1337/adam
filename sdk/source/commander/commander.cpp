@@ -259,7 +259,7 @@ namespace adam
                 auto fact_it = factories.find(pview->type);
                 if (fact_it != factories.end() && fact_it->second.parameters)
                 {
-                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list_sorted*>(fact_it->second.parameters->get("user_parameters"_ct)))
                     {
                         pview->user_params = *factory_user_params;
                     }
@@ -301,7 +301,7 @@ namespace adam
                 auto fact_it = factories.find(proc_view->type);
                 if (fact_it != factories.end() && fact_it->second.parameters)
                 {
-                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list*>(fact_it->second.parameters->get("user_parameters"_ct)))
+                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list_sorted*>(fact_it->second.parameters->get("user_parameters"_ct)))
                     {
                         proc_view->user_params = *factory_user_params;
                     }
