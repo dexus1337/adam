@@ -519,7 +519,7 @@ TEST_F(registry_test, connection_valid_chain)
     EXPECT_TRUE(conn->check_valid_chain());
 
     adam::processor* proc = nullptr;
-    EXPECT_EQ(reg.create_processor("proc1"_ct, "my-proc-type"_ct, "my_mod"_ct, false, &proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc1"_ct, "my-proc-type"_ct, "my_mod"_ct, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
 
     // Add processor to connection
@@ -690,7 +690,7 @@ TEST_F(registry_test, unavailable_processors)
     EXPECT_EQ(reg.create_port("out_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &out_port), adam::registry::status_success);
 
     adam::processor* proc = nullptr;
-    EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
 
     dynamic_cast<adam::test::mock_processor*>(proc)->set_input_format(&dummy_fmt1);
@@ -770,19 +770,19 @@ TEST_F(registry_test, create_rename_destroy_processor)
 
     // Attempt to create a processor with an invalid type should fail
     adam::processor* invalid_proc = nullptr;
-    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "non_existent_type"_ct, "mock_mod"_ct, false, &invalid_proc), adam::registry::status_error_factory_not_found);
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "non_existent_type"_ct, "mock_mod"_ct, &invalid_proc), adam::registry::status_error_factory_not_found);
     EXPECT_EQ(invalid_proc, nullptr);
 
     // Create a valid processor
     adam::processor* created_proc = nullptr;
-    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &created_proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "mock-converter"_ct, "mock_mod"_ct, &created_proc), adam::registry::status_success);
     ASSERT_NE(created_proc, nullptr);
     EXPECT_EQ(reg.processors().size(), 1u);
     EXPECT_TRUE(reg.processors().contains("test_proc_1"_ct));
 
     // Attempt to create a duplicate processor should fail
     adam::processor* duplicate_proc = nullptr;
-    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &duplicate_proc), adam::registry::status_error_port_already_exists);
+    EXPECT_EQ(reg.create_processor("test_proc_1"_ct, "mock-converter"_ct, "mock_mod"_ct, &duplicate_proc), adam::registry::status_error_port_already_exists);
     EXPECT_EQ(duplicate_proc, nullptr);
 
     // Rename the processor
@@ -809,7 +809,7 @@ TEST_F(registry_test, connection_processor_management)
     adam::test::mock_module_injector injector(reg, &mock_mod);
 
     adam::processor* proc = nullptr;
-    EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
 
     // Create a connection
@@ -859,7 +859,7 @@ TEST_F(registry_test, destroy_processor_updates_connections)
     adam::test::mock_module_injector injector(reg, &mock_mod);
 
     adam::processor* proc = nullptr;
-    EXPECT_EQ(reg.create_processor("proc_to_del"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_to_del"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
 
     // Create a connection and add processor
     adam::connection* conn = nullptr;
@@ -900,9 +900,9 @@ TEST_F(registry_test, processor_load_save_persistence)
     adam::processor* proc1 = nullptr;
     adam::processor* proc2 = nullptr;
     adam::processor* proc3 = nullptr;
-    EXPECT_EQ(reg.create_processor("proc_first"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc1), adam::registry::status_success);
-    EXPECT_EQ(reg.create_processor("proc_second"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc2), adam::registry::status_success);
-    EXPECT_EQ(reg.create_processor("proc_third"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc3), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_first"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc1), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_second"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc2), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_third"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc3), adam::registry::status_success);
 
     adam::connection* conn = nullptr;
     EXPECT_EQ(reg.create_connection("persisted_conn"_ct, &conn), adam::registry::status_success);
@@ -979,9 +979,9 @@ TEST_F(registry_test, connection_processor_reordering)
     adam::processor* proc1 = nullptr;
     adam::processor* proc2 = nullptr;
     adam::processor* proc3 = nullptr;
-    EXPECT_EQ(reg.create_processor("proc_first"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc1), adam::registry::status_success);
-    EXPECT_EQ(reg.create_processor("proc_second"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc2), adam::registry::status_success);
-    EXPECT_EQ(reg.create_processor("proc_third"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc3), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_first"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc1), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_second"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc2), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc_third"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc3), adam::registry::status_success);
 
     adam::connection* conn = nullptr;
     EXPECT_EQ(reg.create_connection("test_conn"_ct, &conn), adam::registry::status_success);
@@ -1058,7 +1058,7 @@ TEST_F(registry_test, internal_module_usability)
     // 3. Create an internal processor (filter_frame_aligner)
     auto proc_name = "test_internal_proc"_ct;
     adam::processor* created_proc = nullptr;
-    EXPECT_EQ(reg.create_processor(proc_name, "filter_frame_aligner"_ct.get_hash(), "essential"_ct.get_hash(), true, &created_proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor(proc_name, "filter_frame_aligner"_ct.get_hash(), "essential"_ct.get_hash(), &created_proc), adam::registry::status_success);
     ASSERT_NE(created_proc, nullptr);
     EXPECT_EQ(created_proc->get_type_name(), "filter_frame_aligner"_ct);
 
@@ -1094,7 +1094,7 @@ TEST_F(registry_test, multiple_internal_modules)
     // 3. Create a processor from the new internal module
     auto proc_name = "test_custom_proc"_ct;
     adam::processor* created_proc = nullptr;
-    EXPECT_EQ(reg.create_processor(proc_name, "custom_processor"_ct.get_hash(), mock_mod_name.get_hash(), false, &created_proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor(proc_name, "custom_processor"_ct.get_hash(), mock_mod_name.get_hash(), &created_proc), adam::registry::status_success);
     ASSERT_NE(created_proc, nullptr);
     EXPECT_EQ(created_proc->get_type_name(), "custom_processor"_ct);
 

@@ -363,7 +363,6 @@ namespace adam
             auto* info = events[0].get_data_as<processor::basic_info>();
             auto view = std::make_unique<processor_view>();
             view->name = string_hashed(info->name);
-            view->is_filter = info->is_filter;
             view->is_unavailable = info->is_unavailable;
             if (!view->is_unavailable)
                 view->state_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
@@ -413,7 +412,6 @@ namespace adam
                 if (it != ctx.cmdr.registry().processors().end())
                 {
                     it->second->is_unavailable = false;
-                    it->second->is_filter = info->is_filter;
                     if (it->second->state_buffer)
                     {
                         it->second->state_buffer->release();
@@ -427,7 +425,6 @@ namespace adam
             {
                 auto view = std::make_unique<processor_view>();
                 view->name = string_hashed(info->name);
-                view->is_filter = info->is_filter;
                 view->is_unavailable = false;
                 view->state_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
                 

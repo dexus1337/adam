@@ -129,7 +129,7 @@ namespace adam
         response_status request_connection_port_remove(string_hash conn_hash, string_hash port_hash, bool is_input);
 
         /** @brief Requests the creation of a processor. */
-        response_status request_processor_create(const string_hashed& name, string_hash type, string_hash type_module, bool is_filter = false);
+        response_status request_processor_create(const string_hashed& name, string_hash type, string_hash type_module);
 
         /** @brief Requests the destruction of a processor. */
         response_status request_processor_destroy(string_hash processor_hash);

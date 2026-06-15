@@ -604,20 +604,47 @@ namespace adam::gui
             }
         }
 
-        float sticky_button_h = ImGui::GetFrameHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y;
-        float base_outer_h = ImGui::GetFrameHeightWithSpacing() * (ports.size() + (connections.size() * 2) + 4);
-        float avail_for_inner = ImGui::GetWindowHeight() - base_outer_h - sticky_button_h;
+        float spacing_h = ImGui::GetStyle().ItemSpacing.y;
+        float table_row_h = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
+        float row_h = ImGui::GetFrameHeight();
+        if (table_row_h < row_h)
+        {
+            table_row_h = row_h;
+        }
+
+        float base_outer_h = 0.0f;
+        if (!connections.empty())
+        {
+            base_outer_h += table_row_h * (connections.size() * 2 + 1);
+        }
+        if (!ports.empty())
+        {
+            base_outer_h += table_row_h * (ports.size() + 1);
+        }
+        if (!connections.empty() && !ports.empty())
+        {
+            base_outer_h += spacing_h;
+        }
+        base_outer_h += num_expanded * 3.0f * spacing_h;
+        base_outer_h += 4.0f * dpi_scale;
+
+        float sticky_button_h = ImGui::GetFrameHeight() * 1.5f + spacing_h;
+        float avail_for_inner = ImGui::GetContentRegionAvail().y - base_outer_h - sticky_button_h;
         float min_inspector_height = 250.0f * dpi_scale;
         float inspector_height = min_inspector_height;
 
         if (num_expanded > 0)
         {
-            auto per_node_exp_size = (avail_for_inner / num_expanded) - (num_expanded * (ImGui::GetStyle().ItemSpacing.y));
-            if (per_node_exp_size > min_inspector_height) 
+            float per_node_exp_size = avail_for_inner / num_expanded;
+            if (per_node_exp_size > min_inspector_height)
+            {
                 inspector_height = per_node_exp_size;
+            }
         }
 
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::BeginChild("InspectorScrollContent", ImVec2(0, -sticky_button_h), false);
+        ImGui::PopStyleVar();
 
         bool conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
         if (conn_table_open)

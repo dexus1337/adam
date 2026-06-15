@@ -58,11 +58,10 @@ TEST_F(processor_test, basic_info_setup)
     adam::processor::basic_info info;
     
     adam::buffer_handle handle;
-    info.setup(p.get_name(), p.get_type_name(), 0, false, false, handle);
+    info.setup(p.get_name(), p.get_type_name(), 0, false, handle);
     
     EXPECT_EQ(std::string(info.name), "test_processor");
     EXPECT_EQ(info.type, "test"_ct.get_hash());
-    EXPECT_FALSE(info.is_filter);
     EXPECT_FALSE(info.is_unavailable);
 }
 

@@ -38,6 +38,9 @@ namespace adam
         auto* user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
 
         m_byte_offset = user_params->get<adam::configuration_parameter_integer>("byte_offset"_ct);
+        
+        m_format_input  = &data_format_transparent;
+        m_format_output = &data_format_transparent;
     }
 
     bool filter_frame_aligner::handle_data(buffer*& buf)

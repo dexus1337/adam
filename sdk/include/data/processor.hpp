@@ -35,7 +35,6 @@ namespace adam
         struct basic_info
         {
             char            name[max_name_length];
-            bool            is_filter;
             bool            is_unavailable;
             string_hash     type;
             string_hash     type_module;
@@ -46,11 +45,10 @@ namespace adam
             buffer_handle   state_buffer_handle;
             uint16_t        user_parameters;
 
-            void setup(const string_hashed& n, string_hash t, string_hash tm, bool filter, bool unavail = false, buffer_handle bh = buffer_handle())
+            void setup(const string_hashed& n, string_hash t, string_hash tm, bool unavail = false, buffer_handle bh = buffer_handle())
             {
                 type = t;
                 type_module = tm;
-                is_filter = filter;
                 is_unavailable = unavail;
                 state_buffer_handle = bh;
                 user_parameters = 0;

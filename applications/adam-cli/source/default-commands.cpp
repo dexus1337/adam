@@ -495,7 +495,7 @@ namespace adam::cli
                     if (params[3] == "filter") is_filter = true;
                 }
 
-                c.request_processor_create(name, type, mod_hash, is_filter);
+                c.request_processor_create(name, type, mod_hash);
             } 
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_proc_create, c.get_language()), std::cout); }
         });

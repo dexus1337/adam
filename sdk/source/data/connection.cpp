@@ -132,11 +132,13 @@ namespace adam
         bool has_input = false;
         bool has_output = false;
 
+        // Force active input update
         m_ports_input.iterate([&](const auto& inputs)
         {
             has_input = !inputs.empty();
         });
 
+        // Force active output update
         m_ports_output.iterate([&](const auto& outputs)
         {
             has_output = !outputs.empty();

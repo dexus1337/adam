@@ -134,9 +134,6 @@ namespace adam
         if (!new_port)
             return status_error_creation_failed;
 
-        if (auto* mod_param = new_port->get_parameter<configuration_parameter_string>("type_origin_module"_ct))
-            mod_param->set_value(mod->get_name());
-
         auto ptr = new_port.get();
         m_ports.emplace(name, std::move(new_port));
         
@@ -208,7 +205,7 @@ namespace adam
         return status_success;
     }
 
-    registry::status registry::create_processor(const string_hashed& name, string_hash type, string_hash type_module, bool is_filter, processor** out_processor)
+    registry::status registry::create_processor(const string_hashed& name, string_hash type, string_hash type_module, processor** out_processor)
     {
         if (out_processor) 
             *out_processor = nullptr;
@@ -232,11 +229,6 @@ namespace adam
         auto new_processor = processor_factory.factory_ptr->create(name);
         if (!new_processor)
             return status_error_creation_failed;
-
-        new_processor->m_format_input  = get_data_format(processor_factory.input_datatype, processor_factory.input_datatype_module);
-        new_processor->m_format_output = get_data_format(processor_factory.output_datatype, processor_factory.output_datatype_module);
-
-        new_processor->get_parameter<configuration_parameter_boolean>("is_filter"_ct)->set_value(is_filter);
 
         auto ptr = new_processor.get();
         m_processors.emplace(name, std::move(new_processor));
@@ -924,7 +916,7 @@ namespace adam
                 auto is_filter          = static_cast<configuration_parameter_boolean*>(processor_params->get("is_filter"_ct))->get_value();
 
                 processor* new_processor = nullptr;
-                const status s = create_processor(processor_name, processor_type, module_name, is_filter, &new_processor);
+                const status s = create_processor(processor_name, processor_type, module_name, &new_processor);
 
                 if (s == status_success)
                 {
@@ -959,10 +951,10 @@ namespace adam
             {
                 auto* conn_params = static_cast<configuration_parameter_list*>(conn_param.get());
 
-                const string_hashed in_fmt  = static_cast<configuration_parameter_string*>(conn_params->get("input_format"_ct))->get_value();
-                const string_hashed in_mod  = static_cast<configuration_parameter_string*>(conn_params->get("input_format_module"_ct))->get_value();
-                const string_hashed out_fmt = static_cast<configuration_parameter_string*>(conn_params->get("output_format"_ct))->get_value();
-                const string_hashed out_mod = static_cast<configuration_parameter_string*>(conn_params->get("output_format_module"_ct))->get_value();
+                const auto& in_fmt  = static_cast<configuration_parameter_string*>(conn_params->get("input_format"_ct))->get_value();
+                const auto& in_mod  = static_cast<configuration_parameter_string*>(conn_params->get("input_format_module"_ct))->get_value();
+                const auto& out_fmt = static_cast<configuration_parameter_string*>(conn_params->get("output_format"_ct))->get_value();
+                const auto& out_mod = static_cast<configuration_parameter_string*>(conn_params->get("output_format_module"_ct))->get_value();
 
                 const data_format* resolved_in_fmt  = &data_format_transparent;
                 const data_format* resolved_out_fmt = &data_format_transparent;
@@ -1289,7 +1281,7 @@ namespace adam
             if (it->second->type_module == module_hash)
             {
                 processor* new_processor = nullptr;
-                status stat = create_processor(it->second->get_name(), it->second->type, it->second->type_module, it->second->is_filter, &new_processor);
+                status stat = create_processor(it->second->get_name(), it->second->type, it->second->type_module, &new_processor);
 
                 if (stat == status_success)
                 {
@@ -1333,9 +1325,7 @@ namespace adam
                     event evt(event_type::processor_available);
                     auto* evt_data = evt.data_as<processor::basic_info>();
                     
-                    bool is_filter = new_processor->get_parameter<configuration_parameter_boolean>("is_filter"_ct)->get_value();
-
-                    evt_data->setup(new_processor->get_name(), it->second->type, it->second->type_module, is_filter, false, new_processor->get_state_buffer()->get_handle());
+                    evt_data->setup(new_processor->get_name(), it->second->type, it->second->type_module, false, new_processor->get_state_buffer()->get_handle());
                     
                     auto* in_fmt = new_processor->get_input_data_format();
                     auto* in_mod = in_fmt ? in_fmt->get_origin_module() : nullptr;

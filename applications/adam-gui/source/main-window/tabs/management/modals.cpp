@@ -714,9 +714,8 @@ namespace adam::gui
                             adam::string_hash mod_hash = pdi.module_hash;
                             adam::string_hash conn_hash = g_target_connection.get_hash();
                             adam::string_hash new_proc_hash = adam::string_hashed(name_buffer.data()).get_hash();
-                            bool is_filter = pdi.is_filter;
                             
-                            ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_proc_hash, is_filter]() { ctrl.commander().request_processor_create(new_name, type_hash, mod_hash, is_filter); ctrl.commander().request_connection_processor_add(conn_hash, new_proc_hash); });
+                            ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_proc_hash]() { ctrl.commander().request_processor_create(new_name, type_hash, mod_hash); ctrl.commander().request_connection_processor_add(conn_hash, new_proc_hash); });
 
                             name_buffer[0] = '\0';
                         }

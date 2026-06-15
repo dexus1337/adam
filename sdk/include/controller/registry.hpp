@@ -142,7 +142,7 @@ namespace adam
         status rename_port(string_hash hash, const string_hashed& new_name);
 
         /** @brief Creates a new processor using the appropriate factory and adds it to the registry. Returns the status of the operation. */
-        status create_processor(const string_hashed& name, string_hash type, string_hash type_module, bool is_filter = false, processor** out_processor = nullptr);
+        status create_processor(const string_hashed& name, string_hash type, string_hash type_module, processor** out_processor = nullptr);
 
         /** @brief Destroys a processor from the registry by its hash, and cleans up its connections. */
         status destroy_processor(string_hash hash);

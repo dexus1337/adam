@@ -272,7 +272,7 @@ TEST_F(commander_test, request_processor_parameter_set_flow)
 
     // 2. Create the processor in the controller's registry
     adam::processor* test_proc = nullptr;
-    EXPECT_EQ(ctrl.get_registry().create_processor("param_test_proc"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &test_proc), adam::registry::status_success);
+    EXPECT_EQ(ctrl.get_registry().create_processor("param_test_proc"_ct, "mock-converter"_ct, "mock_mod"_ct, &test_proc), adam::registry::status_success);
     ASSERT_NE(test_proc, nullptr);
     
     // 3. Add user parameters of all types
@@ -990,7 +990,7 @@ TEST_F(commander_test, request_processor_lifecycle_flow)
     ASSERT_TRUE(cmdr.connect());
 
     // 1. Request processor creation
-    adam::response_status status = cmdr.request_processor_create("test_proc"_ct, "mock-converter"_ct, "mock_mod"_ct, false);
+    adam::response_status status = cmdr.request_processor_create("test_proc"_ct, "mock-converter"_ct, "mock_mod"_ct);
     EXPECT_EQ(status, adam::response_status::success);
 
     auto proc_hash = ("test_proc"_ct).get_hash();
@@ -1054,8 +1054,8 @@ TEST_F(commander_test, request_connection_processor_flow)
     adam::processor* proc1 = nullptr;
     adam::processor* proc2 = nullptr;
     adam::connection* conn = nullptr;
-    ASSERT_EQ(ctrl.get_registry().create_processor("p1"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc1), adam::registry::status_success);
-    ASSERT_EQ(ctrl.get_registry().create_processor("p2"_ct, "mock-converter"_ct, "mock_mod"_ct, false, &proc2), adam::registry::status_success);
+    ASSERT_EQ(ctrl.get_registry().create_processor("p1"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc1), adam::registry::status_success);
+    ASSERT_EQ(ctrl.get_registry().create_processor("p2"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc2), adam::registry::status_success);
     ASSERT_EQ(ctrl.get_registry().create_connection("test_conn"_ct, &conn), adam::registry::status_success);
 
     adam::commander cmdr;

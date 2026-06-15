@@ -129,8 +129,8 @@ namespace adam
             auto* data = ctx.responses.front().data_as<messages::initial_data_header>();
 
             data->lang_info.lang                  = ctx.ctrl.get_language();
-            data->lang_info.supported_languages   |= ( 1 << language_english );
-            data->lang_info.supported_languages   |= ( 1 << language_german );
+            data->lang_info.supported_languages   |= 1 << language_english;
+            data->lang_info.supported_languages   |= 1 << language_german;
 
             data->mod_info.available_modules       = static_cast<uint32_t>(ctx.reg.modules().get_available_modules().size());
             data->mod_info.unavailable_modules     = static_cast<uint32_t>(ctx.reg.modules().get_unavailable_modules().size());
@@ -216,9 +216,9 @@ namespace adam
                     port_info->type_module = dynamic_cast<configuration_parameter_string*>(prt->get_parameters().get("type_origin_module"_ct))->get_value().get_hash();
                    
                     port_info->state_buffer_handle  = prt->get_state_buffer()->get_handle();
-                    port_info->dir                      = prt->get_direction();
-                    port_info->is_unavailable           = false;
-                    port_info->started                  = prt->is_started();
+                    port_info->dir                  = prt->get_direction();
+                    port_info->is_unavailable       = false;
+                    port_info->started              = prt->is_started();
 
                     auto* user_param = dynamic_cast<configuration_parameter_list*>(prt->get_parameters().get("user_parameters"_ct));
 
@@ -260,35 +260,28 @@ namespace adam
                     ctx.responses[resp_idx-1].set_extended(true);
                     auto* proc_info = ctx.responses[resp_idx].data_as<processor::basic_info>();
                     
-                    bool is_filter = false;
-                    if (auto* param = dynamic_cast<configuration_parameter_boolean*>(prc->get_parameters().get("is_filter"_ct)))
-                        is_filter = param->get_value();
-
-                    string_hashed type_module;
-                    if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(prc->get_parameters().get("type_origin_module"_ct)))
-                        type_module = mod_param->get_value();
+                    const auto& type_module = prc->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->get_value();
 
                     proc_info->setup
                     (
                         prc->get_name(), 
                         prc->get_type_name().get_hash(), 
                         type_module.get_hash(), 
-                        is_filter, 
-                        false, 
+                        false,
                         prc->get_state_buffer()->get_handle()
                     );
                     
                     auto* in_fmt = prc->get_input_data_format();
-                    auto* in_mod = in_fmt ? in_fmt->get_origin_module() : nullptr;
+                    auto* in_mod = in_fmt->get_origin_module();
 
                     auto* out_fmt = prc->get_output_data_format();
-                    auto* out_mod = out_fmt ? out_fmt->get_origin_module() : nullptr;
+                    auto* out_mod = out_fmt->get_origin_module();
 
-                    proc_info->input_datatype            = in_fmt ? in_fmt->get_name().get_hash() : 0ull;
-                    proc_info->input_datatype_module     = in_mod ? in_mod->get_name().get_hash() : 0ull;
+                    proc_info->input_datatype            = in_fmt->get_name().get_hash();
+                    proc_info->input_datatype_module     = in_mod->get_name().get_hash();
 
-                    proc_info->output_datatype           = out_fmt ? out_fmt->get_name().get_hash() : 0ull;
-                    proc_info->output_datatype_module    = out_mod ? out_mod->get_name().get_hash() : 0ull;
+                    proc_info->output_datatype           = out_fmt->get_name().get_hash();
+                    proc_info->output_datatype_module    = out_mod->get_name().get_hash();
 
                     auto* user_param = dynamic_cast<configuration_parameter_list*>(prc->get_parameters().get("user_parameters"_ct));
 
@@ -314,7 +307,7 @@ namespace adam
                     ctx.responses[resp_idx-1].set_extended(true);
                     auto* proc_info = ctx.responses[resp_idx].data_as<processor::basic_info>();
                     
-                    proc_info->setup(upi->get_name(), upi->type, upi->type_module, upi->is_filter, true);
+                    proc_info->setup(upi->get_name(), upi->type, upi->type_module, true);
 
                     resp_idx++;
 
@@ -339,34 +332,19 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_integer*>(conn->get_parameters().get("color_code"_ct)))
                     conn_info->color = static_cast<uint32_t>(param->get_value());
                 
-                conn_info->started = conn->is_started();
-                conn_info->valid_chain = conn->is_valid_chain();
-                conn_info->is_unavailable = false;
+                conn_info->started                 = conn->is_started();
+                conn_info->valid_chain             = conn->is_valid_chain();
+                conn_info->is_unavailable          = false;
 
-                // Include connection format data
-                if (conn->get_input_format())
-                    conn_info->input_format = conn->get_input_format()->get_name().get_hash();
-                else
-                    conn_info->input_format = 0;
-                
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("input_format_module"_ct)))
-                    conn_info->input_format_module = param->get_value().get_hash();
-                else
-                    conn_info->input_format_module = 0;
+                conn_info->input_format            = conn->get_input_format()->get_name().get_hash();
+                conn_info->input_format_module     = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("input_format_module"_ct))->get_value().get_hash();
 
-                if (conn->get_output_format())
-                    conn_info->output_format = conn->get_output_format()->get_name().get_hash();
-                else
-                    conn_info->output_format = 0;
-                
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("output_format_module"_ct)))
-                    conn_info->output_format_module = param->get_value().get_hash();
-                else
-                    conn_info->output_format_module = 0;
+                conn_info->output_format           = conn->get_output_format()->get_name().get_hash();
+                conn_info->output_format_module    = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("output_format_module"_ct))->get_value().get_hash();
 
-                conn_info->input_count = 0;
-                conn_info->processor_count = 0;
-                conn_info->output_count = 0;
+                conn_info->input_count             = 0;
+                conn_info->processor_count         = 0;
+                conn_info->output_count            = 0;
                 
                 conn->ports_input().iterate([&](const auto& inputs) 
                 {
@@ -417,31 +395,19 @@ namespace adam
                 if (auto* param = dynamic_cast<configuration_parameter_integer*>(uconn->get_parameters().get("color_code"_ct)))
                     conn_info->color = static_cast<uint32_t>(param->get_value());
                 
-                conn_info->started = false;
-                conn_info->valid_chain = false;
-                conn_info->is_unavailable = true;
+                conn_info->started                 = false;
+                conn_info->valid_chain             = false;
+                conn_info->is_unavailable          = true;
 
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct)))
-                    conn_info->input_format = param->get_value().get_hash();
-                else
-                    conn_info->input_format = 0;
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format_module"_ct)))
-                    conn_info->input_format_module = param->get_value().get_hash();
-                else
-                    conn_info->input_format_module = 0;
+                conn_info->input_format            = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format"_ct))->get_value().get_hash();
+                conn_info->input_format_module     = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("input_format_module"_ct))->get_value().get_hash();
 
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format"_ct)))
-                    conn_info->output_format = param->get_value().get_hash();
-                else
-                    conn_info->output_format = 0;
-                if (auto* param = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format_module"_ct)))
-                    conn_info->output_format_module = param->get_value().get_hash();
-                else
-                    conn_info->output_format_module = 0;
+                conn_info->output_format           = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format"_ct))->get_value().get_hash();
+                conn_info->output_format_module    = dynamic_cast<configuration_parameter_string*>(uconn->get_parameters().get("output_format_module"_ct))->get_value().get_hash();
 
-                conn_info->input_count = 0;
-                conn_info->processor_count = 0;
-                conn_info->output_count = 0;
+                conn_info->input_count             = 0;
+                conn_info->processor_count         = 0;
+                conn_info->output_count            = 0;
                 
                 if (auto* inputs_list = dynamic_cast<configuration_parameter_list*>(uconn->get_parameters().get("inputs"_ct)))
                 {
@@ -759,8 +725,8 @@ namespace adam
                 evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
-            const char* dir_str = params->is_input ? (ctx.ctrl.get_language() == language_german ? "Eingang" : "input") : (ctx.ctrl.get_language() == language_german ? "Ausgang" : "output");
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_added, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), dir_str, conn_str.c_str());
+            auto log_evt = params->is_input ? controller_cmd_dispatcher::log_event::connection_input_port_added : controller_cmd_dispatcher::log_event::connection_output_port_added;
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(log_evt, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -802,8 +768,8 @@ namespace adam
                 evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
-            const char* dir_str = params->is_input ? (ctx.ctrl.get_language() == language_german ? "Eingang" : "input") : (ctx.ctrl.get_language() == language_german ? "Ausgang" : "output");
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_removed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), dir_str, conn_str.c_str());
+            auto log_evt = params->is_input ? controller_cmd_dispatcher::log_event::connection_input_port_removed : controller_cmd_dispatcher::log_event::connection_output_port_removed;
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(log_evt, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
             
             if (it_port != ctx.reg.ports().end())
             {
@@ -1707,7 +1673,7 @@ namespace adam
             string_hashed name(params->name);
 
             processor* new_processor = nullptr;
-            registry::status res = ctx.reg.create_processor(name, params->type, params->type_module, params->is_filter, &new_processor);
+            registry::status res = ctx.reg.create_processor(name, params->type, params->type_module, &new_processor);
 
             if (res != registry::status_success)
             {
@@ -1722,20 +1688,13 @@ namespace adam
             event evt(event_type::processor_created);
             auto* evt_data = evt.data_as<processor::basic_info>();
 
-            bool is_filter = false;
-            if (auto* param = dynamic_cast<configuration_parameter_boolean*>(new_processor->get_parameters().get("is_filter"_ct)))
-                is_filter = param->get_value();
-
-            string_hashed type_module;
-            if (auto* mod_param = dynamic_cast<configuration_parameter_string*>(new_processor->get_parameters().get("type_origin_module"_ct)))
-                type_module = mod_param->get_value();
+            const auto& type_module = new_processor->get_parameter<configuration_parameter_string>("type_origin_module"_ct)->get_value();
 
             evt_data->setup
             (
                 new_processor->get_name(), 
                 new_processor->get_type_name().get_hash(), 
                 type_module.get_hash(), 
-                is_filter, 
                 false, 
                 new_processor->get_state_buffer()->get_handle()
             );
@@ -2132,16 +2091,24 @@ namespace adam
                 { "Thread {:d} failed to rename connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht umbenennen: {}" }
             },
             {
-                log_event::connection_port_added,
-                { "Thread {:d} successfully added port \"{}\" as {} to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als {} zur Verbindung \"{}\" hinzugefügt." }
+                log_event::connection_input_port_added,
+                { "Thread {:d} successfully added port \"{}\" as input to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Eingang zur Verbindung \"{}\" hinzugefügt." }
+            },
+            {
+                log_event::connection_output_port_added,
+                { "Thread {:d} successfully added port \"{}\" as output to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Ausgang zur Verbindung \"{}\" hinzugefügt." }
             },
             {
                 log_event::connection_port_add_failed,
                 { "Thread {:d} failed to add port {:d} to connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
             },
             {
-                log_event::connection_port_removed,
-                { "Thread {:d} successfully removed port \"{}\" as {} from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als {} von Verbindung \"{}\" entfernt." }
+                log_event::connection_input_port_removed,
+                { "Thread {:d} successfully removed port \"{}\" as input from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Eingang von Verbindung \"{}\" entfernt." }
+            },
+            {
+                log_event::connection_output_port_removed,
+                { "Thread {:d} successfully removed port \"{}\" as output from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Ausgang von Verbindung \"{}\" entfernt." }
             },
             {
                 log_event::connection_port_remove_failed,

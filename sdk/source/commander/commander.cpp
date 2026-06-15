@@ -284,7 +284,6 @@ namespace adam
             
             auto proc_view = std::make_unique<processor_view>();
             proc_view->name             = string_hashed(&proc_info->name[0]);
-            proc_view->is_filter        = proc_info->is_filter;
             proc_view->is_unavailable   = proc_info->is_unavailable;
             
             if (!proc_view->is_unavailable)
@@ -620,7 +619,7 @@ namespace adam
         return send_command(cmd);
     }
 
-    response_status commander::request_processor_create(const string_hashed& name, string_hash type, string_hash type_module, bool is_filter)
+    response_status commander::request_processor_create(const string_hashed& name, string_hash type, string_hash type_module)
     {
         {
             std::lock_guard<const registry_view> lg(m_registry_view);
@@ -630,7 +629,7 @@ namespace adam
 
         command cmd(command_type::processor_create);
         buffer_handle handle;
-        cmd.data_as<processor::basic_info>()->setup(name, type, type_module, is_filter, false, handle);
+        cmd.data_as<processor::basic_info>()->setup(name, type, type_module, false, handle);
 
         return send_command(cmd);
     }
