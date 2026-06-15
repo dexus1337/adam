@@ -1920,7 +1920,7 @@ namespace adam
             },
             {
                 log_event::inspector_create_failed_port_unknown,
-                { "Thread {:d} failed to create inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht erstellen: Unbekannter Port-Hash {:d}." }
+                { "Thread {:d} failed to create inspector: Unknown port hash {:x}.", "Thread {:d} konnte Inspektor nicht erstellen: Unbekannter Port-Hash {:x}." }
             },
             {
                 log_event::inspector_create_failed_open,
@@ -1928,7 +1928,7 @@ namespace adam
             },
             {
                 log_event::inspector_destroy_failed_port_unknown,
-                { "Thread {:d} failed to destroy inspector: Unknown port hash {:d}.", "Thread {:d} konnte Inspektor nicht entfernen: Unbekannter Port-Hash {:d}." }
+                { "Thread {:d} failed to destroy inspector: Unknown port hash {:x}.", "Thread {:d} konnte Inspektor nicht entfernen: Unbekannter Port-Hash {:x}." }
             },
             {
                 log_event::inspector_destroy_failed_not_found,

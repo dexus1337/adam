@@ -22,7 +22,7 @@ namespace adam
         m_port_factories.emplace    
         (
             port_internal::type_name(),
-            registry::factory_data_port(&global_port_internal_factory, nullptr, port::direction_invalid)
+            registry::factory_data_port(&global_port_internal_factory, nullptr, port_internal::direction)
         );
 
         // Register internal processors
