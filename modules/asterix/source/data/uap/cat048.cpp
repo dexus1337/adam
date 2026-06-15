@@ -4,16 +4,16 @@ namespace adam::modules::asterix::data::uap
 {
     namespace 
     {
-        // Forward declarations for sub-UAPs so the main UAP can sit at the top
+        // Forward declarations for sub-UAPs so the main UAPs can sit at the top
         extern asterix_uap cat048_130_uap;
         extern asterix_uap cat048_120_uap;
         extern asterix_uap cat048_ref_uap;
-
+        
         // Full CAT048 definition based on Eurocontrol ASTERIX standard:
         // Specification: Edition 1.32 (July 2, 2024)
         // Appendix A (Reserved Expansion Field): Edition 1.13 (December 1, 2024)
         //
-        // Note on REF (FRN 25): As per Appendix A, the REF begins with a 1-octet Length Indicator 
+        // Note on REF (FRN 28): As per Appendix A, the REF begins with a 1-octet Length Indicator 
         // specifying the total length, followed by an Items Indicator (FSPEC) and sub-items 
         // (Mode 5 Data, Extended Mode 1 Code, ERR, M4E). Our parser handles it natively as an 
         // EXPLICIT item, which perfectly bounds and extracts it using the leading length indicator octet.
@@ -52,8 +52,10 @@ namespace adam::modules::asterix::data::uap
             { 22, asterix_item_type::FIXED,       7, "I048/260 ACAS Resolution Advisory Report"                             },
             { 23, asterix_item_type::FIXED,       1, "I048/055 Mode-1 Code in Octal Representation"                         },
             { 24, asterix_item_type::FIXED,       2, "I048/050 Mode-2 Code in Octal Representation"                         },
-            { 25, asterix_item_type::EXPLICIT,    0, "RE Reserved Expansion Field",                          &cat048_ref_uap},
-            { 26, asterix_item_type::EXPLICIT,    0, "SP Special Purpose Field"                                             }
+            { 25, asterix_item_type::FIXED,       1, "I048/065 Mode-1 Code Confidence Indicator"                            },
+            { 26, asterix_item_type::FIXED,       2, "I048/060 Mode-2 Code Confidence Indicator"                            },
+            { 27, asterix_item_type::EXPLICIT,    0, "SP Special Purpose Field"                                             },
+            { 28, asterix_item_type::EXPLICIT,    0, "RE Reserved Expansion Field",                          &cat048_ref_uap}
         };
 
         asterix_uap cat048_uap(48, cat048_items, sizeof(cat048_items) / sizeof(cat048_items[0]));
@@ -80,6 +82,29 @@ namespace adam::modules::asterix::data::uap
         };
 
         asterix_uap cat048_120_uap(120, cat048_120_items, sizeof(cat048_120_items) / sizeof(cat048_120_items[0]));
+
+        // Forward declarations for REF sub-UAPs
+        extern asterix_uap cat048_ref_md5_uap;
+        extern asterix_uap cat048_ref_m5n_uap;
+        extern asterix_uap cat048_ref_rpc_uap;
+        extern asterix_uap cat048_ref_rtc_uap;
+        extern asterix_uap cat048_ref_cpc_uap;
+        extern asterix_uap cat048_ref_g48_uap;
+
+        // Sub-UAP for Reserved Expansion Field (REF) - Appendix A
+        const asterix_field_spec cat048_ref_items[] =
+        {
+            {  1, asterix_item_type::COMPOUND,    0, "MD5 - Mode 5 Reports",                             &cat048_ref_md5_uap},
+            {  2, asterix_item_type::COMPOUND,    0, "M5N - Mode 5 Reports, New Format",                 &cat048_ref_m5n_uap},
+            {  3, asterix_item_type::VARIABLE,    0, "M4E - Extended Mode 4 Report"                                         },
+            {  4, asterix_item_type::COMPOUND,    0, "RPC - Radar Plot Characteristics",                 &cat048_ref_rpc_uap},
+            {  5, asterix_item_type::FIXED,       3, "ERR - Extended Range Report"                                          },
+            {  6, asterix_item_type::COMPOUND,    0, "RTC - Radar Track Characteristics",                &cat048_ref_rtc_uap},
+            {  7, asterix_item_type::COMPOUND,    0, "CPC - Common and Plot Characteristics",            &cat048_ref_cpc_uap},
+            {  8, asterix_item_type::COMPOUND,    0, "GEN48 - Generic Category 048 Data",                &cat048_ref_g48_uap}
+        };
+
+        asterix_uap cat048_ref_uap(28, cat048_ref_items, sizeof(cat048_ref_items) / sizeof(cat048_ref_items[0]));
 
         // Sub-UAP for MD5 (Mode 5 Reports)
         const asterix_field_spec cat048_ref_md5_items[] =
@@ -160,22 +185,7 @@ namespace adam::modules::asterix::data::uap
             {  5, asterix_item_type::FIXED,       4, "Radar Cross Section in m2"                                            }
         };
 
-        asterix_uap cat048_ref_gen48_uap(8, cat048_ref_gen48_items, sizeof(cat048_ref_gen48_items) / sizeof(cat048_ref_gen48_items[0]));
-
-        // Sub-UAP for Reserved Expansion Field (REF) - Appendix A
-        const asterix_field_spec cat048_ref_items[] =
-        {
-            {  1, asterix_item_type::COMPOUND,    0, "MD5 - Mode 5 Reports",                               &cat048_ref_md5_uap},
-            {  2, asterix_item_type::COMPOUND,    0, "M5N - Mode 5 Reports, New Format",                   &cat048_ref_m5n_uap},
-            {  3, asterix_item_type::VARIABLE,    0, "M4E - Extended Mode 4 Report"                                           },
-            {  4, asterix_item_type::COMPOUND,    0, "RPC - Radar Plot Characteristics",                   &cat048_ref_rpc_uap},
-            {  5, asterix_item_type::FIXED,       3, "ERR - Extended Range Report"                                            },
-            {  6, asterix_item_type::COMPOUND,    0, "RTC - Radar Track Characteristics",                  &cat048_ref_rtc_uap},
-            {  7, asterix_item_type::COMPOUND,    0, "CPC - Common and Plot Characteristics",              &cat048_ref_cpc_uap},
-            {  8, asterix_item_type::COMPOUND,    0, "GEN48 - Generic Category 048 Data",                  &cat048_ref_gen48_uap}
-        };
-
-        asterix_uap cat048_ref_uap(25, cat048_ref_items, sizeof(cat048_ref_items) / sizeof(cat048_ref_items[0]));
+        asterix_uap cat048_ref_g48_uap(8, cat048_ref_gen48_items, sizeof(cat048_ref_gen48_items) / sizeof(cat048_ref_gen48_items[0]));
     }
 
     asterix_uap& get_cat048_uap()
