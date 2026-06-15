@@ -12,7 +12,7 @@
 #include "commander/messages/message-structs.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer.hpp"
-
+#include "module/internals/essential/module-essential.hpp"
 
 namespace adam 
 {
@@ -154,8 +154,8 @@ namespace adam
         {
             for (auto* proc : processors)
             {
-                const data_format* proc_in = proc->get_input_data_format();
-                const data_format* proc_out = proc->get_output_data_format();
+                const data_format* proc_in = proc->get_input_format();
+                const data_format* proc_out = proc->get_output_format();
 
                 if (*current_format != *proc_in)
                     format_mismatch = true;

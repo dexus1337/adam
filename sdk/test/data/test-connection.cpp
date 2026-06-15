@@ -2,7 +2,7 @@
 #include "commander/messages/message-structs.hpp"
 #include "data/connection.hpp"
 #include "data/port.hpp"
-#include "data/port-types/port-internal.hpp"
+#include "module/internals/essential/module-essential.hpp"
 #include "data/processor.hpp"
 #include "data/format.hpp"
 #include "module/module.hpp"

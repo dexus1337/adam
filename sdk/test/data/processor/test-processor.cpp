@@ -47,8 +47,8 @@ TEST_F(processor_test, initial_state)
     test_processor p("test_processor"_ct);
     
     // Processors have transparent format by default
-    EXPECT_NE(p.get_input_data_format(), nullptr);
-    EXPECT_NE(p.get_output_data_format(), nullptr);
+    EXPECT_NE(p.get_input_format(), nullptr);
+    EXPECT_NE(p.get_output_format(), nullptr);
 }
 
 /** @brief Tests that basic_info serialization sets fields correctly. */

@@ -4,6 +4,7 @@
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "module/module-serial.hpp"
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
@@ -140,6 +141,7 @@ namespace adam::modules::serial
         #endif
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
+        get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
 
         add_parameters(port_serial::get_user_parameters());
 

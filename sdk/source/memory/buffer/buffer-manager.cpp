@@ -3,6 +3,7 @@
 #include "memory/memory.hpp"
 #include "types/string-hashed.hpp"
 #include "os/os.hpp"
+#include "module/internals/essential/module-essential.hpp"
 
 #include <thread>
 #include <algorithm>

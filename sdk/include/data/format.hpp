@@ -51,6 +51,4 @@ namespace adam
         encoder*        m_encoder;      /**< A pointer to the encoder associated with this data format, responsible for encoding data in this format. */
         const module*   m_module;       /**< The origin this dataformat comes from */
     };
-
-    extern ADAM_SDK_API data_format data_format_transparent;  /**< A predefined data format representing raw, unprocessed data that can be passed through the system without any parsing or encoding. */
 }

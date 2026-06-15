@@ -1,10 +1,8 @@
-#include "module/internals/module-essential.hpp"
+#include "module/internals/essential/module-essential.hpp"
 
-#include "data/port-types/port-internal.hpp"
 #include "data/format.hpp"
 #include "controller/registry.hpp"
 #include "factory/factory.hpp"
-#include "data/processors/filters/filter-frame-aligner.hpp"
 
 namespace adam
 {

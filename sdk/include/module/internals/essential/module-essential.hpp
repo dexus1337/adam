@@ -8,7 +8,12 @@
  * @date    12.06.2026
  */
 
+
 #include "module/module.hpp"
+#include "module/internals/essential/data/formats/data-format-transparent.hpp"
+#include "module/internals/essential/data/filters/filter-frame-aligner.hpp"
+#include "module/internals/essential/data/port-types/port-internal.hpp"
+
 
 namespace adam 
 {

@@ -6,6 +6,8 @@
 #include "data/formats/rff.hpp"
 #include "data/port.hpp"
 #include "resources/language-strings.hpp"
+#include "module/module-recrep.hpp"
+
 #include <chrono>
 #include <filesystem>
 #include <thread>
@@ -90,6 +92,7 @@ namespace adam::modules::recrep
      :  port_input(item_name, sizeof(replay_state_buffer_data))
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
+        get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
 
         add_parameters(port_input_replay::get_user_parameters());
     }

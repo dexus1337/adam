@@ -3,6 +3,7 @@
 #include "data/format.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
+#include "module/internals/essential/module-essential.hpp"
 
 namespace adam 
 {

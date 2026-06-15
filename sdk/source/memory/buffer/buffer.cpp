@@ -2,6 +2,7 @@
 
 #include "memory/buffer/buffer-manager.hpp"
 #include "data/format.hpp"
+#include "module/internals/essential/module-essential.hpp"
 
 namespace adam 
 {

@@ -1,9 +1,9 @@
-#include "data/port-types/port-internal.hpp"
+#include "module/internals/essential/data/port-types/port-internal.hpp"
 
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/connection.hpp"
 #include "data/inspector.hpp"
-#include "module/internals/module-essential.hpp"
+#include "module/internals/essential/module-essential.hpp"
 
 namespace adam 
 {

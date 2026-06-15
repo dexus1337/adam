@@ -91,8 +91,8 @@ namespace adam
 
         vector_double_buffer<connection*>& connections() { return m_connections; }
         
-        const data_format* get_input_data_format()  const { return m_format_input; }
-        const data_format* get_output_data_format() const { return m_format_output; }
+        const data_format* get_input_format()  const { return m_format_input; }
+        const data_format* get_output_format() const { return m_format_output; }
 
         buffer*             get_state_buffer()      const { return m_state_buffer; }
         state_buffer_data*  get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }

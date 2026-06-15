@@ -7,7 +7,7 @@
 #include "data/processors/converter.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "data/port.hpp"
-#include "module/internals/module-essential.hpp"
+#include "module/internals/essential/module-essential.hpp"
 
 #include <mutex>
 

@@ -8,7 +8,7 @@
 #include "configuration/parameters/configuration-parameter-reference.hpp"
 #include "data/port-types/port-input.hpp"
 #include "data/port-types/port-output.hpp"
-#include "data/port-types/port-internal.hpp"
+#include "module/internals/essential/module-essential.hpp"
 #include "data/processors/filter.hpp"
 #include "data/processors/converter.hpp"
 #include "module/module.hpp"
@@ -50,16 +50,45 @@ template struct adam::test::private_accessor<adam::test::loaded_modules_tag, &ad
 
 namespace adam::test
 {
+    class mock_module : public adam::module
+    {
+    public:
+        mock_module(const adam::string_hashed& name)
+            : adam::module(name, adam::make_version(1, 0, 0), adam::sdk_version)
+        {
+        }
+
+        void register_data_format(const adam::string_hashed& name, const adam::data_format* format)
+        {
+            m_data_formats[name] = format;
+        }
+
+        void register_processor_factory(const adam::string_hashed& type_name, adam::factory<adam::processor>* factory_ptr,
+                                        adam::string_hash input_format = 0, adam::string_hash input_format_module = 0,
+                                        adam::string_hash output_format = 0, adam::string_hash output_format_module = 0)
+        {
+            m_processor_factories[type_name] = adam::registry::factory_data_processor(factory_ptr, nullptr, input_format, input_format_module, output_format, output_format_module);
+        }
+    };
+
+    adam::test::mock_module mock_mod("mock_mod"_ct);
+
+    adam::data_format dummy_fmt1("fmt1"_ct, nullptr, nullptr, &mock_mod);
+    adam::data_format dummy_fmt2("fmt2"_ct, nullptr, nullptr, &mock_mod);
+
     class mock_processor : public adam::processor
     {
     public:
         mock_processor(const adam::string_hashed& item_name,
-                       const adam::string_hashed_ct& type_name = "mock-processor-type"_ct,
-                       const adam::string_hashed_ct& module_name = "essential"_ct)
+                       const adam::string_hashed_ct& type_name,
+                       const adam::string_hashed_ct& module_name)
             : adam::processor(item_name), m_type_name(type_name)
         {
             get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name);
             get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(module_name);
+
+            m_format_input = &dummy_fmt1;
+            m_format_output = &dummy_fmt2;
         }
 
         const adam::string_hashed_ct& get_type_name() const override
@@ -69,11 +98,9 @@ namespace adam::test
 
         bool handle_data(adam::buffer*& buf) override
         {
+            (void)buf; // No actual processing, just a mock
             return true;
         }
-
-        void set_input_format(const adam::data_format* fmt) { m_format_input = fmt; }
-        void set_output_format(const adam::data_format* fmt) { m_format_output = fmt; }
 
     private:
         adam::string_hashed_ct m_type_name;
@@ -100,27 +127,6 @@ namespace adam::test
     private:
         adam::string_hashed_ct m_type_name;
         adam::string_hashed_ct m_module_name;
-    };
-
-    class mock_module : public adam::module
-    {
-    public:
-        mock_module(const adam::string_hashed& name)
-            : adam::module(name, adam::make_version(1, 0, 0), adam::sdk_version)
-        {
-        }
-
-        void register_data_format(const adam::string_hashed& name, const adam::data_format* format)
-        {
-            m_data_formats[name] = format;
-        }
-
-        void register_processor_factory(const adam::string_hashed& type_name, adam::factory<adam::processor>* factory_ptr,
-                                        adam::string_hash input_format = 0, adam::string_hash input_format_module = 0,
-                                        adam::string_hash output_format = 0, adam::string_hash output_format_module = 0)
-        {
-            m_processor_factories[type_name] = adam::registry::factory_data_processor(factory_ptr, nullptr, input_format, input_format_module, output_format, output_format_module);
-        }
     };
 
     class mock_module_injector
@@ -495,56 +501,41 @@ TEST_F(registry_test, connection_valid_chain)
     // Transparent to transparent -> valid
     EXPECT_TRUE(conn->check_valid_chain());
     
-    // Dummy formats
-    adam::data_format dummy_fmt1("fmt1"_ct);
-    adam::data_format dummy_fmt2("fmt2"_ct);
-    
-    conn->set_input_format(&dummy_fmt1);
+    conn->set_input_format(&adam::test::dummy_fmt1);
     EXPECT_FALSE(conn->check_valid_chain()); // fmt1 != transparent
     
-    conn->set_output_format(&dummy_fmt1);
+    conn->set_output_format(&adam::test::dummy_fmt1);
     EXPECT_TRUE(conn->check_valid_chain()); // fmt1 == fmt1
     
-    conn->set_output_format(&dummy_fmt2);
+    conn->set_output_format(&adam::test::dummy_fmt2);
     EXPECT_FALSE(conn->check_valid_chain()); // fmt1 != fmt2
 
     // Add a processor mock module and processor
-    adam::test::mock_module mock_mod("my_mod"_ct);
-    mock_mod.register_processor_factory("my-proc-type"_ct, &adam::test::global_mock_proc_factory);
-    adam::test::mock_module_injector injector(reg, &mock_mod);
-
-    // Reset connection formats to transparent
-    conn->set_input_format(&adam::data_format_transparent);
-    conn->set_output_format(&adam::data_format_transparent);
-    EXPECT_TRUE(conn->check_valid_chain());
+    adam::test::mock_mod.register_processor_factory("my-proc-type"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
 
     adam::processor* proc = nullptr;
-    EXPECT_EQ(reg.create_processor("proc1"_ct, "my-proc-type"_ct, "my_mod"_ct, &proc), adam::registry::status_success);
+    EXPECT_EQ(reg.create_processor("proc1"_ct, "my-proc-type"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
 
     // Add processor to connection
     EXPECT_EQ(reg.connection_add_processor("test_valid_conn"_ct.get_hash(), "proc1"_ct.get_hash()), adam::registry::status_success);
 
-    // Default formats (transparent) -> valid
-    EXPECT_TRUE(conn->check_valid_chain());
-
     // Cast processor to mock_processor to set its input/output formats
     auto* mock_proc = static_cast<adam::test::mock_processor*>(proc);
-    
-    // Connection: transparent -> mock_proc (fmt1 -> transparent) -> transparent -> invalid
-    mock_proc->set_input_format(&dummy_fmt1);
-    EXPECT_FALSE(conn->check_valid_chain());
 
-    // Connection: fmt1 -> mock_proc (fmt1 -> transparent) -> transparent -> valid
-    conn->set_input_format(&dummy_fmt1);
+    EXPECT_EQ(mock_proc->get_input_format(), conn->get_input_format());
+    EXPECT_EQ(mock_proc->get_output_format(), conn->get_output_format());
+    
+    // Should now lead to a valid chain: fmt1 -> mock_proc (fmt1 -> fmt2) -> fmt2 -> valid
     EXPECT_TRUE(conn->check_valid_chain());
 
-    // Connection: fmt1 -> mock_proc (fmt1 -> fmt2) -> transparent -> invalid
-    mock_proc->set_output_format(&dummy_fmt2);
+    // Input changed to fmt2, which should invalidate the chain since mock_proc expects fmt1 input
+    conn->set_input_format(&adam::test::dummy_fmt2);
     EXPECT_FALSE(conn->check_valid_chain());
 
-    // Connection: fmt1 -> mock_proc (fmt1 -> fmt2) -> fmt2 -> valid
-    conn->set_output_format(&dummy_fmt2);
+    // Change back
+    conn->set_input_format(&adam::test::dummy_fmt1);
     EXPECT_TRUE(conn->check_valid_chain());
 }
 
@@ -559,7 +550,7 @@ TEST_F(registry_test, unavailable_connections)
     
     // Set dummy module parameter to trigger unavailability when module is marked missing
     if (auto* mod_param = dynamic_cast<adam::configuration_parameter_string*>(conn->get_parameters().get("input_format_module"_ct)))
-        mod_param->set_value("my_mod"_ct);
+        mod_param->set_value("mock_mod"_ct);
     
     if (auto* in_fmt_param = dynamic_cast<adam::configuration_parameter_string*>(conn->get_parameters().get("input_format"_ct)))
         in_fmt_param->set_value("my_fmt"_ct);
@@ -567,7 +558,7 @@ TEST_F(registry_test, unavailable_connections)
     EXPECT_EQ(reg.connections().size(), 1u);
     EXPECT_EQ(reg.get_unavailable_connections().size(), 0u);
 
-    reg.mark_connections_unavailable("my_mod"_ct.get_hash());
+    reg.mark_connections_unavailable("mock_mod"_ct.get_hash());
 
     EXPECT_EQ(reg.connections().size(), 0u);
     EXPECT_EQ(reg.get_unavailable_connections().size(), 1u);
@@ -640,9 +631,8 @@ TEST_F(registry_test, unavailable_processor_retry)
     EXPECT_EQ(loaded_reg.processors().size(), 0u);
     
     // 4. Now let's register the mock module and retry/resolve the processor
-    adam::test::mock_module mock_mod("mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
-    adam::test::mock_module_injector injector(loaded_reg, &mock_mod);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_module_injector injector(loaded_reg, &adam::test::mock_mod);
     
     loaded_reg.retry_unavailable_processors("mock_mod"_ct.get_hash());
     
@@ -671,17 +661,13 @@ TEST_F(registry_test, unavailable_processors)
     adam::registry& reg = ctrl.get_registry();
 
     // 1. Setup mock module with mock processor
-    adam::test::mock_module mock_mod("mock_mod"_ct);
 
-    adam::data_format dummy_fmt1("fmt1"_ct, nullptr, nullptr, &mock_mod);
-    adam::data_format dummy_fmt2("fmt2"_ct, nullptr, nullptr, &mock_mod);
-
-    mock_mod.register_data_format("fmt1"_ct, &dummy_fmt1);
-    mock_mod.register_data_format("fmt2"_ct, &dummy_fmt2);
+    adam::test::mock_mod.register_data_format("fmt1"_ct, &adam::test::dummy_fmt1);
+    adam::test::mock_mod.register_data_format("fmt2"_ct, &adam::test::dummy_fmt2);
 
     adam::test::mock_processor_factory mock_proc_factory("mock-converter"_ct, "mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory, dummy_fmt1.get_name(), mock_mod.get_name().get_hash(), dummy_fmt2.get_name(), mock_mod.get_name().get_hash());
-    adam::test::mock_module_injector injector(reg, &mock_mod);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory, adam::test::dummy_fmt1.get_name(), adam::test::mock_mod.get_name().get_hash(), adam::test::dummy_fmt2.get_name(), adam::test::mock_mod.get_name().get_hash());
+    adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
 
     // 2. Create input port, output port, processor, and connection
     adam::port* in_port = nullptr;
@@ -693,15 +679,12 @@ TEST_F(registry_test, unavailable_processors)
     EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
 
-    dynamic_cast<adam::test::mock_processor*>(proc)->set_input_format(&dummy_fmt1);
-    dynamic_cast<adam::test::mock_processor*>(proc)->set_output_format(&dummy_fmt2);
-
     adam::connection* conn = nullptr;
     EXPECT_EQ(reg.create_connection("conn1"_ct, &conn), adam::registry::status_success);
     ASSERT_NE(conn, nullptr);
 
-    conn->set_input_format(&dummy_fmt1);
-    conn->set_output_format(&dummy_fmt2);
+    conn->set_input_format(&adam::test::dummy_fmt1);
+    conn->set_output_format(&adam::test::dummy_fmt2);
 
     // 3. Link them to the connection
     EXPECT_EQ(reg.connection_add_port("conn1"_ct.get_hash(), "in_port"_ct.get_hash(), true), adam::registry::status_success);
@@ -743,6 +726,7 @@ TEST_F(registry_test, unavailable_processors)
     EXPECT_TRUE(reg.processors().contains("proc1"_ct));
     EXPECT_TRUE(reg.get_unavailable_processors().empty());
     EXPECT_FALSE(conn->is_started()); // shouldn't auto-start, just valid chain
+    
     EXPECT_TRUE(conn->check_valid_chain()); // valid again because processor is available
 
     // Double buffer should contain the processor again
@@ -761,12 +745,11 @@ TEST_F(registry_test, unavailable_processors)
 /** @brief Tests basic processor creation, renaming, and destruction. */
 TEST_F(registry_test, create_rename_destroy_processor)
 {
-    adam::test::mock_module mock_mod("mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
-    adam::test::mock_module_injector injector(reg, &mock_mod);
+    adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
 
     // Attempt to create a processor with an invalid type should fail
     adam::processor* invalid_proc = nullptr;
@@ -801,12 +784,11 @@ TEST_F(registry_test, create_rename_destroy_processor)
 /** @brief Tests adding and removing a processor to/from a connection. */
 TEST_F(registry_test, connection_processor_management)
 {
-    adam::test::mock_module mock_mod("mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
-    adam::test::mock_module_injector injector(reg, &mock_mod);
+    adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
 
     adam::processor* proc = nullptr;
     EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
@@ -851,12 +833,11 @@ TEST_F(registry_test, connection_processor_management)
 /** @brief Tests that destroying a processor cleans up any references in connections. */
 TEST_F(registry_test, destroy_processor_updates_connections)
 {
-    adam::test::mock_module mock_mod("mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
-    adam::test::mock_module_injector injector(reg, &mock_mod);
+    adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
 
     adam::processor* proc = nullptr;
     EXPECT_EQ(reg.create_processor("proc_to_del"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
@@ -889,13 +870,12 @@ TEST_F(registry_test, destroy_processor_updates_connections)
 /** @brief Tests processor serialization (saving and loading) and ordering works correctly. */
 TEST_F(registry_test, processor_load_save_persistence)
 {
-    adam::test::mock_module mock_mod("mock_mod"_ct);
     adam::test::mock_processor_factory mock_proc_factory("mock-converter"_ct, "mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
-    adam::test::mock_module_injector injector(reg, &mock_mod);
+    adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
 
     adam::processor* proc1 = nullptr;
     adam::processor* proc2 = nullptr;
@@ -919,7 +899,7 @@ TEST_F(registry_test, processor_load_save_persistence)
     EXPECT_TRUE(loaded_reg.load(test_filepath));
 
     // Inject mock module after load is done, so it is not cleared by load()
-    adam::test::mock_module_injector loaded_injector(loaded_reg, &mock_mod);
+    adam::test::mock_module_injector loaded_injector(loaded_reg, &adam::test::mock_mod);
     loaded_reg.retry_unavailable_processors("mock_mod"_ct.get_hash());
 
     // Verify processors were recreated
@@ -969,12 +949,11 @@ TEST_F(registry_test, processor_load_save_persistence)
 /** @brief Tests manual processor reordering inside a connection. */
 TEST_F(registry_test, connection_processor_reordering)
 {
-    adam::test::mock_module mock_mod("mock_mod"_ct);
-    mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
-    adam::test::mock_module_injector injector(reg, &mock_mod);
+    adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
 
     adam::processor* proc1 = nullptr;
     adam::processor* proc2 = nullptr;

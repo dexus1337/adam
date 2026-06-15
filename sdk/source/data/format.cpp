@@ -6,6 +6,4 @@ namespace adam
         : m_str_name(name), m_parser(parser), m_encoder(encoder), m_module(orig_module) {}
 
     data_format::~data_format() {}
-
-    data_format data_format_transparent = data_format( "transparent" );
 }

@@ -26,14 +26,7 @@ namespace adam::modules::serial
 
         static ADAM_CONSTEXPR uint32_t version = adam::make_version(1, 0, 0);
         
-        /**
-         * @brief Constructs a new module object.
-         */
         module_serial();
-
-        /**
-         * @brief Destroys the module object and cleans up resources.
-         */
         ~module_serial();
 
     };

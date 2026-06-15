@@ -8,7 +8,7 @@
 #include <module/module.hpp>
 #include <data/connection.hpp>
 #include <data/port.hpp>
-#include <data/port-types/port-internal.hpp>
+#include <module/internals/essential/module-essential.hpp>
 #include <memory/buffer/buffer-manager.hpp>
 #include <algorithm>
 #include <commander/registry-view.hpp>

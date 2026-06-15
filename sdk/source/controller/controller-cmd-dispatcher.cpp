@@ -271,10 +271,10 @@ namespace adam
                         prc->get_state_buffer()->get_handle()
                     );
                     
-                    auto* in_fmt = prc->get_input_data_format();
+                    auto* in_fmt = prc->get_input_format();
                     auto* in_mod = in_fmt->get_origin_module();
 
-                    auto* out_fmt = prc->get_output_data_format();
+                    auto* out_fmt = prc->get_output_format();
                     auto* out_mod = out_fmt->get_origin_module();
 
                     proc_info->input_datatype            = in_fmt->get_name().get_hash();
@@ -1699,10 +1699,10 @@ namespace adam
                 new_processor->get_state_buffer()->get_handle()
             );
 
-            auto* in_fmt = new_processor->get_input_data_format();
+            auto* in_fmt = new_processor->get_input_format();
             auto* in_mod = in_fmt ? in_fmt->get_origin_module() : nullptr;
 
-            auto* out_fmt = new_processor->get_output_data_format();
+            auto* out_fmt = new_processor->get_output_format();
             auto* out_mod = out_fmt ? out_fmt->get_origin_module() : nullptr;
 
             evt_data->input_datatype            = in_fmt ? in_fmt->get_name().get_hash() : 0ull;

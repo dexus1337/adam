@@ -1,9 +1,7 @@
-#include "data/processors/filters/filter-frame-aligner.hpp"
+#include "module/internals/essential/data/filters/filter-frame-aligner.hpp"
 
-
-#include "module/internals/module-essential.hpp"
+#include "module/internals/essential/module-essential.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
-
 
 namespace adam 
 {
@@ -30,14 +28,14 @@ namespace adam
     filter_frame_aligner::filter_frame_aligner(const string_hashed& item_name) 
      :  filter(item_name)
     {
-        get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
+        get_parameter<configuration_parameter_string>("type"_ct)->set_value(type_name());
         get_parameter<configuration_parameter_string>("type_origin_module"_ct)->set_value(internal_module_essential.get_name());
 
         add_parameters(get_user_parameters());
 
-        auto* user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+        auto* user_params = get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
 
-        m_byte_offset = user_params->get<adam::configuration_parameter_integer>("byte_offset"_ct);
+        m_byte_offset = user_params->get<configuration_parameter_integer>("byte_offset"_ct);
         
         m_format_input  = &data_format_transparent;
         m_format_output = &data_format_transparent;

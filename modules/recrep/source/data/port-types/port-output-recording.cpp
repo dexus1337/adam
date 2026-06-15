@@ -10,6 +10,7 @@
 #include "resources/language-strings.hpp"
 #include "data/formats/pcap.hpp"
 #include "data/formats/rff.hpp"
+#include "module/module-recrep.hpp"
 
 #include <filesystem>
 #include <format>
@@ -88,6 +89,7 @@ namespace adam::modules::recrep
      :  port_output(item_name)
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
+        get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
 
         add_parameters(port_output_recording::get_user_parameters());
 

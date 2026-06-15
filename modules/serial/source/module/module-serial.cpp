@@ -1,4 +1,4 @@
-#include "module/module.hpp"
+#include "module/module-serial.hpp"
 
 #include "data/port-types/port-serial.hpp"
 
