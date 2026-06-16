@@ -49,6 +49,7 @@ namespace adam::modules::asterix
     public:
         uint8_t             cat_id;                     /**< The category ID (e.g., 48, 62). */
         uint8_t             item_count;                 /**< Highest registered FRN; determines fixed FSPEC octet count for explicit items. */
+        uint32_t            total_item_count;           /**< Total count of all items including sub-items, for pre-allocating internal buffers. */
         const field_spec*   items_by_frn[256];          /**< O(1) array mapping FRN to field spec. */
         uap_expansion*      custom_expansions[256];     /**< O(1) array mapping FRN to custom expansion metadata. */
 
@@ -70,6 +71,25 @@ namespace adam::modules::asterix
                 if (spec_array[i].frn > item_count)
                     item_count = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
             }
+        }
+
+        /**
+         * @brief Compute the total number of items including sub-items.
+         * @return The total item count.
+         */
+        uint32_t compute_total_items() const
+        {
+            uint32_t count = item_count; // All my items
+            
+            for (size_t i = 0; i <= item_count; ++i)
+            {
+                if (items_by_frn[i] && items_by_frn[i]->sub_uap)
+                {
+                    count += items_by_frn[i]->sub_uap->compute_total_items();
+                }
+            }
+
+            return count;
         }
 
         /**
@@ -119,7 +139,7 @@ namespace adam::modules::asterix
          * @brief Register a UAP into the global pool.
          * @param uap Pointer to the UAP definition.
          */
-        void register_uap(const uap* uap);
+        void register_uap(uap* uap);
 
         /**
          * @brief Retrieve a UAP by its Category ID in O(1) time.

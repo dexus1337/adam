@@ -20,10 +20,11 @@ namespace adam::modules::asterix
         register_uap(&get_cat062_uap());
     }
 
-    void uap_pool::register_uap(const uap* uap)
+    void uap_pool::register_uap(uap* uap)
     {
         if (uap)
         {
+            uap->total_item_count = uap->compute_total_items(); // Pre-compute total item count for buffer sizing
             registered_uaps[uap->cat_id] = uap;
         }
     }
