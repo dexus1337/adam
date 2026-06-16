@@ -24,7 +24,7 @@ namespace adam::modules::asterix
     {
         if (uap)
         {
-            uap->total_item_count = uap->compute_total_items(); // Pre-compute total item count for buffer sizing
+            uap->item_count = uap->compute_total_items(); // Pre-compute total item count for buffer sizing
             registered_uaps[uap->cat_id] = uap;
         }
     }

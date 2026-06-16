@@ -48,8 +48,8 @@ namespace adam::modules::asterix
     {
     public:
         uint8_t             cat_id;                     /**< The category ID (e.g., 48, 62). */
-        uint8_t             item_count;                 /**< Highest registered FRN; determines fixed FSPEC octet count for explicit items. */
-        uint32_t            total_item_count;           /**< Total count of all items including sub-items, for pre-allocating internal buffers. */
+        uint8_t             highest_frn;                /**< Highest registered FRN; determines fixed FSPEC octet count for explicit items. */
+        uint32_t            item_count;                 /**< Total count of all items including sub-items, for pre-allocating internal buffers. */
         const field_spec*   items_by_frn[256];          /**< O(1) array mapping FRN to field spec. */
         uap_expansion*      custom_expansions[256];     /**< O(1) array mapping FRN to custom expansion metadata. */
 
@@ -60,7 +60,7 @@ namespace adam::modules::asterix
          * @param spec_count Number of elements in spec_array.
          */
         uap(uint8_t cat, const field_spec* spec_array, size_t spec_count)
-            : cat_id(cat), item_count(0)
+            : cat_id(cat), highest_frn(0)
         {
             std::memset(items_by_frn, 0, sizeof(items_by_frn));
             std::memset(custom_expansions, 0, sizeof(custom_expansions));
@@ -68,8 +68,8 @@ namespace adam::modules::asterix
             for (size_t i = 0; i < spec_count; ++i)
             {
                 items_by_frn[spec_array[i].frn] = &spec_array[i];
-                if (spec_array[i].frn > item_count)
-                    item_count = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
+                if (spec_array[i].frn > highest_frn)
+                    highest_frn = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
             }
         }
 
@@ -79,9 +79,9 @@ namespace adam::modules::asterix
          */
         uint32_t compute_total_items() const
         {
-            uint32_t count = item_count; // All my items
+            uint32_t count = highest_frn; // All my items
             
-            for (size_t i = 0; i <= item_count; ++i)
+            for (size_t i = 0; i <= highest_frn; ++i)
             {
                 if (items_by_frn[i] && items_by_frn[i]->sub_uap)
                 {

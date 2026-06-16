@@ -46,7 +46,7 @@ namespace adam::modules::asterix
 
     static inline bool parse_explicit_fspec(const uap* sub_uap, const uint8_t* raw_data, uint32_t& raw_offset, uint32_t raw_length, uint8_t* active_frns, uint16_t& active_count)
     {
-        uint8_t  highest_frn   = sub_uap->item_count;              // Highest registered FRN in this sub-UAP
+        uint8_t  highest_frn   = sub_uap->highest_frn;             // Highest registered FRN in this sub-UAP
         uint8_t  fspec_octets  = (highest_frn + 7) / 8;            // Bytes needed to represent all FRN bits
         if (raw_offset + fspec_octets > raw_length) return false;
 
