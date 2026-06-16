@@ -1,8 +1,9 @@
 #include "data/asterix-uap.hpp"
-#include "data/uap/cat048.hpp"
+#include "data/categories/48/cat048_uap.hpp"
+#include "data/categories/62/cat062_uap.hpp"
 #include <cstring>
 
-namespace adam::modules::asterix::data
+namespace adam::modules::asterix
 {
     uap_pool& uap_pool::get_instance()
     {
@@ -15,10 +16,11 @@ namespace adam::modules::asterix::data
         std::memset(registered_uaps, 0, sizeof(registered_uaps));
 
         // Self-initialize with standard supported categories
-        register_uap(&uap::get_cat048_uap());
+        register_uap(&get_cat048_uap());
+        register_uap(&get_cat062_uap());
     }
 
-    void uap_pool::register_uap(const asterix_uap* uap)
+    void uap_pool::register_uap(const uap* uap)
     {
         if (uap)
         {
@@ -26,7 +28,7 @@ namespace adam::modules::asterix::data
         }
     }
 
-    const asterix_uap* uap_pool::get_uap(uint8_t cat_id) const
+    const uap* uap_pool::get_uap(uint8_t cat_id) const
     {
         return registered_uaps[cat_id];
     }

@@ -7,3 +7,4 @@
 /.qtcreator/*
 .clangd/*
 adam-config.bin
+*.pdf

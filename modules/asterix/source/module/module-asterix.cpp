@@ -9,7 +9,7 @@ namespace adam::modules::asterix
 {
     static module_asterix global_instance = adam::modules::asterix::module_asterix();
 
-    static default_factory<processor, asterix_to_text_converter> global_processor_factory = default_factory<processor, asterix_to_text_converter>();
+    static default_factory<processor, to_text_converter> global_processor_factory = default_factory<processor, to_text_converter>();
 
     module_asterix::module_asterix() : module("asterix", version)
     {
@@ -25,8 +25,8 @@ namespace adam::modules::asterix
         // Export the factory for the controller to dynamically create this port type!
         m_processor_factories.emplace
         (
-            asterix_to_text_converter::type_name(), 
-            registry::factory_data_processor(&global_processor_factory, nullptr /*&asterix_to_text_converter::get_user_parameters()*/, data_format_asterix.get_name(), this->get_name(), 0, 0)
+            to_text_converter::type_name(), 
+            registry::factory_data_processor(&global_processor_factory, nullptr /*&to_text_converter::get_user_parameters()*/, data_format_asterix.get_name(), this->get_name(), 0, 0)
         );
 
     }

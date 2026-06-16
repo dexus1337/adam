@@ -10,7 +10,7 @@
 
 namespace adam::modules::asterix
 {
-    asterix_to_text_converter::asterix_to_text_converter(const string_hashed& name) : converter(name) 
+    to_text_converter::to_text_converter(const string_hashed& name) : converter(name) 
     {
         get_parameter<configuration_parameter_string>("type"_ct)->set_value(type_name());
         get_parameter<configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
@@ -19,7 +19,7 @@ namespace adam::modules::asterix
         m_format_output = &data_format_transparent;
     }
 
-    bool asterix_to_text_converter::handle_data(buffer*& buf) 
+    bool to_text_converter::handle_data(buffer*& buf) 
     {
         static const char* test_text_str = "we converted to text";
         

@@ -11,7 +11,7 @@
 #include "api/api-asterix.hpp"
 #include <adam-sdk.hpp>
 
-namespace adam::modules::asterix::data
+namespace adam::modules::asterix
 {
     /**
      * @class asterix_parser

@@ -19,5 +19,5 @@
 
 namespace adam::modules::asterix
 {
-    static const data_format data_format_asterix = data_format("asterix", new data::asterix_parser(), nullptr, get_adam_module());
+    static const data_format data_format_asterix = data_format("asterix", new asterix_parser(), nullptr, get_adam_module());
 }

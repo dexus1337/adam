@@ -17,15 +17,15 @@
 
 namespace adam::modules::asterix
 {
-    class ADAM_ASTERIX_API asterix_to_text_converter : public adam::converter
+    class ADAM_ASTERIX_API to_text_converter : public adam::converter
     {
     public:
 
         static ADAM_CONSTEXPR string_hashed_ct type_name() { return "asterix-to-text-converter"_ct; }
 
-        asterix_to_text_converter(const string_hashed& name);
+        to_text_converter(const string_hashed& name);
 
-        ~asterix_to_text_converter() = default;
+        ~to_text_converter() = default;
 
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
         

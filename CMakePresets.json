@@ -1,4 +1,4 @@
-﻿{
+{
     "version": 3,
     "configurePresets": [
         {
@@ -69,14 +69,20 @@
             "displayName": "windows-x64-release",
             "inherits": "windows-base",
             "architecture": { "value": "x64", "strategy": "external" },
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "windows-x64-rwdi",
             "displayName": "windows-x64-rwdi",
             "inherits": "windows-base",
             "architecture": { "value": "x64", "strategy": "external" },
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "windows-mingw-debug",
@@ -88,13 +94,19 @@
             "name": "windows-mingw-release",
             "displayName": "windows-mingw-release",
             "inherits": "windows-mingw-base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "windows-mingw-rwdi",
             "displayName": "windows-mingw-rwdi",
             "inherits": "windows-mingw-base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "windows-arm64-debug",
@@ -108,14 +120,20 @@
             "displayName": "windows-arm64-release",
             "inherits": "windows-base",
             "architecture": { "value": "arm64", "strategy": "external" },
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "windows-arm64-rwdi",
             "displayName": "windows-arm64-rwdi",
             "inherits": "windows-base",
             "architecture": { "value": "arm64", "strategy": "external" },
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "linux-x64-debug",
@@ -127,13 +145,19 @@
             "name": "linux-x64-release",
             "displayName": "linux-x64-release",
             "inherits": "linux-base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "linux-x64-rwdi",
             "displayName": "linux-x64-rwdi",
             "inherits": "linux-base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
+            }
         },
         {
             "name": "linux-arm64-debug",
@@ -150,7 +174,8 @@
             "inherits": "linux-base",
             "cacheVariables": { 
                 "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -fPIC -march=armv8-a -O3" 
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -fPIC -march=armv8-a -O3",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
             }
         },
         {
@@ -159,7 +184,8 @@
             "inherits": "linux-base",
             "cacheVariables": { 
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -fPIC -march=armv8-a -O3" 
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -fPIC -march=armv8-a -O3",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
             }
         }
     ],
