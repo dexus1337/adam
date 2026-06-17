@@ -80,10 +80,10 @@ namespace adam::os
         #endif
     }
 
-    ADAM_SDK_API float get_cpu_usage();
-    ADAM_SDK_API void get_ram_usage_mb(float& used_mb, float& available_mb);
+    extern ADAM_SDK_API float   get_cpu_usage();
+    extern ADAM_SDK_API void    get_ram_usage_mb(float& used_mb, float& available_mb);
 
-    ADAM_SDK_API void* load_library(const char* path);
-    ADAM_SDK_API bool unload_library(void* handle);
-    ADAM_SDK_API void* get_library_symbol(void* handle, const char* symbol);
+    extern ADAM_SDK_API void*   load_library(const char* path);
+    extern ADAM_SDK_API bool    unload_library(void* handle);
+    extern ADAM_SDK_API void*   get_library_symbol(void* handle, const char* symbol);
 }

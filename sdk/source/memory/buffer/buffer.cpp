@@ -1,6 +1,5 @@
 #include "memory/buffer/buffer.hpp"
 
-#include "memory/buffer/buffer-manager.hpp"
 #include "data/format.hpp"
 #include "module/internals/essential/module-essential.hpp"
 
@@ -55,12 +54,4 @@ namespace adam
         return true;
     }
     
-    void buffer::release() 
-    {
-        if (m_header && m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
-        {
-            buffer_manager::get().return_buffer(this);
-        }
-    }
-
 }

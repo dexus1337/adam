@@ -41,14 +41,17 @@ namespace adam
         /** @brief Const Accessor for metadata inside the header from inside the shared memory */
         const queue_metadata_type* get_metadata() const { return get_header() ? &get_header()->metadata : nullptr; }
 
+        /** @brief Gets the memorys active flag. Can be as loop condition for threads .*/
+        inline bool is_active() const { return m_shared_memory.is_active(); };
+
+        /** @brief Unsets the active flag. Can be used to stop waiting threads. */
+        inline void disable() { m_shared_memory.disable(); }
+
         /** @brief Checks wether the queue is full. */
         bool is_full() const;
 
         /** @brief Checks wether the queue is empty, aka, anything to pull. */
         bool is_empty() const;
-
-        /** @brief Gets the memorys active flag. Can be as loop condition for threads .*/
-        bool is_active() const { return m_shared_memory.is_active(); };
 
         /** @brief Sets the name of the queue */
         void set_name(const string_hashed& new_name) { m_shared_memory.set_name(new_name); }
@@ -58,9 +61,6 @@ namespace adam
 
         /** @brief Opens an existing queue_type queue. */
         bool open();
-
-        /** @brief Unsets the active flag. Can be used to stop waiting threads. */
-        void disable() { m_shared_memory.disable(); }
 
         /** @brief Destroys the queue and free all resources. */
         bool destroy();

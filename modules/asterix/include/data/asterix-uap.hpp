@@ -25,8 +25,8 @@ namespace adam::modules::asterix
     {
         uint8_t           frn;                  /**< Field Reference Number (e.g. 10 for I048/010) */
         item_type         type;                 /**< The item type (fixed, variable, etc.) */
-        uint8_t           extent_size;          /**< Length of the metadata indicator (e.g. 1 or 2 octet REP) or variable extent size. */
-        uint16_t          primary_header_size;  /**< Fixed length, or primary extent length for variable items */
+        uint8_t           header_size;          /**< Length of the metadata/header indicator. */
+        uint16_t          data_size;            /**< Length of the Actual (sometimes reoccuring) data */
         const char*       name;                 /**< The string name of the item. */
         const class uap*  sub_uap = nullptr;    /**< Optional sub-UAP for nested compound items. */
     };

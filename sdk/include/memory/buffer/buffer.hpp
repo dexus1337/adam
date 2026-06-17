@@ -17,6 +17,7 @@
 #include <cstring>
 #include <chrono>
 
+#include "memory/buffer/buffer-manager.hpp"
 #include "types/string-hashed.hpp"
 #include "data/format.hpp"
 #include "os/os.hpp"
@@ -69,6 +70,8 @@ namespace adam
         inline const T* get_begin_as()                 const { return reinterpret_cast<const T*>(get_data_as<uint8_t>() + m_header->start_pos); }
         template<typename T>
         inline const T* get_end_as()                   const { return reinterpret_cast<const T*>(get_data_as<uint8_t>() + m_header->start_pos + m_header->size); }
+        template<typename T>
+        inline const T* get_at(uint32_t off)           const { return reinterpret_cast<const T*>(get_data_as<uint8_t>() + m_header->start_pos + off); }
 
         inline const void* get_data()                  const { return m_data; }
         inline const void* get_begin()                 const { return get_begin_as<uint8_t>(); }
@@ -88,6 +91,8 @@ namespace adam
         inline T* end_as()                             { return reinterpret_cast<T*>(data_as<uint8_t>() + m_header->start_pos + m_header->size); }
         template<typename T>
         inline T* data_as()                            { return reinterpret_cast<T*>(m_data); }
+        template<typename T>
+        inline T* at(uint32_t off)                     { return reinterpret_cast<T*>(data_as<uint8_t>() + m_header->start_pos + off); }
         
         inline void* data()                            { return data_as<void>(); }
         inline void* begin()                           { return begin_as<uint8_t>(); }
@@ -96,10 +101,11 @@ namespace adam
         inline void set_start_pos(uint32_t pos)        { m_header->start_pos = pos; }
         inline void move_start_pos(uint32_t offset)    { m_header->start_pos += offset; m_header->size -= offset; }
         inline void add_ref()                          { m_header->ref_count.fetch_add(1, std::memory_order_relaxed); }
+        inline void release()                          { if (m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1) { buffer_manager::get().return_buffer(this); }};
         inline void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { m_header->timestamp = ts; }
-        inline void set_referenced_buffer(buffer* buf);
-        inline void set_data_format(const data_format* format);
-        inline void release();
+
+        void set_referenced_buffer(buffer* buf);
+        void set_data_format(const data_format* format);
 
         inline bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
 

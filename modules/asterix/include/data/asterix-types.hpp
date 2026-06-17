@@ -16,8 +16,8 @@
 
 namespace adam::modules::asterix
 {
-
-    ADAM_CONSTEXPR uint32_t minimum_block_length = 5;
+    ADAM_CONSTEXPR uint32_t minimum_block_length    = 5;
+    ADAM_CONSTEXPR uint32_t highest_frn             = 256;
 
     class uap;
 
@@ -122,7 +122,7 @@ namespace adam::modules::asterix
         };
 
         inline iterator begin() const { return iterator(this); }
-        inline iterator end() const { return iterator(nullptr); }
+        inline iterator end()   const { return iterator(nullptr); }
     };
 
     #pragma pack(pop)

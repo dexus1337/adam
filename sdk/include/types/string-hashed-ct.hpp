@@ -39,30 +39,30 @@ namespace adam
         ADAM_CONSTEVAL string_hashed_ct_template(const char_type* str, size_t len) 
             : m_text(str), m_length(len), m_hash(rapidhash_ct(str, len * sizeof(char_type))) { }
 
-        ADAM_CONSTEXPR hash_datatype get_hash()  const { return m_hash; }
+        inline ADAM_CONSTEXPR hash_datatype get_hash()  const { return m_hash; }
         
         /** @brief Implicit conversion operator to the underlying hash type, allowing direct usage in switch statements. */
-        ADAM_CONSTEXPR operator hash_datatype()  const { return m_hash; }
-        ADAM_CONSTEXPR size_t get_length()       const { return m_length; }
-        ADAM_CONSTEXPR const char_type* c_str()  const { return m_text; }
+        inline ADAM_CONSTEXPR operator hash_datatype()  const { return m_hash; }
+        inline ADAM_CONSTEXPR size_t get_length()       const { return m_length; }
+        inline ADAM_CONSTEXPR const char_type* c_str()  const { return m_text; }
 
         /** @brief Compares two string_hashed_ct_template objects for equality based on their hash values. */
-        ADAM_CONSTEXPR bool operator==(const string_hashed_ct_template& other) const { return m_hash == other.m_hash; }
+        inline ADAM_CONSTEXPR bool operator==(const string_hashed_ct_template& other) const { return m_hash == other.m_hash; }
 
         /** @brief Compares a string_hashed_ct_template object with a raw hash value for equality. */
-        ADAM_CONSTEXPR bool operator==(hash_datatype other) const { return m_hash == other; }
+        inline ADAM_CONSTEXPR bool operator==(hash_datatype other) const { return m_hash == other; }
 
         /** @brief Compares two string_hashed_ct_template objects for inequality based on their hash values. */
-        ADAM_CONSTEXPR bool operator!=(const string_hashed_ct_template& other) const { return m_hash != other.m_hash; }
+        inline ADAM_CONSTEXPR bool operator!=(const string_hashed_ct_template& other) const { return m_hash != other.m_hash; }
 
         /** @brief Compares a string_hashed_ct_template object with a raw hash value for inequality. */
-        ADAM_CONSTEXPR bool operator!=(hash_datatype other) const { return m_hash != other; }
+        inline ADAM_CONSTEXPR bool operator!=(hash_datatype other) const { return m_hash != other; }
 
         /** @brief Compares two string_hashed_ct_template objects for ordering based on their hash values. Used for std::set and std::map. */
-        ADAM_CONSTEXPR bool operator<(const string_hashed_ct_template& other) const { return m_hash < other.m_hash; }
+        inline ADAM_CONSTEXPR bool operator<(const string_hashed_ct_template& other) const { return m_hash < other.m_hash; }
 
         /** @brief Compares a string_hashed_ct_template object with a raw hash value for ordering. */
-        ADAM_CONSTEXPR bool operator<(hash_datatype other) const { return m_hash < other; }
+        inline ADAM_CONSTEXPR bool operator<(hash_datatype other) const { return m_hash < other; }
 
         /** @brief Assigns the value of another string_hashed_ct_template object to this one. */
         string_hashed_ct_template& operator=(const string_hashed_ct_template&) = delete;
@@ -127,13 +127,13 @@ namespace std
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed_ct.
          * This is O(1) and involves zero string processing.
          */
-        size_t operator() (const adam::string_hashed_ct& hs) const noexcept 
+        inline size_t operator()(const adam::string_hashed_ct& hs) const noexcept 
         {
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
 
-        size_t operator() (uint64_t hash_val) const noexcept 
+        inline size_t operator()(uint64_t hash_val) const noexcept 
         {
             return static_cast<size_t>(hash_val);
         }
@@ -144,9 +144,9 @@ namespace std
     {
         using is_transparent = void;
 
-        bool operator()(const adam::string_hashed_ct& lhs, const adam::string_hashed_ct& rhs) const noexcept { return lhs == rhs; }
-        bool operator()(const adam::string_hashed_ct& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
-        bool operator()(uint64_t lhs, const adam::string_hashed_ct& rhs) const noexcept { return lhs == rhs.get_hash(); }
+        inline bool operator()(const adam::string_hashed_ct& lhs, const adam::string_hashed_ct& rhs) const noexcept { return lhs == rhs; }
+        inline bool operator()(const adam::string_hashed_ct& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        inline bool operator()(uint64_t lhs, const adam::string_hashed_ct& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
 
     template<>
@@ -158,13 +158,13 @@ namespace std
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed_ct.
          * This is O(1) and involves zero string processing.
          */
-        size_t operator() (const adam::wstring_hashed_ct& hs) const noexcept 
+        inline size_t operator()(const adam::wstring_hashed_ct& hs) const noexcept 
         {
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
 
-        size_t operator() (uint64_t hash_val) const noexcept 
+        inline size_t operator()(uint64_t hash_val) const noexcept 
         {
             return static_cast<size_t>(hash_val);
         }
@@ -175,9 +175,9 @@ namespace std
     {
         using is_transparent = void;
 
-        bool operator()(const adam::wstring_hashed_ct& lhs, const adam::wstring_hashed_ct& rhs) const noexcept { return lhs == rhs; }
-        bool operator()(const adam::wstring_hashed_ct& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
-        bool operator()(uint64_t lhs, const adam::wstring_hashed_ct& rhs) const noexcept { return lhs == rhs.get_hash(); }
+        inline bool operator()(const adam::wstring_hashed_ct& lhs, const adam::wstring_hashed_ct& rhs) const noexcept { return lhs == rhs; }
+        inline bool operator()(const adam::wstring_hashed_ct& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        inline bool operator()(uint64_t lhs, const adam::wstring_hashed_ct& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
     
     #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
@@ -190,13 +190,13 @@ namespace std
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed_ct_utf8.
          * This is O(1) and involves zero string processing.
          */
-        size_t operator() (const adam::string_hashed_ct_utf8& hs) const noexcept 
+        inline size_t operator()(const adam::string_hashed_ct_utf8& hs) const noexcept 
         {
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
 
-        size_t operator() (uint64_t hash_val) const noexcept 
+        inline size_t operator()(uint64_t hash_val) const noexcept 
         {
             return static_cast<size_t>(hash_val);
         }
@@ -207,9 +207,9 @@ namespace std
     {
         using is_transparent = void;
 
-        bool operator()(const adam::string_hashed_ct_utf8& lhs, const adam::string_hashed_ct_utf8& rhs) const noexcept { return lhs == rhs; }
-        bool operator()(const adam::string_hashed_ct_utf8& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
-        bool operator()(uint64_t lhs, const adam::string_hashed_ct_utf8& rhs) const noexcept { return lhs == rhs.get_hash(); }
+        inline bool operator()(const adam::string_hashed_ct_utf8& lhs, const adam::string_hashed_ct_utf8& rhs) const noexcept { return lhs == rhs; }
+        inline bool operator()(const adam::string_hashed_ct_utf8& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        inline bool operator()(uint64_t lhs, const adam::string_hashed_ct_utf8& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
     #endif
 
@@ -222,13 +222,13 @@ namespace std
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed_ct_utf16.
          * This is O(1) and involves zero string processing.
          */
-        size_t operator() (const adam::string_hashed_ct_utf16& hs) const noexcept 
+        inline size_t operator()(const adam::string_hashed_ct_utf16& hs) const noexcept 
         {
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
 
-        size_t operator() (uint64_t hash_val) const noexcept 
+        inline size_t operator()(uint64_t hash_val) const noexcept 
         {
             return static_cast<size_t>(hash_val);
         }
@@ -239,9 +239,9 @@ namespace std
     {
         using is_transparent = void;
 
-        bool operator()(const adam::string_hashed_ct_utf16& lhs, const adam::string_hashed_ct_utf16& rhs) const noexcept { return lhs == rhs; }
-        bool operator()(const adam::string_hashed_ct_utf16& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
-        bool operator()(uint64_t lhs, const adam::string_hashed_ct_utf16& rhs) const noexcept { return lhs == rhs.get_hash(); }
+        inline bool operator()(const adam::string_hashed_ct_utf16& lhs, const adam::string_hashed_ct_utf16& rhs) const noexcept { return lhs == rhs; }
+        inline bool operator()(const adam::string_hashed_ct_utf16& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        inline bool operator()(uint64_t lhs, const adam::string_hashed_ct_utf16& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
 
     template<>
@@ -253,13 +253,13 @@ namespace std
          * @brief Returns the pre-calculated hash stored in the adam::string_hashed_ct_utf32.
          * This is O(1) and involves zero string processing.
          */
-        size_t operator() (const adam::string_hashed_ct_utf32& hs) const noexcept 
+        inline size_t operator()(const adam::string_hashed_ct_utf32& hs) const noexcept 
         {
             // We cast to size_t to match the std::hash interface
             return static_cast<size_t>(hs.get_hash());
         }
 
-        size_t operator() (uint64_t hash_val) const noexcept 
+        inline size_t operator()(uint64_t hash_val) const noexcept 
         {
             return static_cast<size_t>(hash_val);
         }
@@ -270,8 +270,8 @@ namespace std
     {
         using is_transparent = void;
 
-        bool operator()(const adam::string_hashed_ct_utf32& lhs, const adam::string_hashed_ct_utf32& rhs) const noexcept { return lhs == rhs; }
-        bool operator()(const adam::string_hashed_ct_utf32& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
-        bool operator()(uint64_t lhs, const adam::string_hashed_ct_utf32& rhs) const noexcept { return lhs == rhs.get_hash(); }
+        inline bool operator()(const adam::string_hashed_ct_utf32& lhs, const adam::string_hashed_ct_utf32& rhs) const noexcept { return lhs == rhs; }
+        inline bool operator()(const adam::string_hashed_ct_utf32& lhs, uint64_t rhs) const noexcept { return lhs.get_hash() == rhs; }
+        inline bool operator()(uint64_t lhs, const adam::string_hashed_ct_utf32& rhs) const noexcept { return lhs == rhs.get_hash(); }
     };
 }
