@@ -49,7 +49,7 @@ namespace adam::modules::asterix
     public:
         uint8_t             cat_id;                     /**< The category ID (e.g., 48, 62). */
         uint8_t             highest_frn;                /**< Highest registered FRN; determines fixed FSPEC octet count for explicit items. */
-        uint32_t            item_count;                 /**< Total count of all items including sub-items, for pre-allocating internal buffers. */
+        uint16_t            item_count;                 /**< Total count of all items including sub-items, for pre-allocating internal buffers. */
         const field_spec*   items_by_frn[256];          /**< O(1) array mapping FRN to field spec. */
         uap_expansion*      custom_expansions[256];     /**< O(1) array mapping FRN to custom expansion metadata. */
 
@@ -77,9 +77,9 @@ namespace adam::modules::asterix
          * @brief Compute the total number of items including sub-items.
          * @return The total item count.
          */
-        uint32_t compute_total_items() const
+        uint16_t compute_total_items() const
         {
-            uint32_t count = highest_frn; // All my items
+            uint16_t count = highest_frn; // All my items
             
             for (size_t i = 0; i <= highest_frn; ++i)
             {
