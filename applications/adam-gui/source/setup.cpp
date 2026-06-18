@@ -21,6 +21,7 @@ namespace adam::gui
 
     void update_dpi_scale(SDL_Window* window)
     {
+        (void)window;
         float new_dpi_scale = 1.0f;
 
         #if defined(ADAM_PLATFORM_WINDOWS)
