@@ -36,7 +36,7 @@
  * |  ITEM FRN 15 (explicit)   |
  * | - child_count = 1         |
  * | - populated = true        |
- * | - child_offset = 0x180    |    <- Beginning of Child Item "Array" is saved in the parent
+ * | - child_offset = 0x180    |    <- Beginning of Child Item "Array" is saved in the parent (absolute offset from internal_data start)
  * ----------------------------
  * ...
  *  ----------------------------    <- Every possible Item for an UAP is present in memory
@@ -111,27 +111,28 @@ namespace adam::modules::asterix
     /**
      * @struct record
      * @brief Repopulateds a parsed Asterix record within a block.
-     * Followed in memory by `item_count` offsets to items (uint32_t relative offsets from start of internal_data).
      */
     struct record
     {
         uint16_t item_count;    /**< Number of items in this record. */
+        uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
         uint32_t raw_length;    /**< Length of raw data for this record. */
         uint32_t raw_offset;    /**< Offset in raw buffer where this record starts. */
 
-        record(uint16_t items, uint32_t len, uint32_t raw_off) : item_count(items), raw_length(len), raw_offset(raw_off) {}
+        record(uint8_t category, uint16_t items, uint32_t len, uint32_t raw_off) : item_count(items), category(category), raw_length(len), raw_offset(raw_off) {}
 
         inline const item* get_item(uint8_t frn) const 
         { 
-            if (frn > item_count) return nullptr;
-            return reinterpret_cast<const item*>(this) + (frn - 1); 
+            if (!frn || frn > item_count) 
+            return nullptr; 
+            
+            return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + sizeof(record)) + (frn - 1); 
         }
     };
 
     /**
      * @struct block
      * @brief Repopulateds a parsed Asterix block.
-     * Followed in memory by `record_count` offsets to records (uint32_t relative offsets from start of internal_data).
      */
     struct block
     {
@@ -159,7 +160,6 @@ namespace adam::modules::asterix
     /**
      * @struct frame
      * @brief Header at the very start of the parsed internal_data buffer.
-     * Followed in memory by `block_count` offsets to blocks (uint32_t).
      */
     struct frame
     {

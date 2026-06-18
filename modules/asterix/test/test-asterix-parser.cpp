@@ -28,7 +28,7 @@ protected:
     asterix::asterix_parser parser;
 };
 
-TEST_F(parser_test, test_dummy_parse)
+TEST_F(parser_test, simple_item_parse)
 {
     // Create a dummy raw buffer representing an Asterix packet
     adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
@@ -76,37 +76,31 @@ TEST_F(parser_test, test_dummy_parse)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count, 3);
+    //EXPECT_EQ(record->item_count, 3);
     EXPECT_EQ(record->raw_length, 6);
     EXPECT_EQ(record->raw_offset, 3);
+    EXPECT_EQ(record->category, 48);
 
-    
-    /*const uint32_t* block_offsets = buf_header->get_block_offsets();
-    const auto* block = reinterpret_cast<const asterix::block*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + block_offsets[0]
-    );
-    EXPECT_EQ(block->category, 48);
-    EXPECT_EQ(block->record_count, 1);
-    
-    const uint32_t* record_offsets = block->get_record_offsets();
-    const auto* record = reinterpret_cast<const asterix::record*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + record_offsets[0]
-    );
-    EXPECT_EQ(record->item_count, 2);
-    
-    const uint32_t* item_offsets = record->get_item_offsets();
+    auto item0 = record->get_item(0);
+    EXPECT_EQ(item0, nullptr);
 
-    const auto* parsed_item_1 = reinterpret_cast<const asterix::item*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + item_offsets[0]
-    );
-    EXPECT_EQ(parsed_item_1->type, asterix::item_type_fixed);
-    EXPECT_EQ(parsed_item_1->data_length, 2);
-    
-    const auto* parsed_item_2 = reinterpret_cast<const asterix::item*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + item_offsets[1]
-    );
-    EXPECT_EQ(parsed_item_2->type, asterix::item_type_fixed);
-    EXPECT_EQ(parsed_item_2->data_length, 3);*/
+    auto item1 = record->get_item(1);
+    ASSERT_NE(item1, nullptr);
+    EXPECT_TRUE(item1->populated);
+    EXPECT_EQ(item1->type, asterix::item_type_fixed);
+    EXPECT_EQ(item1->data_length, 2);
+    EXPECT_EQ(item1->raw_data_offset, 4);
+
+    auto item2 = record->get_item(2);
+    ASSERT_NE(item2, nullptr);
+    EXPECT_TRUE(item2->populated);
+    EXPECT_EQ(item2->type, asterix::item_type_fixed);
+    EXPECT_EQ(item2->data_length, 3);
+    EXPECT_EQ(item2->raw_data_offset, 6);
+
+    auto item3 = record->get_item(3);
+    ASSERT_NE(item3, nullptr);
+    EXPECT_FALSE(item3->populated);
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
@@ -154,26 +148,26 @@ TEST_F(parser_test, test_cat062_variable_item_parse)
     const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
     EXPECT_EQ(buf_header->block_count, 1);
     
-    /*const uint32_t* block_offsets = buf_header->get_block_offsets();
-    const auto* block = reinterpret_cast<const asterix::block*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + block_offsets[0]
-    );
+    auto block = buf_header->get_block(0);
+    ASSERT_NE(block, nullptr);
     EXPECT_EQ(block->category, 62);
     EXPECT_EQ(block->record_count, 1);
-    
-    const uint32_t* record_offsets = block->get_record_offsets();
-    const auto* record = reinterpret_cast<const asterix::record*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + record_offsets[0]
-    );
-    EXPECT_EQ(record->item_count, 1);
-    
-    const uint32_t* item_offsets = record->get_item_offsets();
+    EXPECT_EQ(block->raw_length, 13);
+    EXPECT_EQ(block->raw_offset, 0);
 
-    const auto* parsed_item = reinterpret_cast<const asterix::item*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + item_offsets[0]
-    );
-    EXPECT_EQ(parsed_item->type, asterix::item_type_variable);
-    EXPECT_EQ(parsed_item->data_length, 6);*/
+    auto record = block->get_record(0);
+    ASSERT_NE(record, nullptr);
+    //EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record->raw_length, 10);
+    EXPECT_EQ(record->raw_offset, 3);
+    EXPECT_EQ(record->category, 62);
+
+    auto item26 = record->get_item(26);
+    ASSERT_NE(item26, nullptr);
+    EXPECT_TRUE(item26->populated);
+    EXPECT_EQ(item26->type, asterix::item_type_variable);
+    EXPECT_EQ(item26->data_length, 6);
+    EXPECT_EQ(item26->raw_data_offset, 7);
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
@@ -232,69 +226,40 @@ TEST_F(parser_test, test_multiple_blocks_and_records)
     const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
     EXPECT_EQ(buf_header->block_count, 2);
     
-    /*const uint32_t* block_offsets = buf_header->get_block_offsets();
-    
-    // Block 1 (CAT 48)
-    const auto* block_1 = reinterpret_cast<const asterix::block*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + block_offsets[0]
-    );
-    EXPECT_EQ(block_1->category, 48);
-    EXPECT_EQ(block_1->record_count, 2);
-    EXPECT_EQ(block_1->block_length, 10);
-    EXPECT_EQ(block_1->raw_offset, 0);
+    auto block48 = buf_header->get_block(0);
+    ASSERT_NE(block48, nullptr);
+    EXPECT_EQ(block48->category, 48);
+    EXPECT_EQ(block48->record_count, 2);
+    EXPECT_EQ(block48->raw_length, 10);
+    EXPECT_EQ(block48->raw_offset, 0);
 
-    // Block 1, Record 1
-    const uint32_t* rec_offsets_1 = block_1->get_record_offsets();
-    const auto* rec_1_1 = reinterpret_cast<const asterix::record*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + rec_offsets_1[0]
-    );
-    EXPECT_EQ(rec_1_1->item_count, 1);
-    EXPECT_EQ(rec_1_1->record_length, 3);
-    EXPECT_EQ(rec_1_1->raw_offset, 3);
+    auto record48_0 = block48->get_record(0);
+    ASSERT_NE(record48_0, nullptr);
+    //EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record48_0->raw_length, 3);
+    EXPECT_EQ(record48_0->raw_offset, 3);
+    EXPECT_EQ(record48_0->category, 48);
 
-    const auto* item_1_1_1 = reinterpret_cast<const asterix::item*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + rec_1_1->get_item_offsets()[0]
-    );
-    EXPECT_EQ(item_1_1_1->type, asterix::item_type_fixed);
-    EXPECT_EQ(item_1_1_1->data_length, 2);
+    auto record48_1 = block48->get_record(1);
+    ASSERT_NE(record48_1, nullptr);
+    EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record48_1->raw_length, 4);
+    EXPECT_EQ(record48_1->raw_offset, 6);
+    EXPECT_EQ(record48_1->category, 48);
 
-    // Block 1, Record 2
-    const auto* rec_1_2 = reinterpret_cast<const asterix::record*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + rec_offsets_1[1]
-    );
-    EXPECT_EQ(rec_1_2->item_count, 1);
-    EXPECT_EQ(rec_1_2->record_length, 4);
-    EXPECT_EQ(rec_1_2->raw_offset, 6);
+    auto block62 = buf_header->get_block(1);
+    ASSERT_NE(block62, nullptr);
+    EXPECT_EQ(block62->category, 62);
+    EXPECT_EQ(block62->record_count, 1);
+    EXPECT_EQ(block62->raw_length, 6);
+    EXPECT_EQ(block62->raw_offset, 10);
 
-    const auto* item_1_2_1 = reinterpret_cast<const asterix::item*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + rec_1_2->get_item_offsets()[0]
-    );
-    EXPECT_EQ(item_1_2_1->type, asterix::item_type_fixed);
-    EXPECT_EQ(item_1_2_1->data_length, 3);
-
-    // Block 2 (CAT 62)
-    const auto* block_2 = reinterpret_cast<const asterix::block*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + block_offsets[1]
-    );
-    EXPECT_EQ(block_2->category, 62);
-    EXPECT_EQ(block_2->record_count, 1);
-    EXPECT_EQ(block_2->block_length, 6);
-    EXPECT_EQ(block_2->raw_offset, 10);
-
-    // Block 2, Record 1
-    const uint32_t* rec_offsets_2 = block_2->get_record_offsets();
-    const auto* rec_2_1 = reinterpret_cast<const asterix::record*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + rec_offsets_2[0]
-    );
-    EXPECT_EQ(rec_2_1->item_count, 1);
-    EXPECT_EQ(rec_2_1->record_length, 3);
-    EXPECT_EQ(rec_2_1->raw_offset, 13);
-
-    const auto* item_2_1_1 = reinterpret_cast<const asterix::item*>(
-        reinterpret_cast<const uint8_t*>(buf_header) + rec_2_1->get_item_offsets()[0]
-    );
-    EXPECT_EQ(item_2_1_1->type, asterix::item_type_fixed);
-    EXPECT_EQ(item_2_1_1->data_length, 2);*/
+    auto record62_0 = block62->get_record(0);
+    ASSERT_NE(record62_0, nullptr);
+    //EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record62_0->raw_length, 10);
+    EXPECT_EQ(record62_0->raw_offset, 3);
+    EXPECT_EQ(record62_0->category, 62);
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);

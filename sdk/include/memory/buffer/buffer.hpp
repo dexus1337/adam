@@ -106,8 +106,7 @@ namespace adam
 
         void set_referenced_buffer(buffer* buf);
         void set_data_format(const data_format* format);
-
-        inline bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
+        bool fill_data(const void* in_data, uint32_t len, uint32_t offset = 0);
 
     protected:
 

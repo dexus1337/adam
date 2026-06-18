@@ -85,14 +85,15 @@ namespace adam::modules::asterix
         // Raw data unused here
         (void)raw_data;
 
-        uint32_t item_start_offset = raw_offset;
-
         // Check raw buffer boundary
         if (raw_offset + spec.data_size > raw_length) return false;
-        raw_offset += spec.data_size;
 
-        new(internal_data->at<item>(out_offset)) item(item_type_fixed, spec.data_size, item_start_offset);
+        auto test = internal_data->at<item>(out_offset);
+
+        new(test) item(item_type_fixed, spec.data_size, raw_offset);
         out_offset += sizeof(item);
+
+        raw_offset += spec.data_size;
 
         return true;
     }
@@ -378,8 +379,6 @@ namespace adam::modules::asterix
                     return false;
                 }
 
-                out_offset += sizeof(record);
-
                 // At this point we have a valid record
                 record_count++;
 
@@ -399,15 +398,18 @@ namespace adam::modules::asterix
                     return false;
                 }
 
-                uint32_t cur_item_offset = out_offset;
-                uint16_t item_count      = active_uap->item_count;
+                uint32_t item_start_offset  = out_offset;
+                uint16_t item_count         = active_uap->item_count;
 
                 for (uint8_t i = 1; i < active_uap->highest_frn; ++i)
                 {
-                    cur_item_offset += sizeof(item);
+                    uint32_t cur_item_offset = item_start_offset + (i - 1) * sizeof(item);
 
                     // Default set item to not populated
                     internal_data->at<item>(cur_item_offset)->populated = false;
+
+                    if (!active_frns[i])
+                        continue;
 
                     const field_spec* spec = active_uap->get_spec(i);
 
@@ -434,6 +436,7 @@ namespace adam::modules::asterix
                 cur_rec->raw_length = raw_offset - record_start_raw;
                 cur_rec->raw_offset = record_start_raw;
                 cur_rec->item_count = item_count;
+                cur_rec->category   = active_uap->cat_id;
             }
        
             auto* cur_blk = internal_data->at<block>(block_off);

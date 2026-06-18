@@ -1073,7 +1073,7 @@ namespace adam
         if (!m_ports.empty() || !m_connections.empty())
         {
             std::vector<response> dummy_responses(1);
-            command_context ctx { os::get_current_thread_id(), *this, m_controller, dummy_responses, {} };
+            command_context ctx { os::get_current_thread_id(), *this, m_controller, dummy_responses, {}, {}, {} };
 
             for (auto& [port_hash, port_ptr] : m_ports)
             {
@@ -1104,7 +1104,7 @@ namespace adam
         if (!m_ports.empty() || !m_connections.empty())
         {
             std::vector<response> dummy_responses(1);
-            command_context ctx { os::get_current_thread_id(), *this, m_controller, dummy_responses, {} };
+            command_context ctx { os::get_current_thread_id(), *this, m_controller, dummy_responses, {}, {}, {} };
 
             for (auto& [port_hash, port_ptr] : m_ports)
             {
@@ -1593,9 +1593,6 @@ namespace adam
             const auto& in_mod  = it->second->get_parameter<configuration_parameter_string>("input_format_module"_ct)->get_value();
             const auto& out_mod = it->second->get_parameter<configuration_parameter_string>("output_format_module"_ct)->get_value();
 
-            const auto& in_fmt  = it->second->get_parameter<configuration_parameter_string>("input_format"_ct)->get_value();
-            const auto& out_fmt = it->second->get_parameter<configuration_parameter_string>("output_format"_ct)->get_value();
-                
             bool in_matches = in_mod.get_hash() == module_hash;
             bool out_matches = out_mod.get_hash() == module_hash;
 
