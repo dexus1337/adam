@@ -72,13 +72,13 @@ TEST_F(parser_test, parse_fixed)
     EXPECT_EQ(block->category, 48);
     EXPECT_EQ(block->record_count, 1);
     EXPECT_EQ(block->raw_length, 9);
-    EXPECT_EQ(block->raw_offset, 0);
+    EXPECT_EQ(block->raw_offset, 0ul);
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
     EXPECT_EQ(record->item_count, block->get_uap()->last_frn); // no children, so item count = last FRN
     EXPECT_EQ(record->raw_length, 6);
-    EXPECT_EQ(record->raw_offset, 3);
+    EXPECT_EQ(record->raw_offset, 3ul);
     EXPECT_EQ(record->category, 48);
 
     auto item0 = record->get_item(0);
@@ -88,15 +88,15 @@ TEST_F(parser_test, parse_fixed)
     ASSERT_NE(item1, nullptr);
     EXPECT_TRUE(item1->populated);
     EXPECT_EQ(item1->type, asterix::item_type_fixed);
-    EXPECT_EQ(item1->raw_length, 2);
-    EXPECT_EQ(item1->raw_offset, 4);
+    EXPECT_EQ(item1->raw_length, 2ul);
+    EXPECT_EQ(item1->raw_offset, 4ul);
 
     auto item2 = record->get_item(2);
     ASSERT_NE(item2, nullptr);
     EXPECT_TRUE(item2->populated);
     EXPECT_EQ(item2->type, asterix::item_type_fixed);
-    EXPECT_EQ(item2->raw_length, 3);
-    EXPECT_EQ(item2->raw_offset, 6);
+    EXPECT_EQ(item2->raw_length, 3ul);
+    EXPECT_EQ(item2->raw_offset, 6ul);
 
     auto item3 = record->get_item(3);
     ASSERT_NE(item3, nullptr);
@@ -394,11 +394,228 @@ TEST_F(parser_test, custom_uap_expansion_and_o1_lookup)
     EXPECT_EQ(retrieved_data->classification_level, 42);
 }
 
+TEST_F(parser_test, parse_explicit_no_uap)
+{
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+    ASSERT_NE(raw_buf, nullptr);
+
+    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
+
+    // Build a CAT048 packet that contains only FRN 27 (SP – Special Purpose Field).
+    //
+    // SP is an explicit item: its first byte is the total length (including that
+    // length byte itself), followed by (length - 1) bytes of payload.
+    //
+    // FSPEC byte layout for CAT048:
+    //   Byte 1:  FRNs 1-7  (bit 0 = FX)
+    //   Byte 2:  FRNs 8-14 (bit 0 = FX)
+    //   Byte 3:  FRNs 15-21 (bit 0 = FX)
+    //   Byte 4:  FRNs 22-28 (bit 0 = FX, no further extension)
+    //
+    // FRN 27 sits in FSPEC byte 4, bit 2 (0-indexed from MSB):
+    //   bit 7 = FRN 22, bit 6 = FRN 23, ..., bit 2 = FRN 27, bit 1 = FRN 28, bit 0 = FX
+    //   → 0b00000100 = 0x04
+    //
+    // Total packet: 3 (header) + 4 (FSPEC) + 5 (SP: 1 length + 4 payload) = 12 bytes
+
+    raw_data[0] = 48;  // CAT
+    raw_data[1] = 0;   // Length MSB
+    raw_data[2] = 12;  // Length LSB
+
+    // FSPEC: extend through bytes 1-3 (FX=1), then FRN 27 in byte 4 (FX=0)
+    raw_data[3] = 0x01; // FSPEC byte 1: no items, FX=1
+    raw_data[4] = 0x01; // FSPEC byte 2: no items, FX=1
+    raw_data[5] = 0x01; // FSPEC byte 3: no items, FX=1
+    raw_data[6] = 0x04; // FSPEC byte 4: FRN 27 (bit 2) = 1, FX=0
+
+    // SP explicit item: length byte = 5 (includes itself) + 4 payload bytes
+    raw_data[7]  = 0x05; // length byte
+    raw_data[8]  = 0xDE; // payload byte 1
+    raw_data[9]  = 0xAD; // payload byte 2
+    raw_data[10] = 0xBE; // payload byte 3
+    raw_data[11] = 0xEF; // payload byte 4
+
+    raw_buf->set_size(12);
+
+    adam::buffer* internal_data = nullptr;
+    bool success = parser.parse(raw_buf, internal_data);
+
+    EXPECT_TRUE(success);
+    ASSERT_NE(internal_data, nullptr);
+    EXPECT_GT(internal_data->get_size(), 0ul);
+
+    // Verify layout
+    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
+    EXPECT_EQ(buf_header->block_count, 1);
+
+    auto block = buf_header->get_block(0);
+    ASSERT_NE(block, nullptr);
+    EXPECT_EQ(block->category,     48);
+    EXPECT_EQ(block->record_count, 1);
+    EXPECT_EQ(block->raw_length,   12);
+    EXPECT_EQ(block->raw_offset,   0ul);
+
+    auto record = block->get_record(0);
+    ASSERT_NE(record, nullptr);
+    EXPECT_EQ(record->item_count,  block->get_uap()->last_frn);
+    EXPECT_EQ(record->raw_length,  9);   // 12 - 3 header bytes
+    EXPECT_EQ(record->raw_offset,  3ul);
+    EXPECT_EQ(record->category,    48);
+
+    // FRNs 1-26 and 28 must not be populated
+    for (int frn = 1; frn <= 28; ++frn)
+    {
+        if (frn == 27) continue;
+        auto* item = record->get_item(frn);
+        ASSERT_NE(item, nullptr) << "FRN " << frn << " item must exist (even if not populated)";
+        EXPECT_FALSE(item->populated) << "FRN " << frn << " must not be populated";
+    }
+
+    // FRN 27 – SP explicit item
+    auto item27 = record->get_item(27);
+    ASSERT_NE(item27, nullptr);
+    EXPECT_TRUE(item27->populated);
+    EXPECT_EQ(item27->type,       asterix::item_type_explicit);
+    EXPECT_EQ(item27->raw_length, 5u);    // value of the length byte
+    EXPECT_EQ(item27->raw_offset, 7ul);   // immediately after the 4-byte FSPEC
+
+    adam::buffer_manager::get().return_buffer(internal_data);
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+TEST_F(parser_test, parse_explicit_with_uap)
+{
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+    ASSERT_NE(raw_buf, nullptr);
+
+    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
+
+    raw_data[0] = 48;  // CAT
+    raw_data[1] = 0;   // Length MSB
+    raw_data[2] = 17;  // Length LSB
+
+    // FSPEC
+    raw_data[3] = 0x01; // byte 1: FX=1
+    raw_data[4] = 0x01; // byte 2: FX=1
+    raw_data[5] = 0x01; // byte 3: FX=1
+    raw_data[6] = 0x02; // byte 4: FRN 28 set, FX=0
+
+    // RE explicit item
+    raw_data[7]  = 0x0A; // length = 10 (includes itself)
+    raw_data[8]  = 0x10; // REF FSPEC: only RPC (FRN 4) present
+
+    // RPC compound
+    raw_data[9]  = 0xF0; // RPC FSPEC: all 4 children present
+    raw_data[10] = 0x20; // Score (1 B)
+    raw_data[11] = 0x21; // Signal/Clutter Ratio MSB
+    raw_data[12] = 0x22; // Signal/Clutter Ratio LSB
+    raw_data[13] = 0x23; // Range Width MSB
+    raw_data[14] = 0x24; // Range Width LSB
+    raw_data[15] = 0x25; // Ambiguous Range MSB
+    raw_data[16] = 0x26; // Ambiguous Range LSB
+
+    raw_buf->set_size(17);
+
+    adam::buffer* internal_data = nullptr;
+    ASSERT_TRUE(parser.parse(raw_buf, internal_data));
+    ASSERT_NE(internal_data, nullptr);
+    EXPECT_GT(internal_data->get_size(), 0ul);
+
+    // ── Frame ────────────────────────────────────────────────────────
+    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
+    EXPECT_EQ(buf_header->block_count, 1);
+
+    // ── Block ────────────────────────────────────────────────────────
+    const auto* block = buf_header->get_block(0);
+    ASSERT_NE(block, nullptr);
+    EXPECT_EQ(block->category,     48);
+    EXPECT_EQ(block->record_count, 1);
+    EXPECT_EQ(block->raw_length,   17);
+    EXPECT_EQ(block->raw_offset,   0ul);
+
+    // ── Record ───────────────────────────────────────────────────────
+    const auto* record = block->get_record(0);
+    ASSERT_NE(record, nullptr);
+    EXPECT_EQ(record->item_count,  block->get_uap()->last_frn);
+    EXPECT_EQ(record->raw_length,  14);    // 17 - 3 block header bytes
+    EXPECT_EQ(record->raw_offset,  3ul);
+    EXPECT_EQ(record->category,    48);
+
+    // FRNs 1-27 must not be populated
+    for (int frn = 1; frn <= 27; ++frn)
+    {
+        const auto* item = record->get_item(frn);
+        ASSERT_NE(item, nullptr) << "FRN " << frn << " item must exist";
+        EXPECT_FALSE(item->populated) << "FRN " << frn << " must not be populated";
+    }
+
+    // ── FRN 28: RE (explicit, backed by REF sub-UAP) ─────────────────
+    const auto* re = record->get_item(28);
+    ASSERT_NE(re, nullptr);
+    EXPECT_TRUE(re->populated);
+    EXPECT_EQ(re->type,       asterix::item_type_explicit);
+    EXPECT_EQ(re->raw_length, 10u);   // value of the length byte
+    EXPECT_EQ(re->raw_offset, 7ul);   // immediately after the 4-byte FSPEC
+
+    // REF children FRN 1-3, 5-8 must not be populated (only RPC = FRN 4 was set)
+    for (int child_frn = 1; child_frn <= 8; ++child_frn)
+    {
+        if (child_frn == 4) continue;
+        const auto* ch = re->get_child_item(child_frn);
+        ASSERT_NE(ch, nullptr) << "REF child FRN " << child_frn << " must exist";
+        EXPECT_FALSE(ch->populated) << "REF child FRN " << child_frn << " must not be populated";
+    }
+
+    // ── REF child FRN 4: RPC compound ────────────────────────────────
+    //    1 FSPEC byte + 1 + 2 + 2 + 2 data bytes = 8 bytes total
+    const auto* rpc = re->get_child_item(4);
+    ASSERT_NE(rpc, nullptr);
+    EXPECT_TRUE(rpc->populated);
+    EXPECT_EQ(rpc->type,       asterix::item_type_compound);
+    EXPECT_EQ(rpc->raw_length, 8u);    // 1 FSPEC + 1 + 2 + 2 + 2
+    EXPECT_EQ(rpc->raw_offset, 9ul);   // REF FSPEC at [8], RPC starts at [9]
+
+    // ── RPC child FRN 1: Score (fixed, 1 B) ──────────────────────────
+    const auto* score = rpc->get_child_item(1);
+    ASSERT_NE(score, nullptr);
+    EXPECT_TRUE(score->populated);
+    EXPECT_EQ(score->type,       asterix::item_type_fixed);
+    EXPECT_EQ(score->raw_length, 1u);
+    EXPECT_EQ(score->raw_offset, 10ul);  // right after RPC FSPEC at [9]
+
+    // ── RPC child FRN 2: Signal/Clutter Ratio (fixed, 2 B) ───────────
+    const auto* scr = rpc->get_child_item(2);
+    ASSERT_NE(scr, nullptr);
+    EXPECT_TRUE(scr->populated);
+    EXPECT_EQ(scr->type,       asterix::item_type_fixed);
+    EXPECT_EQ(scr->raw_length, 2u);
+    EXPECT_EQ(scr->raw_offset, 11ul);
+
+    // ── RPC child FRN 3: Range Width (fixed, 2 B) ────────────────────
+    const auto* rw = rpc->get_child_item(3);
+    ASSERT_NE(rw, nullptr);
+    EXPECT_TRUE(rw->populated);
+    EXPECT_EQ(rw->type,       asterix::item_type_fixed);
+    EXPECT_EQ(rw->raw_length, 2u);
+    EXPECT_EQ(rw->raw_offset, 13ul);
+
+    // ── RPC child FRN 4: Ambiguous Range (fixed, 2 B) ────────────────
+    const auto* ar = rpc->get_child_item(4);
+    ASSERT_NE(ar, nullptr);
+    EXPECT_TRUE(ar->populated);
+    EXPECT_EQ(ar->type,       asterix::item_type_fixed);
+    EXPECT_EQ(ar->raw_length, 2u);
+    EXPECT_EQ(ar->raw_offset, 15ul);
+
+    adam::buffer_manager::get().return_buffer(internal_data);
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
 /// Helper to build a raw ASTERIX block that contains one CAT048 record
 static std::vector<uint8_t> build_cat048_message()
 {
     // -----------------------------------------------------------------
-    // 1️⃣  Block header (fixed size, see asterix‑internal.hpp):
+    // 1  Block header (fixed size, see asterix‑internal.hpp):
     //    - Category = 48
     //    - Length   = will be filled later
     // -----------------------------------------------------------------
@@ -410,7 +627,7 @@ static std::vector<uint8_t> build_cat048_message()
     raw.push_back(0);
 
     // -----------------------------------------------------------------
-    // 2️⃣  Record start – FSPEC (fixed‑size, 4 octets = ceil(28/8))
+    // 2 Record start – FSPEC (fixed‑size, 4 octets = ceil(28/8))
     // -----------------------------------------------------------------
     // All bits set – every item present
     raw.push_back(0xFF);   // Octet 1
@@ -419,7 +636,7 @@ static std::vector<uint8_t> build_cat048_message()
     raw.push_back(0xFE);   // Octet 4
 
     // -----------------------------------------------------------------
-    // 3️⃣  Payload – one value per item, using simple deterministic data
+    // 3 Payload – one value per item, using simple deterministic data
     // -----------------------------------------------------------------
     // Helper lambdas --------------------------------------------------
     auto push_u8 = [&](uint8_t v) { raw.push_back(v); };
@@ -600,8 +817,6 @@ static std::vector<uint8_t> build_cat048_message()
     push_u8(0x25);   // Ambiguous Range (2 bytes)
     push_u8(0x26);
 
-    std::cout << "1: " << (raw.size()) << std::endl;
-
 
     // ---- ERR Extended Range Reports (3 fixed length) --------------
     push_u8(0x01);
@@ -659,10 +874,6 @@ static std::vector<uint8_t> build_cat048_message()
     // Compute and fill REF length (including length byte itself)
     size_t ref_len = raw.size() - ref_len_offset;
     raw[ref_len_offset] = static_cast<uint8_t>(ref_len);
-    printf("REF payload length set to %zu at offset %zu\n", ref_len, ref_len_offset);
-
-
-    printf("Total raw message size: %zu\n", raw.size());
     
     // -----------------------------------------------------------------
     // 4️⃣  Fill length fields (block length = raw.size())
@@ -688,141 +899,518 @@ TEST_F(parser_test, parse_full_cat048_message)
     adam::buffer* internal = nullptr;
     ASSERT_TRUE(parser.parse(data, internal));
 
-    // --------------------------------------------------------------
-    // Verify the top‑level block & record count
-    // --------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // Frame – one CAT048 block
+    // ---------------------------------------------------------------
     ASSERT_NE(internal, nullptr);
-    auto* frm = reinterpret_cast<asterix::frame*>(internal->begin());
+    const auto* frm = internal->get_begin_as<asterix::frame>();
     EXPECT_EQ(frm->block_count, 1u);    
 
-    // Locate the first and only block and verify its header fields:
-    /*const asterix::block* blk = reinterpret_cast<const asterix::block*>(internal->begin_as<uint8_t>() + frm->get_block_offsets()[0]);
-    EXPECT_EQ(blk->category, 48u);
-    EXPECT_EQ(blk->record_count, 1u);
+    // ---------------------------------------------------------------
+    // Block
+    // ---------------------------------------------------------------
+    const auto* blk = frm->get_block(0);
+    ASSERT_NE(blk, nullptr);
+    EXPECT_EQ(blk->category,      48);
+    EXPECT_EQ(blk->record_count,  1u);
+    EXPECT_EQ(blk->raw_length,    static_cast<uint16_t>(raw.size()));
+    EXPECT_EQ(blk->raw_offset,    0u);
 
-    const asterix::record* rec = reinterpret_cast<const asterix::record*>(internal->begin_as<uint8_t>() + blk->get_record_offsets()[0]);
-    EXPECT_EQ(rec->item_count, 28u);
-    EXPECT_EQ(rec->record_length, raw.size()-rec->raw_offset);*/
+    // ---------------------------------------------------------------
+    // Record – all 28 FRNs are present (FSPEC = FF FF FF FE)
+    // ---------------------------------------------------------------
+    const auto* rec = blk->get_record(0);
+    ASSERT_NE(rec, nullptr);
+    EXPECT_EQ(rec->category,    48);
+    EXPECT_EQ(rec->item_count,  blk->get_uap()->last_frn);
+    EXPECT_EQ(rec->raw_offset,  3u);                              // after 3-byte block header
+    EXPECT_EQ(rec->raw_length,  static_cast<uint16_t>(raw.size() - 3));
 
-    
-    /*// Extract the first record payload:
-    const uint8_t* rec = internal->begin_as<uint8_t>() + blk->get_record_offsets()[0];
-    const uint8_t* cur = rec;
-
-    // Helper to read a field and advance pointer
-    auto read_u8  = [&](uint8_t& out){ out = *cur++; };
-    auto read_u16 = [&](uint16_t& out){
-        out = static_cast<uint16_t>(cur[0] << 8 | cur[1]); cur += 2;
+    // ---------------------------------------------------------------
+    // Helper: verify a simple (non-compound) item
+    // ---------------------------------------------------------------
+    auto check_item = [&](uint8_t frn, asterix::item_type expected_type,
+                          uint16_t expected_raw_len, uint32_t expected_raw_off)
+    {
+        const auto* it = rec->get_item(frn);
+        ASSERT_NE(it, nullptr)             << "FRN " << (int)frn << " must exist";
+        EXPECT_TRUE(it->populated)         << "FRN " << (int)frn << " must be populated";
+        EXPECT_EQ(it->type, expected_type) << "FRN " << (int)frn << " type mismatch";
+        EXPECT_EQ(it->raw_length, expected_raw_len) << "FRN " << (int)frn << " raw_length mismatch";
+        EXPECT_EQ(it->raw_offset, expected_raw_off) << "FRN " << (int)frn << " raw_offset mismatch";
     };
-    auto read_u24 = [&](uint32_t& out){
-        out = static_cast<uint32_t>(cur[0] << 16 | cur[1] << 8 | cur[2]); cur += 3;
-    };
-    auto read_u32 = [&](uint32_t& out){
-        out = static_cast<uint32_t>(cur[0] << 24 | cur[1] << 16 | cur[2] << 8 | cur[3]); cur += 4;
-    };
 
-    // ---- Verify each item against the values we encoded ----
-    uint16_t v16; uint32_t v32; uint8_t v8;
+    // ---------------------------------------------------------------
+    // FRN 1  – I048/010 Data Source Identifier          (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(1, asterix::item_type_fixed, 2, 7u);
 
-    read_u16(v16); EXPECT_EQ(v16, 0x0102);               // 1 – Data Source Identifier
-    read_u24(v32); EXPECT_EQ(v32, 0x030405);            // 2 – Time of Day
-    read_u8 (v8);  EXPECT_EQ(v8,  0x66);                // 3 – Target Report Descriptor
-    read_u32(v32); EXPECT_EQ(v32, 0x11223344);          // 4 – Measured Position
-    read_u16(v16); EXPECT_EQ(v16, 0xA5A5);               // 5 – Mode‑3/A Code
-    read_u16(v16); EXPECT_EQ(v16, 0xB0B0);               // 6 – Flight Level
+    // ---------------------------------------------------------------
+    // FRN 2  – I048/140 Time of Day                     (fixed, 3 B)
+    // ---------------------------------------------------------------
+    check_item(2, asterix::item_type_fixed, 3, 9u);
 
-    // 7 – Radar Plot Characteristics (sub‑UAP 130 – 7 bytes)
-    for (uint8_t i = 1; i <= 7; ++i) { read_u8(v8); EXPECT_EQ(v8, i); }
+    // ---------------------------------------------------------------
+    // FRN 3  – I048/020 Target Report Descriptor        (variable, 1 B, FX=0)
+    // ---------------------------------------------------------------
+    check_item(3, asterix::item_type_variable, 1, 12u);
 
-    read_u24(v32); EXPECT_EQ(v32, 0x0A0B0C);            // 8 – Aircraft Address
-    // 9 – Aircraft Identification (6 ASCII chars)
-    EXPECT_EQ(std::string(reinterpret_cast<const char*>(cur), 6), "ABCDEF"); cur += 6;
+    // ---------------------------------------------------------------
+    // FRN 4  – I048/040 Measured Position               (fixed, 4 B)
+    // ---------------------------------------------------------------
+    check_item(4, asterix::item_type_fixed, 4, 13u);
 
-    // 10 – BDS Register Data (rep = 1, 8 bytes)
-    read_u32(v32); EXPECT_EQ(v32, 0xDEADBEEF);
-    read_u32(v32); EXPECT_EQ(v32, 0xFEEDC0DE);
+    // ---------------------------------------------------------------
+    // FRN 5  – I048/070 Mode-3/A Code                   (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(5, asterix::item_type_fixed, 2, 17u);
 
-    read_u16(v16); EXPECT_EQ(v16, 0x7777);              // 11 – Track Number
-    read_u32(v32); EXPECT_EQ(v32, 0x8899AABB);          // 12 – Calculated Position
-    read_u32(v32); EXPECT_EQ(v32, 0xCCDDEEFF);          // 13 – Calculated Velocity
-    read_u8 (v8);  EXPECT_EQ(v8,  0x44);                // 14 – Track Status
-    read_u32(v32); EXPECT_EQ(v32, 0x01020304);          // 15 – Track Quality
-    read_u8 (v8);  EXPECT_EQ(v8,  0x55);                // 16 – Warning/Error Conditions
-    read_u16(v16); EXPECT_EQ(v16, 0x1234);              // 17 – Mode‑3/A Confidence
-    read_u32(v32); EXPECT_EQ(v32, 0x56789ABC);          // 18 – Mode‑C Code & Confidence
-    read_u16(v16); EXPECT_EQ(v16, 0x9ABC);              // 19 – Height
+    // ---------------------------------------------------------------
+    // FRN 6  – I048/090 Flight Level                    (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(6, asterix::item_type_fixed, 2, 19u);
 
-    // 20 – Radial Doppler Speed (sub‑UAP 120)
-    read_u16(v16); EXPECT_EQ(v16, 0x1111);              // CAL
-    // RDS (6 bytes, we stored 4 + 2)
-    read_u32(v32); EXPECT_EQ(v32, 0x22222222);
-    read_u8 (v8);  EXPECT_EQ(v8,  0x33);
+    // ---------------------------------------------------------------
+    // FRN 7  – I048/130 Radar Plot Characteristics      (compound)
+    //          FSPEC=0xFE → all 7 sub-items present, 8 B total
+    // ---------------------------------------------------------------
+    {
+        const auto* it = rec->get_item(7);
+        ASSERT_NE(it, nullptr);
+        EXPECT_TRUE(it->populated);
+        EXPECT_EQ(it->type,       asterix::item_type_compound);
+        EXPECT_EQ(it->raw_length, 8u);   // 1 FSPEC + 7×1 B
+        EXPECT_EQ(it->raw_offset, 21u);
 
-    read_u16(v16); EXPECT_EQ(v16, 0xDEAD);              // 21 – Comm/ACAS Capability
+        // All 7 children are 1-byte fixed items starting at offset 22
+        auto check_child = [&](uint8_t child_frn, uint32_t off)
+        {
+            const auto* ch = it->get_child_item(child_frn);
+            ASSERT_NE(ch, nullptr)             << "I048/130 child FRN " << (int)child_frn;
+            EXPECT_TRUE(ch->populated)         << "I048/130 child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->type, asterix::item_type_fixed) << "I048/130 child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_length, 1u)      << "I048/130 child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_offset, off)     << "I048/130 child FRN " << (int)child_frn;
+        };
 
-    // 22 – ACAS Resolution Advisory Report (7 bytes)
-    for (uint8_t i = 1; i <= 7; ++i) { read_u8(v8); EXPECT_EQ(v8, i); }
+        check_child(1, 22u);  // SRL
+        check_child(2, 23u);  // SSR
+        check_child(3, 24u);  // SAM
+        check_child(4, 25u);  // PRL
+        check_child(5, 26u);  // PAM
+        check_child(6, 27u);  // RDP
+        check_child(7, 28u);  // SPI
+    }
 
-    read_u8 (v8);  EXPECT_EQ(v8, 0x11);                // 23 – Mode‑1 Code
-    read_u16(v16); EXPECT_EQ(v16, 0x2222);              // 24 – Mode‑2 Code
-    read_u8 (v8);  EXPECT_EQ(v8, 0x33);                // 25 – Mode‑1 Confidence
-    read_u16(v16); EXPECT_EQ(v16, 0x4444);              // 26 – Mode‑2 Confidence
+    // ---------------------------------------------------------------
+    // FRN 8  – I048/220 Aircraft Address                (fixed, 3 B)
+    // ---------------------------------------------------------------
+    check_item(8, asterix::item_type_fixed, 3, 29u);
 
-    // 27 – Special Purpose Field – no payload (nothing to read)
+    // ---------------------------------------------------------------
+    // FRN 9  – I048/240 Aircraft Identification         (fixed, 6 B)
+    // ---------------------------------------------------------------
+    check_item(9, asterix::item_type_fixed, 6, 32u);
 
-    // 28 – Reserved Expansion Field (REF sub‑UAP)
-    // 1‑byte FSPEC already consumed, now read its 8 items:
-    // MD5 sub‑UAP (7 fixed)
-    for (uint8_t i = 1; i <= 7; ++i) { read_u8(v8); EXPECT_EQ(v8, i); }
-    // M5N sub‑UAP (8 fixed)
-    for (uint8_t i = 0x0D; i <= 0x1E; ++i) { read_u8(v8); EXPECT_EQ(v8, i); }
-    // RPC sub‑UAP (4 fixed)
-    for (uint8_t i = 0x20; i <= 0x26; ++i) { read_u8(v8); EXPECT_EQ(v8, i); }
-    // RTC sub‑UAP (mixed)
-    read_u8(v8); EXPECT_EQ(v8, 0x30); // Plot/Track Link (3 bytes)
-    read_u8(v8); EXPECT_EQ(v8, 0x31);
-    // ADS‑B/Track Link – repetition count 1
-    read_u8(v8); EXPECT_EQ(v8, 0x01);
-    read_u8(v8); EXPECT_EQ(v8, 0x41);
-    read_u8(v8); EXPECT_EQ(v8, 0x42);
-    read_u8(v8); EXPECT_EQ(v8, 0x50); // Turn State
-    // Next Predicted Position (22 bytes – all 0x51)
-    for (int i = 0; i < 22; ++i) { read_u8(v8); EXPECT_EQ(v8, 0x51); }
-    // Data Link Characteristics – repetition count 1
-    read_u8(v8); EXPECT_EQ(v8, 0x01);
-    read_u8(v8); EXPECT_EQ(v8, 0x61);
-    // Lockout Characteristics (2 bytes)
-    read_u8(v8); EXPECT_EQ(v8, 0x70);
-    read_u8(v8); EXPECT_EQ(v8, 0x71);
-    // Transition Codes (6 bytes)
-    for (int i = 0; i < 6; ++i) { read_u8(v8); EXPECT_EQ(v8, 0x80); }
-    // Track Lifecycle (4 bytes)
-    for (int i = 0; i < 4; ++i) { read_u8(v8); EXPECT_EQ(v8, 0x90); }
-    // Adjacent Sensor Info – repetition count 1
-    read_u8(v8); EXPECT_EQ(v8, 0x01);
-    for (int i = 0; i < 8; ++i) { read_u8(v8); EXPECT_EQ(v8, 0xA0); }
-    read_u8(v8); EXPECT_EQ(v8, 0xB0); // Extrapolation Source
-    read_u8(v8); EXPECT_EQ(v8, 0xC0); // Identity Requested
+    // ---------------------------------------------------------------
+    // FRN 10 – I048/250 BDS Register Data               (repetitive, 1 rep × 8 B = 9 B)
+    // ---------------------------------------------------------------
+    check_item(10, asterix::item_type_repetetive, 9, 38u);
 
-    // CPC sub‑UAP (4 items)
-    read_u8(v8); EXPECT_EQ(v8, 0xD0); // Plot Number (2 bytes)
-    read_u8(v8); EXPECT_EQ(v8, 0xD1);
-    read_u8(v8); EXPECT_EQ(v8, 0x01); // Replies/Plot Link repetition = 1
-    read_u8(v8); EXPECT_EQ(v8, 0xD3);
-    read_u8(v8); EXPECT_EQ(v8, 0xD4);
-    read_u8(v8); EXPECT_EQ(v8, 0xD5); // Scan Number
-    read_u8(v8); EXPECT_EQ(v8, 0xD6); // Date (4 bytes)
-    for (int i = 0; i < 4; ++i) { read_u8(v8); EXPECT_EQ(v8, 0xD6); }
+    // ---------------------------------------------------------------
+    // FRN 11 – I048/161 Track Number                    (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(11, asterix::item_type_fixed, 2, 47u);
 
-    // GEN48 sub‑UAP (5 items)
-    read_u8(v8); EXPECT_EQ(v8, 0xE1);
-    read_u8(v8); EXPECT_EQ(v8, 0xE2);
-    read_u8(v8); EXPECT_EQ(v8, 0xE3);
-    read_u8(v8); EXPECT_EQ(v8, 0xE4);
-    read_u8(v8); EXPECT_EQ(v8, 0xE5);
+    // ---------------------------------------------------------------
+    // FRN 12 – I048/042 Calculated Position             (fixed, 4 B)
+    // ---------------------------------------------------------------
+    check_item(12, asterix::item_type_fixed, 4, 49u);
 
-    // --------------------------------------------------------------
-    // Cleanup
-    // --------------------------------------------------------------*/
+    // ---------------------------------------------------------------
+    // FRN 13 – I048/200 Calculated Track Velocity       (fixed, 4 B)
+    // ---------------------------------------------------------------
+    check_item(13, asterix::item_type_fixed, 4, 53u);
+
+    // ---------------------------------------------------------------
+    // FRN 14 – I048/170 Track Status                    (variable, 2 B, FX=1 then FX=0)
+    // ---------------------------------------------------------------
+    check_item(14, asterix::item_type_variable, 2, 57u);
+
+    // ---------------------------------------------------------------
+    // FRN 15 – I048/210 Track Quality                   (fixed, 4 B)
+    // ---------------------------------------------------------------
+    check_item(15, asterix::item_type_fixed, 4, 59u);
+
+    // ---------------------------------------------------------------
+    // FRN 16 – I048/030 Warning/Error Conditions        (variable, 2 B)
+    // ---------------------------------------------------------------
+    check_item(16, asterix::item_type_variable, 2, 63u);
+
+    // ---------------------------------------------------------------
+    // FRN 17 – I048/080 Mode-3/A Code Confidence        (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(17, asterix::item_type_fixed, 2, 65u);
+
+    // ---------------------------------------------------------------
+    // FRN 18 – I048/100 Mode-C Code & Confidence        (fixed, 4 B)
+    // ---------------------------------------------------------------
+    check_item(18, asterix::item_type_fixed, 4, 67u);
+
+    // ---------------------------------------------------------------
+    // FRN 19 – I048/110 Height (3D Radar)               (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(19, asterix::item_type_fixed, 2, 71u);
+
+    // ---------------------------------------------------------------
+    // FRN 20 – I048/120 Radial Doppler Speed            (compound)
+    //          FSPEC=0xC0 → children 1 (CAL) and 2 (RDS) present
+    //          10 B total: 1 FSPEC + 2 CAL + 1 repCount + 6 RDS
+    // ---------------------------------------------------------------
+    {
+        const auto* it = rec->get_item(20);
+        ASSERT_NE(it, nullptr);
+        EXPECT_TRUE(it->populated);
+        EXPECT_EQ(it->type,       asterix::item_type_compound);
+        EXPECT_EQ(it->raw_length, 10u);
+        EXPECT_EQ(it->raw_offset, 73u);
+
+        // Child 1: CAL – fixed, 2 B
+        const auto* cal = it->get_child_item(1);
+        ASSERT_NE(cal, nullptr);
+        EXPECT_TRUE(cal->populated);
+        EXPECT_EQ(cal->type,       asterix::item_type_fixed);
+        EXPECT_EQ(cal->raw_length, 2u);
+        EXPECT_EQ(cal->raw_offset, 74u);
+
+        // Child 2: RDS – repetitive, 1 rep × 6 B = 7 B (includes rep count byte)
+        const auto* rds = it->get_child_item(2);
+        ASSERT_NE(rds, nullptr);
+        EXPECT_TRUE(rds->populated);
+        EXPECT_EQ(rds->type,       asterix::item_type_repetetive);
+        EXPECT_EQ(rds->raw_length, 7u);
+        EXPECT_EQ(rds->raw_offset, 76u);
+    }
+
+    // ---------------------------------------------------------------
+    // FRN 21 – I048/230 Comm/ACAS Capability            (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(21, asterix::item_type_fixed, 2, 83u);
+
+    // ---------------------------------------------------------------
+    // FRN 22 – I048/260 ACAS Resolution Advisory        (fixed, 7 B)
+    // ---------------------------------------------------------------
+    check_item(22, asterix::item_type_fixed, 7, 85u);
+
+    // ---------------------------------------------------------------
+    // FRN 23 – I048/055 Mode-1 Code                     (fixed, 1 B)
+    // ---------------------------------------------------------------
+    check_item(23, asterix::item_type_fixed, 1, 92u);
+
+    // ---------------------------------------------------------------
+    // FRN 24 – I048/050 Mode-2 Code                     (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(24, asterix::item_type_fixed, 2, 93u);
+
+    // ---------------------------------------------------------------
+    // FRN 25 – I048/065 Mode-1 Code Confidence          (fixed, 1 B)
+    // ---------------------------------------------------------------
+    check_item(25, asterix::item_type_fixed, 1, 95u);
+
+    // ---------------------------------------------------------------
+    // FRN 26 – I048/060 Mode-2 Code Confidence          (fixed, 2 B)
+    // ---------------------------------------------------------------
+    check_item(26, asterix::item_type_fixed, 2, 96u);
+
+    // ---------------------------------------------------------------
+    // FRN 27 – SP Special Purpose Field                 (explicit, 6 B total)
+    //          Length byte = 0x06, payload = 5 B (FSPEC + 4 B dummy)
+    // ---------------------------------------------------------------
+    check_item(27, asterix::item_type_explicit, 6, 98u);
+
+    // ---------------------------------------------------------------
+    // FRN 28 – RE Reserved Expansion Field              (explicit, 135 B)
+    //          Contains all 8 REF sub-items
+    // ---------------------------------------------------------------
+    {
+        const auto* re = rec->get_item(28);
+        ASSERT_NE(re, nullptr);
+        EXPECT_TRUE(re->populated);
+        EXPECT_EQ(re->type,       asterix::item_type_explicit);
+        EXPECT_EQ(re->raw_length, 135u);   // includes the length byte
+        EXPECT_EQ(re->raw_offset, 104u);
+
+        // ── REF child FRN 1: MD5 (compound, 18 B: 1 FSPEC + 17 data) ──
+        {
+            const auto* md5 = re->get_child_item(1);
+            ASSERT_NE(md5, nullptr);
+            EXPECT_TRUE(md5->populated);
+            EXPECT_EQ(md5->type,       asterix::item_type_compound);
+            EXPECT_EQ(md5->raw_length, 18u);
+            EXPECT_EQ(md5->raw_offset, 106u);
+
+            auto check_md5_child = [&](uint8_t frn, uint16_t len, uint32_t off)
+            {
+                const auto* ch = md5->get_child_item(frn);
+                ASSERT_NE(ch, nullptr)      << "MD5 child FRN " << (int)frn;
+                EXPECT_TRUE(ch->populated)  << "MD5 child FRN " << (int)frn;
+                EXPECT_EQ(ch->type, asterix::item_type_fixed) << "MD5 child FRN " << (int)frn;
+                EXPECT_EQ(ch->raw_length, len) << "MD5 child FRN " << (int)frn;
+                EXPECT_EQ(ch->raw_offset, off) << "MD5 child FRN " << (int)frn;
+            };
+            check_md5_child(1, 1u, 107u);   // Mode 5 Summary
+            check_md5_child(2, 4u, 108u);   // PIN / Nat Origin / Mission Code
+            check_md5_child(3, 6u, 112u);   // Reported Position
+            check_md5_child(4, 2u, 118u);   // GNSS-derived Altitude
+            check_md5_child(5, 2u, 120u);   // Extended Mode 1 Code
+            check_md5_child(6, 1u, 122u);   // Time Offset
+            check_md5_child(7, 1u, 123u);   // X Pulse Presence
+        }
+
+        // ── REF child FRN 2: M5N (compound, 20 B: 2 FSPEC + 18 data) ──
+        {
+            const auto* m5n = re->get_child_item(2);
+            ASSERT_NE(m5n, nullptr);
+            EXPECT_TRUE(m5n->populated);
+            EXPECT_EQ(m5n->type,       asterix::item_type_compound);
+            EXPECT_EQ(m5n->raw_length, 20u);
+            EXPECT_EQ(m5n->raw_offset, 124u);
+
+            auto check_m5n_child = [&](uint8_t frn, uint16_t len, uint32_t off)
+            {
+                const auto* ch = m5n->get_child_item(frn);
+                ASSERT_NE(ch, nullptr)      << "M5N child FRN " << (int)frn;
+                EXPECT_TRUE(ch->populated)  << "M5N child FRN " << (int)frn;
+                EXPECT_EQ(ch->type, asterix::item_type_fixed) << "M5N child FRN " << (int)frn;
+                EXPECT_EQ(ch->raw_length, len) << "M5N child FRN " << (int)frn;
+                EXPECT_EQ(ch->raw_offset, off) << "M5N child FRN " << (int)frn;
+            };
+            check_m5n_child(1, 1u, 126u);   // Mode 5 Summary
+            check_m5n_child(2, 4u, 127u);   // PIN / Nat Origin
+            check_m5n_child(3, 6u, 131u);   // Reported Position
+            check_m5n_child(4, 2u, 137u);   // GNSS-derived Altitude
+            check_m5n_child(5, 2u, 139u);   // Extended Mode 1 Code
+            check_m5n_child(6, 1u, 141u);   // Time Offset
+            check_m5n_child(7, 1u, 142u);   // X Pulse Presence
+            check_m5n_child(8, 1u, 143u);   // Figure of Merit
+        }
+
+        // ── REF child FRN 3: M4E (variable, 2 B: FX=1 + FX=0) ──
+        {
+            const auto* m4e = re->get_child_item(3);
+            ASSERT_NE(m4e, nullptr);
+            EXPECT_TRUE(m4e->populated);
+            EXPECT_EQ(m4e->type,       asterix::item_type_variable);
+            EXPECT_EQ(m4e->raw_length, 2u);
+            EXPECT_EQ(m4e->raw_offset, 144u);
+        }
+
+        // ── REF child FRN 4: RPC (compound, 8 B: 1 FSPEC + 1+2+2+2 data) ──
+        {
+            const auto* rpc = re->get_child_item(4);
+            ASSERT_NE(rpc, nullptr);
+            EXPECT_TRUE(rpc->populated);
+            EXPECT_EQ(rpc->type,       asterix::item_type_compound);
+            EXPECT_EQ(rpc->raw_length, 8u);
+            EXPECT_EQ(rpc->raw_offset, 146u);
+
+            // Score (1 B)
+            const auto* score = rpc->get_child_item(1);
+            ASSERT_NE(score, nullptr);
+            EXPECT_TRUE(score->populated);
+            EXPECT_EQ(score->raw_length, 1u);
+            EXPECT_EQ(score->raw_offset, 147u);
+
+            // Signal/Clutter Ratio (2 B)
+            const auto* scr = rpc->get_child_item(2);
+            ASSERT_NE(scr, nullptr);
+            EXPECT_TRUE(scr->populated);
+            EXPECT_EQ(scr->raw_length, 2u);
+            EXPECT_EQ(scr->raw_offset, 148u);
+
+            // Range Width (2 B)
+            const auto* rw = rpc->get_child_item(3);
+            ASSERT_NE(rw, nullptr);
+            EXPECT_TRUE(rw->populated);
+            EXPECT_EQ(rw->raw_length, 2u);
+            EXPECT_EQ(rw->raw_offset, 150u);
+
+            // Ambiguous Range (2 B)
+            const auto* ar = rpc->get_child_item(4);
+            ASSERT_NE(ar, nullptr);
+            EXPECT_TRUE(ar->populated);
+            EXPECT_EQ(ar->raw_length, 2u);
+            EXPECT_EQ(ar->raw_offset, 152u);
+        }
+
+        // ── REF child FRN 5: ERR (fixed, 3 B) ──
+        {
+            const auto* err = re->get_child_item(5);
+            ASSERT_NE(err, nullptr);
+            EXPECT_TRUE(err->populated);
+            EXPECT_EQ(err->type,       asterix::item_type_fixed);
+            EXPECT_EQ(err->raw_length, 3u);
+            EXPECT_EQ(err->raw_offset, 154u);
+        }
+
+        // ── REF child FRN 6: RTC (compound, 56 B: 2 FSPEC + 54 data) ──
+        //    FSPEC = 0xFF 0xF0 → items 1-8 from byte-1, items 9-11 from byte-2
+        {
+            const auto* rtc = re->get_child_item(6);
+            ASSERT_NE(rtc, nullptr);
+            EXPECT_TRUE(rtc->populated);
+            EXPECT_EQ(rtc->type,       asterix::item_type_compound);
+            EXPECT_EQ(rtc->raw_length, 56u);
+            EXPECT_EQ(rtc->raw_offset, 157u);
+
+            // RTC child 1: Plot/Track Link (fixed, 3 B)
+            const auto* ptl = rtc->get_child_item(1);
+            ASSERT_NE(ptl, nullptr);
+            EXPECT_EQ(ptl->raw_length, 3u);
+            EXPECT_EQ(ptl->raw_offset, 159u);
+
+            // RTC child 2: ADS-B/Track Link (repetetive, 1 rep × 2 B = 3 B)
+            const auto* adsb = rtc->get_child_item(2);
+            ASSERT_NE(adsb, nullptr);
+            EXPECT_EQ(adsb->type,       asterix::item_type_repetetive);
+            EXPECT_EQ(adsb->raw_length, 3u);
+            EXPECT_EQ(adsb->raw_offset, 162u);
+
+            // RTC child 3: Turn State (fixed, 1 B)
+            const auto* ts = rtc->get_child_item(3);
+            ASSERT_NE(ts, nullptr);
+            EXPECT_EQ(ts->raw_length, 1u);
+            EXPECT_EQ(ts->raw_offset, 165u);
+
+            // RTC child 4: Next Predicted Position (fixed, 22 B)
+            const auto* npp = rtc->get_child_item(4);
+            ASSERT_NE(npp, nullptr);
+            EXPECT_EQ(npp->raw_length, 22u);
+            EXPECT_EQ(npp->raw_offset, 166u);
+
+            // RTC child 5: Data Link Characteristics (repetetive, 1 rep × 1 B = 2 B)
+            const auto* dlc = rtc->get_child_item(5);
+            ASSERT_NE(dlc, nullptr);
+            EXPECT_EQ(dlc->type,       asterix::item_type_repetetive);
+            EXPECT_EQ(dlc->raw_length, 2u);
+            EXPECT_EQ(dlc->raw_offset, 188u);
+
+            // RTC child 6: Lockout Characteristics (fixed, 2 B)
+            const auto* lc = rtc->get_child_item(6);
+            ASSERT_NE(lc, nullptr);
+            EXPECT_EQ(lc->raw_length, 2u);
+            EXPECT_EQ(lc->raw_offset, 190u);
+
+            // RTC child 7: Transition Codes (fixed, 6 B)
+            const auto* tc = rtc->get_child_item(7);
+            ASSERT_NE(tc, nullptr);
+            EXPECT_EQ(tc->raw_length, 6u);
+            EXPECT_EQ(tc->raw_offset, 192u);
+
+            // RTC child 8: Track Lifecycle (fixed, 4 B)
+            const auto* tl = rtc->get_child_item(8);
+            ASSERT_NE(tl, nullptr);
+            EXPECT_EQ(tl->raw_length, 4u);
+            EXPECT_EQ(tl->raw_offset, 198u);
+
+            // RTC child 9: Adjacent Sensor Information (repetetive, 1 rep × 8 B = 9 B)
+            const auto* asi = rtc->get_child_item(9);
+            ASSERT_NE(asi, nullptr);
+            EXPECT_EQ(asi->type,       asterix::item_type_repetetive);
+            EXPECT_EQ(asi->raw_length, 9u);
+            EXPECT_EQ(asi->raw_offset, 202u);
+
+            // RTC child 10: Track Extrapolation Source (fixed, 1 B)
+            const auto* tes = rtc->get_child_item(10);
+            ASSERT_NE(tes, nullptr);
+            EXPECT_EQ(tes->raw_length, 1u);
+            EXPECT_EQ(tes->raw_offset, 211u);
+
+            // RTC child 11: Identity Requested (fixed, 1 B)
+            const auto* ir = rtc->get_child_item(11);
+            ASSERT_NE(ir, nullptr);
+            EXPECT_EQ(ir->raw_length, 1u);
+            EXPECT_EQ(ir->raw_offset, 212u);
+        }
+
+        // ── REF child FRN 7: CPC (compound, 12 B: 1 FSPEC + 11 data) ──
+        //    FSPEC = 0xF0 → items 1-4 present
+        {
+            const auto* cpc = re->get_child_item(7);
+            ASSERT_NE(cpc, nullptr);
+            EXPECT_TRUE(cpc->populated);
+            EXPECT_EQ(cpc->type,       asterix::item_type_compound);
+            EXPECT_EQ(cpc->raw_length, 12u);
+            EXPECT_EQ(cpc->raw_offset, 213u);
+
+            // CPC child 1: Plot Number (fixed, 2 B)
+            const auto* pn = cpc->get_child_item(1);
+            ASSERT_NE(pn, nullptr);
+            EXPECT_EQ(pn->raw_length, 2u);
+            EXPECT_EQ(pn->raw_offset, 214u);
+
+            // CPC child 2: Replies/Plot Link (repetetive, 1 rep × 3 B = 4 B)
+            const auto* rpl = cpc->get_child_item(2);
+            ASSERT_NE(rpl, nullptr);
+            EXPECT_EQ(rpl->type,       asterix::item_type_repetetive);
+            EXPECT_EQ(rpl->raw_length, 4u);
+            EXPECT_EQ(rpl->raw_offset, 216u);
+
+            // CPC child 3: Scan Number (fixed, 1 B)
+            const auto* sn = cpc->get_child_item(3);
+            ASSERT_NE(sn, nullptr);
+            EXPECT_EQ(sn->raw_length, 1u);
+            EXPECT_EQ(sn->raw_offset, 220u);
+
+            // CPC child 4: Date (fixed, 4 B)
+            const auto* dt = cpc->get_child_item(4);
+            ASSERT_NE(dt, nullptr);
+            EXPECT_EQ(dt->raw_length, 4u);
+            EXPECT_EQ(dt->raw_offset, 221u);
+        }
+
+        // ── REF child FRN 8: GEN48 (compound, 13 B: 1 FSPEC + 12 data) ──
+        //    FSPEC = 0xF8 → items 1-5 present
+        {
+            const auto* gen48 = re->get_child_item(8);
+            ASSERT_NE(gen48, nullptr);
+            EXPECT_TRUE(gen48->populated);
+            EXPECT_EQ(gen48->type,       asterix::item_type_compound);
+            EXPECT_EQ(gen48->raw_length, 13u);
+            EXPECT_EQ(gen48->raw_offset, 225u);
+
+            // GEN48 child 1: Alternative Mode 2 Code (fixed, 2 B)
+            const auto* am2 = gen48->get_child_item(1);
+            ASSERT_NE(am2, nullptr);
+            EXPECT_EQ(am2->raw_length, 2u);
+            EXPECT_EQ(am2->raw_offset, 226u);
+
+            // GEN48 child 2: Alternative Mode 3/A (fixed, 2 B)
+            const auto* am3a = gen48->get_child_item(2);
+            ASSERT_NE(am3a, nullptr);
+            EXPECT_EQ(am3a->raw_length, 2u);
+            EXPECT_EQ(am3a->raw_offset, 228u);
+
+            // GEN48 child 3: Alternative Flight Level (fixed, 2 B)
+            const auto* afl = gen48->get_child_item(3);
+            ASSERT_NE(afl, nullptr);
+            EXPECT_EQ(afl->raw_length, 2u);
+            EXPECT_EQ(afl->raw_offset, 230u);
+
+            // GEN48 child 4: Radar Cross Section dBm² (fixed, 2 B)
+            const auto* rcsdbm = gen48->get_child_item(4);
+            ASSERT_NE(rcsdbm, nullptr);
+            EXPECT_EQ(rcsdbm->raw_length, 2u);
+            EXPECT_EQ(rcsdbm->raw_offset, 232u);
+
+            // GEN48 child 5: Radar Cross Section m² (fixed, 4 B)
+            const auto* rcsm2 = gen48->get_child_item(5);
+            ASSERT_NE(rcsm2, nullptr);
+            EXPECT_EQ(rcsm2->raw_length, 4u);
+            EXPECT_EQ(rcsm2->raw_offset, 234u);
+        }
+    }
+
     adam::buffer_manager::get().return_buffer(internal);
+    adam::buffer_manager::get().return_buffer(data);
 }

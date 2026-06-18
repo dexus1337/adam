@@ -253,6 +253,7 @@ namespace adam::modules::asterix
             child_items_offset
         ))
         {
+            return false;
             // TODO what now? log
         }
 
@@ -281,7 +282,7 @@ namespace adam::modules::asterix
         uint8_t explicit_len = raw_data[raw_offset]; // length includes this byte
         if (raw_offset + explicit_len > raw_length) return false;
 
-        new(internal_data->at<item>(item_start_offset)) item(item_type_compound, explicit_len, raw_item_start_offset);
+        new(internal_data->at<item>(item_start_offset)) item(item_type_explicit, explicit_len, raw_item_start_offset);
         out_offset += sizeof(item);
 
         if (spec.sub_uap)
