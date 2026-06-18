@@ -96,6 +96,7 @@ namespace adam::modules::asterix
         item_type   type;           /**< Type of the item. */
         bool        populated;      /**< Marks the item as existing, can be set to false to remove item */
 
+        item(){}
         item(item_type type, uint16_t raw_len, uint32_t raw_off) 
          :  child_count(0),
             raw_length(raw_len), 
@@ -103,10 +104,10 @@ namespace adam::modules::asterix
             type(type),
             populated(true) {}
 
-        inline const item* get_child_items(uint8_t frn) const 
+        inline const item* get_child_item(uint8_t frn) const 
         { 
             if (frn > child_count) return nullptr;
-            return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + raw_offset ) + (frn - 1); 
+            return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + child_offset) + (frn - 1); 
         }
     };
 
@@ -117,12 +118,11 @@ namespace adam::modules::asterix
     struct record
     {
         uint16_t item_count;    /**< Number of items in this record. */
-        uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
-        uint32_t raw_length;    /**< Length of raw data for this record. */
+        uint16_t raw_length;    /**< Length of raw data for this record. */
         uint32_t raw_offset;    /**< Offset in raw buffer where this record starts. */
         uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
-
-        record(uint8_t category, uint16_t items, uint32_t raw_len, uint32_t raw_off) : 
+        
+        record(uint8_t category, uint16_t items, uint16_t raw_len, uint32_t raw_off) : 
             item_count(items), 
             raw_length(raw_len), 
             raw_offset(raw_off),
@@ -164,7 +164,7 @@ namespace adam::modules::asterix
             if (idx >= record_count) return nullptr;
             auto recstart = reinterpret_cast<const uint8_t*>(this) + sizeof(block);
             for (size_t i = 0; i < idx; i++)
-                recstart += reinterpret_cast<const record*>(recstart)->item_count * sizeof(item);
+                recstart += reinterpret_cast<const record*>(recstart)->item_count * sizeof(item) + sizeof(record);
             return reinterpret_cast<const record*>(recstart);
         }
     };

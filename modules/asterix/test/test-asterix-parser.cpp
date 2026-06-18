@@ -28,7 +28,7 @@ protected:
     asterix::asterix_parser parser;
 };
 
-TEST_F(parser_test, simple_item_parse)
+TEST_F(parser_test, parse_fixed)
 {
     // Create a dummy raw buffer representing an Asterix packet
     adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
@@ -76,7 +76,7 @@ TEST_F(parser_test, simple_item_parse)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    //EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record->item_count, block->get_uap()->last_frn); // no children, so item count = last FRN
     EXPECT_EQ(record->raw_length, 6);
     EXPECT_EQ(record->raw_offset, 3);
     EXPECT_EQ(record->category, 48);
@@ -88,15 +88,15 @@ TEST_F(parser_test, simple_item_parse)
     ASSERT_NE(item1, nullptr);
     EXPECT_TRUE(item1->populated);
     EXPECT_EQ(item1->type, asterix::item_type_fixed);
-    EXPECT_EQ(item1->data_length, 2);
-    EXPECT_EQ(item1->raw_data_offset, 4);
+    EXPECT_EQ(item1->raw_length, 2);
+    EXPECT_EQ(item1->raw_offset, 4);
 
     auto item2 = record->get_item(2);
     ASSERT_NE(item2, nullptr);
     EXPECT_TRUE(item2->populated);
     EXPECT_EQ(item2->type, asterix::item_type_fixed);
-    EXPECT_EQ(item2->data_length, 3);
-    EXPECT_EQ(item2->raw_data_offset, 6);
+    EXPECT_EQ(item2->raw_length, 3);
+    EXPECT_EQ(item2->raw_offset, 6);
 
     auto item3 = record->get_item(3);
     ASSERT_NE(item3, nullptr);
@@ -106,86 +106,7 @@ TEST_F(parser_test, simple_item_parse)
     adam::buffer_manager::get().return_buffer(raw_buf);
 }
 
-TEST_F(parser_test, compound_parse)
-{
-    // Create a dummy raw buffer representing an Asterix packet
-    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
-    ASSERT_NE(raw_buf, nullptr);
-
-    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
-
-    // Build a valid CAT062 packet
-    raw_data[0] = 62; // CAT
-    raw_data[1] = 0;  // Length MSB
-    raw_data[2] = 15;  // Calculated Later
-    
-    // FSPEC: I0062/110 (FRN 24)
-    // Bit 7 is FRN 1, bit 6 is FRN 2. So 11000000 = 0xC0. FX=0.
-    raw_data[3] = 0x01; // Byte 1 empty, only fx
-    raw_data[4] = 0x01; // Byte 2 empty, only fx
-    raw_data[5] = 0x01; // Byte 3 empty, only fx
-    raw_data[6] = 0b00100000; // FRN24 set
-    
-    // FRN 24: Mode 5 Data reports & Extended Mode 1 Code (Compound)
-    raw_data[7] = 0b10100000; // SUM and POS set
-    
-    // SUM
-    raw_data[8] = 0b10101010; // random data
-
-    // POS
-    raw_data[9] = 0x11; // Lat
-    raw_data[10] = 0x22;
-    raw_data[11] = 0x33;
-    raw_data[12] = 0x44; // Long
-    raw_data[13] = 0x55;
-    raw_data[14] = 0x66;
-
-    raw_buf->set_size(15);
-
-    adam::buffer* internal_data = nullptr;
-    bool success = parser.parse(raw_buf, internal_data);
-
-    EXPECT_TRUE(success);
-    ASSERT_NE(internal_data, nullptr);
-    EXPECT_GT(internal_data->get_size(), 0ul);
-
-    // Verify layout
-    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
-    EXPECT_EQ(buf_header->block_count, 1);
-
-    auto block = buf_header->get_block(0);
-    ASSERT_NE(block, nullptr);
-    EXPECT_EQ(block->category, 62);
-    EXPECT_EQ(block->record_count, 1);
-    EXPECT_EQ(block->raw_length, 15);
-    EXPECT_EQ(block->raw_offset, 0);
-
-    auto record = block->get_record(0);
-    ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count, record->get_uap()->last_frn);
-    EXPECT_EQ(record->raw_length, 15 - 3);
-    EXPECT_EQ(record->raw_offset, 3);
-
-    for (int i = 1; i < block->get_uap()->last_frn; i++)
-    {
-        auto* item = record->get_item(i);
-        ASSERT_NE(item, nullptr);
-
-        EXPECT_EQ(item->populated, i == 24);
-    }
-
-    auto item24 = record->get_item(24);
-    ASSERT_NE(item24, nullptr);
-    EXPECT_TRUE(item24->populated);
-    EXPECT_EQ(item24->type, asterix::item_type_compound);
-    EXPECT_EQ(item24->raw_length, 2);
-    EXPECT_EQ(item24->raw_offset, 7);
-
-    adam::buffer_manager::get().return_buffer(internal_data);
-    adam::buffer_manager::get().return_buffer(raw_buf);
-}
-
-TEST_F(parser_test, cat062_variable_item_parse)
+TEST_F(parser_test, parse_variable)
 {
     adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
     ASSERT_NE(raw_buf, nullptr);
@@ -223,7 +144,6 @@ TEST_F(parser_test, cat062_variable_item_parse)
     ASSERT_NE(internal_data, nullptr);
     EXPECT_GT(internal_data->get_size(), 0ul);
 
-    // Verify layout
     const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
     EXPECT_EQ(buf_header->block_count, 1);
     
@@ -236,7 +156,7 @@ TEST_F(parser_test, cat062_variable_item_parse)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    //EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record->item_count, block->get_uap()->last_frn); // no children, so item count = last FRN
     EXPECT_EQ(record->raw_length, 10);
     EXPECT_EQ(record->raw_offset, 3);
     EXPECT_EQ(record->category, 62);
@@ -245,8 +165,106 @@ TEST_F(parser_test, cat062_variable_item_parse)
     ASSERT_NE(item26, nullptr);
     EXPECT_TRUE(item26->populated);
     EXPECT_EQ(item26->type, asterix::item_type_variable);
-    EXPECT_EQ(item26->data_length, 6);
-    EXPECT_EQ(item26->raw_data_offset, 7);
+    EXPECT_EQ(item26->raw_length, 6);
+    EXPECT_EQ(item26->raw_offset, 7);
+
+    adam::buffer_manager::get().return_buffer(internal_data);
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+TEST_F(parser_test, parse_compound)
+{
+    // Create a dummy raw buffer representing an Asterix packet
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+    ASSERT_NE(raw_buf, nullptr);
+
+    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
+
+    // Build a valid CAT062 packet
+    raw_data[0] = 62; // CAT
+    raw_data[1] = 0;  // Length MSB
+    raw_data[2] = 15;  // Calculated Later
+    
+    // FSPEC: I0062/110 (FRN 24)
+    // Bit 7 is FRN 1, bit 6 is FRN 2. So 11000000 = 0xC0. FX=0.
+    raw_data[3] = 0x01; // Byte 1 empty, only fx
+    raw_data[4] = 0x01; // Byte 2 empty, only fx
+    raw_data[5] = 0x01; // Byte 3 empty, only fx
+    raw_data[6] = 0b00100000; // FRN24 set
+    
+    // FRN 24: Mode 5 Data reports & Extended Mode 1 Code (Compound)
+    raw_data[7] = 0b10100000; // FRN 1 SUM and FRN 3 POS set
+    
+    // CHILD FRN 1: SUM
+    raw_data[8] = 0b10101010; // random data
+
+    // CHILD FRN 3: POS
+    raw_data[9] = 0x11; // Lat
+    raw_data[10] = 0x22;
+    raw_data[11] = 0x33;
+    raw_data[12] = 0x44; // Long
+    raw_data[13] = 0x55;
+    raw_data[14] = 0x66;
+
+    raw_buf->set_size(15);
+
+    adam::buffer* internal_data = nullptr;
+    bool success = parser.parse(raw_buf, internal_data);
+
+    EXPECT_TRUE(success);
+    ASSERT_NE(internal_data, nullptr);
+    EXPECT_GT(internal_data->get_size(), 0ul);
+
+    // Verify layout
+    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
+    EXPECT_EQ(buf_header->block_count, 1);
+
+    auto block = buf_header->get_block(0);
+    ASSERT_NE(block, nullptr);
+    EXPECT_EQ(block->category, 62);
+    EXPECT_EQ(block->record_count, 1);
+    EXPECT_EQ(block->raw_length, 15);
+    EXPECT_EQ(block->raw_offset, 0);
+
+    auto record = block->get_record(0);
+    ASSERT_NE(record, nullptr);
+    EXPECT_EQ(record->item_count, record->get_uap()->last_frn); // no children, so item count = last FRN
+    EXPECT_EQ(record->raw_length, 15 - 3);
+    EXPECT_EQ(record->raw_offset, 3);
+
+    for (int i = 1; i < block->get_uap()->last_frn; i++)
+    {
+        auto* item = record->get_item(i);
+        ASSERT_NE(item, nullptr);
+
+        EXPECT_EQ(item->populated, i == 24);
+    }
+
+    auto item24 = record->get_item(24);
+    ASSERT_NE(item24, nullptr);
+    EXPECT_TRUE(item24->populated);
+    EXPECT_EQ(item24->type, asterix::item_type_compound);
+    EXPECT_EQ(item24->raw_length, 8);
+    EXPECT_EQ(item24->raw_offset, 7);
+
+    auto child_item1 = item24->get_child_item(1);
+    ASSERT_NE(child_item1, nullptr);
+    EXPECT_TRUE(child_item1->populated);
+    EXPECT_EQ(child_item1->type, asterix::item_type_fixed);
+    EXPECT_EQ(child_item1->raw_length, 1);
+    EXPECT_EQ(child_item1->raw_offset, 8);
+
+    auto child_item2 = item24->get_child_item(2);
+    ASSERT_NE(child_item2, nullptr);
+    EXPECT_FALSE(child_item2->populated);
+
+    auto child_item3 = item24->get_child_item(3);
+    ASSERT_NE(child_item3, nullptr);
+    EXPECT_TRUE(child_item3->populated);
+    EXPECT_EQ(child_item3->type, asterix::item_type_fixed);
+    EXPECT_EQ(child_item3->raw_length, 6);
+    EXPECT_EQ(child_item3->raw_offset, 9);
+
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
@@ -314,14 +332,14 @@ TEST_F(parser_test, multiple_blocks_and_records)
 
     auto record48_0 = block48->get_record(0);
     ASSERT_NE(record48_0, nullptr);
-    //EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record48_0->item_count, record48_0->get_uap()->last_frn); // no children, so item count = last FRN
     EXPECT_EQ(record48_0->raw_length, 3);
     EXPECT_EQ(record48_0->raw_offset, 3);
     EXPECT_EQ(record48_0->category, 48);
 
     auto record48_1 = block48->get_record(1);
     ASSERT_NE(record48_1, nullptr);
-    EXPECT_EQ(record->item_count, 3);
+    EXPECT_EQ(record48_1->item_count, record48_1->get_uap()->last_frn); // no children, so item count = last FRN
     EXPECT_EQ(record48_1->raw_length, 4);
     EXPECT_EQ(record48_1->raw_offset, 6);
     EXPECT_EQ(record48_1->category, 48);
@@ -335,9 +353,9 @@ TEST_F(parser_test, multiple_blocks_and_records)
 
     auto record62_0 = block62->get_record(0);
     ASSERT_NE(record62_0, nullptr);
-    //EXPECT_EQ(record->item_count, 3);
-    EXPECT_EQ(record62_0->raw_length, 10);
-    EXPECT_EQ(record62_0->raw_offset, 3);
+    EXPECT_EQ(record62_0->item_count, record62_0->get_uap()->last_frn); // no children, so item count = last FRN
+    EXPECT_EQ(record62_0->raw_length, 3);
+    EXPECT_EQ(record62_0->raw_offset, 13);
     EXPECT_EQ(record62_0->category, 62);
 
     adam::buffer_manager::get().return_buffer(internal_data);
