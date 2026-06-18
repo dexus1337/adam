@@ -47,11 +47,11 @@ namespace adam::modules::asterix
     class ADAM_ASTERIX_API uap
     {
     public:
-        uint8_t             cat_id;                     /**< The category ID (e.g., 48, 62). */
-        uint8_t             highest_frn;                /**< Highest registered FRN; determines fixed FSPEC octet count for explicit items. */
-        uint16_t            item_count;                 /**< Total count of all items including sub-items, for pre-allocating internal buffers. */
-        const field_spec*   items_by_frn[256];          /**< O(1) array mapping FRN to field spec. */
-        uap_expansion*      custom_expansions[256];     /**< O(1) array mapping FRN to custom expansion metadata. */
+        uint8_t             cat_id;                                     /**< The category ID (e.g., 48, 62). */
+        uint8_t             last_frn;                                   /**< Highest registered FRN; Also determines fixed FSPEC octet count for explicit items. */
+        uint16_t            subitem_count;                              /**< Summended last_frn of all children. */
+        const field_spec*   items_by_frn[asterix::highest_frn];         /**< O(1) array mapping FRN to field spec. */
+        uap_expansion*      custom_expansions[asterix::highest_frn];    /**< O(1) array mapping FRN to custom expansion metadata. */
 
         /**
          * @brief Constructs the UAP and initializes the O(1) lookup arrays.
@@ -60,7 +60,7 @@ namespace adam::modules::asterix
          * @param spec_count Number of elements in spec_array.
          */
         uap(uint8_t cat, const field_spec* spec_array, size_t spec_count)
-            : cat_id(cat), highest_frn(0)
+            : cat_id(cat), last_frn(0)
         {
             std::memset(items_by_frn, 0, sizeof(items_by_frn));
             std::memset(custom_expansions, 0, sizeof(custom_expansions));
@@ -68,28 +68,58 @@ namespace adam::modules::asterix
             for (size_t i = 0; i < spec_count; ++i)
             {
                 items_by_frn[spec_array[i].frn] = &spec_array[i];
-                if (spec_array[i].frn > highest_frn)
-                    highest_frn = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
+                if (spec_array[i].frn > last_frn)
+                    last_frn = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
             }
         }
 
         /**
-         * @brief Compute the total number of items including sub-items.
-         * @return The total item count.
+         * @brief   Retrieve the specification for a given FRN in O(1) time.
+         * @param   frn The Field Reference Number.
+         * @return  Pointer to the spec if found, nullptr otherwise.
          */
-        uint16_t compute_total_items() const
+        inline const field_spec* get_spec(uint8_t frn) const
         {
-            uint16_t count = highest_frn; // All my items
+            return items_by_frn[frn];
+        }
+
+        /**
+         * @brief   Retrieve the custom expansion metadata for a given FRN in O(1) time.
+         * @param   frn The Field Reference Number.
+         * @return  Pointer to the metadata if found, nullptr otherwise.
+         */
+        inline uap_expansion* get_expansion(uint8_t frn) const
+        {
+            return custom_expansions[frn];
+        }
+        
+        /**
+         * @brief   Compute the number of sub-items.
+         * @return  The computed amount.
+         */
+        void compute_subitem_count()
+        {
+            subitem_count = 0;
             
-            for (size_t i = 0; i <= highest_frn; ++i)
+            for (size_t i = 0; i <= last_frn; ++i)
             {
                 if (items_by_frn[i] && items_by_frn[i]->sub_uap)
                 {
-                    count += items_by_frn[i]->sub_uap->compute_total_items();
+                    auto* const_casted_uap = const_cast<class uap*>(items_by_frn[i]->sub_uap);
+
+                    const_casted_uap->compute_subitem_count();
+
+                    subitem_count += const_casted_uap->subitem_count;
                 }
             }
+        }
 
-            return count;
+        /**
+         * @brief Initializer. MUST be called before inserting this into the pool
+         */
+        void setup()
+        {
+            compute_subitem_count();
         }
 
         /**
@@ -102,25 +132,6 @@ namespace adam::modules::asterix
             custom_expansions[frn] = data;
         }
 
-        /**
-         * @brief Retrieve the specification for a given FRN in O(1) time.
-         * @param frn The Field Reference Number.
-         * @return Pointer to the spec if found, nullptr otherwise.
-         */
-        inline const field_spec* get_spec(uint8_t frn) const
-        {
-            return items_by_frn[frn];
-        }
-
-        /**
-         * @brief Retrieve the custom expansion metadata for a given FRN in O(1) time.
-         * @param frn The Field Reference Number.
-         * @return Pointer to the metadata if found, nullptr otherwise.
-         */
-        inline uap_expansion* get_expansion(uint8_t frn) const
-        {
-            return custom_expansions[frn];
-        }
     };
 
     /**
@@ -133,7 +144,7 @@ namespace adam::modules::asterix
         /**
          * @brief Get the singleton instance of the UAP pool.
          */
-        static uap_pool& get_instance();
+        static uap_pool& get();
 
         /**
          * @brief Register a UAP into the global pool.
@@ -161,6 +172,16 @@ namespace adam::modules::asterix
 
     inline const uap* raw_block_header::get_uap() const
     {
-        return uap_pool::get_instance().get_uap(category);
+        return uap_pool::get().get_uap(category);
+    }
+    
+    inline const uap* record::get_uap() const
+    {
+        return uap_pool::get().get_uap(category);
+    }
+    
+    inline const uap* block::get_uap() const
+    {
+        return uap_pool::get().get_uap(category);
     }
 }

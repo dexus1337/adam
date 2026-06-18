@@ -5,7 +5,7 @@
 
 namespace adam::modules::asterix
 {
-    uap_pool& uap_pool::get_instance()
+    uap_pool& uap_pool::get()
     {
         static uap_pool instance;
         return instance;
@@ -24,7 +24,7 @@ namespace adam::modules::asterix
     {
         if (uap)
         {
-            uap->item_count = uap->compute_total_items(); // Pre-compute total item count for buffer sizing
+            uap->setup();
             registered_uaps[uap->cat_id] = uap;
         }
     }

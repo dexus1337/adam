@@ -18,6 +18,7 @@ namespace adam::modules::asterix
 {
     ADAM_CONSTEXPR uint32_t minimum_block_length    = 5;
     ADAM_CONSTEXPR uint32_t highest_frn             = 256;
+    ADAM_CONSTEXPR uint8_t  max_fspec_bytes         = highest_frn / 8;
 
     class uap;
 
@@ -58,7 +59,8 @@ namespace adam::modules::asterix
         uint8_t value;
 
         /**
-         * @brief Check if a general FRN is active in this variable-length FSPEC structure.
+         * @brief   Check if a general FRN is active in this variable-length FSPEC structure.
+         *          CAUTION: O(n/7) Access
          * @param frn The Field Reference Number (e.g. 1, 26, 35).
          */
         inline bool is_frn_active(uint16_t frn) const
@@ -76,22 +78,13 @@ namespace adam::modules::asterix
             return (current->value & (1 << bit_position)) != 0;
         }
 
-        /**
-         * @brief Check if the Field Extension indicator (FX) bit is set (bit 0).
-         */
-        inline bool has_extension() const
-        {
-            return (value & 1) != 0;
-        }
+        /** @brief Check if the Field Extension indicator (FX) bit is set (bit 0). */
+        inline bool has_extension() const { return (value & 1) != 0; }
 
-        /**
-         * @brief Get the next raw_fspec octet if the Field Extension (FX) bit is set.
-         */
-        inline const raw_fspec* get_next() const
-        {
-            return has_extension() ? (this + 1) : nullptr;
-        }
+        /** @brief Get the next raw_fspec octet if the Field Extension (FX) bit is set. */
+        inline const raw_fspec* get_next() const { return has_extension() ? (this + 1) : nullptr; }
 
+        /** @brief Provide c++11 style iterator for the raw_fspec sturct */
         struct iterator
         {
             const raw_fspec* current;

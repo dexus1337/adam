@@ -66,9 +66,11 @@
 
 namespace adam::modules::asterix
 {
+    class uap;
+
     /**
-     * @enum item_type
-     * @brief The type of an asterix item.
+     * @enum    item_type
+     * @brief   The type of an asterix item.
      */
     enum item_type : uint8_t
     {
@@ -82,35 +84,35 @@ namespace adam::modules::asterix
     #pragma pack(push, 1)
 
     /**
-     * @struct item
-     * @brief The common header for all parsed asterix items within the buffer.
+     * @struct  item
+     * @brief   The common header for all parsed asterix items within the buffer.
      */
     struct item
     {
-        uint16_t    child_count;        /**< Number of Children at "child_offset". */
-        uint16_t    data_length;        /**< Length of the data in bytes. */
-        uint32_t    raw_data_offset;    /**< Offset to the raw byte data in the referenced source buffer. */
-        uint32_t    child_offset;       /**< Offset to the child "items"'s from the current object pointer ("this"). */
-        item_type   type;               /**< Type of the item. */
-        bool        populated;          /**< Marks the item as existing, can be set to false to remove item */
+        uint16_t    child_count;    /**< Number of Children at "child_offset". */
+        uint16_t    raw_length;     /**< Length of the data in bytes. */
+        uint32_t    raw_offset;     /**< Offset to the raw byte data in the referenced source buffer. */
+        uint32_t    child_offset;   /**< Offset to the child "items"'s from the current object pointer ("this"). */
+        item_type   type;           /**< Type of the item. */
+        bool        populated;      /**< Marks the item as existing, can be set to false to remove item */
 
-        item(item_type type, uint16_t len, uint32_t raw_offset) 
+        item(item_type type, uint16_t raw_len, uint32_t raw_off) 
          :  child_count(0),
-            data_length(len), 
-            raw_data_offset(raw_offset), 
+            raw_length(raw_len), 
+            raw_offset(raw_off), 
             type(type),
             populated(true) {}
 
-        inline const item* get_child_item(uint8_t frn) const 
+        inline const item* get_child_items(uint8_t frn) const 
         { 
             if (frn > child_count) return nullptr;
-            return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + raw_data_offset ) + (frn - 1); 
+            return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + raw_offset ) + (frn - 1); 
         }
     };
 
     /**
-     * @struct record
-     * @brief Repopulateds a parsed Asterix record within a block.
+     * @struct  record
+     * @brief   Repopulateds a parsed Asterix record within a block.
      */
     struct record
     {
@@ -118,35 +120,45 @@ namespace adam::modules::asterix
         uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
         uint32_t raw_length;    /**< Length of raw data for this record. */
         uint32_t raw_offset;    /**< Offset in raw buffer where this record starts. */
+        uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
 
-        record(uint8_t category, uint16_t items, uint32_t len, uint32_t raw_off) : item_count(items), category(category), raw_length(len), raw_offset(raw_off) {}
+        record(uint8_t category, uint16_t items, uint32_t raw_len, uint32_t raw_off) : 
+            item_count(items), 
+            raw_length(raw_len), 
+            raw_offset(raw_off),
+            category(category) {}
 
+        inline const uap* get_uap() const; // defined in asterix-uap.hpp
+        
         inline const item* get_item(uint8_t frn) const 
         { 
-            if (!frn || frn > item_count) 
-            return nullptr; 
+            if (!frn || frn > item_count) return nullptr; 
             
             return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + sizeof(record)) + (frn - 1); 
         }
     };
 
     /**
-     * @struct block
-     * @brief Repopulateds a parsed Asterix block.
+     * @struct  block
+     * @brief   Parsed block data. Keeps track of number of record and total number of items in there
      */
     struct block
     {
         uint16_t record_count;  /**< Number of records in this block. */
         uint16_t raw_length;    /**< Length of raw data for this block. */
         uint32_t raw_offset;    /**< Offset in raw buffer where this block starts. */
+        uint16_t item_count;    /**< Total number of items (of all records) in this block. */
         uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
 
-        block(uint8_t category, uint16_t record_count, uint32_t len, uint32_t raw_off) 
+        block(uint8_t category, uint16_t record_count, uint16_t raw_len, uint32_t raw_off) 
          :  record_count(record_count), 
-            raw_length(static_cast<uint16_t>(len)), 
+            raw_length(raw_len),
             raw_offset(raw_off),
             category(category) {}
 
+        inline const uap* get_uap() const; // defined in asterix-uap.hpp
+
+        /** @brief Record getter. CAUTION: O(n) Access, slow. Use iterator for iterating */
         inline const record* get_record(uint16_t idx) const 
         {
             if (idx >= record_count) return nullptr;
@@ -158,8 +170,8 @@ namespace adam::modules::asterix
     };
 
     /**
-     * @struct frame
-     * @brief Header at the very start of the parsed internal_data buffer.
+     * @struct  frame
+     * @brief   Header at the very start of the parsed internal_data buffer.
      */
     struct frame
     {
@@ -167,6 +179,7 @@ namespace adam::modules::asterix
 
         frame(uint16_t blocks) : block_count(blocks) {}
 
+        /** @brief Record getter. CAUTION: O(n) Access, slow. Use iterator for iterating */
         inline const block* get_block(uint16_t idx) const 
         {
             if (idx >= block_count) return nullptr;
@@ -175,12 +188,8 @@ namespace adam::modules::asterix
             {
                 auto blk = reinterpret_cast<const block*>(itr);
                 itr += sizeof(block);
-                for (size_t r = 0; r < blk->record_count; r++)
-                {
-                    auto rec = reinterpret_cast<const record*>(itr);
-                    itr += sizeof(record);
-                    itr += rec->item_count * sizeof(item);
-                }
+                itr += blk->record_count * sizeof(record);
+                itr += blk->item_count * sizeof(item);
             }
             return reinterpret_cast<const block*>(itr);
         }

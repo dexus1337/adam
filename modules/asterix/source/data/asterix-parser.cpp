@@ -27,24 +27,23 @@ namespace adam::modules::asterix
     {
         if (raw_offset >= raw_length) return false;
 
-        const auto* start_fspec = reinterpret_cast<const raw_fspec*>(raw_data + raw_offset);
-        uint32_t oct = 0;
+        const auto* fspec = reinterpret_cast<const raw_fspec*>(raw_data + raw_offset);
+        uint8_t oct = 0;
 
-        for (auto it = start_fspec->begin(); it != start_fspec->end(); ++it)
+        while (fspec)
         {
-            const raw_fspec* current = it.current;
             uint32_t current_offset = raw_offset + oct;
             if (current_offset >= raw_length) return false;
 
-            uint8_t val = current->value;
             for (int bit = 7; bit >= 1; --bit)
             {
                 uint16_t frn = static_cast<uint16_t>((oct * 7) + (8 - bit));
 
                 if (frn >= asterix::highest_frn) return false;
 
-                active_frns[frn] = ((val >> bit) & 1);
+                active_frns[frn] = ((fspec->value >> bit) & 1);
             }
+            fspec = fspec->get_next();
             oct++;
         }
 
@@ -61,13 +60,13 @@ namespace adam::modules::asterix
         bool*               active_frns
     )
     {
-        uint8_t  fspec_octets  = (sub_uap->highest_frn + 7) / 8;    // Bytes needed to represent all FRN bits
+        uint8_t fspec_octets = (sub_uap->last_frn + 7) / 8; // Bytes needed to represent all FRN bits
         if (raw_offset + fspec_octets > raw_length) return false;
 
         for (uint8_t oct = 0; oct < fspec_octets; ++oct)
         {
             uint8_t val = raw_data[raw_offset + oct];
-            for (int bit = 7; bit >= 0; --bit)                     // All 8 bits are data bits — no FX
+            for (int bit = 7; bit >= 0; --bit)  // All 8 bits are data bits — no FX
             {
                 uint16_t frn = static_cast<uint16_t>((oct * 7) + (8 - bit));
 
@@ -157,6 +156,63 @@ namespace adam::modules::asterix
         return true;
     }
 
+    static inline bool parse_children
+    (
+        const uap*          cur_uap,
+        const uint8_t*      raw_data,
+        uint32_t&           raw_offset,
+        uint32_t            raw_length,
+        const bool*         active_child_frns,
+        adam::buffer*&      internal_data,
+        uint32_t&           out_offset,
+        uint32_t&           child_out_offset,
+        uint16_t&           child_count
+    )
+    {
+        uint32_t start_out_off = out_offset;
+
+        // Reserve Items for items
+        out_offset += cur_uap->last_frn * sizeof(item);
+
+        for (uint8_t i = 1; i < cur_uap->last_frn; ++i)
+        {
+            uint32_t cur_item_offset = start_out_off + ((i-1) * sizeof(item));
+
+            internal_data->at<item>(cur_item_offset)->populated = active_child_frns[i];
+
+            if (!active_child_frns[i])
+                continue;
+
+            const field_spec* child_spec = cur_uap->get_spec(i);
+
+            // Current UAP may not have a spec for frn i
+            if (!child_spec)
+            {
+                // Log - Missing item spec
+                internal_data->at<item>(cur_item_offset)->populated = false;
+                continue;
+            }
+
+            auto my_child_out_off = child_out_offset;
+
+            if (!parse_item(*child_spec, raw_data, raw_offset, raw_length, internal_data, cur_item_offset, my_child_out_off))
+            {
+                // TODO do we return here? just output a log? IDK
+                continue;
+            }
+
+            // Calculate added child items - Could've just passed a child count param, but parse_item already has enough params
+            auto cur_child_count = static_cast<uint16_t>((my_child_out_off - child_out_offset) / sizeof(item));
+
+            internal_data->at<item>(cur_item_offset)->child_offset = cur_child_count ? child_out_offset : 0;
+            internal_data->at<item>(cur_item_offset)->child_count  = cur_child_count;
+
+            child_count += cur_child_count;
+        }
+
+        return true;
+    }
+
     static inline bool parse_compound_item
     (
         const field_spec&   spec, 
@@ -168,39 +224,44 @@ namespace adam::modules::asterix
         uint32_t&           child_offset
     )
     {
-        // Compound must have sub_uap
+        // Compound must have sub_uap, no length field whatsoever
         if (!spec.sub_uap) return false; 
 
-        uint32_t item_start_offset = raw_offset;
+        uint32_t raw_item_start_offset = raw_offset;
 
-        bool active_frns[asterix::highest_frn] = { false };
+        bool active_frns[asterix::highest_frn];
+        std::memset(active_frns, 0, spec.sub_uap->last_frn);
+
         if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns)) return false;
 
-        
-        new(internal_data->at<item>(out_offset)) item(item_type_compound, 0, item_start_offset);
+        new(internal_data->at<item>(out_offset)) item(item_type_compound, 0, raw_item_start_offset);
         out_offset += sizeof(item);
 
-        for (uint8_t i = 1; i < spec.sub_uap->highest_frn; ++i)
+        // Save the offset where the child items for the current item will be located
+        uint32_t child_items_offset = child_offset + spec.sub_uap->last_frn * sizeof(item);
+
+        uint16_t child_count = 0;
+
+        if (!parse_children
+        (
+            spec.sub_uap, 
+            raw_data, 
+            raw_offset, 
+            raw_length, 
+            active_frns, 
+            internal_data,
+            child_offset,
+            child_items_offset,
+            child_count
+        ))
         {
-            // Default set item to not populated
-            internal_data->at<item>(child_offset)->populated = false;
-
-            const field_spec* child_spec = spec.sub_uap->get_spec(i);
-
-            // Current UAP may not have a spec for frn i
-            if (!child_spec)
-                continue;
-
-            if (!parse_item(*child_spec, raw_data, raw_offset, raw_length, internal_data, child_offset, child_offset))
-            {
-                // TODO do we return here? just output a log? IDK
-                continue;
-            }
- 
-            //internal_data->at<item>(cur_item_offset)->populated = true;
-            
-            //cur_child_item_offset += sizeof(item);
+            // TODO what now? log
         }
+
+        auto* itm = internal_data->at<item>(raw_item_start_offset);
+        itm->raw_length     = raw_offset - raw_item_start_offset;
+        itm->child_count    = spec.sub_uap->last_frn;
+        itm->child_offset   = child_offset;
 
         return true;
     }
@@ -216,14 +277,14 @@ namespace adam::modules::asterix
         uint32_t&           child_offset
     )
     {
-        uint32_t item_start_offset = raw_offset;
+        uint32_t raw_item_start_offset = raw_offset;
 
         if (raw_offset >= raw_length) return false;
 
         uint8_t explicit_len = raw_data[raw_offset]; // length includes this byte
         if (raw_offset + explicit_len > raw_length) return false;
 
-        new(internal_data->at<item>(out_offset)) item(item_type_compound, 0, item_start_offset);
+        new(internal_data->at<item>(out_offset)) item(item_type_compound, explicit_len, raw_item_start_offset);
         out_offset += sizeof(item);
 
         if (spec.sub_uap)
@@ -231,30 +292,34 @@ namespace adam::modules::asterix
             raw_offset += 1; // skip length byte before FSPEC
             
             bool active_frns[asterix::highest_frn];
-            if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns)) return false;
+            std::memset(active_frns, 0, spec.sub_uap->last_frn);
+            
+            if (!parse_explicit_fspec(spec.sub_uap, raw_data, raw_offset, explicit_len, active_frns)) return false;
 
-            for (uint8_t i = 1; i < spec.sub_uap->highest_frn; ++i)
+            // Save the offset where the child items for the current item will be located
+            uint32_t child_items_offset = child_offset + spec.sub_uap->last_frn * sizeof(item);
+            uint16_t child_count = 0;
+
+            if (!parse_children
+            (
+                spec.sub_uap, 
+                raw_data, 
+                raw_offset, 
+                raw_length, 
+                active_frns, 
+                internal_data,
+                child_offset,
+                child_items_offset,
+                child_count
+            ))
             {
-                // Default set item to not populated
-                internal_data->at<item>(child_offset)->populated = false;
-
-                const field_spec* child_spec = spec.sub_uap->get_spec(i);
-
-                // Current UAP may not have a spec for frn i
-                if (!child_spec)
-                    continue;
-
-                if (!parse_item(*child_spec, raw_data, raw_offset, raw_length, internal_data, child_offset, child_offset))
-                {
-                    // TODO do we return here? just output a log? IDK
-                    continue;
-                }
-    
-                //internal_data->at<item>(cur_item_offset)->populated = true;
-                
-                //cur_child_item_offset += sizeof(item);
+                // TODO what now? log
             }
 
+            auto* itm = internal_data->at<item>(raw_item_start_offset);
+            itm->raw_length     = raw_offset - raw_item_start_offset;
+            itm->child_count    = child_count;
+            itm->child_offset   = child_items_offset;
         }
         else
         {
@@ -357,17 +422,20 @@ namespace adam::modules::asterix
             uint32_t block_off = out_offset;
             out_offset += sizeof(block);
 
-            uint16_t record_count = 0;
+            uint16_t record_count       = 0;
+            uint16_t record_items_count = 0;
 
             // Parse records in the block
             while (raw_offset < block_end_raw)
             {
                 bool active_frns[asterix::highest_frn];
+                std::memset(active_frns, 0, active_uap->last_frn);
+
                 uint32_t record_start_raw = raw_offset;
 
-                if (!parse_fspec(raw_data, raw_offset, block_end_raw, active_frns))
+                if (!parse_fspec(raw_data, raw_offset, block_len, active_frns))
                 {
-                    // TODO: FSpec in valid, what now? discard everything? probably only current parsed record
+                    // TODO: FSpec invalid, what now? discard everything? probably only current parsed record
                     adam::buffer_manager::get().return_buffer(internal_data);
                     return false;
                 }
@@ -386,64 +454,42 @@ namespace adam::modules::asterix
                 uint32_t record_off = out_offset;
                 out_offset += sizeof(record);
 
-                uint32_t record_all_item_size = active_uap->item_count * sizeof(item);
-
                 // Save the offset where the child items for the current record will be located
-                uint32_t record_child_items_offset = out_offset + active_uap->highest_frn * sizeof(item);
+                uint32_t child_items_offset = out_offset + active_uap->last_frn * sizeof(item);
 
-                if (internal_data->get_capacity() < out_offset + record_all_item_size)
+                uint16_t child_count = 0;
+
+                if (!parse_children
+                (
+                    active_uap,
+                    raw_data,
+                    raw_offset,
+                    block_len,
+                    active_frns,
+                    internal_data,
+                    out_offset,
+                    child_items_offset,
+                    child_count
+                ))
                 {
-                    // Out buffer too small for all items, TODO: resize
-                    adam::buffer_manager::get().return_buffer(internal_data);
-                    return false;
-                }
-
-                uint32_t item_start_offset  = out_offset;
-                uint16_t item_count         = active_uap->item_count;
-
-                for (uint8_t i = 1; i < active_uap->highest_frn; ++i)
-                {
-                    uint32_t cur_item_offset = item_start_offset + (i - 1) * sizeof(item);
-
-                    // Default set item to not populated
-                    internal_data->at<item>(cur_item_offset)->populated = false;
-
-                    if (!active_frns[i])
-                        continue;
-
-                    const field_spec* spec = active_uap->get_spec(i);
-
-                    // Current UAP may not have a spec for frn i
-                    if (!spec)
-                        continue;
-
-                    auto old_childs = record_child_items_offset;
-
-                    if (!parse_item(*spec, raw_data, raw_offset, block_end_raw, internal_data, cur_item_offset, record_child_items_offset))
-                    {
-                        // TODO do we return here? just output a log? IDK
-                        continue;
-                    }
-
-                    // Calculate added child items - Could've just passed a child count param, but parse_item already has enough params
-                    if (record_child_items_offset > old_childs)
-                        item_count += static_cast<uint16_t>((record_child_items_offset - old_childs) / sizeof(item));
-
-                    internal_data->at<item>(cur_item_offset)->populated = true;
+                    // TODO log, and then?
                 }
 
                 auto* cur_rec = internal_data->at<record>(record_off);
+                cur_rec->category   = active_uap->cat_id;
                 cur_rec->raw_length = raw_offset - record_start_raw;
                 cur_rec->raw_offset = record_start_raw;
-                cur_rec->item_count = item_count;
-                cur_rec->category   = active_uap->cat_id;
+                cur_rec->item_count = active_uap->last_frn + child_count;
+
+                record_items_count += cur_rec->item_count;
             }
        
             auto* cur_blk = internal_data->at<block>(block_off);
             cur_blk->category     = active_uap->cat_id;
-            cur_blk->record_count = record_count;
             cur_blk->raw_length   = block_len;
             cur_blk->raw_offset   = block_start_raw;
+            cur_blk->record_count = record_count;
+            cur_blk->item_count   = record_items_count;
         }
 
         internal_data->at<frame>(frame_off)->block_count = block_count;
