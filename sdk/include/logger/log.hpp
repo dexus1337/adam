@@ -78,16 +78,22 @@ namespace adam
 
     static_assert(sizeof(log) == log::log_size_in_bytes, "log size mismatch");
 
-    
-    /** @brief Global function for anyone to use to have logs display in adam style. */
-    void ADAM_SDK_API stream_log(const adam::log& cr_log, std::ostream& stream);
+    extern std::string ADAM_SDK_API get_log_time_string(uint64_t timestamp);
+
+    extern void ADAM_SDK_API get_log_appearance(log::level level, const char*& level_str, float& r, float& g, float& b);
 
     /** @brief Global function for anyone to use to have logs display in adam style. */
-    inline void ADAM_SDK_API stream_log(log::level t, std::string_view txt, std::ostream& stream) { return stream_log(adam::log(t, txt), stream); }
+    extern void ADAM_SDK_API stream_log(const adam::log& cr_log, std::ostream& stream);
+
+    /** @brief Global function for anyone to use to have logs display in adam style. */
+    inline void stream_log(log::level t, std::string_view txt, std::ostream& stream) 
+    { 
+        return stream_log(adam::log(t, txt), stream); 
+    }
 
     /** @brief Global function for anyone to use to have logs display in adam style, using a format string. */
     template<typename... args_type>
-    inline void ADAM_SDK_API stream_log(std::ostream& stream, log::level t, std::format_string<args_type...> fmt, args_type&&... args)
+    inline void stream_log(std::ostream& stream, log::level t, std::format_string<args_type...> fmt, args_type&&... args)
     {
         stream_log(adam::log(t, fmt, std::forward<args_type>(args)...), stream);
     }
@@ -95,7 +101,7 @@ namespace adam
     /** @brief Global function for anyone to use to have logs display in adam style, using a runtime format string. */
     template<typename... args_type>
     requires (sizeof...(args_type) > 0)
-    inline void ADAM_SDK_API stream_log(std::ostream& stream, log::level t, std::string_view runtime_fmt, args_type&&... args)
+    inline void stream_log(std::ostream& stream, log::level t, std::string_view runtime_fmt, args_type&&... args)
     {
         stream_log(adam::log(t, runtime_fmt, std::forward<args_type>(args)...), stream);
     }

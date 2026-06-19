@@ -10,13 +10,6 @@
 #include <mutex>
 #include <functional>
 
-namespace adam 
-{
-    // Extracted helper functions from adam SDK log.cpp
-    std::string get_log_time_string(uint64_t timestamp);
-    void get_log_appearance(adam::log::level level, const char*& level_str, float& r, float& g, float& b);
-}
-
 namespace adam::gui 
 {
     struct log_entry

@@ -21,7 +21,7 @@ namespace adam::modules::asterix::cat001
         {  2, item_type_variable,    1,      1, "I001/020 Target Report Descriptor"                                    },
     });
 
-    const auto cat001_alt = std::to_array<const uap>({cat001_track_uap, cat001_plot_uap});
+    const auto cat001_alt = std::to_array<const uap*>({&cat001_track_uap, &cat001_plot_uap});
 
     uap cat001_uap(1, "CAT001 1.4 - BASE"_ct, cat001_base.data(), cat001_base.size(), cat001_alt.data(), cat001_alt.size(), cat001_selector_fn );
 

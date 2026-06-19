@@ -17,6 +17,9 @@ else()
     add_compile_definitions(ADAM_BUILD_RELEASE)
 endif()
 
+# Global link module output folder
+link_directories(${CMAKE_BINARY_DIR}/bin/modules)
+
 # Disable annoying warnings 
 if(MSVC)
     add_compile_options(/wd4251) # exporting std lib classes in DLLs when using MSVC

@@ -71,7 +71,12 @@ namespace adam::modules::asterix
          * @param alt_cout      Number of elements in alternatives.
          * @param sel           The selector function.
          */
-        uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap* alt_array, size_t alt_cout, selector_function sel);
+        uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap*const* alt_array, size_t alt_cout, selector_function sel);
+
+        
+        // Prevent copying
+        uap(const uap&) = delete;
+        uap& operator=(const uap&) = delete;
 
         inline const string_hashed_ct&  get_name()                  const { return name; }
         inline uint8_t                  get_cat_number()            const { return cat_id; }

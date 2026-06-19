@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 # Grab all source files for the sdk and tests automatically
-file( GLOB_RECURSE  module_source_files "source/*.cpp" )
-file( GLOB_RECURSE  test_source_files   "test/*.cpp"   ) 
+file(GLOB_RECURSE module_source_files "source/*.cpp" )
+file(GLOB_RECURSE test_source_files   "test/*.cpp"   ) 
 
 
 # Create the shared library target for the sdk
@@ -37,6 +37,7 @@ set_target_properties(adam-module-recrep PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/modules/"
+    PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin/modules"
 )
 
 

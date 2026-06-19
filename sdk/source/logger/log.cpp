@@ -32,7 +32,7 @@ namespace adam
         return sys_now.time_since_epoch() - steady_now.time_since_epoch();
     }();
 
-    std::string ADAM_SDK_API get_log_time_string(uint64_t timestamp)
+    std::string get_log_time_string(uint64_t timestamp)
     {
         auto tp_steady = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(timestamp));
         auto tp_sys = std::chrono::system_clock::time_point(std::chrono::duration_cast<std::chrono::system_clock::duration>(tp_steady.time_since_epoch() + clock_offset));
@@ -45,7 +45,7 @@ namespace adam
         return std::format("[{:02}:{:02}:{:02}.{:03}]", local_tm->tm_hour, local_tm->tm_min, local_tm->tm_sec, static_cast<int>(ms.count()));
     }
 
-    void ADAM_SDK_API get_log_appearance(log::level level, const char*& level_str, float& r, float& g, float& b)
+    void get_log_appearance(log::level level, const char*& level_str, float& r, float& g, float& b)
     {
         switch (level) 
         {
@@ -58,7 +58,7 @@ namespace adam
         }
     }
 
-    void ADAM_SDK_API stream_log(const adam::log& cr_log, std::ostream& stream)
+    void stream_log(const adam::log& cr_log, std::ostream& stream)
     {
         const char* level_str   = nullptr;
         float r, g, b;

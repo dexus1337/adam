@@ -54,6 +54,8 @@ function(setup_gtest TARGET_NAME)
         endif()
     endif()
 
-    
+    include(GoogleTest)
+    gtest_discover_tests(${TARGET_NAME} WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+  
 
 endfunction()

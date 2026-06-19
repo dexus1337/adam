@@ -3,12 +3,14 @@
 include(../cmake/gtest.cmake)
 enable_testing()
 
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
 # Grab all source files for the sdk and tests automatically
-file( GLOB_RECURSE  sdk_source_files    "source/*cpp"  )
-file( GLOB_RECURSE  test_source_files   "test/*cpp"    ) 
+file(GLOB_RECURSE sdk_source_files    "source/*cpp"  )
+file(GLOB_RECURSE test_source_files   "test/*cpp"    ) 
 
 
 # Create the shared library target for the sdk
@@ -29,14 +31,15 @@ set_target_properties(adam-sdk PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+    PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin/"
 )
+
 
 # Create the test application
 add_executable(adam-sdk-test ${test_source_files} ${sdk_source_files})
 
 target_include_directories(adam-sdk-test 
     PRIVATE include/    # Test doesnt need to share headers with others
-    PRIVATE source/     # Internal to this lib
 )
 
 target_compile_definitions(adam-sdk-test
@@ -49,7 +52,3 @@ set_target_properties(adam-sdk-test PROPERTIES
 )
 
 setup_gtest(adam-sdk-test)
-
-# Discover tests for the VS Code Test Explorer
-include(GoogleTest)
-gtest_discover_tests(adam-sdk-test)

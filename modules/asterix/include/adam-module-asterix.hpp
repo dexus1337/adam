@@ -9,6 +9,15 @@
  */
 
 #include "api/api-asterix.hpp"
-#include "module/module-asterix.hpp"
+
 #include "data/format-asterix.hpp"
+#include "data/asterix-uap.hpp"
+#include "data/asterix-internal.hpp"
+#include "data/asterix-types.hpp"
+#include "data/asterix-parser.hpp"
 #include "data/converter/asterix-to-text-converter.hpp"
+
+#include "data/categories/001/cat001.hpp"
+
+
+#include "module/module-asterix.hpp"
