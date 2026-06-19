@@ -2,7 +2,7 @@
 #include "data/asterix-parser.hpp"
 #include "data/asterix-uap.hpp"
 #include "data/asterix-internal.hpp"
-#include "data/categories/048/cat048_uap.hpp"
+#include "data/categories/048/cat048-uap.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "data/asterix-types.hpp"

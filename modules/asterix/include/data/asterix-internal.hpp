@@ -120,8 +120,8 @@ namespace adam::modules::asterix
         uint16_t item_count;    /**< Number of items in this record. */
         uint16_t raw_length;    /**< Length of raw data for this record. */
         uint32_t raw_offset;    /**< Offset in raw buffer where this record starts. */
-        uint8_t  fspec_size;    /**< Size of the FSPEC in bytes */
         uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
+        uint8_t  fspec_size;    /**< Size of the FSPEC in bytes */
         
         record(uint8_t category, uint8_t fspec_size, uint16_t items, uint16_t raw_len, uint32_t raw_off) : 
             item_count(items), 

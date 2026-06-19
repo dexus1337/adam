@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    cat001_uap.hpp
+ * @file    cat001-uap.hpp
  * @author  dexus1337
  * @brief   Defines the UAP for ASTERIX CAT001
  * @version 1.0

@@ -430,6 +430,7 @@ namespace adam::modules::asterix
                 uint8_t fspec_size = raw_offset - record_start_raw;
                 auto resolved_frns = (fspec_size * 7);
 
+                // Retrieve the correct uap for the given record, this will automatically handle alterantive uaps
                 const uap* active_uap = raw_rec_head->retrieve_uap(raw_block_head, fspec_size, raw_length);
                 if (!active_uap)
                 {
@@ -439,7 +440,7 @@ namespace adam::modules::asterix
                 }
                 
                 // Set possible remaining active_frns to false
-                if (resolved_frns < active_uap->get_highest_frn());
+                if (resolved_frns < active_uap->get_highest_frn())
                     std::memset(active_frns + resolved_frns, 0, active_uap->get_highest_frn() - resolved_frns);
 
                 if (internal_data->get_capacity() < out_offset + sizeof(record))

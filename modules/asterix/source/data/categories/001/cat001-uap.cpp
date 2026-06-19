@@ -1,29 +1,34 @@
-#include "data/categories/001/cat001_uap.hpp"
+#include "data/categories/001/cat001-uap.hpp"
 
-#include "data/categories/001/cat001_structs.hpp"
+#include <array>
+
+#include "data/categories/001/cat001-structs.hpp"
 
 namespace adam::modules::asterix::cat001
 {
+    using namespace adam::string_hashed_ct_literals;
+
     // Forward declarations for sub-UAPs so the main UAPs can sit at the top
     extern uap                      cat001_track_uap;
     extern uap                      cat001_plot_uap;
     extern uap::selector_function   cat001_selector_fn;
 
     // Base UAP for CAT001, this will be used to determine Actual UAP to be used
-    const field_spec cat001_base_items[] = 
-    {
+    const auto cat001_base = std::to_array<const field_spec>
+    ({
         // FSPEC Byte 1
         {  1, item_type_fixed,       0,      2, "I001/010 Data Source Identifier"                                      },
         {  2, item_type_variable,    1,      1, "I001/020 Target Report Descriptor"                                    },
-    };
+    });
 
-    uap cat001_alternatives[] = {cat001_track_uap, cat001_plot_uap};
+    const auto cat001_alt = std::to_array<const uap>({cat001_track_uap, cat001_plot_uap});
 
-    uap cat001_uap(1, cat001_base_items, sizeof(cat001_base_items) / sizeof(field_spec), cat001_alternatives, sizeof(cat001_alternatives) / sizeof(uap), cat001_selector_fn);
+    uap cat001_uap(1, "CAT001 1.4 - BASE"_ct, cat001_base.data(), cat001_base.size(), cat001_alt.data(), cat001_alt.size(), cat001_selector_fn );
 
-    // Base UAP for CAT001, this will be used to determine Actual UAP to be used
-    const field_spec cat001_plot_items[] = 
-    {
+
+    // Plot UAP for CAT001
+    const auto cat001_plot_items = std::to_array<const field_spec>
+    ({
         // FSPEC Byte 1
         /* 1 */ *cat001_uap.get_spec(1), /* I001/010 Data Source Identifier                                            */
         /* 2 */ *cat001_uap.get_spec(2), /* I001/020 Target Report Descriptor                                          */
@@ -44,14 +49,14 @@ namespace adam::modules::asterix::cat001
 
         // FSPEC Byte 3
         { 15, item_type_fixed,       0,      1, "I001/150 Presence of X-Pulse"                                         },
-    };
+    });
 
+    uap cat001_plot_uap(1, "CAT001 1.4 - PLOT"_ct, cat001_plot_items.data(), cat001_plot_items.size());
 
-    uap cat001_plot_uap(1, cat001_plot_items, sizeof(cat001_plot_items) / sizeof(field_spec));
     
-    // Base UAP for CAT001, this will be used to determine Actual UAP to be used
-    const field_spec cat001_track_items[] = 
-    {
+    // Track UAP for CAT001
+    const auto cat001_track_items = std::to_array<const field_spec>
+    ({
         // FSPEC Byte 1
         /* 1 */ *cat001_uap.get_spec(1), /* I001/010 Data Source Identifier                                            */
         /* 2 */ *cat001_uap.get_spec(2), /* I001/020 Target Report Descriptor                                          */
@@ -69,9 +74,9 @@ namespace adam::modules::asterix::cat001
         { 12, item_type_fixed,       0,      1, "I001/120 Measured Radial Doppler Speed"                               },
         { 13, item_type_variable,    1,      1, "I001/170 Track Status"                                                },
         { 14, item_type_variable,    1,      1, "I001/210 Track Quality"                                               }
-    };
+    });
 
-    uap cat001_track_uap(1, cat001_track_items, sizeof(cat001_track_items) / sizeof(field_spec));
+    uap cat001_track_uap(1, "CAT001 1.4 - TRACK"_ct, cat001_track_items.data(), cat001_track_items.size());
 
     // The CAT001 Selector function, Checks the Msg wether its Plot or Track
     uap::selector_function cat001_selector_fn = [](const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len) -> const uap*

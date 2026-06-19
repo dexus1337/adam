@@ -9,10 +9,11 @@
  */
 
 #include "data/asterix-types.hpp"
+#include <adam-sdk.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <vector>
+#include <map>
 #include <functional>
 
 namespace adam { class buffer; }
@@ -59,7 +60,7 @@ namespace adam::modules::asterix
          * @param spec_count    Number of elements in spec_array.
          * @param alt_array     Array of alternative uaps.
          */
-        uap(uint8_t cat, const field_spec* spec_array, size_t spec_count);
+        uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count);
 
         /**
          * @brief Constructs a UAP with alternatives and initializes the O(1) lookup arrays.
@@ -70,15 +71,16 @@ namespace adam::modules::asterix
          * @param alt_cout      Number of elements in alternatives.
          * @param sel           The selector function.
          */
-        uap(uint8_t cat, const field_spec* spec_array, size_t spec_count, const uap* alt_array, size_t alt_cout, selector_function sel);
+        uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap* alt_array, size_t alt_cout, selector_function sel);
 
-        inline uint8_t              get_cat_number()            const { return cat_id; }
-        inline uint8_t              get_highest_frn()           const { return last_frn; }
-        inline const field_spec*    get_spec(uint8_t frn)       const { return items_by_frn[frn]; }
-        inline uap_expansion*       get_expansion(uint8_t frn)  const { return custom_expansions[frn]; }
-        inline bool                 has_alternatives()          const { return !alternatives.empty(); }
+        inline const string_hashed_ct&  get_name()                  const { return name; }
+        inline uint8_t                  get_cat_number()            const { return cat_id; }
+        inline uint8_t                  get_highest_frn()           const { return last_frn; }
+        inline const field_spec*        get_spec(uint8_t frn)       const { return items_by_frn[frn]; }
+        inline uap_expansion*           get_expansion(uint8_t frn)  const { return custom_expansions[frn]; }
+        inline bool                     has_alternatives()          const { return !alternatives.empty(); }
 
-        inline const uap*           select_alternative(const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len) const 
+        inline const uap*               select_alternative(const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len) const 
         { 
             return selector_fn(raw_head, fspec_size, raw_len); 
         }
@@ -91,8 +93,8 @@ namespace adam::modules::asterix
 
     protected:
     
-        const char*             name;                                       /**< Name for printing or debugging */
         uint8_t                 cat_id;                                     /**< The category ID (e.g., 48, 62). */
+        string_hashed_ct        name;                                       /**< Name for printing or debugging */
         uint8_t                 last_frn;                                   /**< Highest registered FRN; Also determines fixed FSPEC octet count for explicit items. */
         uint16_t                subitem_count;                              /**< Summended last_frn of all children. */
         const field_spec*       items_by_frn[asterix::highest_frn];         /**< O(1) array mapping FRN to field spec. */
@@ -103,7 +105,7 @@ namespace adam::modules::asterix
          * To handle these automatically, the uap will have "alternatives" and
          * a "selector" function that will retrieve the correct alternative uap
          */
-        std::vector<const uap*> alternatives;                               /**< All available alternative uaps  */
+        std::unordered_map<string_hash, const uap*> alternatives;           /**< All available alternative uaps  */
         selector_function       selector_fn;                                /**< The selector function to choose from the alternatives, based on input data */
 
         /** @brief Compute the number of sub-items. */

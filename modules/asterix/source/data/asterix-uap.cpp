@@ -1,13 +1,13 @@
 #include "data/asterix-uap.hpp"
-#include "data/categories/001/cat001_uap.hpp"
-#include "data/categories/048/cat048_uap.hpp"
-#include "data/categories/062/cat062_uap.hpp"
+#include "data/categories/001/cat001-uap.hpp"
+#include "data/categories/048/cat048-uap.hpp"
+#include "data/categories/062/cat062-uap.hpp"
 #include <cstring>
 
 namespace adam::modules::asterix
 {
-    uap::uap(uint8_t cat, const field_spec* spec_array, size_t spec_count)
-        : cat_id(cat), last_frn(0)
+    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count)
+        : cat_id(cat), name(name), last_frn(0)
     {
         std::memset(items_by_frn, 0, sizeof(items_by_frn));
         std::memset(custom_expansions, 0, sizeof(custom_expansions));
@@ -20,10 +20,12 @@ namespace adam::modules::asterix
         }
     }
 
-    uap::uap(uint8_t cat, const field_spec* spec_array, size_t spec_count, const uap* alt_array, size_t alt_cout, selector_function sel)
-     :  uap(cat, spec_array, spec_count)
+    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap* alt_array, size_t alt_cout, selector_function sel)
+     :  uap(cat, name, spec_array, spec_count)
     {
-        alternatives.assign(alt_cout, alt_array);
+        for (size_t i = 0; i < alt_cout; i++)
+            alternatives.emplace(alt_array[i].get_name().get_hash(), &alt_array[i]);
+        
         selector_fn = sel; 
     }
 

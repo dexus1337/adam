@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    cat001_uap.hpp
+ * @file    cat001-uap.hpp
  * @author  dexus1337
  * @brief   Defines the UAP for ASTERIX CAT048
  * @version 1.0
@@ -11,13 +11,12 @@
 #include "data/asterix-uap.hpp"
 #include "api/api-asterix.hpp"
 
-namespace adam::modules::asterix::cat048
+namespace adam::modules::asterix::cat048::ref
 {
     /**
-     * @brief Retrieves the standard UAP definition for Category 048.
+     * @brief Retrieves the standard UAP definition for Category 048 Reserved Expansion Field (REF).
      * 
      * Implements EUROCONTROL Specification for Surveillance Data Exchange ASTERIX Part 4:
-     * - Category 048: Edition 1.32 (July 2024)
      * - Appendix A (REF): Edition 1.13 (December 2024)
      * 
      * @return Reference to the CAT048 UAP structure.

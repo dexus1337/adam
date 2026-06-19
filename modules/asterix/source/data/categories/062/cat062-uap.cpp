@@ -1,7 +1,11 @@
-#include "data/categories/062/cat062_uap.hpp"
+#include "data/categories/062/cat062-uap.hpp"
+
+#include "data/categories/062/cat062-uap-ref.hpp"
 
 namespace adam::modules::asterix::cat062
 {
+    using namespace adam::string_hashed_ct_literals;
+
     // Forward declarations for main UAP compound fields
     extern uap cat062_110_uap;
     extern uap cat062_290_uap;
@@ -10,11 +14,10 @@ namespace adam::modules::asterix::cat062
     extern uap cat062_380_uap;
     extern uap cat062_390_uap;
     extern uap cat062_500_uap;
-    extern uap cat062_ref_uap;
 
     // Main UAP for CAT062
-    const field_spec cat062_items[] = 
-    {
+    const auto cat062_items = std::to_array<const field_spec> 
+    ({
         // FSPEC Byte 1
         {  1, item_type_fixed,       0,      2, "I062/010 Data Source Identifier"                                      },
         // FRN 2 is Spare
@@ -53,15 +56,15 @@ namespace adam::modules::asterix::cat062
 
         // FSPEC Byte 5
         // FRN 29 to 33 are Spares
-        { 34, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &cat062_ref_uap},
+        { 34, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()},
         { 35, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             }
-    };
+    });
 
-    uap cat062_uap(62, cat062_items, sizeof(cat062_items) / sizeof(field_spec));
+    uap cat062_uap(62, "CAT062 1.21"_ct, cat062_items.data(), cat062_items.size());
 
     // Sub-UAP for I062/110 Mode 5 Data reports & Extended Mode 1 Code (Compound)
-    const field_spec cat062_110_items[] =
-    {
+    const auto cat062_110_items = std::to_array<const field_spec>
+    ({
         {  1, item_type_fixed,       0,      1, "SUM - Mode 5 Summary"                                                 },
         {  2, item_type_fixed,       0,      4, "PMN - Mode 5 PIN / National Origin / Mission Code"                    },
         {  3, item_type_fixed,       0,      6, "POS - Mode 5 Reported Position"                                       },
@@ -69,13 +72,13 @@ namespace adam::modules::asterix::cat062
         {  5, item_type_fixed,       0,      2, "EM1 - Extended Mode 1 Code in Octal Representation"                   },
         {  6, item_type_fixed,       0,      1, "TOS - Time Offset for POS and GA"                                     },
         {  7, item_type_fixed,       0,      1, "XP - X Pulse Presence"                                                }
-    };
+    });
 
-    uap cat062_110_uap(0, cat062_110_items, sizeof(cat062_110_items) / sizeof(field_spec));
+    uap cat062_110_uap(62, "CAT062 I062/110 1.21"_ct, cat062_110_items.data(), cat062_110_items.size());
 
     // Sub-UAP for I062/290 System Track Update Ages (Compound)
-    const field_spec cat062_290_items[] =
-    {
+    const auto cat062_290_items = std::to_array<const field_spec>
+    ({
         {  1, item_type_fixed,       0,      1, "TRK - Track age"                                                      },
         {  2, item_type_fixed,       0,      1, "PSR - PSR age"                                                        },
         {  3, item_type_fixed,       0,      1, "SSR - SSR age"                                                        },
@@ -86,13 +89,13 @@ namespace adam::modules::asterix::cat062
         {  8, item_type_fixed,       0,      1, "UAT - ADS-B UAT age"                                                  },
         {  9, item_type_fixed,       0,      1, "LOP - Loop age"                                                       },
         { 10, item_type_fixed,       0,      1, "MLT - Multilateration age"                                            }
-    };
+    });
 
-    uap cat062_290_uap(0, cat062_290_items, sizeof(cat062_290_items) / sizeof(field_spec));
+    uap cat062_290_uap(62, "CAT062 I062/290 1.21"_ct, cat062_290_items.data(), cat062_290_items.size());
 
     // Sub-UAP for I062/295 Track Data Ages (Compound)
-    const field_spec cat062_295_items[] =
-    {
+    const auto cat062_295_items = std::to_array<const field_spec>
+    ({
         {  1, item_type_fixed,       0,      1, "MFL - Measured Flight Level age"                                      },
         {  2, item_type_fixed,       0,      1, "MD1 - Mode 1 age"                                                     },
         {  3, item_type_fixed,       0,      1, "MD2 - Mode 2 age"                                                     },
@@ -124,26 +127,26 @@ namespace adam::modules::asterix::cat062
         { 29, item_type_fixed,       0,      1, "IAR - Indicated Airspeed age"                                         },
         { 30, item_type_fixed,       0,      1, "MAC - Mach Number age"                                                },
         { 31, item_type_fixed,       0,      1, "BPS - Barometric Pressure Setting age"                                }
-    };
+    });
 
-    uap cat062_295_uap(0, cat062_295_items, sizeof(cat062_295_items) / sizeof(field_spec));
+    uap cat062_295_uap(62, "CAT062 I062/295 1.21"_ct, cat062_295_items.data(), cat062_295_items.size());
 
     // Sub-UAP for I062/340 Measured Information (Compound)
-    const field_spec cat062_340_items[] =
-    {
+    const auto cat062_340_items = std::to_array<const field_spec>
+    ({
         {  1, item_type_fixed,       0,      2, "SID - Sensor Identification"                                          },
         {  2, item_type_fixed,       0,      4, "POS - Measured Position"                                              },
         {  3, item_type_fixed,       0,      2, "HEI - Measured 3-D Height"                                            },
         {  4, item_type_fixed,       0,      2, "MDC - Last Measured Mode C code"                                      },
         {  5, item_type_fixed,       0,      2, "MDA - Last Measured Mode 3/A code"                                    },
         {  6, item_type_fixed,       0,      1, "TYP - Report Type"                                                    }
-    };
+    });
 
-    uap cat062_340_uap(0, cat062_340_items, sizeof(cat062_340_items) / sizeof(field_spec));
+    uap cat062_340_uap(62, "CAT062 I062/340 1.21"_ct, cat062_340_items.data(), cat062_340_items.size());
 
     // Sub-UAP for I062/380 Aircraft Derived Data (Compound)
-    const field_spec cat062_380_items[] =
-    {
+    const auto cat062_380_items = std::to_array<const field_spec>
+    ({
         {  1, item_type_fixed,       0,      3, "ADR - Target Address"                                                 },
         {  2, item_type_fixed,       0,      6, "ID - Target Identification"                                           },
         {  3, item_type_fixed,       0,      2, "MHG - Magnetic Heading"                                               },
@@ -172,13 +175,13 @@ namespace adam::modules::asterix::cat062
         { 26, item_type_fixed,       0,      2, "IAR - Indicated Airspeed"                                             },
         { 27, item_type_fixed,       0,      2, "MAC - Mach Number"                                                    },
         { 28, item_type_fixed,       0,      2, "BPS - Barometric Pressure Setting"                                    }
-    };
+    });
 
-    uap cat062_380_uap(0, cat062_380_items, sizeof(cat062_380_items) / sizeof(field_spec));
+    uap cat062_380_uap(62, "CAT062 I062/380 1.21"_ct, cat062_380_items.data(), cat062_380_items.size());
 
     // Sub-UAP for I062/390 Flight Plan Related Data (Compound)
-    const field_spec cat062_390_items[] =
-    {
+    const auto cat062_390_items = std::to_array<const field_spec>
+    ({
         {  1, item_type_fixed,       0,      2, "TAG - FPPS Identification Tag"                                        },
         {  2, item_type_fixed,       0,      6, "CSN - Callsign"                                                       },
         {  3, item_type_fixed,       0,      4, "IFI - IFPS_FLIGHT_ID"                                                 },
@@ -197,13 +200,13 @@ namespace adam::modules::asterix::cat062
         { 16, item_type_fixed,       0,      7, "STA - Standard Instrument Arrival"                                    },
         { 17, item_type_fixed,       0,      2, "PEM - Pre-emergency Mode 3/A code"                                    },
         { 18, item_type_fixed,       0,      6, "PEC - Pre-emergency Callsign"                                         }
-    };
+    });
 
-    uap cat062_390_uap(0, cat062_390_items, sizeof(cat062_390_items) / sizeof(field_spec));
+    uap cat062_390_uap(62, "CAT062 I062/390 1.21"_ct, cat062_390_items.data(), cat062_390_items.size());
 
     // Sub-UAP for I062/500 Estimated Accuracies (Compound)
-    const field_spec cat062_500_items[] =
-    {
+    const auto cat062_500_items = std::to_array<const field_spec>
+    ({
         {  1, item_type_fixed,       0,      4, "APC - Estimated Accuracy Of Track Position (Cartesian)"               },
         {  2, item_type_fixed,       0,      2, "COV - XY Covariance"                                                  },
         {  3, item_type_fixed,       0,      4, "APW - Estimated Accuracy of Track Position (WGS-84)"                  },
@@ -212,97 +215,9 @@ namespace adam::modules::asterix::cat062
         {  6, item_type_fixed,       0,      2, "ATV - Estimated Accuracy Of Track Velocity (Cartesian)"               },
         {  7, item_type_fixed,       0,      2, "AA - Estimated Accuracy Of Acceleration (Cartesian)"                  },
         {  8, item_type_fixed,       0,      1, "ARC - Estimated Accuracy Of Rate Of Climb/Descent"                    }
-    };
+    });
 
-    uap cat062_500_uap(0, cat062_500_items, sizeof(cat062_500_items) / sizeof(field_spec));
-
-    // Forward declarations for REF sub-UAPs
-    extern uap cat062_ref_av3_uap;
-    extern uap cat062_ref_moi_uap;
-    extern uap cat062_ref_mti_uap;
-    extern uap cat062_ref_g62_uap;
-
-    // Sub-UAP for Reserved Expansion Field (REF) - Appendix A
-    const field_spec cat062_ref_items[] =
-    {
-        {  1, item_type_repetetive,  1,      5, "CST - Contributing Sensors with local tracknumber"                    },
-        {  2, item_type_repetetive,  1,      3, "CSN - Contributing Sensors No local tracknumber"                      },
-        {  3, item_type_fixed,       0,      4, "TVS - Calculated Track Velocity relative to System Reference Point"   },
-        {  4, item_type_variable,    1,      1, "STS - Supplementary Track Status"                                     },
-        {  5, item_type_compound,    0,      0, "V3 - ADS-B Version 3 Data",                        &cat062_ref_av3_uap},
-        {  6, item_type_explicit,    0,      0, "MOI - Miscellaneous Operational Items",            &cat062_ref_moi_uap},
-        {  7, item_type_explicit,    0,      0, "MTI - Miscellaneous Technical Items",              &cat062_ref_mti_uap},
-        {  8, item_type_compound,    0,      0, "GEN62 - Generic Category 062 Data",                &cat062_ref_g62_uap}
-    };
-
-    uap cat062_ref_uap(0, cat062_ref_items, sizeof(cat062_ref_items) / sizeof(cat062_ref_items[0]));
-
-    // Sub-UAP for V3 (ADS-B Version 3 Data)
-    const field_spec cat062_ref_v3_items[] =
-    {
-        {  1, item_type_fixed,       0,      1, "PS3 - Priority Status ADS-B Version 3"                                },
-        {  2, item_type_fixed,       0,      3, "AS - Aircraft Status"                                                 },
-        {  3, item_type_fixed,       0,      1, "UAS - UAS/RPAS Status"                                                },
-        {  4, item_type_fixed,       0,      1, "CASS - Collision Avoidance System Status"                             }
-    };
-
-    uap cat062_ref_av3_uap(0, cat062_ref_v3_items, sizeof(cat062_ref_v3_items) / sizeof(field_spec));
-
-    // Sub-UAP for MOI (Miscellaneous Operational Items)
-    const field_spec cat062_ref_moi_items[] =
-    {
-        {  1, item_type_fixed,       0,      1, "ATAD - Age of Target Address"                                         },
-        {  2, item_type_fixed,       0,      1, "ATID - Age of Target Identification"                                  },
-        {  3, item_type_fixed,       0,      1, "ADTNH - Age of Downlinked True North Heading"                         },
-        {  4, item_type_fixed,       0,      1, "ADMNH - Age of Downlinked Magnetic North Heading"                     },
-        {  5, item_type_fixed,       0,      1, "ADTNT - Age of Downlinked True North Track Angle"                     },
-        {  6, item_type_fixed,       0,      1, "ADMNT - Age of Downlinked Magnetic North Track Angle"                 },
-        {  7, item_type_fixed,       0,      1, "ASEPMIN - Age of the System Calculated Separation Minimum"            },
-        {  8, item_type_fixed,       0,      1, "AM5I - Age of Mode 5 Interrogation"                                   },
-        {  9, item_type_fixed,       0,      1, "AM5L2S - Age of Mode 5 Level 2 Squitter"                              },
-        { 10, item_type_repetetive,  1,      2, "ABDS - BDS Register Data Age"                                         },
-        { 11, item_type_repetetive,  1,      1, "MPID - Movement Plan ID"                                              },
-        { 12, item_type_fixed,       0,      4, "LS - Leading Source"                                                  },
-        { 13, item_type_fixed,       0,      4, "LSQI - Leading Source Quality Indication"                             },
-        { 14, item_type_fixed,       0,      2, "DTNH - Downlinked True North Heading"                                 },
-        { 15, item_type_fixed,       0,      2, "DMNH - Downlinked Magnetic North Heading"                             },
-        { 16, item_type_fixed,       0,      2, "DTNT - Downlinked True North Track Angle"                             },
-        { 17, item_type_fixed,       0,      2, "DMNT - Downlinked Magnetic North Track Angle"                         },
-        { 18, item_type_fixed,       0,      2, "TBP - Tracker Barometric Pressure"                                    },
-        { 19, item_type_fixed,       0,      2, "ALTQCMFL - Altitude from QNH Corrected Measured Flight Level"         },
-        { 20, item_type_fixed,       0,      2, "CTBA - Calculated Track Barometric Altitude"                          },
-        { 21, item_type_repetetive,  1,      8, "INPS - Input to SDPS with Service ID and Local Track Number"          },
-        { 22, item_type_fixed,       0,      2, "FPVHR - Fractional Part of Velocity (High Resolution)"                },
-        { 23, item_type_fixed,       0,      7, "SCT - SUC Correlation Text"                                           },
-        { 24, item_type_fixed,       0,      2, "SCSM - System Calculated Separation Minimum"                          },
-        { 25, item_type_variable,    2,      2, "TCAT - Target Category"                                               }
-    };
-
-    uap cat062_ref_moi_uap(0, cat062_ref_moi_items, sizeof(cat062_ref_moi_items) / sizeof(field_spec));
-
-    // Sub-UAP for MTI (Miscellaneous Technical Items)
-    const field_spec cat062_ref_mti_items[] =
-    {
-        {  1, item_type_fixed,       0,      4, "DATE - Date of Track Information"                                     },
-        {  2, item_type_fixed,       0,      2, "TENTU - Time to Expected Next Track Update"                           },
-        {  3, item_type_fixed,       0,      4, "IPMC - Inverse Point Scale Factor and Meridian Convergence"           },
-        {  4, item_type_repetetive,  1,      2, "IMP - IMM Model Probability"                                          },
-        {  5, item_type_repetetive,  1,     15, "IST - IMM State"                                                      },
-        {  6, item_type_fixed,       0,      3, "TTT - Time of Track Termination"                                      },
-        {  7, item_type_fixed,       0,      2, "EXM3A - Expired Mode 3/A Code"                                        },
-        {  8, item_type_fixed,       0,      3, "EXADDR - Expired Target Address"                                      },
-        {  9, item_type_fixed,       0,      6, "EXTID - Expired Target Identification"                                }
-    };
-
-    uap cat062_ref_mti_uap(0, cat062_ref_mti_items, sizeof(cat062_ref_mti_items) / sizeof(field_spec));
-
-    // Sub-UAP for GEN62 (Generic Category 062 Data) - Placeholder
-    const field_spec cat062_ref_gen62_items[] =
-    {
-        {  1, item_type_variable,    0,      0, "Spare/Placeholder"                                                    }
-    };
-
-    uap cat062_ref_g62_uap(0, cat062_ref_gen62_items, sizeof(cat062_ref_gen62_items) / sizeof(field_spec));
+    uap cat062_500_uap(62, "CAT062 I062/500 1.21"_ct, cat062_500_items.data(), cat062_500_items.size());
 
     uap& get_uap()
     {
