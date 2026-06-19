@@ -61,6 +61,8 @@
  */
 
 #include "api/api-asterix.hpp"
+#include "api/api-sdk.hpp"
+#include <adam-sdk.hpp>
 #include <cstdint>
 #include <types/byteswap.hpp>
 
@@ -81,6 +83,14 @@ namespace adam::modules::asterix
         item_type_explicit
     };
 
+    enum item_flag : uint8_t
+    {
+        item_flag_none      = 0,
+        item_flag_populated = 1 << 0,
+        item_flag_modified  = 1 << 1
+    };
+    enable_enum_bit_operations(item_flag);
+
     #pragma pack(push, 1)
 
     /**
@@ -94,20 +104,31 @@ namespace adam::modules::asterix
         uint32_t    raw_offset;     /**< Offset to the raw byte data in the referenced source buffer. */
         uint32_t    child_offset;   /**< Offset to the child "items"'s from the current object pointer ("this"). */
         item_type   type;           /**< Type of the item. */
-        bool        populated;      /**< Marks the item as existing, can be set to false to remove item */
-
-        item(){}
-        item(item_type type, uint16_t raw_len, uint32_t raw_off) 
-         :  child_count(0),
-            raw_length(raw_len), 
-            raw_offset(raw_off), 
-            type(type),
-            populated(true) {}
+        item_flag   flags;          /**< Flags for the item. */
 
         inline const item* get_child_item(uint8_t frn) const 
         { 
             if (frn > child_count) return nullptr;
             return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + child_offset) + (frn - 1); 
+        }
+
+        inline bool is_populated()  const { return flags & item_flag_populated; }
+        inline bool is_modified()   const { return flags & item_flag_modified; }
+        
+        inline void set_populated(bool populated = true) 
+        {
+            if (populated)
+                flags |= item_flag_populated;
+            else
+                flags &= ~item_flag_populated;
+        }
+
+        inline void set_modified(bool modified = true)
+        {
+            if (modified)
+                flags |= item_flag_modified;
+            else
+                flags &= ~item_flag_modified;
         }
     };
 
@@ -117,20 +138,14 @@ namespace adam::modules::asterix
      */
     struct record
     {
-        uint16_t item_count;    /**< Number of items in this record. */
-        uint16_t raw_length;    /**< Length of raw data for this record. */
-        uint32_t raw_offset;    /**< Offset in raw buffer where this record starts. */
-        uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
-        uint8_t  fspec_size;    /**< Size of the FSPEC in bytes */
+        string_hash used_uap;       /**< Hash of the used UAP for this record, used for debugging and verification */
+        uint16_t    item_count;     /**< Number of items in this record. */
+        uint16_t    raw_length;     /**< Length of raw data for this record. */
+        uint32_t    raw_offset;     /**< Offset in raw buffer where this record starts. */
+        uint8_t     category;       /**< Asterix category (e.g. 48, 62). */
+        uint8_t     fspec_size;     /**< Size of the FSPEC in bytes */
         
-        record(uint8_t category, uint8_t fspec_size, uint16_t items, uint16_t raw_len, uint32_t raw_off) : 
-            item_count(items), 
-            raw_length(raw_len), 
-            raw_offset(raw_off),
-            category(category),
-            fspec_size(fspec_size) {}
-
-        inline const uap* get_uap() const; // defined in asterix-uap.hpp
+        inline const uap* find_used_uap() const; // defined in asterix-uap.hpp
         
         inline const item* get_item(uint8_t frn) const 
         { 
@@ -151,12 +166,7 @@ namespace adam::modules::asterix
         uint32_t raw_offset;    /**< Offset in raw buffer where this block starts. */
         uint16_t item_count;    /**< Total number of items (of all records) in this block. */
         uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
-
-        block(uint8_t category, uint16_t record_count, uint16_t raw_len, uint32_t raw_off) 
-         :  record_count(record_count), 
-            raw_length(raw_len),
-            raw_offset(raw_off),
-            category(category) {}
+        uint8_t  reserved;      /**< Reserved for future use, also for alignment. */
 
         inline const uap* get_uap() const; // defined in asterix-uap.hpp
 

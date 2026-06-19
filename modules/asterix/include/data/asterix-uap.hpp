@@ -89,6 +89,14 @@ namespace adam::modules::asterix
         { 
             return selector_fn(raw_head, fspec_size, raw_len); 
         }
+
+        inline const uap*               find_alternative(string_hash alt_name) const
+        {
+            auto it = alternatives.find(alt_name);
+            if (it != alternatives.end())
+                return it->second;
+            return nullptr;
+        }
         
         /** @brief Initializer. MUST be called before inserting this into the pool */
         void setup();
@@ -168,9 +176,18 @@ namespace adam::modules::asterix
         return uap_pool::get().retrieve_uap(raw_block_head, this, fspec_size, raw_len);
     }
 
-    inline const uap* record::get_uap() const
+    inline const uap* record::find_used_uap() const
     {
-        return uap_pool::get().get_uap(category);
+        auto base = uap_pool::get().get_uap(category);
+
+        if (!base) return nullptr;
+
+        if (base->get_name() == this->used_uap)
+            return base;
+
+        auto alt = base->find_alternative(used_uap);
+
+        return alt;
     }
     
     inline const uap* block::get_uap() const

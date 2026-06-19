@@ -21,17 +21,12 @@ namespace adam::modules::asterix::cat001
         {  2, item_type_variable,    1,      1, "I001/020 Target Report Descriptor"                                    },
     });
 
-    const auto cat001_alt = std::to_array<const uap*>({&cat001_track_uap, &cat001_plot_uap});
-
-    uap cat001_uap(1, "CAT001 1.4 - BASE"_ct, cat001_base.data(), cat001_base.size(), cat001_alt.data(), cat001_alt.size(), cat001_selector_fn );
-
-
     // Plot UAP for CAT001
     const auto cat001_plot_items = std::to_array<const field_spec>
     ({
         // FSPEC Byte 1
-        /* 1 */ *cat001_uap.get_spec(1), /* I001/010 Data Source Identifier                                            */
-        /* 2 */ *cat001_uap.get_spec(2), /* I001/020 Target Report Descriptor                                          */
+        {  1, item_type_fixed,       0,      2, "I001/010 Data Source Identifier"                                      },
+        {  2, item_type_variable,    1,      1, "I001/020 Target Report Descriptor"                                    },
         {  3, item_type_fixed,       0,      4, "I001/040 Measured Position in Polar Coordinates"                      },
         {  4, item_type_fixed,       0,      2, "I001/070 Mode-3/A Code in Octal Representation"                       },
         {  5, item_type_fixed,       0,      2, "I001/090 Mode-C Code in Binary Representation"                        },
@@ -58,8 +53,8 @@ namespace adam::modules::asterix::cat001
     const auto cat001_track_items = std::to_array<const field_spec>
     ({
         // FSPEC Byte 1
-        /* 1 */ *cat001_uap.get_spec(1), /* I001/010 Data Source Identifier                                            */
-        /* 2 */ *cat001_uap.get_spec(2), /* I001/020 Target Report Descriptor                                          */
+        {  1, item_type_fixed,       0,      2, "I001/010 Data Source Identifier"                                      },
+        {  2, item_type_variable,    1,      1, "I001/020 Target Report Descriptor"                                    },
         {  3, item_type_fixed,       0,      2, "I001/161 Track/Plot Number"                                           },
         {  4, item_type_fixed,       0,      4, "I001/040 Measured Position in Polar Coordinates"                      },
         {  5, item_type_fixed,       0,      4, "I001/042 Calculated Position in Cartesian Coordinates"                },
@@ -78,7 +73,9 @@ namespace adam::modules::asterix::cat001
 
     uap cat001_track_uap(1, "CAT001 1.4 - TRACK"_ct, cat001_track_items.data(), cat001_track_items.size());
 
-    // The CAT001 Selector function, Checks the Msg wether its Plot or Track
+    const auto cat001_alt = std::to_array<const uap*>({&cat001_track_uap, &cat001_plot_uap});
+
+    // The CAT001 Selector function, Checks the Msg wether its Plot or Track and then returns the correct UAP for it.
     uap::selector_function cat001_selector_fn = [](const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len) -> const uap*
     {
         const auto* data = reinterpret_cast<const uint8_t* >(raw_head);
@@ -92,7 +89,7 @@ namespace adam::modules::asterix::cat001
         // If FRN 1 is here, move ptr
         if (raw_head->fspec.is_frn_active_here(1))
         {
-            auto advance_size = cat001_uap.get_spec(1)->data_size;
+            auto advance_size = cat001::get_uap().get_spec(1)->data_size;
             if (raw_len < advance_size) return nullptr;
             data += advance_size;
         }
@@ -110,6 +107,8 @@ namespace adam::modules::asterix::cat001
 
     uap& get_uap()
     {
+        // We need to init this here, after the static initialization of the sub-UAPs and selector function, but before any potential usage.
+        static uap cat001_uap(1, "CAT001 1.4 - BASE"_ct, cat001_base.data(), cat001_base.size(), cat001_alt.data(), cat001_alt.size(), cat001_selector_fn );
         return cat001_uap;
     }
 }

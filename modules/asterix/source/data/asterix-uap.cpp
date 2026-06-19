@@ -23,10 +23,10 @@ namespace adam::modules::asterix
     uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap*const* alt_array, size_t alt_cout, selector_function sel)
      :  uap(cat, name, spec_array, spec_count)
     {
-        //for (size_t i = 0; i < alt_cout; i++)
-        //    alternatives.emplace(alt_array[i].get_name().get_hash(), &alt_array[i]);
+        for (size_t i = 0; i < alt_cout; i++)
+            alternatives.emplace(alt_array[i]->get_name().get_hash(), alt_array[i]);
         
-        selector_fn = sel; 
+        selector_fn = std::move(sel); 
     }
 
     void uap::setup()

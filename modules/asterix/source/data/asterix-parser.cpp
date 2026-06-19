@@ -68,7 +68,7 @@ namespace adam::modules::asterix
             uint8_t val = raw_data[raw_offset + oct];
             for (int bit = 7; bit >= 0; --bit)  // All 8 bits are data bits — no FX
             {
-                uint16_t frn = static_cast<uint16_t>((oct * 7) + (8 - bit));
+                uint16_t frn = static_cast<uint16_t>((oct * 8) + (8 - bit));
 
                 if (frn >= asterix::highest_frn) return false;
 
@@ -87,11 +87,13 @@ namespace adam::modules::asterix
         // Check raw buffer boundary
         if (raw_offset + spec.data_size > raw_length) return false;
 
-        auto test = internal_data->at<item>(out_offset);
+        auto itm = internal_data->at<item>(out_offset);
 
-        new(test) item(item_type_fixed, spec.data_size, raw_offset);
+        itm->type           = item_type_fixed;
+        itm->raw_offset     = raw_offset;
+        itm->raw_length     = spec.data_size;
+
         out_offset += sizeof(item);
-
         raw_offset += spec.data_size;
 
         return true;
@@ -99,9 +101,9 @@ namespace adam::modules::asterix
 
     static inline bool parse_variable_item(const field_spec& spec, const uint8_t* raw_data, uint32_t& raw_offset, uint32_t raw_length, adam::buffer* internal_data, uint32_t& out_offset)
     {
-        uint32_t item_start_offset = raw_offset;
-        uint16_t first_size = spec.header_size;
-        uint16_t extent_size = spec.data_size;
+        uint32_t raw_start_offset   = raw_offset;
+        uint16_t first_size         = spec.header_size;
+        uint16_t extent_size        = spec.data_size;
 
         // Check raw buffer boundary
         if (raw_offset + first_size > raw_length) return false;
@@ -117,9 +119,14 @@ namespace adam::modules::asterix
             raw_offset += extent_size;
             fx = (raw_data[raw_offset - 1] & 1) != 0;
         }
-        uint16_t total_len = static_cast<uint16_t>(raw_offset - item_start_offset);
+        uint16_t total_len = static_cast<uint16_t>(raw_offset - raw_start_offset);
 
-        new(internal_data->at<item>(out_offset)) item(item_type_variable, total_len, item_start_offset);
+        auto itm = internal_data->at<item>(out_offset);
+
+        itm->type           = item_type_variable;
+        itm->raw_offset     = raw_start_offset;
+        itm->raw_length     = total_len;
+
         out_offset += sizeof(item);
 
         return true;
@@ -127,10 +134,10 @@ namespace adam::modules::asterix
 
     static inline bool parse_repetitive_item(const field_spec& spec, const uint8_t* raw_data, uint32_t& raw_offset, uint32_t raw_length, adam::buffer* internal_data, uint32_t& out_offset)
     {
-        uint32_t item_start_offset = raw_offset;
-        uint8_t ind_len = spec.header_size;
+        uint32_t raw_start_offset  = raw_offset;
+        uint8_t  ind_len           = spec.header_size;
 
-        // Check raw buffer boundary
+        // Check raw buffer boundary for reading the repetition count
         if (ind_len == 0 || raw_offset + ind_len > raw_length) return false;
 
         uint16_t rep = 0;
@@ -150,7 +157,19 @@ namespace adam::modules::asterix
         
         raw_offset += ind_len;
 
-        new(internal_data->at<item>(out_offset)) item(item_type_repetetive, rep, item_start_offset);
+        uint32_t rep_size = static_cast<uint32_t>(rep) * spec.data_size;
+
+        // Check raw buffer boundary for reading all repetitions
+        if (raw_offset + rep_size > raw_length) return false;
+
+        raw_offset += rep_size;
+        
+        auto itm = internal_data->at<item>(out_offset);
+
+        itm->type           = item_type_repetetive;
+        itm->raw_offset     = raw_start_offset;
+        itm->raw_length     = static_cast<uint16_t>(raw_offset - raw_start_offset);
+
         out_offset += sizeof(item);
 
         return true;
@@ -173,11 +192,11 @@ namespace adam::modules::asterix
         // Reserve Space for items
         out_offset += cur_uap->get_highest_frn() * sizeof(item);
 
-        for (uint8_t i = 1; i < cur_uap->get_highest_frn(); ++i)
+        for (uint16_t i = 1; i <= cur_uap->get_highest_frn(); ++i)
         {
             uint32_t cur_item_offset = start_out_off + ((i-1) * sizeof(item));
 
-            internal_data->at<item>(cur_item_offset)->populated = active_child_frns[i];
+            internal_data->at<item>(cur_item_offset)->set_populated(active_child_frns[i]);
 
             if (!active_child_frns[i])
                 continue;
@@ -188,7 +207,7 @@ namespace adam::modules::asterix
             if (!child_spec)
             {
                 // Log - Missing item spec
-                internal_data->at<item>(cur_item_offset)->populated = false;
+                internal_data->at<item>(cur_item_offset)->set_populated(false);
                 continue;
             }
 
@@ -198,15 +217,19 @@ namespace adam::modules::asterix
             if (!parse_item(*child_spec, raw_data, raw_offset, raw_length, internal_data, parse_item_off, my_child_out_off))
             {
                 // TODO do we return here? just output a log? IDK
-                continue;
+                return false;
             }
 
-            // Calculate added child items - Could've just passed a child count param, but parse_item already has enough params
-            auto cur_child_count = static_cast<uint16_t>((my_child_out_off - child_out_offset) / sizeof(item));
+            // Calculate added child items - Using static UAP spec info instead of dynamic offsets
+            uint16_t cur_child_count = 0;
+            if ((child_spec->type == item_type_compound || child_spec->type == item_type_explicit) && child_spec->sub_uap)
+                cur_child_count = child_spec->sub_uap->get_highest_frn();
 
             auto* edit_cur_item = internal_data->at<item>(cur_item_offset);
             edit_cur_item->child_offset = cur_child_count ? (child_out_offset - cur_item_offset) : 0; // Until now, we used a absolute child offset, but we want it to be relative to the current item, so we convert it here
             edit_cur_item->child_count  = cur_child_count;
+
+            child_out_offset = my_child_out_off;
         }
 
         return true;
@@ -231,14 +254,12 @@ namespace adam::modules::asterix
         uint32_t raw_item_start_offset  = raw_offset;
 
         bool active_frns[asterix::highest_frn];
-        std::memset(active_frns, 0, spec.sub_uap->get_highest_frn());
+        std::memset(active_frns, 0, spec.sub_uap->get_highest_frn() + 1);
 
         if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns)) return false;
-
-        new(internal_data->at<item>(item_start_offset)) item(item_type_compound, 0, raw_item_start_offset);
+        
+        // Reserve Space for item + child items
         out_offset += sizeof(item);
-
-        // Reserve Space for child items
         uint32_t child_items_offset = child_offset + spec.sub_uap->get_highest_frn() * sizeof(item);
 
         if (!parse_children
@@ -256,9 +277,12 @@ namespace adam::modules::asterix
             return false;
             // TODO what now? log
         }
+        child_offset = child_items_offset;
 
         auto* itm = internal_data->at<item>(item_start_offset);
-        itm->raw_length = raw_offset - raw_item_start_offset;
+        itm->type           = item_type_compound;
+        itm->raw_offset     = raw_item_start_offset;
+        itm->raw_length     = static_cast<uint16_t>(raw_offset - raw_item_start_offset);
 
         return true;
     }
@@ -282,17 +306,22 @@ namespace adam::modules::asterix
         uint8_t explicit_len = raw_data[raw_offset]; // length includes this byte
         if (raw_offset + explicit_len > raw_length) return false;
 
-        new(internal_data->at<item>(item_start_offset)) item(item_type_explicit, explicit_len, raw_item_start_offset);
+        // Reserve Space for item
         out_offset += sizeof(item);
+
+        auto* itm = internal_data->at<item>(item_start_offset);
+        itm->type           = item_type_explicit;
+        itm->raw_offset     = raw_item_start_offset;
+        itm->raw_length     = explicit_len;
 
         if (spec.sub_uap)
         {
             raw_offset += 1; // skip length byte before FSPEC
             
             bool active_frns[asterix::highest_frn];
-            std::memset(active_frns, 0, spec.sub_uap->get_highest_frn());
+            std::memset(active_frns, 0, spec.sub_uap->get_highest_frn() + 1);
 
-            if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns)) return false;
+            if (!parse_explicit_fspec(spec.sub_uap, raw_data, raw_offset, raw_length, active_frns)) return false;
 
             // Reserve Space for child items
             uint32_t child_items_offset = child_offset + spec.sub_uap->get_highest_frn() * sizeof(item);
@@ -309,11 +338,10 @@ namespace adam::modules::asterix
                 child_items_offset
             ))
             {
+                return false;
                 // TODO what now? log
             }
-
-            auto* itm = internal_data->at<item>(item_start_offset);
-            itm->raw_length = raw_offset - raw_item_start_offset;
+            child_offset = child_items_offset;
         }
         else
         {
@@ -427,7 +455,7 @@ namespace adam::modules::asterix
                     return false;
                 }
 
-                uint8_t fspec_size = raw_offset - record_start_raw;
+                uint8_t fspec_size = static_cast<uint8_t>(raw_offset - record_start_raw);
                 auto resolved_frns = (fspec_size * 7);
 
                 // Retrieve the correct uap for the given record, this will automatically handle alterantive uaps
@@ -441,7 +469,7 @@ namespace adam::modules::asterix
                 
                 // Set possible remaining active_frns to false
                 if (resolved_frns < active_uap->get_highest_frn())
-                    std::memset(active_frns + resolved_frns, 0, active_uap->get_highest_frn() - resolved_frns);
+                    std::memset(active_frns + resolved_frns + 1, 0, active_uap->get_highest_frn() - resolved_frns);
 
                 if (internal_data->get_capacity() < out_offset + sizeof(record))
                 {
@@ -473,6 +501,7 @@ namespace adam::modules::asterix
                     child_offset
                 ))
                 {
+                    break;
                     // TODO log, and then?
                 }
 
@@ -482,8 +511,9 @@ namespace adam::modules::asterix
 
                 auto* cur_rec = internal_data->at<record>(record_off);
                 cur_rec->category   = active_uap->get_cat_number();
+                cur_rec->used_uap   = active_uap->get_name().get_hash();
                 cur_rec->fspec_size = fspec_size;
-                cur_rec->raw_length = raw_offset - record_start_raw;
+                cur_rec->raw_length = static_cast<uint16_t>(raw_offset - record_start_raw);
                 cur_rec->raw_offset = record_start_raw;
                 cur_rec->item_count = active_uap->get_highest_frn() + child_count; // Total items = direct items + child items
 

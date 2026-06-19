@@ -53,6 +53,8 @@
 #include "factory/factory.hpp"
 #include "hash/rapidhash.h"
 #include "hash/rapidhash-ct.h"
+#include "types/byteswap.hpp"
+#include "types/enum-bit-operations.hpp"
 #include "types/string-hashed.hpp"
 #include "types/string-hashed-ct.hpp"
 #include "types/queue-shared.hpp"

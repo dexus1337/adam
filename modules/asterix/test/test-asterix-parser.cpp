@@ -6,6 +6,7 @@
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "data/asterix-types.hpp"
+#include "data/categories/001/cat001.hpp"
 
 #include <string_view>
 
@@ -87,21 +88,21 @@ TEST_F(parser_test, parse_fixed)
 
     auto item1 = record->get_item(1);
     ASSERT_NE(item1, nullptr);
-    EXPECT_TRUE(item1->populated);
+    EXPECT_TRUE(item1->is_populated());
     EXPECT_EQ(item1->type, asterix::item_type_fixed);
     EXPECT_EQ(item1->raw_length, 2ul);
     EXPECT_EQ(item1->raw_offset, 4ul);
 
     auto item2 = record->get_item(2);
     ASSERT_NE(item2, nullptr);
-    EXPECT_TRUE(item2->populated);
+    EXPECT_TRUE(item2->is_populated());
     EXPECT_EQ(item2->type, asterix::item_type_fixed);
     EXPECT_EQ(item2->raw_length, 3ul);
     EXPECT_EQ(item2->raw_offset, 6ul);
 
     auto item3 = record->get_item(3);
     ASSERT_NE(item3, nullptr);
-    EXPECT_FALSE(item3->populated);
+    EXPECT_FALSE(item3->is_populated());
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
@@ -165,10 +166,127 @@ TEST_F(parser_test, parse_variable)
 
     auto item26 = record->get_item(26);
     ASSERT_NE(item26, nullptr);
-    EXPECT_TRUE(item26->populated);
+    EXPECT_TRUE(item26->is_populated());
     EXPECT_EQ(item26->type, asterix::item_type_variable);
     EXPECT_EQ(item26->raw_length, 6ul);
     EXPECT_EQ(item26->raw_offset, 7ul);
+
+    adam::buffer_manager::get().return_buffer(internal_data);
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+TEST_F(parser_test, parse_repetitive)
+{
+    // ---------------------------------------------------------------
+    // Test a repetitive item in isolation.
+    //
+    // We use CAT048 FRN 10 – I048/250 BDS Register Data:
+    //   header_size = 1  (1-byte repetition count)
+    //   data_size   = 8  (8 bytes per repetition)
+    //
+    // Packet layout with N=2 repetitions:
+    //   [0]      Category = 48
+    //   [1..2]   Length (big-endian) = 22
+    //   [3]      FSPEC byte 1: no items, FX=1 → 0x01
+    //   [4]      FSPEC byte 2: FRN 10 (bit 5) = 1, FX=0 → 0x20
+    //              FRNs 1-7 are in byte 1 (bit 0 = FX).
+    //              FRN 10 is in byte 2: bit 7=FRN8, bit 6=FRN9, bit 5=FRN10
+    //   [5]      Repetition count = 2
+    //   [6..13]  Repetition 1 (8 bytes)
+    //   [14..21] Repetition 2 (8 bytes)
+    //
+    // Total = 3 (block hdr) + 2 (FSPEC) + 1 (rep-count) + 2×8 (payload) = 22 bytes
+    // ---------------------------------------------------------------
+
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+    ASSERT_NE(raw_buf, nullptr);
+
+    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
+
+    constexpr uint8_t  N_REPS    = 2;
+    constexpr uint16_t DATA_SIZE = 8;
+    // total = 3 (block hdr) + 2 (FSPEC) + 1 (rep count) + N_REPS * DATA_SIZE
+    constexpr uint16_t TOTAL_LEN = 3 + 2 + 1 + N_REPS * DATA_SIZE;
+
+    raw_data[0] = 48;              // CAT
+    raw_data[1] = 0;               // Length MSB
+    raw_data[2] = TOTAL_LEN;       // Length LSB
+
+    // FSPEC: 2 bytes – only FRN 10 present
+    raw_data[3] = 0x01;            // FSPEC byte 1: empty, FX=1
+    raw_data[4] = 0x20;            // FSPEC byte 2: FRN 10 (bit 5) = 1, FX=0
+
+    // Repetitive item: 1-byte rep count + N_REPS * 8 bytes
+    raw_data[5] = N_REPS;          // repetition count
+
+    // Repetition 1
+    raw_data[6]  = 0x11;
+    raw_data[7]  = 0x22;
+    raw_data[8]  = 0x33;
+    raw_data[9]  = 0x44;
+    raw_data[10] = 0x55;
+    raw_data[11] = 0x66;
+    raw_data[12] = 0x77;
+    raw_data[13] = 0x88;
+
+    // Repetition 2
+    raw_data[14] = 0xAA;
+    raw_data[15] = 0xBB;
+    raw_data[16] = 0xCC;
+    raw_data[17] = 0xDD;
+    raw_data[18] = 0xEE;
+    raw_data[19] = 0xFF;
+    raw_data[20] = 0x01;
+    raw_data[21] = 0x02;
+
+    raw_buf->set_size(TOTAL_LEN);
+
+    adam::buffer* internal_data = nullptr;
+    bool success = parser.parse(raw_buf, internal_data);
+
+    EXPECT_TRUE(success);
+    ASSERT_NE(internal_data, nullptr);
+    EXPECT_GT(internal_data->get_size(), 0ul);
+
+    // ── Frame ────────────────────────────────────────────────────────
+    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
+    EXPECT_EQ(buf_header->block_count, 1u);
+
+    // ── Block ────────────────────────────────────────────────────────
+    const auto* block = buf_header->get_block(0);
+    ASSERT_NE(block, nullptr);
+    EXPECT_EQ(block->category,     48);
+    EXPECT_EQ(block->record_count, 1u);
+    EXPECT_EQ(block->raw_length,   TOTAL_LEN);
+    EXPECT_EQ(block->raw_offset,   0ul);
+
+    // ── Record ───────────────────────────────────────────────────────
+    const auto* record = block->get_record(0);
+    ASSERT_NE(record, nullptr);
+    EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn());
+    EXPECT_EQ(record->fspec_size,  2u);
+    EXPECT_EQ(record->raw_offset,  3ul);
+    EXPECT_EQ(record->raw_length,  static_cast<uint16_t>(TOTAL_LEN - 3));
+    EXPECT_EQ(record->category,    48);
+
+    // FRNs 1-9 and 11-28 must not be populated
+    for (uint8_t frn = 1; frn <= 28; ++frn)
+    {
+        if (frn == 10) continue;
+        const auto* item = record->get_item(frn);
+        ASSERT_NE(item, nullptr)  << "FRN " << frn << " item must exist";
+        EXPECT_FALSE(item->is_populated()) << "FRN " << frn << " must not be populated";
+    }
+
+    // ── FRN 10 – I048/250 BDS Register Data (repetitive) ────────────
+    //  raw_offset = 5  (3 block hdr + 2 FSPEC)
+    //  raw_length = 1 (rep-count byte) + N_REPS * DATA_SIZE = 17
+    const auto* item10 = record->get_item(10);
+    ASSERT_NE(item10, nullptr);
+    EXPECT_TRUE(item10->is_populated());
+    EXPECT_EQ(item10->type,       asterix::item_type_repetetive);
+    EXPECT_EQ(item10->raw_offset, 5ul);
+    EXPECT_EQ(item10->raw_length, static_cast<uint16_t>(1 + N_REPS * DATA_SIZE));
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
@@ -230,40 +348,41 @@ TEST_F(parser_test, parse_compound)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count, record->get_uap()->get_highest_frn()); // no children, so item count = last FRN
+    auto uap = record->find_used_uap();
+    EXPECT_EQ(record->item_count, uap->get_highest_frn() + uap->get_spec(24)->sub_uap->get_highest_frn());
     EXPECT_EQ(record->fspec_size, 4);
     EXPECT_EQ(record->raw_length, 15 - 3);
     EXPECT_EQ(record->raw_offset, 3);
 
-    for (int i = 1; i < block->get_uap()->get_highest_frn(); i++)
+    for (uint8_t i = 1; i <= uap->get_highest_frn(); i++)
     {
         auto* item = record->get_item(i);
         ASSERT_NE(item, nullptr);
 
-        EXPECT_EQ(item->populated, i == 24);
+        EXPECT_EQ(item->is_populated(), i == 24);
     }
 
     auto item24 = record->get_item(24);
     ASSERT_NE(item24, nullptr);
-    EXPECT_TRUE(item24->populated);
+    EXPECT_TRUE(item24->is_populated());
     EXPECT_EQ(item24->type, asterix::item_type_compound);
     EXPECT_EQ(item24->raw_length, 8);
     EXPECT_EQ(item24->raw_offset, 7);
 
     auto child_item1 = item24->get_child_item(1);
     ASSERT_NE(child_item1, nullptr);
-    EXPECT_TRUE(child_item1->populated);
+    EXPECT_TRUE(child_item1->is_populated());
     EXPECT_EQ(child_item1->type, asterix::item_type_fixed);
     EXPECT_EQ(child_item1->raw_length, 1);
     EXPECT_EQ(child_item1->raw_offset, 8);
 
     auto child_item2 = item24->get_child_item(2);
     ASSERT_NE(child_item2, nullptr);
-    EXPECT_FALSE(child_item2->populated);
+    EXPECT_FALSE(child_item2->is_populated());
 
     auto child_item3 = item24->get_child_item(3);
     ASSERT_NE(child_item3, nullptr);
-    EXPECT_TRUE(child_item3->populated);
+    EXPECT_TRUE(child_item3->is_populated());
     EXPECT_EQ(child_item3->type, asterix::item_type_fixed);
     EXPECT_EQ(child_item3->raw_length, 6);
     EXPECT_EQ(child_item3->raw_offset, 9);
@@ -271,132 +390,6 @@ TEST_F(parser_test, parse_compound)
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
-}
-
-TEST_F(parser_test, multiple_blocks_and_records)
-{
-    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(128);
-    ASSERT_NE(raw_buf, nullptr);
-
-    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
-    
-    // --- BLOCK 1: CAT 48 (2 records) ---
-    // Record 1: 1 item (DSID, 2 bytes)
-    // Record 2: 1 item (TOD, 3 bytes)
-    // Total block size: 3 (hdr) + 3 (rec1: 1 byte fspec + 2 bytes DSID) + 4 (rec2: 1 byte fspec + 3 bytes TOD) = 10 bytes
-    raw_data[0] = 48; // CAT
-    raw_data[1] = 0;  // Length MSB
-    raw_data[2] = 10; // Length LSB
-    
-    // Record 1
-    raw_data[3] = 0x80; // FSPEC: DSID only (FRN 1)
-    raw_data[4] = 0x11;
-    raw_data[5] = 0x22;
-    
-    // Record 2
-    raw_data[6] = 0x40; // FSPEC: TOD only (FRN 2)
-    raw_data[7] = 0xAA;
-    raw_data[8] = 0xBB;
-    raw_data[9] = 0xCC;
-
-    // --- BLOCK 2: CAT 62 (1 record) ---
-    // Record 1: 1 item (Track Number, 2 bytes - FRN 3 is fixed, primary_header_size = 2 in CAT62)
-    // Let's verify CAT 62 FRN 3 in cat062_uap.cpp if possible or just use DSID (FRN 1) in CAT 62
-    // Let's check FRN 1 in CAT 62: it is I062/010 Data Source Identifier (2 bytes fixed)
-    // Total block size: 3 (hdr) + 3 (rec1: 1 byte fspec + 2 bytes DSID) = 6 bytes
-    raw_data[10] = 62; // CAT
-    raw_data[11] = 0;  // Length MSB
-    raw_data[12] = 6;  // Length LSB
-    
-    // Record 1 of block 2
-    raw_data[13] = 0x80; // FSPEC: DSID (FRN 1)
-    raw_data[14] = 0x99;
-    raw_data[15] = 0x88;
-
-    raw_buf->set_size(16);
-
-    adam::buffer* internal_data = nullptr;
-    bool success = parser.parse(raw_buf, internal_data);
-
-    EXPECT_TRUE(success);
-    ASSERT_NE(internal_data, nullptr);
-    EXPECT_GT(internal_data->get_size(), 0ul);
-
-    // Verify layout
-    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
-    EXPECT_EQ(buf_header->block_count, 2);
-    
-    auto block48 = buf_header->get_block(0);
-    ASSERT_NE(block48, nullptr);
-    EXPECT_EQ(block48->category, 48);
-    EXPECT_EQ(block48->record_count, 2);
-    EXPECT_EQ(block48->raw_length, 10);
-    EXPECT_EQ(block48->raw_offset, 0);
-
-    auto record48_0 = block48->get_record(0);
-    ASSERT_NE(record48_0, nullptr);
-    EXPECT_EQ(record48_0->item_count, record48_0->get_uap()->get_highest_frn()); // no children, so item count = last FRN
-    EXPECT_EQ(record48_0->fspec_size, 1);
-    EXPECT_EQ(record48_0->raw_length, 3);
-    EXPECT_EQ(record48_0->raw_offset, 3);
-    EXPECT_EQ(record48_0->category, 48);
-
-    auto record48_1 = block48->get_record(1);
-    ASSERT_NE(record48_1, nullptr);
-    EXPECT_EQ(record48_1->item_count, record48_1->get_uap()->get_highest_frn()); // no children, so item count = last FRN
-    EXPECT_EQ(record48_1->fspec_size, 1);
-    EXPECT_EQ(record48_1->raw_length, 4);
-    EXPECT_EQ(record48_1->raw_offset, 6);
-    EXPECT_EQ(record48_1->category, 48);
-
-    auto block62 = buf_header->get_block(1);
-    ASSERT_NE(block62, nullptr);
-    EXPECT_EQ(block62->category, 62);
-    EXPECT_EQ(block62->record_count, 1);
-    EXPECT_EQ(block62->raw_length, 6);
-    EXPECT_EQ(block62->raw_offset, 10);
-
-    auto record62_0 = block62->get_record(0);
-    ASSERT_NE(record62_0, nullptr);
-    EXPECT_EQ(record62_0->item_count, record62_0->get_uap()->get_highest_frn()); // no children, so item count = last FRN
-    EXPECT_EQ(record62_0->raw_length, 3);
-    EXPECT_EQ(record62_0->raw_offset, 13);
-    EXPECT_EQ(record62_0->category, 62);
-
-    adam::buffer_manager::get().return_buffer(internal_data);
-    adam::buffer_manager::get().return_buffer(raw_buf);
-}
-
-
-// Dummy classification data for testing custom expansions
-class dummy_classification_data : public asterix::uap_expansion
-{
-public:
-    int classification_level = 5;
-};
-
-TEST_F(parser_test, custom_uap_expansion_and_o1_lookup)
-{
-    auto& cat048 = asterix::cat048::get_uap();
-
-    // Verify O(1) lookup works and names are intact
-    const asterix::field_spec* spec_tod = cat048.get_spec(2); // FRN 2 is Time of Day
-    ASSERT_NE(spec_tod, nullptr);
-    EXPECT_EQ(spec_tod->type, asterix::item_type_fixed);
-    EXPECT_EQ(std::string_view(spec_tod->name), "I048/140 Time of Day");
-
-    // Register a custom metadata for FRN 29 (SP)
-    dummy_classification_data my_metadata;
-    my_metadata.classification_level = 42;
-    cat048.expand_parameter(29, &my_metadata);
-
-    // Retrieve the expansion metadata in O(1) time
-    asterix::uap_expansion* expansion = cat048.get_expansion(29);
-    ASSERT_EQ(expansion, &my_metadata);
-
-    // Cast it back to verify custom attributes
-    dummy_classification_data* retrieved_data = static_cast<dummy_classification_data*>(expansion);
-    EXPECT_EQ(retrieved_data->classification_level, 42);
 }
 
 TEST_F(parser_test, parse_explicit_no_uap)
@@ -468,18 +461,18 @@ TEST_F(parser_test, parse_explicit_no_uap)
     EXPECT_EQ(record->category,    48);
 
     // FRNs 1-26 and 28 must not be populated
-    for (int frn = 1; frn <= 28; ++frn)
+    for (uint8_t frn = 1; frn <= 28; ++frn)
     {
         if (frn == 27) continue;
         auto* item = record->get_item(frn);
         ASSERT_NE(item, nullptr) << "FRN " << frn << " item must exist (even if not populated)";
-        EXPECT_FALSE(item->populated) << "FRN " << frn << " must not be populated";
+        EXPECT_FALSE(item->is_populated()) << "FRN " << frn << " must not be populated";
     }
 
     // FRN 27 – SP explicit item
     auto item27 = record->get_item(27);
     ASSERT_NE(item27, nullptr);
-    EXPECT_TRUE(item27->populated);
+    EXPECT_TRUE(item27->is_populated());
     EXPECT_EQ(item27->type,       asterix::item_type_explicit);
     EXPECT_EQ(item27->raw_length, 5u);    // value of the length byte
     EXPECT_EQ(item27->raw_offset, 7ul);   // immediately after the 4-byte FSPEC
@@ -541,23 +534,23 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── Record ───────────────────────────────────────────────────────
     const auto* record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn());
+    EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn() + block->get_uap()->get_spec(28)->sub_uap->get_highest_frn() + block->get_uap()->get_spec(28)->sub_uap->get_spec(4)->sub_uap->get_highest_frn());
     EXPECT_EQ(record->raw_length,  14);    // 17 - 3 block header bytes
     EXPECT_EQ(record->raw_offset,  3ul);
     EXPECT_EQ(record->category,    48);
 
     // FRNs 1-27 must not be populated
-    for (int frn = 1; frn <= 27; ++frn)
+    for (uint8_t frn = 1; frn <= 27; ++frn)
     {
         const auto* item = record->get_item(frn);
         ASSERT_NE(item, nullptr) << "FRN " << frn << " item must exist";
-        EXPECT_FALSE(item->populated) << "FRN " << frn << " must not be populated";
+        EXPECT_FALSE(item->is_populated()) << "FRN " << frn << " must not be populated";
     }
 
     // ── FRN 28: RE (explicit, backed by REF sub-UAP) ─────────────────
     const auto* re = record->get_item(28);
     ASSERT_NE(re, nullptr);
-    EXPECT_TRUE(re->populated);
+    EXPECT_TRUE(re->is_populated());
     EXPECT_EQ(re->type,       asterix::item_type_explicit);
     EXPECT_EQ(re->raw_length, 10u);   // value of the length byte
     EXPECT_EQ(re->raw_offset, 7ul);   // immediately after the 4-byte FSPEC
@@ -568,14 +561,14 @@ TEST_F(parser_test, parse_explicit_with_uap)
         if (child_frn == 4) continue;
         const auto* ch = re->get_child_item(child_frn);
         ASSERT_NE(ch, nullptr) << "REF child FRN " << child_frn << " must exist";
-        EXPECT_FALSE(ch->populated) << "REF child FRN " << child_frn << " must not be populated";
+        EXPECT_FALSE(ch->is_populated()) << "REF child FRN " << child_frn << " must not be populated";
     }
 
     // ── REF child FRN 4: RPC compound ────────────────────────────────
     //    1 FSPEC byte + 1 + 2 + 2 + 2 data bytes = 8 bytes total
     const auto* rpc = re->get_child_item(4);
     ASSERT_NE(rpc, nullptr);
-    EXPECT_TRUE(rpc->populated);
+    EXPECT_TRUE(rpc->is_populated());
     EXPECT_EQ(rpc->type,       asterix::item_type_compound);
     EXPECT_EQ(rpc->raw_length, 8u);    // 1 FSPEC + 1 + 2 + 2 + 2
     EXPECT_EQ(rpc->raw_offset, 9ul);   // REF FSPEC at [8], RPC starts at [9]
@@ -583,7 +576,7 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── RPC child FRN 1: Score (fixed, 1 B) ──────────────────────────
     const auto* score = rpc->get_child_item(1);
     ASSERT_NE(score, nullptr);
-    EXPECT_TRUE(score->populated);
+    EXPECT_TRUE(score->is_populated());
     EXPECT_EQ(score->type,       asterix::item_type_fixed);
     EXPECT_EQ(score->raw_length, 1u);
     EXPECT_EQ(score->raw_offset, 10ul);  // right after RPC FSPEC at [9]
@@ -591,7 +584,7 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── RPC child FRN 2: Signal/Clutter Ratio (fixed, 2 B) ───────────
     const auto* scr = rpc->get_child_item(2);
     ASSERT_NE(scr, nullptr);
-    EXPECT_TRUE(scr->populated);
+    EXPECT_TRUE(scr->is_populated());
     EXPECT_EQ(scr->type,       asterix::item_type_fixed);
     EXPECT_EQ(scr->raw_length, 2u);
     EXPECT_EQ(scr->raw_offset, 11ul);
@@ -599,7 +592,7 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── RPC child FRN 3: Range Width (fixed, 2 B) ────────────────────
     const auto* rw = rpc->get_child_item(3);
     ASSERT_NE(rw, nullptr);
-    EXPECT_TRUE(rw->populated);
+    EXPECT_TRUE(rw->is_populated());
     EXPECT_EQ(rw->type,       asterix::item_type_fixed);
     EXPECT_EQ(rw->raw_length, 2u);
     EXPECT_EQ(rw->raw_offset, 13ul);
@@ -607,13 +600,481 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── RPC child FRN 4: Ambiguous Range (fixed, 2 B) ────────────────
     const auto* ar = rpc->get_child_item(4);
     ASSERT_NE(ar, nullptr);
-    EXPECT_TRUE(ar->populated);
+    EXPECT_TRUE(ar->is_populated());
     EXPECT_EQ(ar->type,       asterix::item_type_fixed);
     EXPECT_EQ(ar->raw_length, 2u);
     EXPECT_EQ(ar->raw_offset, 15ul);
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+TEST_F(parser_test, parse_alternative_uap)
+{
+    // ---------------------------------------------------------------
+    // CAT001 uses a base UAP with a selector function to dispatch
+    // to either the PLOT or TRACK alternative UAP, based on the
+    // msg_type bit inside FRN 2 (I001/020 Target Report Descriptor).
+    //
+    // Packet layout (both variants share the same block header and
+    // FSPEC format):
+    //
+    //   [0]     Category = 1
+    //   [1..2]  Length (big-endian)
+    //   [3]     FSPEC byte 1
+    //   ...     payload
+    //
+    // FSPEC byte 1 for both packets below:
+    //   bit 7 = FRN1 (DSID, 2 B fixed)
+    //   bit 6 = FRN2 (TRD, variable 1 B, FX=0)
+    //   bit 5 = FRN3
+    //   ...
+    //   bit 0 = FX (extension indicator, 0 = no more FSPEC bytes)
+    //
+    // target_report_descriptor bit layout (MSB first, as laid out in memory):
+    //   bit 7 (MSB): msg_type  (0=plot, 1=track)
+    //   bit 6:       orig
+    //   bit 5-4:     detect_type
+    //   bit 3:       antenna_num
+    //   bit 2:       special_pos
+    //   bit 1:       rep_type
+    //   bit 0 (LSB): extended  (FX)
+    // ---------------------------------------------------------------
+
+    // ================================================================
+    // Sub-test A: PLOT record
+    // ================================================================
+    // FRNs present: 1 (DSID 2B), 2 (TRD 1B, FX=0), 3 (Measured Pos 4B)
+    // FSPEC byte 1: FRN1=1, FRN2=1, FRN3=1, FX=0  ->  1110 0000 = 0xE0
+    // TRD byte: msg_type=PLOT(0) -> MSB=0, all other bits=0, FX=0
+    //   => 0b00000000 = 0x00
+    //
+    // Total:  3 (header) + 1 (FSPEC) + 2 (DSID) + 1 (TRD) + 4 (MeasPos) = 11 bytes
+    {
+        adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+        ASSERT_NE(raw_buf, nullptr);
+
+        uint8_t* d = raw_buf->begin_as<uint8_t>();
+
+        d[0] = 1;    // CAT001
+        d[1] = 0;    // Length MSB
+        d[2] = 11;   // Length LSB
+        d[3] = 0xE0; // FSPEC: FRN1, FRN2, FRN3 present, no extension
+
+        // FRN 1 - DSID (2 B)
+        d[4] = 0x0A;
+        d[5] = 0x0B;
+
+        // FRN 2 - TRD (1 B, FX=0 -> no extension)
+        //   msg_type = PLOT (0) -> MSB = 0, everything else 0
+        //   => 0b00000000 = 0x00
+        d[6] = 0x00;
+
+        // FRN 3 - Measured Position in Polar Coordinates (4 B)
+        d[7]  = 0x11;
+        d[8]  = 0x22;
+        d[9]  = 0x33;
+        d[10] = 0x44;
+
+        raw_buf->set_size(11);
+
+        adam::buffer* internal = nullptr;
+        ASSERT_TRUE(parser.parse(raw_buf, internal));
+        ASSERT_NE(internal, nullptr);
+
+        // -- Frame / Block --
+        const auto* frm = internal->get_begin_as<asterix::frame>();
+        ASSERT_EQ(frm->block_count, 1u);
+
+        const auto* blk = frm->get_block(0);
+        ASSERT_NE(blk, nullptr);
+        EXPECT_EQ(blk->category,     1);
+        EXPECT_EQ(blk->record_count, 1u);
+        EXPECT_EQ(blk->raw_length,   11u);
+        EXPECT_EQ(blk->raw_offset,   0u);
+
+        // -- Record --
+        const auto* rec = blk->get_record(0);
+        ASSERT_NE(rec, nullptr);
+        EXPECT_EQ(rec->category,   1);
+        EXPECT_EQ(rec->fspec_size, 1u);
+        EXPECT_EQ(rec->raw_offset, 3u);   // immediately after 3-byte block header
+        EXPECT_EQ(rec->raw_length, 8u);   // 11 - 3
+
+        // The block-level UAP must be the base CAT001 UAP.
+        const auto* base_uap = blk->get_uap();
+        ASSERT_NE(base_uap, nullptr);
+        EXPECT_EQ(base_uap, &asterix::cat001::get_uap());
+
+        // The record must have been parsed with the PLOT alternative UAP.
+        // find_used_uap() must return the PLOT UAP, not the base UAP.
+        const auto* used_uap = rec->find_used_uap();
+        ASSERT_NE(used_uap, nullptr);
+        EXPECT_NE(used_uap, base_uap) << "PLOT record must not use the base UAP";
+
+        // Verify the correct alternative is selected via the base UAP's find_alternative()
+        const auto* expected_plot_uap = base_uap->find_alternative(used_uap->get_name());
+        EXPECT_EQ(used_uap, expected_plot_uap) << "find_used_uap() must return the PLOT alternative";
+
+        // The PLOT UAP has 15 FRNs (3 FSPEC bytes)
+        EXPECT_EQ(used_uap->get_highest_frn(), 15u);
+
+        // item_count must match the PLOT UAP (not the base)
+        EXPECT_EQ(rec->item_count, used_uap->get_highest_frn());
+
+        // -- FRN 1 - DSID (fixed, 2 B) --
+        const auto* dsid = rec->get_item(1);
+        ASSERT_NE(dsid, nullptr);
+        EXPECT_TRUE(dsid->is_populated());
+        EXPECT_EQ(dsid->type,       asterix::item_type_fixed);
+        EXPECT_EQ(dsid->raw_length, 2u);
+        EXPECT_EQ(dsid->raw_offset, 4u);  // 3 hdr + 1 FSPEC
+
+        // -- FRN 2 - TRD (variable, 1 B, no FX extension) --
+        const auto* trd = rec->get_item(2);
+        ASSERT_NE(trd, nullptr);
+        EXPECT_TRUE(trd->is_populated());
+        EXPECT_EQ(trd->type,       asterix::item_type_variable);
+        EXPECT_EQ(trd->raw_length, 1u);
+        EXPECT_EQ(trd->raw_offset, 6u);   // 4 + 2 (DSID)
+
+        // -- FRN 3 - Measured Position in Polar Coordinates (fixed, 4 B) --
+        // In the PLOT UAP, FRN 3 = I001/040 Measured Position (4 B fixed)
+        const auto* meas_pos = rec->get_item(3);
+        ASSERT_NE(meas_pos, nullptr);
+        EXPECT_TRUE(meas_pos->is_populated());
+        EXPECT_EQ(meas_pos->type,       asterix::item_type_fixed);
+        EXPECT_EQ(meas_pos->raw_length, 4u);
+        EXPECT_EQ(meas_pos->raw_offset, 7u);  // 6 + 1 (TRD)
+
+        adam::buffer_manager::get().return_buffer(internal);
+        adam::buffer_manager::get().return_buffer(raw_buf);
+    }
+
+    // ================================================================
+    // Sub-test B: TRACK record
+    // ================================================================
+    // FRNs present: 1 (DSID 2B), 2 (TRD 1B), 3 (Track/Plot# 2B), 4 (MeasPos 4B)
+    // FSPEC byte 1: FRN1=1, FRN2=1, FRN3=1, FRN4=1, FX=0  ->  0xF0
+    // TRD byte: msg_type=TRACK(1) -> MSB=1, everything else=0, FX=0
+    //   => 0b10000000 = 0x80
+    //
+    // Total:  3 (header) + 1 (FSPEC) + 2 (DSID) + 1 (TRD) + 2 (Track#) + 4 (MeasPos) = 13 bytes
+    {
+        adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+        ASSERT_NE(raw_buf, nullptr);
+
+        uint8_t* d = raw_buf->begin_as<uint8_t>();
+
+        d[0] = 1;    // CAT001
+        d[1] = 0;    // Length MSB
+        d[2] = 13;   // Length LSB
+        d[3] = 0xF0; // FSPEC: FRN1, FRN2, FRN3, FRN4 present, no extension
+
+        // FRN 1 - DSID (2 B)
+        d[4] = 0x0C;
+        d[5] = 0x0D;
+
+        // FRN 2 - TRD (1 B, FX=0)
+        //   msg_type = TRACK (1) -> MSB = 1, everything else 0
+        //   => 0b10000000 = 0x80
+        d[6] = 0x80;
+
+        // FRN 3 - Track/Plot Number (2 B)  [TRACK UAP FRN 3 = I001/161]
+        d[7] = 0x55;
+        d[8] = 0x66;
+
+        // FRN 4 - Measured Position in Polar Coordinates (4 B)  [TRACK UAP FRN 4 = I001/040]
+        d[9]  = 0xAA;
+        d[10] = 0xBB;
+        d[11] = 0xCC;
+        d[12] = 0xDD;
+
+        raw_buf->set_size(13);
+
+        adam::buffer* internal = nullptr;
+        ASSERT_TRUE(parser.parse(raw_buf, internal));
+        ASSERT_NE(internal, nullptr);
+
+        // -- Frame / Block --
+        const auto* frm = internal->get_begin_as<asterix::frame>();
+        ASSERT_EQ(frm->block_count, 1u);
+
+        const auto* blk = frm->get_block(0);
+        ASSERT_NE(blk, nullptr);
+        EXPECT_EQ(blk->category,     1);
+        EXPECT_EQ(blk->record_count, 1u);
+        EXPECT_EQ(blk->raw_length,   13u);
+        EXPECT_EQ(blk->raw_offset,   0u);
+
+        // -- Record --
+        const auto* rec = blk->get_record(0);
+        ASSERT_NE(rec, nullptr);
+        EXPECT_EQ(rec->category,   1);
+        EXPECT_EQ(rec->fspec_size, 1u);
+        EXPECT_EQ(rec->raw_offset, 3u);
+        EXPECT_EQ(rec->raw_length, 10u);  // 13 - 3
+
+        // The block-level UAP must still be the base CAT001 UAP.
+        const auto* base_uap = blk->get_uap();
+        ASSERT_NE(base_uap, nullptr);
+        EXPECT_EQ(base_uap, &asterix::cat001::get_uap());
+
+        // The record must have been parsed with the TRACK alternative UAP.
+        // find_used_uap() must return the TRACK UAP, not the base UAP.
+        const auto* used_uap = rec->find_used_uap();
+        ASSERT_NE(used_uap, nullptr);
+        EXPECT_NE(used_uap, base_uap) << "TRACK record must not use the base UAP";
+
+        // Verify the correct alternative is selected via the base UAP's find_alternative()
+        const auto* expected_track_uap = base_uap->find_alternative(used_uap->get_name());
+        EXPECT_EQ(used_uap, expected_track_uap) << "find_used_uap() must return the TRACK alternative";
+
+        // The TRACK UAP has 14 FRNs (2 FSPEC bytes)
+        EXPECT_EQ(used_uap->get_highest_frn(), 14u);
+
+        // item_count must match the TRACK UAP (not the base)
+        EXPECT_EQ(rec->item_count, used_uap->get_highest_frn());
+
+        // -- FRN 1 - DSID (fixed, 2 B) --
+        const auto* dsid = rec->get_item(1);
+        ASSERT_NE(dsid, nullptr);
+        EXPECT_TRUE(dsid->is_populated());
+        EXPECT_EQ(dsid->type,       asterix::item_type_fixed);
+        EXPECT_EQ(dsid->raw_length, 2u);
+        EXPECT_EQ(dsid->raw_offset, 4u);  // 3 hdr + 1 FSPEC
+
+        // -- FRN 2 - TRD (variable, 1 B) --
+        const auto* trd = rec->get_item(2);
+        ASSERT_NE(trd, nullptr);
+        EXPECT_TRUE(trd->is_populated());
+        EXPECT_EQ(trd->type,       asterix::item_type_variable);
+        EXPECT_EQ(trd->raw_length, 1u);
+        EXPECT_EQ(trd->raw_offset, 6u);   // 4 + 2 (DSID)
+
+        // -- FRN 3 - Track/Plot Number (fixed, 2 B) --
+        // In the TRACK UAP, FRN 3 = I001/161 Track/Plot Number (2 B fixed).
+        // This is the key differentiator from the PLOT UAP where FRN 3 is
+        // I001/040 Measured Position (4 B fixed).
+        const auto* track_num = rec->get_item(3);
+        ASSERT_NE(track_num, nullptr);
+        EXPECT_TRUE(track_num->is_populated());
+        EXPECT_EQ(track_num->type,       asterix::item_type_fixed);
+        EXPECT_EQ(track_num->raw_length, 2u);
+        EXPECT_EQ(track_num->raw_offset, 7u);  // 6 + 1 (TRD)
+
+        // -- FRN 4 - Measured Position (fixed, 4 B) --
+        // In the TRACK UAP, FRN 4 = I001/040 Measured Position (4 B fixed).
+        const auto* meas_pos = rec->get_item(4);
+        ASSERT_NE(meas_pos, nullptr);
+        EXPECT_TRUE(meas_pos->is_populated());
+        EXPECT_EQ(meas_pos->type,       asterix::item_type_fixed);
+        EXPECT_EQ(meas_pos->raw_length, 4u);
+        EXPECT_EQ(meas_pos->raw_offset, 9u);  // 7 + 2 (Track#)
+
+        adam::buffer_manager::get().return_buffer(internal);
+        adam::buffer_manager::get().return_buffer(raw_buf);
+    }
+}
+
+TEST_F(parser_test, parse_multiple_blocks_and_records)
+{
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(128);
+    ASSERT_NE(raw_buf, nullptr);
+
+    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
+    
+    // --- BLOCK 1: CAT 48 (2 records) ---
+    // Record 1: 1 item (DSID, 2 bytes)
+    // Record 2: 1 item (TOD, 3 bytes)
+    // Total block size: 3 (hdr) + 3 (rec1: 1 byte fspec + 2 bytes DSID) + 4 (rec2: 1 byte fspec + 3 bytes TOD) = 10 bytes
+    raw_data[0] = 48; // CAT
+    raw_data[1] = 0;  // Length MSB
+    raw_data[2] = 10; // Length LSB
+    
+    // Record 1
+    raw_data[3] = 0x80; // FSPEC: DSID only (FRN 1)
+    raw_data[4] = 0x11;
+    raw_data[5] = 0x22;
+    
+    // Record 2
+    raw_data[6] = 0x40; // FSPEC: TOD only (FRN 2)
+    raw_data[7] = 0xAA;
+    raw_data[8] = 0xBB;
+    raw_data[9] = 0xCC;
+
+    // --- BLOCK 2: CAT 62 (1 record) ---
+    // Record 1: 1 item (Track Number, 2 bytes - FRN 3 is fixed, primary_header_size = 2 in CAT62)
+    // Let's verify CAT 62 FRN 3 in cat062_uap.cpp if possible or just use DSID (FRN 1) in CAT 62
+    // Let's check FRN 1 in CAT 62: it is I062/010 Data Source Identifier (2 bytes fixed)
+    // Total block size: 3 (hdr) + 3 (rec1: 1 byte fspec + 2 bytes DSID) = 6 bytes
+    raw_data[10] = 62; // CAT
+    raw_data[11] = 0;  // Length MSB
+    raw_data[12] = 6;  // Length LSB
+    
+    // Record 1 of block 2
+    raw_data[13] = 0x80; // FSPEC: DSID (FRN 1)
+    raw_data[14] = 0x99;
+    raw_data[15] = 0x88;
+
+    raw_buf->set_size(16);
+
+    adam::buffer* internal_data = nullptr;
+    bool success = parser.parse(raw_buf, internal_data);
+
+    EXPECT_TRUE(success);
+    ASSERT_NE(internal_data, nullptr);
+    EXPECT_GT(internal_data->get_size(), 0ul);
+
+    // Verify layout
+    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
+    EXPECT_EQ(buf_header->block_count, 2);
+    
+    auto block48 = buf_header->get_block(0);
+    ASSERT_NE(block48, nullptr);
+    EXPECT_EQ(block48->category, 48);
+    EXPECT_EQ(block48->record_count, 2);
+    EXPECT_EQ(block48->raw_length, 10);
+    EXPECT_EQ(block48->raw_offset, 0);
+
+    auto record48_0 = block48->get_record(0);
+    ASSERT_NE(record48_0, nullptr);
+    EXPECT_EQ(record48_0->item_count, record48_0->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record48_0->fspec_size, 1);
+    EXPECT_EQ(record48_0->raw_length, 3);
+    EXPECT_EQ(record48_0->raw_offset, 3);
+    EXPECT_EQ(record48_0->category, 48);
+
+    auto record48_1 = block48->get_record(1);
+    ASSERT_NE(record48_1, nullptr);
+    EXPECT_EQ(record48_1->item_count, record48_1->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record48_1->fspec_size, 1);
+    EXPECT_EQ(record48_1->raw_length, 4);
+    EXPECT_EQ(record48_1->raw_offset, 6);
+    EXPECT_EQ(record48_1->category, 48);
+
+    auto block62 = buf_header->get_block(1);
+    ASSERT_NE(block62, nullptr);
+    EXPECT_EQ(block62->category, 62);
+    EXPECT_EQ(block62->record_count, 1);
+    EXPECT_EQ(block62->raw_length, 6);
+    EXPECT_EQ(block62->raw_offset, 10);
+
+    auto record62_0 = block62->get_record(0);
+    ASSERT_NE(record62_0, nullptr);
+    EXPECT_EQ(record62_0->item_count, record62_0->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record62_0->raw_length, 3);
+    EXPECT_EQ(record62_0->raw_offset, 13);
+    EXPECT_EQ(record62_0->category, 62);
+
+    adam::buffer_manager::get().return_buffer(internal_data);
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+TEST_F(parser_test, parse_multiple_children)
+{
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+    ASSERT_NE(raw_buf, nullptr);
+
+    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
+    
+    // Block Header: CAT 48, length = 17
+    raw_data[0] = 48;
+    raw_data[1] = 0;
+    raw_data[2] = 17;
+
+    // FSPEC: FRN 7 and FRN 20 active
+    raw_data[3] = 0x03; // FRN 7 set, FX=1
+    raw_data[4] = 0x01; // FX=1
+    raw_data[5] = 0x04; // FRN 20 set, FX=0
+
+    // FRN 7 compound (Radar Plot Characteristics, UAP 130)
+    // FSPEC of UAP 130: 0xFE (all 7 items present)
+    raw_data[6] = 0xFE;
+    // 7 bytes data
+    raw_data[7] = 0x11;
+    raw_data[8] = 0x12;
+    raw_data[9] = 0x13;
+    raw_data[10] = 0x14;
+    raw_data[11] = 0x15;
+    raw_data[12] = 0x16;
+    raw_data[13] = 0x17;
+
+    // FRN 20 compound (Radial Doppler Speed, UAP 120)
+    // FSPEC of UAP 120: 0x80 (only CAL present)
+    raw_data[14] = 0x80;
+    // 2 bytes data
+    raw_data[15] = 0x99;
+    raw_data[16] = 0x99;
+
+    raw_buf->set_size(17);
+
+    adam::buffer* internal_data = nullptr;
+    bool success = parser.parse(raw_buf, internal_data);
+
+    EXPECT_TRUE(success);
+    ASSERT_NE(internal_data, nullptr);
+
+    const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
+    auto block = buf_header->get_block(0);
+    auto record = block->get_record(0);
+
+    auto item7 = record->get_item(7);
+    ASSERT_NE(item7, nullptr);
+    EXPECT_TRUE(item7->is_populated());
+
+    auto item20 = record->get_item(20);
+    ASSERT_NE(item20, nullptr);
+    EXPECT_TRUE(item20->is_populated());
+
+    // Verify FRN 7's child 1 (SRL): raw_offset should be 7, raw_length should be 1
+    auto srl = item7->get_child_item(1);
+    ASSERT_NE(srl, nullptr);
+    EXPECT_TRUE(srl->is_populated());
+    EXPECT_EQ(srl->raw_offset, 7u);
+    EXPECT_EQ(srl->raw_length, 1u);
+
+    // Verify FRN 20's child 1 (CAL): raw_offset should be 15, raw_length should be 2
+    auto cal = item20->get_child_item(1);
+    ASSERT_NE(cal, nullptr);
+    EXPECT_TRUE(cal->is_populated());
+    EXPECT_EQ(cal->raw_offset, 15u);
+    EXPECT_EQ(cal->raw_length, 2u);
+
+    adam::buffer_manager::get().return_buffer(internal_data);
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+
+// Dummy classification data for testing custom expansions
+class dummy_classification_data : public asterix::uap_expansion
+{
+public:
+    int classification_level = 5;
+};
+
+TEST_F(parser_test, custom_uap_expansion_and_o1_lookup)
+{
+    auto& cat048 = asterix::cat048::get_uap();
+
+    // Verify O(1) lookup works and names are intact
+    const asterix::field_spec* spec_tod = cat048.get_spec(2); // FRN 2 is Time of Day
+    ASSERT_NE(spec_tod, nullptr);
+    EXPECT_EQ(spec_tod->type, asterix::item_type_fixed);
+    EXPECT_EQ(std::string_view(spec_tod->name), "I048/140 Time of Day");
+
+    // Register a custom metadata for FRN 29 (SP)
+    dummy_classification_data my_metadata;
+    my_metadata.classification_level = 42;
+    cat048.expand_parameter(29, &my_metadata);
+
+    // Retrieve the expansion metadata in O(1) time
+    asterix::uap_expansion* expansion = cat048.get_expansion(29);
+    ASSERT_EQ(expansion, &my_metadata);
+
+    // Cast it back to verify custom attributes
+    dummy_classification_data* retrieved_data = static_cast<dummy_classification_data*>(expansion);
+    EXPECT_EQ(retrieved_data->classification_level, 42);
 }
 
 /// Helper to build a raw ASTERIX block that contains one CAT048 record
@@ -881,7 +1342,7 @@ static std::vector<uint8_t> build_cat048_message()
     raw[ref_len_offset] = static_cast<uint8_t>(ref_len);
     
     // -----------------------------------------------------------------
-    // 4️⃣  Fill length fields (block length = raw.size())
+    // 4 Fill length fields (block length = raw.size())
     // -----------------------------------------------------------------
     uint16_t block_len = static_cast<uint16_t>(raw.size());
     raw[1] = static_cast<uint8_t>(block_len >> 8);
@@ -927,7 +1388,7 @@ TEST_F(parser_test, parse_full_cat048_message)
     const auto* rec = blk->get_record(0);
     ASSERT_NE(rec, nullptr);
     EXPECT_EQ(rec->category,    48);
-    EXPECT_EQ(rec->item_count,  blk->get_uap()->get_highest_frn());
+    EXPECT_EQ(rec->item_count,  84);
     EXPECT_EQ(rec->raw_offset,  3u);                              // after 3-byte block header
     EXPECT_EQ(rec->raw_length,  static_cast<uint16_t>(raw.size() - 3));
 
@@ -939,7 +1400,7 @@ TEST_F(parser_test, parse_full_cat048_message)
     {
         const auto* it = rec->get_item(frn);
         ASSERT_NE(it, nullptr)             << "FRN " << (int)frn << " must exist";
-        EXPECT_TRUE(it->populated)         << "FRN " << (int)frn << " must be populated";
+        EXPECT_TRUE(it->is_populated())         << "FRN " << (int)frn << " must be populated";
         EXPECT_EQ(it->type, expected_type) << "FRN " << (int)frn << " type mismatch";
         EXPECT_EQ(it->raw_length, expected_raw_len) << "FRN " << (int)frn << " raw_length mismatch";
         EXPECT_EQ(it->raw_offset, expected_raw_off) << "FRN " << (int)frn << " raw_offset mismatch";
@@ -982,7 +1443,7 @@ TEST_F(parser_test, parse_full_cat048_message)
     {
         const auto* it = rec->get_item(7);
         ASSERT_NE(it, nullptr);
-        EXPECT_TRUE(it->populated);
+        EXPECT_TRUE(it->is_populated());
         EXPECT_EQ(it->type,       asterix::item_type_compound);
         EXPECT_EQ(it->raw_length, 8u);   // 1 FSPEC + 7×1 B
         EXPECT_EQ(it->raw_offset, 21u);
@@ -992,7 +1453,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* ch = it->get_child_item(child_frn);
             ASSERT_NE(ch, nullptr)             << "I048/130 child FRN " << (int)child_frn;
-            EXPECT_TRUE(ch->populated)         << "I048/130 child FRN " << (int)child_frn;
+            EXPECT_TRUE(ch->is_populated())         << "I048/130 child FRN " << (int)child_frn;
             EXPECT_EQ(ch->type, asterix::item_type_fixed) << "I048/130 child FRN " << (int)child_frn;
             EXPECT_EQ(ch->raw_length, 1u)      << "I048/130 child FRN " << (int)child_frn;
             EXPECT_EQ(ch->raw_offset, off)     << "I048/130 child FRN " << (int)child_frn;
@@ -1075,7 +1536,7 @@ TEST_F(parser_test, parse_full_cat048_message)
     {
         const auto* it = rec->get_item(20);
         ASSERT_NE(it, nullptr);
-        EXPECT_TRUE(it->populated);
+        EXPECT_TRUE(it->is_populated());
         EXPECT_EQ(it->type,       asterix::item_type_compound);
         EXPECT_EQ(it->raw_length, 10u);
         EXPECT_EQ(it->raw_offset, 73u);
@@ -1083,7 +1544,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         // Child 1: CAL – fixed, 2 B
         const auto* cal = it->get_child_item(1);
         ASSERT_NE(cal, nullptr);
-        EXPECT_TRUE(cal->populated);
+        EXPECT_TRUE(cal->is_populated());
         EXPECT_EQ(cal->type,       asterix::item_type_fixed);
         EXPECT_EQ(cal->raw_length, 2u);
         EXPECT_EQ(cal->raw_offset, 74u);
@@ -1091,7 +1552,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         // Child 2: RDS – repetitive, 1 rep × 6 B = 7 B (includes rep count byte)
         const auto* rds = it->get_child_item(2);
         ASSERT_NE(rds, nullptr);
-        EXPECT_TRUE(rds->populated);
+        EXPECT_TRUE(rds->is_populated());
         EXPECT_EQ(rds->type,       asterix::item_type_repetetive);
         EXPECT_EQ(rds->raw_length, 7u);
         EXPECT_EQ(rds->raw_offset, 76u);
@@ -1140,16 +1601,16 @@ TEST_F(parser_test, parse_full_cat048_message)
     {
         const auto* re = rec->get_item(28);
         ASSERT_NE(re, nullptr);
-        EXPECT_TRUE(re->populated);
+        EXPECT_TRUE(re->is_populated());
         EXPECT_EQ(re->type,       asterix::item_type_explicit);
-        EXPECT_EQ(re->raw_length, 135u);   // includes the length byte
+        EXPECT_EQ(re->raw_length, 134u);   // includes the length byte
         EXPECT_EQ(re->raw_offset, 104u);
 
         // ── REF child FRN 1: MD5 (compound, 18 B: 1 FSPEC + 17 data) ──
         {
             const auto* md5 = re->get_child_item(1);
             ASSERT_NE(md5, nullptr);
-            EXPECT_TRUE(md5->populated);
+            EXPECT_TRUE(md5->is_populated());
             EXPECT_EQ(md5->type,       asterix::item_type_compound);
             EXPECT_EQ(md5->raw_length, 18u);
             EXPECT_EQ(md5->raw_offset, 106u);
@@ -1158,7 +1619,7 @@ TEST_F(parser_test, parse_full_cat048_message)
             {
                 const auto* ch = md5->get_child_item(frn);
                 ASSERT_NE(ch, nullptr)      << "MD5 child FRN " << (int)frn;
-                EXPECT_TRUE(ch->populated)  << "MD5 child FRN " << (int)frn;
+                EXPECT_TRUE(ch->is_populated())  << "MD5 child FRN " << (int)frn;
                 EXPECT_EQ(ch->type, asterix::item_type_fixed) << "MD5 child FRN " << (int)frn;
                 EXPECT_EQ(ch->raw_length, len) << "MD5 child FRN " << (int)frn;
                 EXPECT_EQ(ch->raw_offset, off) << "MD5 child FRN " << (int)frn;
@@ -1176,7 +1637,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* m5n = re->get_child_item(2);
             ASSERT_NE(m5n, nullptr);
-            EXPECT_TRUE(m5n->populated);
+            EXPECT_TRUE(m5n->is_populated());
             EXPECT_EQ(m5n->type,       asterix::item_type_compound);
             EXPECT_EQ(m5n->raw_length, 20u);
             EXPECT_EQ(m5n->raw_offset, 124u);
@@ -1185,7 +1646,7 @@ TEST_F(parser_test, parse_full_cat048_message)
             {
                 const auto* ch = m5n->get_child_item(frn);
                 ASSERT_NE(ch, nullptr)      << "M5N child FRN " << (int)frn;
-                EXPECT_TRUE(ch->populated)  << "M5N child FRN " << (int)frn;
+                EXPECT_TRUE(ch->is_populated())  << "M5N child FRN " << (int)frn;
                 EXPECT_EQ(ch->type, asterix::item_type_fixed) << "M5N child FRN " << (int)frn;
                 EXPECT_EQ(ch->raw_length, len) << "M5N child FRN " << (int)frn;
                 EXPECT_EQ(ch->raw_offset, off) << "M5N child FRN " << (int)frn;
@@ -1204,7 +1665,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* m4e = re->get_child_item(3);
             ASSERT_NE(m4e, nullptr);
-            EXPECT_TRUE(m4e->populated);
+            EXPECT_TRUE(m4e->is_populated());
             EXPECT_EQ(m4e->type,       asterix::item_type_variable);
             EXPECT_EQ(m4e->raw_length, 2u);
             EXPECT_EQ(m4e->raw_offset, 144u);
@@ -1214,7 +1675,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* rpc = re->get_child_item(4);
             ASSERT_NE(rpc, nullptr);
-            EXPECT_TRUE(rpc->populated);
+            EXPECT_TRUE(rpc->is_populated());
             EXPECT_EQ(rpc->type,       asterix::item_type_compound);
             EXPECT_EQ(rpc->raw_length, 8u);
             EXPECT_EQ(rpc->raw_offset, 146u);
@@ -1222,28 +1683,28 @@ TEST_F(parser_test, parse_full_cat048_message)
             // Score (1 B)
             const auto* score = rpc->get_child_item(1);
             ASSERT_NE(score, nullptr);
-            EXPECT_TRUE(score->populated);
+            EXPECT_TRUE(score->is_populated());
             EXPECT_EQ(score->raw_length, 1u);
             EXPECT_EQ(score->raw_offset, 147u);
 
             // Signal/Clutter Ratio (2 B)
             const auto* scr = rpc->get_child_item(2);
             ASSERT_NE(scr, nullptr);
-            EXPECT_TRUE(scr->populated);
+            EXPECT_TRUE(scr->is_populated());
             EXPECT_EQ(scr->raw_length, 2u);
             EXPECT_EQ(scr->raw_offset, 148u);
 
             // Range Width (2 B)
             const auto* rw = rpc->get_child_item(3);
             ASSERT_NE(rw, nullptr);
-            EXPECT_TRUE(rw->populated);
+            EXPECT_TRUE(rw->is_populated());
             EXPECT_EQ(rw->raw_length, 2u);
             EXPECT_EQ(rw->raw_offset, 150u);
 
             // Ambiguous Range (2 B)
             const auto* ar = rpc->get_child_item(4);
             ASSERT_NE(ar, nullptr);
-            EXPECT_TRUE(ar->populated);
+            EXPECT_TRUE(ar->is_populated());
             EXPECT_EQ(ar->raw_length, 2u);
             EXPECT_EQ(ar->raw_offset, 152u);
         }
@@ -1252,7 +1713,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* err = re->get_child_item(5);
             ASSERT_NE(err, nullptr);
-            EXPECT_TRUE(err->populated);
+            EXPECT_TRUE(err->is_populated());
             EXPECT_EQ(err->type,       asterix::item_type_fixed);
             EXPECT_EQ(err->raw_length, 3u);
             EXPECT_EQ(err->raw_offset, 154u);
@@ -1263,7 +1724,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* rtc = re->get_child_item(6);
             ASSERT_NE(rtc, nullptr);
-            EXPECT_TRUE(rtc->populated);
+            EXPECT_TRUE(rtc->is_populated());
             EXPECT_EQ(rtc->type,       asterix::item_type_compound);
             EXPECT_EQ(rtc->raw_length, 56u);
             EXPECT_EQ(rtc->raw_offset, 157u);
@@ -1343,7 +1804,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* cpc = re->get_child_item(7);
             ASSERT_NE(cpc, nullptr);
-            EXPECT_TRUE(cpc->populated);
+            EXPECT_TRUE(cpc->is_populated());
             EXPECT_EQ(cpc->type,       asterix::item_type_compound);
             EXPECT_EQ(cpc->raw_length, 12u);
             EXPECT_EQ(cpc->raw_offset, 213u);
@@ -1379,7 +1840,7 @@ TEST_F(parser_test, parse_full_cat048_message)
         {
             const auto* gen48 = re->get_child_item(8);
             ASSERT_NE(gen48, nullptr);
-            EXPECT_TRUE(gen48->populated);
+            EXPECT_TRUE(gen48->is_populated());
             EXPECT_EQ(gen48->type,       asterix::item_type_compound);
             EXPECT_EQ(gen48->raw_length, 13u);
             EXPECT_EQ(gen48->raw_offset, 225u);
