@@ -16,7 +16,7 @@
 
 namespace adam::modules::asterix
 {
-    ADAM_CONSTEXPR uint32_t minimum_block_length    = 5;
+    ADAM_CONSTEXPR uint32_t min_block_length    = 5;
     ADAM_CONSTEXPR uint32_t highest_frn             = 256;
     ADAM_CONSTEXPR uint8_t  max_fspec_bytes         = highest_frn / 8;
 

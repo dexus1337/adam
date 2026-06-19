@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 #include "data/asterix-parser.hpp"
+#include "data/asterix-encoder.hpp"
 #include "data/asterix-uap.hpp"
 #include "data/asterix-internal.hpp"
 #include "data/categories/048/cat048-uap.hpp"
+#include "test-messages.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "data/asterix-types.hpp"
@@ -1077,280 +1079,6 @@ TEST_F(parser_test, custom_uap_expansion_and_o1_lookup)
     EXPECT_EQ(retrieved_data->classification_level, 42);
 }
 
-/// Helper to build a raw ASTERIX block that contains one CAT048 record
-static std::vector<uint8_t> build_cat048_message()
-{
-    // -----------------------------------------------------------------
-    // 1  Block header (fixed size, see asterix‑internal.hpp):
-    //    - Category = 48
-    //    - Length   = will be filled later
-    // -----------------------------------------------------------------
-    std::vector<uint8_t> raw;
-    raw.push_back(48);                 // Category byte
-
-    // Reserve two length bytes (big‑endian)
-    raw.push_back(0);
-    raw.push_back(0);
-
-    // -----------------------------------------------------------------
-    // 2 Record start – FSPEC (fixed‑size, 4 octets = ceil(28/8))
-    // -----------------------------------------------------------------
-    // All bits set – every item present
-    raw.push_back(0xFF);   // Octet 1
-    raw.push_back(0xFF);   // Octet 2
-    raw.push_back(0xFF);   // Octet 3
-    raw.push_back(0xFE);   // Octet 4
-
-    // -----------------------------------------------------------------
-    // 3 Payload – one value per item, using simple deterministic data
-    // -----------------------------------------------------------------
-    // Helper lambdas --------------------------------------------------
-    auto push_u8 = [&](uint8_t v) { raw.push_back(v); };
-    auto push_u16 = [&](uint16_t v) { raw.push_back(v >> 8); raw.push_back(v & 0xFF); };
-    auto push_u24 = [&](uint32_t v) {
-        raw.push_back((v >> 16) & 0xFF);
-        raw.push_back((v >> 8) & 0xFF);
-        raw.push_back(v & 0xFF);
-    };
-    auto push_u32 = [&](uint32_t v) {
-        raw.push_back(v >> 24);
-        raw.push_back((v >> 16) & 0xFF);
-        raw.push_back((v >> 8) & 0xFF);
-        raw.push_back(v & 0xFF);
-    };
-    // -----------------------------------------------------------------
-
-    // 1 – Data Source Identifier (2 bytes)
-    push_u16(0x0102);
-
-    // 2 – Time of Day (3 bytes) – 0x030405
-    push_u24(0x030405);
-
-    // 3 – Target Report Descriptor (variable, no length byte, just payload)
-    push_u8(0x66);
-
-    // 4 – Measured Position (4 bytes)
-    push_u32(0x11223344);
-
-    // 5 – Mode‑3/A Code (2 bytes)
-    push_u16(0xA5A5);
-
-    // 6 – Flight Level (2 bytes)
-    push_u16(0xB0B0);
-
-    // 7 – Radar Plot Characteristics (compound, sub‑UAP 130)
-    //    Sub‑UAP 130 has 7 fixed 1‑byte items.
-    push_u8(0xFE);   // FSPEC for compound 130 (all sub‑items, no extension)
-    push_u8(0x01);   // SRL
-    push_u8(0x02);   // SSR
-    push_u8(0x03);   // SAM
-    push_u8(0x04);   // PRL
-    push_u8(0x05);   // PAM
-    push_u8(0x06);   // RDP
-    push_u8(0x07);   // SPI
-
-    // 8 – Aircraft Address (3 bytes)
-    push_u24(0x0A0B0C);
-
-    // 9 – Aircraft Identification (6 bytes – ASCII “ABCDEF”)
-    raw.insert(raw.end(), {'A','B','C','D','E','F'});
-
-    // 10 – BDS Register Data (repetitive, 8 bytes per entry, 1 repetition)
-    push_u8(1); // repetition count (1)
-    push_u32(0xDEADBEEF);    // first 4 bytes of entry
-    push_u32(0xFEEDC0DE);    // second 4 bytes of entry
-
-    // 11 – Track Number (2 bytes)
-    push_u16(0x7777);
-
-    // 12 – Calculated Position (4 bytes)
-    push_u32(0x8899AABB);
-
-    // 13 – Calculated Velocity (4 bytes)
-    push_u32(0xCCDDEEFF);
-
-    // 14 – Track Status (variable, multi‑octet payload using FX bits)
-    //    First octet has FX=1 indicating another octet follows
-    push_u8(0xE5); // example payload with FX=1 (bits 7‑1 are payload)
-    //    Second octet ends the field (FX=0)
-    push_u8(0x44); // final payload byte
-    // No separate offset print for second byte of Track Status
-
-    // 15 – Track Quality (4 bytes)
-    push_u32(0x01020304);
-
-    // 16 – Warning/Error Conditions (variable, multi‑octet payload using FX bits)
-    //    First octet with FX=1
-    push_u8(0xD3); // example payload with FX=1
-    //    Second octet ends the field (FX=0)
-    push_u8(0x14);
-    // End of Warning/Error Conditions
-
-    // 17 – Mode‑3/A Confidence (2 bytes)
-    push_u16(0x1234);
-
-    // 18 – Mode‑C Code & Confidence (4 bytes)
-    push_u32(0x56789ABC);
-
-    // 19 – Height (2 bytes)
-    push_u16(0x9ABC);
-
-    // 20 – Radial Doppler Speed (compound, sub‑UAP 120)
-    //    Sub‑UAP 120: CAL (2 bytes) + RDS (repetitive, 6 bytes, 1 rep)
-    push_u8(0xC0);          // FSPEC for compound 120 (all sub‑items, no extension)
-    push_u16(0x1111);       // CAL
-    push_u8(1);             // repetition count for RDS
-    push_u32(0x22222222);   // first 4 bytes of RDS
-    push_u16(0x3333);       // remaining 2 bytes of RDS (now total 6 bytes)
-
-    // 21 – Comm/ACAS Capability (2 bytes)
-    push_u16(0xDEAD);
-
-    // 22 – ACAS RA Report (7 bytes)
-    raw.insert(raw.end(), {0x01,0x02,0x03,0x04,0x05,0x06,0x07});
-
-    // 23 – Mode‑1 Code (1 byte)
-    push_u8(0x11);
-
-    // 24 – Mode‑2 Code (2 bytes)
-    push_u16(0x2222);
-
-    // 25 – Mode‑1 Confidence (1 byte)
-    push_u8(0x33);
-
-    // 26 – Mode‑2 Confidence (2 bytes)
-    push_u16(0x4444);
-
-    // 27 – Special Purpose Field (explicit, empty payload)
-    //    No sub‑items → only the FSPEC (0 octets) is present.
-    //    Nothing to add.
-    push_u8(0x06); // length of SPF
-    push_u8(0x80); //FSPEC (1 item)
-    push_u32(0x13371337); // dummy payload that should be ignored due to length=4 but FSPEC=0
-
-
-    // 28 – Reserved Expansion Field (explicit, sub‑UAP REF)
-    //    Sub‑UAP REF contains 8 items – we provide minimal deterministic data.
-    //    All bits set in its fixed‑size FSPEC (ceil(8/8) = 1 octet):
-    // 28 – Reserved Expansion Field (explicit, sub‑UAP REF)
-    //    Sub‑UAP REF contains 8 items – we provide minimal deterministic data.
-    //    All bits set in its fixed‑size FSPEC (ceil(8/8) = 1 octet):
-    // Reserve placeholder for length byte (to be filled after items)
-    size_t ref_len_offset = raw.size();
-    raw.push_back(0); // placeholder for length
-    // FSPEC for REF (all items present)
-    push_u8(0xFF);
-
-    // ---- MD5 sub‑UAP (7 fixed items) -------------------------------
-    // FSPEC for MD5 (all 7 fixed items present: 7 bits → 1 octet)
-    push_u8(0xFE);   // 11111110 = all 7 fixed bits set
-    push_u8(0x01);   // Mode 5 Summary
-    push_u8(0x02);   // PIN / Nat Origin / Mission Code (4 bytes)
-    push_u8(0x03);   // Reported Position (6 bytes) – we insert 6 bytes
-    raw.insert(raw.end(), {0x03,0x04,0x05,0x06,0x07,0x08});
-    push_u8(0x07);   // GNSS‑derived Altitude (2 bytes) – insert 2 bytes
-    raw.insert(raw.end(), {0x07,0x08});
-    push_u8(0x09);   // Ext Mode 1 Code (2 bytes) – insert 2 bytes
-    raw.insert(raw.end(), {0x09,0x0A});
-    push_u8(0x0B);   // Time Offset (1 byte)
-    push_u8(0x0C);   // X Pulse Presence (1 byte)
-
-    // ---- M5N sub‑UAP (8 fixed items) -------------------------------
-    // FSPEC for M5N (all 8 fixed items present: 8 bits → 1 octet)
-    push_u8(0xFF);   // 11111111 = all 8 fixed bits set, 7 items + expansion
-    push_u8(0x80);   // 10000000 = first item present
-    push_u8(0x0D);   // Mode 5 Summary
-    raw.insert(raw.end(), {0x11,0x22,0x33,0x44}); // PIN / Nat Origin (4 bytes)
-    raw.insert(raw.end(), {0x12,0x13,0x14,0x15,0x16,0x17}); // Reported Position (6 bytes)
-    raw.insert(raw.end(), {0x18,0x19}); // GNSS‑derived Altitude (2 bytes)
-    raw.insert(raw.end(), {0x1A,0x1B}); // Ext Mode 1 Code (2 bytes)
-    push_u8(0x1C);   // Time Offset (1 byte)
-    push_u8(0x1D);   // X Pulse Presence (1 byte)
-    push_u8(0x1E);   // Figure of Merit (1 byte)
-
-    // ---- M4E sub‑UAP (variable) ------------------------------------
-    push_u8(0x01);   // 
-    push_u8(0x02);   //
-    
-
-    // ---- RPC sub‑UAP (4 fixed items) -------------------------------
-    push_u8(0xF0);   // FSPEC
-    push_u8(0x20);   // Score
-    push_u8(0x21);   // Signal/Clutter Ratio (2 bytes)
-    push_u8(0x22);
-    push_u8(0x23);   // Range Width (2 bytes)
-    push_u8(0x24);
-    push_u8(0x25);   // Ambiguous Range (2 bytes)
-    push_u8(0x26);
-
-
-    // ---- ERR Extended Range Reports (3 fixed length) --------------
-    push_u8(0x01);
-    push_u8(0x02);
-    push_u8(0x03);
-
-
-    // ---- RTC sub‑UAP (7 fixed + 2 repetitive) --------------------
-    push_u8(0xFF);   // FSPEC
-    push_u8(0xF0);   // FSPEC
-    push_u8(0x30);   // Plot/Track Link (3 bytes)
-    raw.insert(raw.end(), {0x30,0x31});
-    push_u8(0x01);   // ADS‑B/Track Link (repetitive, 2 bytes, 1 rep) repetition count = 1
-    push_u8(0x41);   // first byte of link
-    push_u8(0x42);   // second byte of link
-    push_u8(0x50);   // Turn State (1 byte)
-    raw.insert(raw.end(), 22, 0x51); // Next Predicted Position (22 bytes)
-    push_u8(0x01);   // Data Link Characteristics (repetitive, 1 byte, 1 rep) rep count = 1
-    push_u8(0x61);   // payload
-    push_u8(0x70);   // Lockout Characteristics (2 bytes)
-    push_u8(0x71);
-    raw.insert(raw.end(), 6, 0x80); // Transition Codes (6 bytes)
-    raw.insert(raw.end(), 4, 0x90); // Track Lifecycle (4 bytes)
-    push_u8(0x01);   // Adjacent Sensor Information (repetitive, 8 bytes, 1 rep) rep count = 1
-    raw.insert(raw.end(), 8, 0xA0);
-    push_u8(0xB0);   // Track Extrapolation Source (1 byte)
-    push_u8(0xC0);   // Identity Requested (1 byte)
-
-    // ---- CPC sub‑UAP (4 fixed items) -------------------------------
-    push_u8(0xF0);   // FSPEC
-    push_u8(0xD0);   // Plot Number (2 bytes)
-    push_u8(0xD1);
-    push_u8(0x01);   // Replies/Plot Link (repetitive, 3 bytes, 1 rep) rep count = 1
-    push_u8(0xD3);
-    push_u8(0xD4);
-    push_u8(0xD5);   // Scan Number (1 byte)
-    push_u8(0xD6);   // Date (4 bytes)
-    raw.insert(raw.end(), 4, 0xD6);
-
-    // ---- GEN48 sub‑UAP (5 fixed items) -----------------------------
-    push_u8(0xF8);   // FSPEC
-    push_u8(0xE1);   // Alt Mode 2 (2 bytes)
-    push_u8(0xE2);
-    push_u8(0xE2);   // Alt Mode 3/A (2 bytes)
-    push_u8(0xE3);
-    push_u8(0xE3);   // Alt Flight Level (2 bytes)
-    push_u8(0xE4);
-    push_u8(0xE4);   // Radar Cross Section (dBm²) (2 bytes)
-    push_u8(0xE5);
-    push_u8(0xE5);   // Radar Cross Section (m²) (4 bytes)
-    push_u8(0xE6);
-    push_u8(0xE6);
-    push_u8(0xE7);
-
-    // Compute and fill REF length (including length byte itself)
-    size_t ref_len = raw.size() - ref_len_offset;
-    raw[ref_len_offset] = static_cast<uint8_t>(ref_len);
-    
-    // -----------------------------------------------------------------
-    // 4 Fill length fields (block length = raw.size())
-    // -----------------------------------------------------------------
-    uint16_t block_len = static_cast<uint16_t>(raw.size());
-    raw[1] = static_cast<uint8_t>(block_len >> 8);
-    raw[2] = static_cast<uint8_t>(block_len & 0xFF);
-
-    return raw;
-}
-
 TEST_F(parser_test, parse_full_cat048_message)
 {
     // Build the raw block:
@@ -1879,4 +1607,36 @@ TEST_F(parser_test, parse_full_cat048_message)
 
     adam::buffer_manager::get().return_buffer(internal);
     adam::buffer_manager::get().return_buffer(data);
+}
+
+TEST_F(parser_test, benchmark_cat048_parsing)
+{
+    std::vector<uint8_t> raw = build_cat048_message();
+    
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(static_cast<uint32_t>(raw.size()));
+    std::memcpy(raw_buf->begin_as<uint8_t>(), raw.data(), raw.size());
+    raw_buf->set_size(static_cast<uint32_t>(raw.size()));
+
+    constexpr int ITERATIONS = 100000;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < ITERATIONS; ++i)
+    {
+        adam::buffer* internal_data = nullptr;
+        bool success = parser.parse(raw_buf, internal_data);
+        if (success && internal_data)
+        {
+            adam::buffer_manager::get().return_buffer(internal_data);
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+    std::cout << "[          ] Parsed CAT048 message " << ITERATIONS << " times" << std::endl;
+    std::cout << "[          ] Total duration: " << duration / 1000000.0 << " s" << std::endl;
+    std::cout << "[          ] Average time per parse: " << static_cast<double>(duration) / ITERATIONS << " us" << std::endl;
+
+    adam::buffer_manager::get().return_buffer(raw_buf);
 }

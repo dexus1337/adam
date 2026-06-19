@@ -91,6 +91,27 @@ namespace adam::modules::asterix
     };
     enable_enum_bit_operations(item_flag);
 
+    enum record_flag : uint8_t
+    {
+        record_flag_none     = 0,
+        record_flag_modified = 1 << 0
+    };
+    enable_enum_bit_operations(record_flag);
+
+    enum block_flag : uint8_t
+    {
+        block_flag_none     = 0,
+        block_flag_modified = 1 << 0
+    };
+    enable_enum_bit_operations(block_flag);
+
+    enum frame_flag : uint8_t
+    {
+        frame_flag_none     = 0,
+        frame_flag_modified = 1 << 0
+    };
+    enable_enum_bit_operations(frame_flag);
+
     #pragma pack(push, 1)
 
     /**
@@ -144,6 +165,7 @@ namespace adam::modules::asterix
         uint32_t    raw_offset;     /**< Offset in raw buffer where this record starts. */
         uint8_t     category;       /**< Asterix category (e.g. 48, 62). */
         uint8_t     fspec_size;     /**< Size of the FSPEC in bytes */
+        record_flag flags;
         
         inline const uap* find_used_uap() const; // defined in asterix-uap.hpp
         
@@ -152,6 +174,15 @@ namespace adam::modules::asterix
             if (!frn || frn > item_count) return nullptr; 
             
             return reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + sizeof(record)) + (frn - 1); 
+        }
+
+        inline bool is_modified() const { return flags & record_flag_modified; }
+        inline void set_modified(bool modified = true)
+        {
+            if (modified)
+                flags |= record_flag_modified;
+            else
+                flags &= ~record_flag_modified;
         }
     };
 
@@ -166,7 +197,7 @@ namespace adam::modules::asterix
         uint32_t raw_offset;    /**< Offset in raw buffer where this block starts. */
         uint16_t item_count;    /**< Total number of items (of all records) in this block. */
         uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
-        uint8_t  reserved;      /**< Reserved for future use, also for alignment. */
+        block_flag flags;
 
         inline const uap* get_uap() const; // defined in asterix-uap.hpp
 
@@ -179,6 +210,15 @@ namespace adam::modules::asterix
                 recstart += reinterpret_cast<const record*>(recstart)->item_count * sizeof(item) + sizeof(record);
             return reinterpret_cast<const record*>(recstart);
         }
+
+        inline bool is_modified() const { return flags & block_flag_modified; }
+        inline void set_modified(bool modified = true)
+        {
+            if (modified)
+                flags |= block_flag_modified;
+            else
+                flags &= ~block_flag_modified;
+        }
     };
 
     /**
@@ -188,8 +228,10 @@ namespace adam::modules::asterix
     struct frame
     {
         uint16_t block_count;
+        frame_flag flags;
+        uint8_t  reserved;
 
-        frame(uint16_t blocks) : block_count(blocks) {}
+        frame(uint16_t blocks) : block_count(blocks), flags(frame_flag_none), reserved(0) {}
 
         /** @brief Record getter. CAUTION: O(n) Access, slow. Use iterator for iterating */
         inline const block* get_block(uint16_t idx) const 
@@ -204,6 +246,15 @@ namespace adam::modules::asterix
                 itr += blk->item_count * sizeof(item);
             }
             return reinterpret_cast<const block*>(itr);
+        }
+
+        inline bool is_modified() const { return flags & frame_flag_modified; }
+        inline void set_modified(bool modified = true)
+        {
+            if (modified)
+                flags |= frame_flag_modified;
+            else
+                flags &= ~frame_flag_modified;
         }
     };
 

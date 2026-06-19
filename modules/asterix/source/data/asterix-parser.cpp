@@ -187,19 +187,21 @@ namespace adam::modules::asterix
         uint32_t&           child_out_offset
     )
     {
-        uint32_t start_out_off = out_offset;
+        uint32_t start_out_off  = out_offset;
+        uint32_t items_size     = cur_uap->get_highest_frn() * sizeof(item);
 
         // Reserve Space for items
-        out_offset += cur_uap->get_highest_frn() * sizeof(item);
+        out_offset += items_size;
 
-        for (uint16_t i = 1; i <= cur_uap->get_highest_frn(); ++i)
+        // Zero out all items
+        std::memset(internal_data->at<item>(start_out_off), 0, items_size); // I tested only setting the populated bit, but the memset was actually faster. So yea zero everything
+
+        for (uint8_t i = 1; i <= cur_uap->get_highest_frn(); ++i)
         {
-            uint32_t cur_item_offset = start_out_off + ((i-1) * sizeof(item));
-
-            internal_data->at<item>(cur_item_offset)->set_populated(active_child_frns[i]);
-
             if (!active_child_frns[i])
                 continue;
+
+            uint32_t cur_item_offset = start_out_off + ((i-1) * sizeof(item));
 
             const field_spec* child_spec = cur_uap->get_spec(i);
 
@@ -207,7 +209,6 @@ namespace adam::modules::asterix
             if (!child_spec)
             {
                 // Log - Missing item spec
-                internal_data->at<item>(cur_item_offset)->set_populated(false);
                 continue;
             }
 
@@ -225,9 +226,10 @@ namespace adam::modules::asterix
             if ((child_spec->type == item_type_compound || child_spec->type == item_type_explicit) && child_spec->sub_uap)
                 cur_child_count = child_spec->sub_uap->get_highest_frn();
 
-            auto* edit_cur_item = internal_data->at<item>(cur_item_offset);
-            edit_cur_item->child_offset = cur_child_count ? (child_out_offset - cur_item_offset) : 0; // Until now, we used a absolute child offset, but we want it to be relative to the current item, so we convert it here
-            edit_cur_item->child_count  = cur_child_count;
+            auto* cur_item = internal_data->at<item>(cur_item_offset);
+            cur_item->set_populated();
+            cur_item->child_offset = cur_child_count ? (child_out_offset - cur_item_offset) : 0; // Until now, we used a absolute child offset, but we want it to be relative to the current item, so we convert it here
+            cur_item->child_count  = cur_child_count;
 
             child_out_offset = my_child_out_off;
         }
@@ -388,9 +390,41 @@ namespace adam::modules::asterix
         uint32_t raw_length = buf->get_size();
         const uint8_t* raw_data = buf->get_begin_as<uint8_t>();
 
-        // To get a (hopefully) fitting buffer first try, expect the "worst" aka. highest amount of blocks possible
-        uint32_t max_blocks         = raw_length / asterix::minimum_block_length;
-        uint32_t required_capacity  = max_blocks * sizeof(item) * 100; // Wild "high" guess to have an higest average of 100 items per record
+        // Pre-pass to estimate required capacity based on actual block layouts and record density.
+        // This avoids allocating massive buffers (e.g. 26MB for 64KB inputs) which thrash L1/L2 caches and bypass thread-local caches.
+        uint32_t required_capacity = sizeof(frame);
+        uint32_t scan_offset = 0;
+        while (scan_offset < raw_length)
+        {
+            if (scan_offset + sizeof(raw_block_header) > raw_length)
+                break;
+
+            const auto* raw_block_head = reinterpret_cast<const raw_block_header*>(raw_data + scan_offset);
+            uint16_t block_len = raw_block_head->get_length();
+            if (block_len < min_block_length || scan_offset + block_len > raw_length)
+                break;
+
+            uint8_t category = raw_block_head->category;
+            const uap* active_uap = uap_pool::get().get_uap(category);
+            uint32_t max_frn = active_uap ? active_uap->get_highest_frn() : 40;
+
+            // Safe educated guess: assume an average minimum record size of 6 bytes (including FSPEC and data).
+            // A record containing data (e.g., DSID + TOD) can almost never be smaller than 6 bytes.
+            uint32_t payload_len = (block_len > sizeof(raw_block_header)) ? (block_len - sizeof(raw_block_header)) : 0;
+            uint32_t est_records = std::max(1u, payload_len / asterix::min_block_length + 1);
+
+            // Reserve space for the record headers, direct UAP items, and 10 extra items per record for compound/explicit children.
+            uint32_t est_items = est_records * (max_frn + 10);
+
+            required_capacity += sizeof(block) + est_records * sizeof(record) + est_items * sizeof(item);
+            scan_offset += block_len;
+        }
+
+        // Safe fallback in case of parsing errors or empty/malformed packets in scan
+        if (required_capacity <= sizeof(frame))
+        {
+            required_capacity = sizeof(frame) + sizeof(block) + sizeof(record) + 40 * sizeof(item);
+        }
 
         internal_data = adam::buffer_manager::get().request_buffer(required_capacity);
         if (!internal_data) return false;
@@ -419,7 +453,7 @@ namespace adam::modules::asterix
             }
 
             uint16_t block_len = raw_block_head->get_length();
-            if (block_len < minimum_block_length || block_start_raw + block_len > raw_length)
+            if (block_len < min_block_length || block_start_raw + block_len > raw_length)
             {
                 adam::buffer_manager::get().return_buffer(internal_data);
                 // Log Block too small or block too big -> size mismatch
@@ -516,6 +550,7 @@ namespace adam::modules::asterix
                 cur_rec->raw_length = static_cast<uint16_t>(raw_offset - record_start_raw);
                 cur_rec->raw_offset = record_start_raw;
                 cur_rec->item_count = active_uap->get_highest_frn() + child_count; // Total items = direct items + child items
+                cur_rec->flags      = record_flag_none;
 
                 record_items_count += cur_rec->item_count;
             }
@@ -526,9 +561,13 @@ namespace adam::modules::asterix
             cur_blk->raw_offset   = block_start_raw;
             cur_blk->record_count = record_count;
             cur_blk->item_count   = record_items_count;
+            cur_blk->flags        = block_flag_none;
         }
 
-        internal_data->at<frame>(frame_off)->block_count = block_count;
+        auto* cur_frame = internal_data->at<frame>(frame_off);
+        cur_frame->block_count = block_count;
+        cur_frame->flags       = frame_flag_none;
+        cur_frame->reserved    = 0;
         
         internal_data->set_size(out_offset);
 
