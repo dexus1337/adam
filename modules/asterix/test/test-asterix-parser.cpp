@@ -2,7 +2,7 @@
 #include "data/asterix-parser.hpp"
 #include "data/asterix-uap.hpp"
 #include "data/asterix-internal.hpp"
-#include "data/categories/48/cat048_uap.hpp"
+#include "data/categories/048/cat048_uap.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "data/asterix-types.hpp"
@@ -76,7 +76,8 @@ TEST_F(parser_test, parse_fixed)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count, block->get_uap()->last_frn); // no children, so item count = last FRN
+    EXPECT_EQ(record->item_count, block->get_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record->fspec_size, 1);
     EXPECT_EQ(record->raw_length, 6);
     EXPECT_EQ(record->raw_offset, 3ul);
     EXPECT_EQ(record->category, 48);
@@ -151,22 +152,23 @@ TEST_F(parser_test, parse_variable)
     ASSERT_NE(block, nullptr);
     EXPECT_EQ(block->category, 62);
     EXPECT_EQ(block->record_count, 1);
-    EXPECT_EQ(block->raw_length, 13);
-    EXPECT_EQ(block->raw_offset, 0);
+    EXPECT_EQ(block->raw_length, 13ul);
+    EXPECT_EQ(block->raw_offset, 0ul);
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count, block->get_uap()->last_frn); // no children, so item count = last FRN
-    EXPECT_EQ(record->raw_length, 10);
-    EXPECT_EQ(record->raw_offset, 3);
+    EXPECT_EQ(record->item_count, block->get_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record->fspec_size, 4);
+    EXPECT_EQ(record->raw_length, 10ul);
+    EXPECT_EQ(record->raw_offset, 3ul);
     EXPECT_EQ(record->category, 62);
 
     auto item26 = record->get_item(26);
     ASSERT_NE(item26, nullptr);
     EXPECT_TRUE(item26->populated);
     EXPECT_EQ(item26->type, asterix::item_type_variable);
-    EXPECT_EQ(item26->raw_length, 6);
-    EXPECT_EQ(item26->raw_offset, 7);
+    EXPECT_EQ(item26->raw_length, 6ul);
+    EXPECT_EQ(item26->raw_offset, 7ul);
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
@@ -228,11 +230,12 @@ TEST_F(parser_test, parse_compound)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count, record->get_uap()->last_frn); // no children, so item count = last FRN
+    EXPECT_EQ(record->item_count, record->get_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record->fspec_size, 4);
     EXPECT_EQ(record->raw_length, 15 - 3);
     EXPECT_EQ(record->raw_offset, 3);
 
-    for (int i = 1; i < block->get_uap()->last_frn; i++)
+    for (int i = 1; i < block->get_uap()->get_highest_frn(); i++)
     {
         auto* item = record->get_item(i);
         ASSERT_NE(item, nullptr);
@@ -332,14 +335,16 @@ TEST_F(parser_test, multiple_blocks_and_records)
 
     auto record48_0 = block48->get_record(0);
     ASSERT_NE(record48_0, nullptr);
-    EXPECT_EQ(record48_0->item_count, record48_0->get_uap()->last_frn); // no children, so item count = last FRN
+    EXPECT_EQ(record48_0->item_count, record48_0->get_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record48_0->fspec_size, 1);
     EXPECT_EQ(record48_0->raw_length, 3);
     EXPECT_EQ(record48_0->raw_offset, 3);
     EXPECT_EQ(record48_0->category, 48);
 
     auto record48_1 = block48->get_record(1);
     ASSERT_NE(record48_1, nullptr);
-    EXPECT_EQ(record48_1->item_count, record48_1->get_uap()->last_frn); // no children, so item count = last FRN
+    EXPECT_EQ(record48_1->item_count, record48_1->get_uap()->get_highest_frn()); // no children, so item count = last FRN
+    EXPECT_EQ(record48_1->fspec_size, 1);
     EXPECT_EQ(record48_1->raw_length, 4);
     EXPECT_EQ(record48_1->raw_offset, 6);
     EXPECT_EQ(record48_1->category, 48);
@@ -353,7 +358,7 @@ TEST_F(parser_test, multiple_blocks_and_records)
 
     auto record62_0 = block62->get_record(0);
     ASSERT_NE(record62_0, nullptr);
-    EXPECT_EQ(record62_0->item_count, record62_0->get_uap()->last_frn); // no children, so item count = last FRN
+    EXPECT_EQ(record62_0->item_count, record62_0->get_uap()->get_highest_frn()); // no children, so item count = last FRN
     EXPECT_EQ(record62_0->raw_length, 3);
     EXPECT_EQ(record62_0->raw_offset, 13);
     EXPECT_EQ(record62_0->category, 62);
@@ -372,7 +377,7 @@ public:
 
 TEST_F(parser_test, custom_uap_expansion_and_o1_lookup)
 {
-    auto& cat048 = asterix::get_cat048_uap();
+    auto& cat048 = asterix::cat048::get_uap();
 
     // Verify O(1) lookup works and names are intact
     const asterix::field_spec* spec_tod = cat048.get_spec(2); // FRN 2 is Time of Day
@@ -457,7 +462,7 @@ TEST_F(parser_test, parse_explicit_no_uap)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count,  block->get_uap()->last_frn);
+    EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn());
     EXPECT_EQ(record->raw_length,  9);   // 12 - 3 header bytes
     EXPECT_EQ(record->raw_offset,  3ul);
     EXPECT_EQ(record->category,    48);
@@ -536,7 +541,7 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── Record ───────────────────────────────────────────────────────
     const auto* record = block->get_record(0);
     ASSERT_NE(record, nullptr);
-    EXPECT_EQ(record->item_count,  block->get_uap()->last_frn);
+    EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn());
     EXPECT_EQ(record->raw_length,  14);    // 17 - 3 block header bytes
     EXPECT_EQ(record->raw_offset,  3ul);
     EXPECT_EQ(record->category,    48);
@@ -922,7 +927,7 @@ TEST_F(parser_test, parse_full_cat048_message)
     const auto* rec = blk->get_record(0);
     ASSERT_NE(rec, nullptr);
     EXPECT_EQ(rec->category,    48);
-    EXPECT_EQ(rec->item_count,  blk->get_uap()->last_frn);
+    EXPECT_EQ(rec->item_count,  blk->get_uap()->get_highest_frn());
     EXPECT_EQ(rec->raw_offset,  3u);                              // after 3-byte block header
     EXPECT_EQ(rec->raw_length,  static_cast<uint16_t>(raw.size() - 3));
 

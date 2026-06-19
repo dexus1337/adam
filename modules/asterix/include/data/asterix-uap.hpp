@@ -12,6 +12,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <vector>
+#include <functional>
 
 namespace adam { class buffer; }
 
@@ -47,91 +49,65 @@ namespace adam::modules::asterix
     class ADAM_ASTERIX_API uap
     {
     public:
-        uint8_t             cat_id;                                     /**< The category ID (e.g., 48, 62). */
-        uint8_t             last_frn;                                   /**< Highest registered FRN; Also determines fixed FSPEC octet count for explicit items. */
-        uint16_t            subitem_count;                              /**< Summended last_frn of all children. */
-        const field_spec*   items_by_frn[asterix::highest_frn];         /**< O(1) array mapping FRN to field spec. */
-        uap_expansion*      custom_expansions[asterix::highest_frn];    /**< O(1) array mapping FRN to custom expansion metadata. */
+
+        using selector_function = std::function<const uap*(const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len)>;
+    
+        /**
+         * @brief Constructs a UAP without alternatives and initializes the O(1) lookup arrays.
+         * @param cat           The category ID.
+         * @param spec_array    Array of field specs.
+         * @param spec_count    Number of elements in spec_array.
+         * @param alt_array     Array of alternative uaps.
+         */
+        uap(uint8_t cat, const field_spec* spec_array, size_t spec_count);
 
         /**
-         * @brief Constructs the UAP and initializes the O(1) lookup arrays.
-         * @param cat The category ID.
-         * @param spec_array Array of field specs.
-         * @param spec_count Number of elements in spec_array.
+         * @brief Constructs a UAP with alternatives and initializes the O(1) lookup arrays.
+         * @param cat           The category ID.
+         * @param spec_array    Array of field specs.
+         * @param spec_count    Number of elements in spec_array.
+         * @param alt_array     Array of alternative uaps.
+         * @param alt_cout      Number of elements in alternatives.
+         * @param sel           The selector function.
          */
-        uap(uint8_t cat, const field_spec* spec_array, size_t spec_count)
-            : cat_id(cat), last_frn(0)
-        {
-            std::memset(items_by_frn, 0, sizeof(items_by_frn));
-            std::memset(custom_expansions, 0, sizeof(custom_expansions));
+        uap(uint8_t cat, const field_spec* spec_array, size_t spec_count, const uap* alt_array, size_t alt_cout, selector_function sel);
 
-            for (size_t i = 0; i < spec_count; ++i)
-            {
-                items_by_frn[spec_array[i].frn] = &spec_array[i];
-                if (spec_array[i].frn > last_frn)
-                    last_frn = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
-            }
-        }
+        inline uint8_t              get_cat_number()            const { return cat_id; }
+        inline uint8_t              get_highest_frn()           const { return last_frn; }
+        inline const field_spec*    get_spec(uint8_t frn)       const { return items_by_frn[frn]; }
+        inline uap_expansion*       get_expansion(uint8_t frn)  const { return custom_expansions[frn]; }
+        inline bool                 has_alternatives()          const { return !alternatives.empty(); }
 
-        /**
-         * @brief   Retrieve the specification for a given FRN in O(1) time.
-         * @param   frn The Field Reference Number.
-         * @return  Pointer to the spec if found, nullptr otherwise.
-         */
-        inline const field_spec* get_spec(uint8_t frn) const
-        {
-            return items_by_frn[frn];
-        }
-
-        /**
-         * @brief   Retrieve the custom expansion metadata for a given FRN in O(1) time.
-         * @param   frn The Field Reference Number.
-         * @return  Pointer to the metadata if found, nullptr otherwise.
-         */
-        inline uap_expansion* get_expansion(uint8_t frn) const
-        {
-            return custom_expansions[frn];
+        inline const uap*           select_alternative(const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len) const 
+        { 
+            return selector_fn(raw_head, fspec_size, raw_len); 
         }
         
-        /**
-         * @brief   Compute the number of sub-items.
-         * @return  The computed amount.
+        /** @brief Initializer. MUST be called before inserting this into the pool */
+        void setup();
+
+        /** @brief Register custom third-party metadata. */
+        void expand_parameter(uint8_t frn, uap_expansion* data);
+
+    protected:
+    
+        const char*             name;                                       /**< Name for printing or debugging */
+        uint8_t                 cat_id;                                     /**< The category ID (e.g., 48, 62). */
+        uint8_t                 last_frn;                                   /**< Highest registered FRN; Also determines fixed FSPEC octet count for explicit items. */
+        uint16_t                subitem_count;                              /**< Summended last_frn of all children. */
+        const field_spec*       items_by_frn[asterix::highest_frn];         /**< O(1) array mapping FRN to field spec. */
+        uap_expansion*          custom_expansions[asterix::highest_frn];    /**< O(1) array mapping FRN to custom expansion metadata. */
+
+        /** 
+         * Some Categories (eg CAT001), may use different UAPs based on certain fields. 
+         * To handle these automatically, the uap will have "alternatives" and
+         * a "selector" function that will retrieve the correct alternative uap
          */
-        void compute_subitem_count()
-        {
-            subitem_count = 0;
-            
-            for (size_t i = 0; i <= last_frn; ++i)
-            {
-                if (items_by_frn[i] && items_by_frn[i]->sub_uap)
-                {
-                    auto* const_casted_uap = const_cast<class uap*>(items_by_frn[i]->sub_uap);
+        std::vector<const uap*> alternatives;                               /**< All available alternative uaps  */
+        selector_function       selector_fn;                                /**< The selector function to choose from the alternatives, based on input data */
 
-                    const_casted_uap->compute_subitem_count();
-
-                    subitem_count += const_casted_uap->subitem_count;
-                }
-            }
-        }
-
-        /**
-         * @brief Initializer. MUST be called before inserting this into the pool
-         */
-        void setup()
-        {
-            compute_subitem_count();
-        }
-
-        /**
-         * @brief Register custom third-party metadata.
-         * @param frn The Field Reference Number to expand.
-         * @param data Pointer to the virtual class metadata.
-         */
-        void expand_parameter(uint8_t frn, uap_expansion* data)
-        {
-            custom_expansions[frn] = data;
-        }
-
+        /** @brief Compute the number of sub-items. */
+        void compute_subitem_count();
     };
 
     /**
@@ -146,18 +122,23 @@ namespace adam::modules::asterix
          */
         static uap_pool& get();
 
-        /**
-         * @brief Register a UAP into the global pool.
-         * @param uap Pointer to the UAP definition.
-         */
+        /** @brief Register a UAP into the global pool. Will call setup() on the given uap */
         void register_uap(uap* uap);
 
-        /**
-         * @brief Retrieve a UAP by its Category ID in O(1) time.
-         * @param cat_id The Category ID.
-         * @return Pointer to the UAP if found, nullptr otherwise.
-         */
-        const uap* get_uap(uint8_t cat_id) const;
+        /** @brief Get a UAP by its Category ID in O(1) time. */
+        inline const uap* get_uap(uint8_t cat_id) const { return registered_uaps[cat_id]; }
+
+        /** @brief Retrieves the correct (sub) UAP for a Record at data with a max size of data_size  */
+        inline const uap* retrieve_uap(const raw_block_header* raw_block_head, const raw_record_header* raw_rec_head, uint8_t fspec_size, uint32_t raw_len)
+        {
+            const auto* cur_cap = get_uap(raw_block_head->category);
+
+            if (!cur_cap) return nullptr;
+
+            if (!cur_cap->has_alternatives()) return cur_cap;
+
+            return cur_cap->select_alternative(raw_rec_head, fspec_size, raw_len);
+        }
 
     private:
         uap_pool(); // Private constructor for self-initialization
@@ -175,6 +156,11 @@ namespace adam::modules::asterix
         return uap_pool::get().get_uap(category);
     }
     
+    inline const uap* raw_record_header::retrieve_uap(const raw_block_header* raw_block_head, uint8_t fspec_size, uint32_t raw_len) const
+    {
+        return uap_pool::get().retrieve_uap(raw_block_head, this, fspec_size, raw_len);
+    }
+
     inline const uap* record::get_uap() const
     {
         return uap_pool::get().get_uap(category);
