@@ -21,6 +21,7 @@ graph TD
         Core[Core Architecture]
         Types[Lock-free & CT Types]
         Mem[IPC Memory Gateway]
+        ParseFrame[Parsing & Serialization Framework]
     end
 
     subgraph CoreService["ADAM Service Daemon"]
@@ -31,10 +32,11 @@ graph TD
         Loader[Dynamic Module Loader]
     end
 
-    subgraph Plugins["Dynamic Modules"]
+    subgraph Plugins["Dynamic / Statically Linked Modules"]
         direction LR
+        essential[essential (Static)]
         recrep[Replay & Record]
-        asterix[ASTERIX Parser]
+        asterix[ASTERIX Parser/Encoder]
         can[CAN Bus]
         network[Network Port]
         serial[Serial Port]
@@ -129,7 +131,49 @@ ADAM provides a structured pipeline for routing, filtering, and converting data 
 
 ---
 
-### 4. Modern C++ Optimizations
+### 4. Zero-Copy Data Parsing & Serialization Framework
+To support complex structural formats (like Eurocontrol ASTERIX or CAN payload signals) without sacrificing throughput, ADAM features a zero-copy data parsing and serialization framework.
+
+```
+Original Raw Data Buffer (Shared Memory Payload)
+ ----------------------------------------------------
+| ASTERIX Frame Bytes (Blocks, Records, FSPEC, Data) |
+ ----------------------------------------------------
+                          ^
+                          | (O(1) raw offsets / lengths)
+                          |
+Parsed Metadata Overlay Buffer (Internal Data Buffer)
+ ----------------------------------------------------
+| [Frame Header]                                     |
+|   |-- [Block 1 Header]                             |
+|         |-- [Record 1 Header]                      |
+|               |-- [Item FRN 1] {Offset, Len, Pop}  |
+|               |-- [Item FRN 2] {Offset, Len, Pop}  |
+|               |-- [Item FRN 3] {Offset, Len, Pop}  |
+|                    |-- [Child FRN 1]               |
+ ----------------------------------------------------
+```
+
+* **Data Formats (`data_format`)**: Associates format types with a specific `parser` and `encoder`.
+* **Zero-Copy Parser Interface (`parser`)**:
+  * Implementations override `bool parse(buffer* buf, buffer*& internal_data)`.
+  * Rather than copying raw payload values into heavy C++ object graphs (which fragments memory and invalidates cache lines), the parser parses the stream and constructs a **Metadata Overlay** in a separate, lightweight `internal_data` buffer.
+  * **Cross-Process Shared Buffer Hosting**: Since the `internal_data` buffer is requested from the shared `buffer_manager` and links back to the original raw buffer via `set_referenced_buffer()`, **both buffers reside completely in shared memory**. External consumer applications (such as client processes or downstream pipeline steps) can resolve and read both the metadata index and raw payload blocks across process boundaries with **zero data copying** and **zero additional parsing**.
+* **Metadata Overlay Architecture**:
+  * The parsed output is structured as a contiguous hierarchy of POD headers and descriptors (e.g., `frame`, `block`, `record`, and `item`).
+  * Each `item` represents a field defined by the format's User Application Profile (UAP). It contains the Field Reference Number (FRN), whether it is `populated` or `modified`, and its exact `raw_offset` and `raw_length` referencing the original raw buffer.
+  * This allows applications to perform $O(1)$ random-access lookups on fields without reparsing raw bytes.
+  * Deeply nested fields (compound or explicit fields) store a relative `child_offset` and a `child_count`, pointing to an array of children `item` structs placed consecutively in the same buffer, maintaining high cache locality.
+* **Zero-Copy Encoder Interface (`encoder`)**:
+  * Implementations override `bool encode(buffer*& buf, buffer* internal_data)`.
+  * The encoder re-serializes the structured metadata overlay back to raw format bytes.
+  * **Delta and Fast-Path Serialization**:
+    * If no modification flag (`modified`) is set in the metadata overlay, the encoder returns the original raw buffer directly with an incremented reference count (zero-copy bypass).
+    * If components (blocks, records) are unmodified, the encoder performs raw block transfers (`memcpy`/`fill_data`) from the original buffer. Only modified items are fully serialized and updated.
+
+---
+
+### 5. Modern C++ Optimizations
 
 * **Rapidhash Algorithm**: ADAM uses the state-of-the-art **Rapidhash** hashing algorithm (a fast, collision-resistant derivative of `wyhash`) for speed-critical mapping lookups.
 * **Compile-Time Hashed Strings (`string_hashed_ct`)**: Features a custom user-defined literal operator `_ct` (e.g., `"is_active"_ct`). The compiler resolves this string into a `uint64_t` hash at compile-time. This allows ADAM to perform `std::unordered_map` lookups with zero runtime hashing overhead and utilize switch-case statements on hashed strings:
@@ -143,6 +187,7 @@ ADAM provides a structured pipeline for routing, filtering, and converting data 
 * **Double Buffering Synchronization**: To allow lock-free reads and iterations during hot-path data processing, ADAM implements two double-buffering patterns:
   * **`vector_double_buffer`**: Used for list structures (e.g., connections, ports, and inspectors). Readers iterate through a stable active vector (`m_active`) without locks. When a write occurs, the writer updates a pending vector (`m_pending`) under a mutex and sets a dirty flag. The next read operation performs a cheap atomic swap to update the active cache.
   * **`map_double_buffer`**: A generic thread-safe double-buffered map. Readers obtain lock-free read access to a stable active `std::unordered_map` (`get_active()`). Write modifications completely overwrite a pending map under a lock and set a dirty flag; the next read operation automatically swaps/updates the active map with the pending changes.
+* **Type-Safe Bitwise Enums**: Utilizing `enum-bit-operations.hpp`, ADAM equips custom enum classes (e.g., `item_flag`, `record_flag`, `block_flag`, `frame_flag`) with type-safe bitwise operators, eliminating cast clutter.
 
 ---
 
@@ -153,15 +198,15 @@ ADAM modules can be integrated in two ways:
    ```cpp
    extern "C" adam::module* get_adam_module();
    ```
-2. **Static (Internal):** Built directly into the daemon for core functionality that must always be present (e.g., the `essential` module).
+2. **Static (Internal):** Built directly into the daemon for core functionality that must always be present.
 
 The repository features the following built-in modules:
 
 | Module | Description | Port Types | Custom Formats / Processors |
 | :--- | :--- | :--- | :--- |
-| **`essential`** | Core internal module for basic functionality (Static). | `internal` | `transparent` format, `frame_aligner` filter. |
+| **`essential`** | Core static internal module containing essential formats, ports, and processors. | `internal` | `transparent` format, `frame_aligner` filter. |
 | **`recrep`** | Handles recording and replaying streams. | `replay` (Ingress), `recording` (Egress) | Data-format independent stream serializations. |
-| **`asterix`** | Aviation radar formatting. | N/A (Format module) | Eurocontrol ASTERIX parsing/converters. |
+| **`asterix`** | Aviation radar formatting. Parser & Encoder supporting structured metadata overlays. | N/A (Format module) | Eurocontrol ASTERIX parsing/converters/encoders. |
 | **`can`** | CAN bus serial handling. | `can` port | Custom CAN frame mapping converters. |
 | **`network`** | TCP/UDP socket management. | Socket Ingress / Egress | Transparent stream routing. |
 | **`serial`** | RS-232 / RS-485 serial communications. | `serial` port | Parity, baud rate, and flow control parameter mapping. |
@@ -183,6 +228,7 @@ A feature-rich command-line administrative interface.
 A hardware-accelerated desktop telemetry dashboard built using **Dear ImGui** backed by **SDL2** and **OpenGL 3**.
 * **Visual Connections Manager**: Allows administrators to view, create, configure, start, and stop connections and ports using interactive ImGui windows.
 * **Data Inspector View**: Features a powerful real-time interface to inspect live telemetry. Allows administrators to tap into connection inputs/outputs or raw ports, showing a dual hex-dump and ASCII live preview of intercepted messages.
+* **High-Performance Rendering**: Integrates a chunked `ImGuiListClipper` to render massive numbers of frames/messages smoothly without UI stutter, reusing vertical screen real estate.
 * **Theme Customization**: Offers standard light and dark mode toggles with customizable font scales.
 * **Performance Telemetry Overlay**: Renders dynamic FPS, CPU, and RAM overlays, which can be configured to snap to any corner of the screen.
 
@@ -214,7 +260,4 @@ The resulting binaries will be populated inside `out/bin`. Run `adam` first to s
 
 ## 🔮 Future & Planned Features
 
-This section is for noting down ideas and planned improvements for future implementation:
-
 * **[ ] Data Inspector - Comparison** - Show exact diffs of two or more messages side by side and highlight all differences.
-
