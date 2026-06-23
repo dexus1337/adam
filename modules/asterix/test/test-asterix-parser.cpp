@@ -1640,3 +1640,318 @@ TEST_F(parser_test, benchmark_cat048_parsing)
 
     adam::buffer_manager::get().return_buffer(raw_buf);
 }
+
+// ============================================================================
+// Error-Handling Tests
+//
+// Every test below feeds intentionally malformed raw data to the parser and
+// verifies that parse() returns false (and does NOT leak the internal buffer).
+// ============================================================================
+
+class parser_error_test : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        adam::buffer_manager::get().initialize();
+        parser = asterix::asterix_parser();
+    }
+
+    void TearDown() override
+    {
+        adam::buffer_manager::get().destroy();
+    }
+
+    asterix::asterix_parser parser;
+
+    /// Helper: allocate a raw buffer, fill it with the supplied bytes, parse
+    /// and expect failure.  The caller must NOT return raw_buf on failure –
+    /// buffer_manager::destroy() handles clean-up in TearDown.
+    void expect_parse_failure(std::initializer_list<uint8_t> bytes)
+    {
+        const auto sz = static_cast<uint32_t>(bytes.size());
+        adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(sz ? sz : 1u);
+        ASSERT_NE(raw_buf, nullptr);
+
+        uint8_t* d = raw_buf->begin_as<uint8_t>();
+        uint32_t i = 0;
+        for (uint8_t b : bytes)
+            d[i++] = b;
+        raw_buf->set_size(sz);
+
+        adam::buffer* internal = nullptr;
+        EXPECT_FALSE(parser.parse(raw_buf, internal))
+            << "Parser should have rejected the malformed input";
+
+        // internal_data must not be left dangling on error
+        EXPECT_EQ(internal, nullptr)
+            << "Parser must not return a non-null internal_data on failure";
+
+        adam::buffer_manager::get().return_buffer(raw_buf);
+    }
+};
+
+// ---------------------------------------------------------------------------
+// parse_null_buffer
+//   The parser must reject a null raw buffer immediately.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_null_buffer)
+{
+    adam::buffer* internal = nullptr;
+    EXPECT_FALSE(parser.parse(nullptr, internal));
+    EXPECT_EQ(internal, nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// parse_empty_buffer
+//   A zero-byte buffer has no block header at all.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_empty_buffer)
+{
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(1);
+    ASSERT_NE(raw_buf, nullptr);
+    raw_buf->set_size(0);
+
+    adam::buffer* internal = nullptr;
+    // An empty buffer contains no valid block, so the parser should succeed
+    // but return a frame with zero blocks (or it may return false – both
+    // behaviours are acceptable; what is NOT acceptable is a crash).
+    bool result = parser.parse(raw_buf, internal);
+    (void)result;   // either outcome is fine for an empty buffer
+
+    if (internal)
+        adam::buffer_manager::get().return_buffer(internal);
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+// ---------------------------------------------------------------------------
+// parse_truncated_block_header
+//   Only 2 bytes are present – not enough for the 3-byte block header
+//   (cat + length_msb + length_lsb).
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_truncated_block_header)
+{
+    expect_parse_failure({
+        48,    // CAT
+        0x00   // Length MSB only – LSB missing
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_block_length_too_small
+//   The length field reports a value smaller than min_block_length (3).
+//   This is structurally impossible and must be rejected.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_block_length_too_small)
+{
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x02   // Length = 2 < min_block_length (3) → invalid
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_block_length_exceeds_buffer
+//   The length field claims more bytes than are actually present in the buffer.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_block_length_exceeds_buffer)
+{
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0xFF,  // Length = 255 – but only 3 bytes of data follow
+        0xC0,  // Fake FSPEC
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_unknown_category
+//   Category 255 has no registered UAP.  The parser must return false instead
+//   of dereferencing a null UAP pointer.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_unknown_category)
+{
+    // Valid block structure but with a category that has no UAP (255).
+    // Length = 4 (header 3 + 1 byte FSPEC).
+    expect_parse_failure({
+        255,   // CAT – no UAP registered
+        0x00,  // Length MSB
+        0x04,  // Length LSB = 4
+        0x80   // FSPEC: FRN 1 set, FX=0
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_fspec_beyond_buffer_end
+//   The FSPEC extension bit (FX=1) is set in the very last byte of the block
+//   body, forcing the parser to read a byte that does not exist.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_fspec_beyond_buffer_end)
+{
+    // Block body is exactly 1 byte (one FSPEC byte) that has FX=1,
+    // demanding a second FSPEC byte that isn't there.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x04,  // Length LSB = 4  (3 hdr + 1 FSPEC)
+        0x01   // FSPEC: no items set, FX=1 → expects another FSPEC byte
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_fixed_item_truncated
+//   FSPEC signals FRN 1 (I048/010 DSID – 2 bytes fixed), but only 1 byte of
+//   payload is available.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_fixed_item_truncated)
+{
+    // Total = 3 (hdr) + 1 (FSPEC) + 1 (only 1 of the required 2 DSID bytes)
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x05,  // Length = 5
+        0x80,  // FSPEC: FRN 1 (DSID 2B) set, FX=0
+        0xAA   // Only 1 byte of the 2-byte DSID
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_variable_item_first_chunk_truncated
+//   FSPEC signals FRN 2 (I048/140 TOD – fixed 3 B).
+//   Wait – let's use a variable item instead: FRN 3 (I048/020 TRD, variable
+//   1+1 B first+extent), supplying no payload at all.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_variable_item_truncated)
+{
+    // FSPEC byte: FRN 3 (bit 5 from MSB) set → 0b00100000 = 0x20, FX=0
+    // No bytes follow for the variable item's first chunk.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x04,  // Length = 4  (3 hdr + 1 FSPEC – no payload)
+        0x20   // FSPEC: FRN 3 (I048/020) set, FX=0
+        // Missing: 1+ bytes for the variable item
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_variable_item_extent_truncated
+//   The first chunk of a variable item has FX=1, requesting an extension byte
+//   that is not present.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_variable_item_extent_truncated)
+{
+    // Using CAT048 FRN 3 (TRD, variable: first_size=1, extent_size=1).
+    // Supply 1 byte with FX=1 (bit 0 set) – the extension is missing.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x05,  // Length = 5  (3 hdr + 1 FSPEC + 1 TRD byte)
+        0x20,  // FSPEC: FRN 3 set, FX=0
+        0x01   // TRD byte: FX=1 → extension requested but unavailable
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_repetitive_item_rep_count_truncated
+//   FSPEC signals a repetitive item but there are no bytes left for the
+//   repetition-count byte.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_repetitive_item_rep_count_truncated)
+{
+    // CAT048 FRN 10 (I048/250 BDS Register Data) is repetitive.
+    // FSPEC bytes: byte-1 empty with FX=1 (0x01), byte-2 FRN10 set (0x20).
+    // No payload → the 1-byte repetition-count field is missing.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x05,  // Length = 5  (3 hdr + 2 FSPEC)
+        0x01,  // FSPEC byte 1: no items, FX=1
+        0x20   // FSPEC byte 2: FRN 10 set, FX=0
+        // Missing: repetition-count byte and repetition data
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_repetitive_item_data_truncated
+//   The repetition-count byte is present (N=3) but only 1 of the 3 × 8-byte
+//   repetitions is available.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_repetitive_item_data_truncated)
+{
+    // 3 hdr + 2 FSPEC + 1 rep-count + 8 data bytes (only 1 full rep)
+    //   We claim N=3 repetitions of 8 B each → need 24 B, supply only 8 B.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x0C,  // Length = 12  (3 + 2 + 1 + 6 – intentionally short)
+        0x01,  // FSPEC byte 1: FX=1
+        0x20,  // FSPEC byte 2: FRN 10 set, FX=0
+        0x03,  // rep-count = 3 (→ needs 24 B)
+        0x11, 0x22, 0x33, 0x44, 0x55, 0x66  // only 6 bytes of rep data
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_compound_item_fspec_truncated
+//   A compound item (FRN 7, I048/130) is indicated in the record FSPEC, but
+//   there are no bytes left for the compound's own FSPEC.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_compound_item_fspec_truncated)
+{
+    // CAT048 FRN 7 (I048/130 Radar Plot Characteristics) is a compound item.
+    // FSPEC byte for the record: bit 1 (FRN 7) set → 0b00000010 = 0x02, FX=0
+    // No bytes follow for the compound item's FSPEC.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x04,  // Length = 4  (3 hdr + 1 FSPEC, zero compound payload)
+        0x02   // FSPEC: FRN 7 (I048/130 compound) set, FX=0
+        // Missing: compound FSPEC + child data
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_explicit_item_length_byte_missing
+//   An explicit item is signalled (FRN 27, SP field) but not even the
+//   leading length byte is present.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_explicit_item_length_byte_missing)
+{
+    // FSPEC: extend through bytes 1-3 with FX=1, then FRN 27 in byte 4.
+    // No payload follows → the explicit-item length byte is missing.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x07,  // Length = 7  (3 hdr + 4 FSPEC bytes, no explicit payload)
+        0x01,  // FSPEC byte 1: FX=1
+        0x01,  // FSPEC byte 2: FX=1
+        0x01,  // FSPEC byte 3: FX=1
+        0x04   // FSPEC byte 4: FRN 27 (bit 2) set, FX=0
+        // Missing: explicit-item length byte
+    });
+}
+
+// ---------------------------------------------------------------------------
+// parse_explicit_item_payload_truncated
+//   The explicit-item length byte claims 8 bytes of data (including itself),
+//   but only 3 bytes are present in the buffer.
+// ---------------------------------------------------------------------------
+TEST_F(parser_error_test, parse_explicit_item_payload_truncated)
+{
+    // 3 hdr + 4 FSPEC + 1 length byte + 3 payload bytes = 11 total.
+    // The length byte says 0x08 (8 bytes including itself) → 7 payload bytes
+    // needed but only 3 are supplied.
+    expect_parse_failure({
+        48,    // CAT
+        0x00,  // Length MSB
+        0x0B,  // Length = 11
+        0x01,  // FSPEC byte 1: FX=1
+        0x01,  // FSPEC byte 2: FX=1
+        0x01,  // FSPEC byte 3: FX=1
+        0x04,  // FSPEC byte 4: FRN 27 set, FX=0
+        0x08,  // explicit length = 8 (includes itself) → 7 payload bytes expected
+        0xDE, 0xAD, 0xBE  // only 3 of the 7 payload bytes
+    });
+}

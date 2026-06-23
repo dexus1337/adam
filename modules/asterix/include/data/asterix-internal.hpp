@@ -64,6 +64,7 @@
 #include "api/api-sdk.hpp"
 #include <adam-sdk.hpp>
 #include <cstdint>
+#include <iterator>
 #include <types/byteswap.hpp>
 
 namespace adam::modules::asterix
@@ -184,6 +185,50 @@ namespace adam::modules::asterix
             else
                 flags &= ~record_flag_modified;
         }
+
+        /**
+         * @struct  item_iterator
+         * @brief   Forward iterator over the flat item array that follows this record header.
+         *
+         * Items are stored as a contiguous array of `item` structs immediately after
+         * the record header in memory, so this is a plain pointer iterator.
+         * Iteration visits ALL slots (including unpopulated ones). Use item::is_populated()
+         * to skip gaps, or access by FRN directly via get_item().
+         */
+        struct item_iterator
+        {
+            using iterator_category = std::forward_iterator_tag;
+            using value_type        = const item;
+            using difference_type   = std::ptrdiff_t;
+            using pointer           = const item*;
+            using reference         = const item&;
+
+            explicit item_iterator(const item* ptr) : m_ptr(ptr) {}
+
+            reference operator*()  const { return *m_ptr; }
+            pointer   operator->() const { return  m_ptr; }
+
+            item_iterator& operator++()    { ++m_ptr; return *this; }
+            item_iterator  operator++(int) { auto tmp = *this; ++(*this); return tmp; }
+
+            bool operator==(const item_iterator& rhs) const { return m_ptr == rhs.m_ptr; }
+            bool operator!=(const item_iterator& rhs) const { return m_ptr != rhs.m_ptr; }
+
+        private:
+            const item* m_ptr;
+        };
+
+        /** @brief Returns an iterator to the first item slot (FRN 1). */
+        inline item_iterator begin() const
+        {
+            return item_iterator(reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + sizeof(record)));
+        }
+
+        /** @brief Returns a past-the-end iterator after the last item slot. */
+        inline item_iterator end() const
+        {
+            return item_iterator(reinterpret_cast<const item*>(reinterpret_cast<const uint8_t*>(this) + sizeof(record)) + item_count);
+        }
     };
 
     /**
@@ -219,6 +264,61 @@ namespace adam::modules::asterix
             else
                 flags &= ~block_flag_modified;
         }
+
+        /**
+         * @struct  record_iterator
+         * @brief   Forward iterator over the variable-length record sequence inside this block.
+         *
+         * Records are NOT uniformly sized: each record header is followed by
+         * `item_count * sizeof(item)` bytes. The iterator advances by that exact
+         * stride, mirroring the arithmetic used in get_record().
+         */
+        struct record_iterator
+        {
+            using iterator_category = std::forward_iterator_tag;
+            using value_type        = const record;
+            using difference_type   = std::ptrdiff_t;
+            using pointer           = const record*;
+            using reference         = const record&;
+
+            explicit record_iterator(const uint8_t* ptr) : m_ptr(ptr) {}
+
+            reference operator*()  const { return *reinterpret_cast<const record*>(m_ptr); }
+            pointer   operator->() const { return  reinterpret_cast<const record*>(m_ptr); }
+
+            record_iterator& operator++()
+            {
+                const auto* rec = reinterpret_cast<const record*>(m_ptr);
+                m_ptr += sizeof(record) + rec->item_count * sizeof(item);
+                return *this;
+            }
+
+            record_iterator operator++(int) { auto tmp = *this; ++(*this); return tmp; }
+
+            bool operator==(const record_iterator& rhs) const { return m_ptr == rhs.m_ptr; }
+            bool operator!=(const record_iterator& rhs) const { return m_ptr != rhs.m_ptr; }
+
+        private:
+            const uint8_t* m_ptr;
+        };
+
+        /** @brief Returns an iterator to the first record in this block. */
+        inline record_iterator begin() const
+        {
+            return record_iterator(reinterpret_cast<const uint8_t*>(this) + sizeof(block));
+        }
+
+        /** @brief Returns a past-the-end sentinel. Computed by walking all records once. */
+        inline record_iterator end() const
+        {
+            auto ptr = reinterpret_cast<const uint8_t*>(this) + sizeof(block);
+            for (uint16_t i = 0; i < record_count; ++i)
+            {
+                const auto* rec = reinterpret_cast<const record*>(ptr);
+                ptr += sizeof(record) + rec->item_count * sizeof(item);
+            }
+            return record_iterator(ptr);
+        }
     };
 
     /**
@@ -233,7 +333,7 @@ namespace adam::modules::asterix
 
         frame(uint16_t blocks) : block_count(blocks), flags(frame_flag_none), reserved(0) {}
 
-        /** @brief Record getter. CAUTION: O(n) Access, slow. Use iterator for iterating */
+        /** @brief Block getter. CAUTION: O(n) Access, slow. Use iterator for iterating */
         inline const block* get_block(uint16_t idx) const 
         {
             if (idx >= block_count) return nullptr;
@@ -255,6 +355,65 @@ namespace adam::modules::asterix
                 flags |= frame_flag_modified;
             else
                 flags &= ~frame_flag_modified;
+        }
+
+        /**
+         * @struct  block_iterator
+         * @brief   Forward iterator over the variable-length block sequence inside this frame.
+         *
+         * Blocks are NOT uniformly sized: each block header is followed by all its
+         * records and their items. The iterator advances using the same arithmetic
+         * as get_block(), i.e. sizeof(block) + record_count*sizeof(record) + item_count*sizeof(item).
+         */
+        struct block_iterator
+        {
+            using iterator_category = std::forward_iterator_tag;
+            using value_type        = const block;
+            using difference_type   = std::ptrdiff_t;
+            using pointer           = const block*;
+            using reference         = const block&;
+
+            explicit block_iterator(const uint8_t* ptr) : m_ptr(ptr) {}
+
+            reference operator*()  const { return *reinterpret_cast<const block*>(m_ptr); }
+            pointer   operator->() const { return  reinterpret_cast<const block*>(m_ptr); }
+
+            block_iterator& operator++()
+            {
+                const auto* blk = reinterpret_cast<const block*>(m_ptr);
+                m_ptr += sizeof(block)
+                       + blk->record_count * sizeof(record)
+                       + blk->item_count   * sizeof(item);
+                return *this;
+            }
+
+            block_iterator operator++(int) { auto tmp = *this; ++(*this); return tmp; }
+
+            bool operator==(const block_iterator& rhs) const { return m_ptr == rhs.m_ptr; }
+            bool operator!=(const block_iterator& rhs) const { return m_ptr != rhs.m_ptr; }
+
+        private:
+            const uint8_t* m_ptr;
+        };
+
+        /** @brief Returns an iterator to the first block in this frame. */
+        inline block_iterator begin() const
+        {
+            return block_iterator(reinterpret_cast<const uint8_t*>(this) + sizeof(frame));
+        }
+
+        /** @brief Returns a past-the-end sentinel. Computed by walking all blocks once. */
+        inline block_iterator end() const
+        {
+            auto ptr = reinterpret_cast<const uint8_t*>(this) + sizeof(frame);
+            for (uint16_t i = 0; i < block_count; ++i)
+            {
+                const auto* blk = reinterpret_cast<const block*>(ptr);
+                ptr += sizeof(block)
+                     + blk->record_count * sizeof(record)
+                     + blk->item_count   * sizeof(item);
+            }
+            return block_iterator(ptr);
         }
     };
 

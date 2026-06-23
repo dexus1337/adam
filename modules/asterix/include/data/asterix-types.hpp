@@ -10,6 +10,7 @@
 
 #include <api/api-sdk.hpp>
 #include <types/byteswap.hpp>
+#include <iterator>
 
 #include "api/api-asterix.hpp"
 #include "data/asterix-internal.hpp"
@@ -64,21 +65,44 @@ namespace adam::modules::asterix
         /** @brief Counts the amount of bytes the whole fspec uses. */
         inline size_t size() const { size_t ret = 0; auto* start = this; while (start) { ret++; start = start->get_next(); } return ret; }
 
-        /** @brief Provide c++11 style iterator for the raw_fspec sturct */
+        /** @brief Forward iterator over the chain of raw_fspec octets.
+         *
+         * Usage:
+         *   for (const auto& octet : fspec)          // *it  → raw_fspec&
+         *       if (octet.has_extension()) { … }
+         *
+         * Or with an index:
+         *   for (auto it = fspec.begin(); it != fspec.end(); ++it)
+         *       process(it->value, it.byte_index());
+         *
+         * The iterator stops (reaches end) when the FX bit of the current
+         * octet is 0, i.e. there is no next octet.
+         */
         struct iterator
         {
-            const raw_fspec* current;
+            using iterator_category = std::forward_iterator_tag;
+            using value_type        = const raw_fspec;
+            using difference_type   = std::ptrdiff_t;
+            using pointer           = const raw_fspec*;
+            using reference         = const raw_fspec&;
 
-            inline iterator(const raw_fspec* p) : current(p) {}
+            inline explicit iterator(const raw_fspec* p, uint16_t idx = 0)
+                : m_ptr(p), m_byte_index(idx) {}
 
-            inline const raw_fspec& operator*() const { return *current; }
-            inline const raw_fspec* operator->() const { return current; }
+            /** @brief Dereference – gives direct access to the raw_fspec octet. */
+            inline reference operator*()  const { return *m_ptr; }
+            /** @brief Arrow – `it->value`, `it->has_extension()`, etc. */
+            inline pointer   operator->() const { return  m_ptr; }
+
+            /** @brief Zero-based index of the current octet within the FSPEC chain. */
+            inline uint16_t byte_index() const { return m_byte_index; }
 
             inline iterator& operator++()
             {
-                if (current)
+                if (m_ptr)
                 {
-                    current = current->get_next();
+                    m_ptr = m_ptr->get_next();
+                    ++m_byte_index;
                 }
                 return *this;
             }
@@ -90,12 +114,16 @@ namespace adam::modules::asterix
                 return temp;
             }
 
-            inline bool operator==(const iterator& other) const { return current == other.current; }
-            inline bool operator!=(const iterator& other) const { return current != other.current; }
+            inline bool operator==(const iterator& other) const { return m_ptr == other.m_ptr; }
+            inline bool operator!=(const iterator& other) const { return m_ptr != other.m_ptr; }
+
+        private:
+            const raw_fspec* m_ptr;
+            uint16_t         m_byte_index;
         };
 
-        inline iterator begin() const { return iterator(this); }
-        inline iterator end()   const { return iterator(nullptr); }
+        inline iterator begin() const { return iterator(this, 0); }
+        inline iterator end()   const { return iterator(nullptr, 0); }
     };
 
     /**
