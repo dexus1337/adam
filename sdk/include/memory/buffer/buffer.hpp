@@ -77,6 +77,7 @@ namespace adam
         inline const void* get_begin()                 const { return get_begin_as<uint8_t>(); }
         inline const void* get_end()                   const { return get_end_as<uint8_t>(); }
         inline uint32_t get_capacity()                 const { return m_header->capacity; }
+        inline uint32_t get_remaining_capacity()       const { return m_header->capacity - (m_header->size + m_header->start_pos); }
         inline uint32_t get_size()                     const { return m_header->size; }
         inline uint32_t get_start_pos()                const { return m_header->start_pos; }
         inline const data_format* get_data_format()    const { return m_data_format; }

@@ -15,9 +15,12 @@
 #include "data/asterix-internal.hpp"
 #include "data/asterix-types.hpp"
 #include "data/asterix-parser.hpp"
+#include "data/asterix-encoder.hpp"
 #include "data/converter/asterix-to-text-converter.hpp"
 
 #include "data/categories/001/cat001.hpp"
+#include "data/categories/048/cat048.hpp"
+#include "data/categories/062/cat062.hpp"
 
 
 #include "module/module-asterix.hpp"

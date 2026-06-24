@@ -71,6 +71,52 @@ namespace adam::modules::asterix
 {
     class uap;
 
+    struct item;
+    struct record;
+    struct block;
+    struct frame;
+
+    /**
+     * @struct  internal_type_iterator
+     * @brief   Forward iterator over the variable-length asterix internal format types (blocks & records)
+     */
+    template<typename internal_type>
+    struct internal_type_iterator
+    {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type        = const internal_type;
+        using difference_type   = std::ptrdiff_t;
+        using pointer           = const internal_type*;
+        using reference         = const internal_type&;
+
+        explicit internal_type_iterator(pointer ptr) : m_ptr(ptr) {}
+
+        inline reference operator*()    const { return *m_ptr; }
+        inline pointer operator->()     const { return  m_ptr; }
+
+        inline internal_type_iterator& operator++() 
+        {
+            if (m_ptr)
+            {
+                m_ptr = m_ptr->get_next();
+            }
+            return *this;
+        }
+
+        inline internal_type_iterator operator++(int)
+        {
+            internal_type_iterator temp = *this;
+            ++(*this); // calls the upper ++ opeator on the local copy reference
+                return temp;
+        }
+        
+        inline bool operator==(const internal_type_iterator& rhs) const { return m_ptr == rhs.m_ptr; }
+        inline bool operator!=(const internal_type_iterator& rhs) const { return m_ptr != rhs.m_ptr; }
+
+    private:
+        pointer m_ptr;
+    };
+
     /**
      * @enum    item_type
      * @brief   The type of an asterix item.
@@ -88,21 +134,24 @@ namespace adam::modules::asterix
     {
         item_flag_none      = 0,
         item_flag_populated = 1 << 0,
-        item_flag_modified  = 1 << 1
+        item_flag_child     = 1 << 1,
+        item_flag_modified  = 1 << 2
     };
     enable_enum_bit_operations(item_flag);
 
     enum record_flag : uint8_t
     {
         record_flag_none     = 0,
-        record_flag_modified = 1 << 0
+        record_flag_modified = 1 << 0,
+        record_flag_has_next = 1 << 1
     };
     enable_enum_bit_operations(record_flag);
 
     enum block_flag : uint8_t
     {
         block_flag_none     = 0,
-        block_flag_modified = 1 << 0
+        block_flag_modified = 1 << 0,
+        block_flag_has_next = 1 << 1
     };
     enable_enum_bit_operations(block_flag);
 
@@ -126,7 +175,7 @@ namespace adam::modules::asterix
         uint32_t    raw_offset;     /**< Offset to the raw byte data in the referenced source buffer. */
         uint32_t    child_offset;   /**< Offset to the child "items"'s from the current object pointer ("this"). */
         item_type   type;           /**< Type of the item. */
-        item_flag   flags;          /**< Flags for the item. */
+        item_flag   flags;          /**< Flags for the item. e.g. populated, modified. */
 
         inline const item* get_child_item(uint8_t frn) const 
         { 
@@ -135,7 +184,8 @@ namespace adam::modules::asterix
         }
 
         inline bool is_populated()  const { return flags & item_flag_populated; }
-        inline bool is_modified()   const { return flags & item_flag_modified; }
+        inline bool is_child()      const { return flags & item_flag_child;     }
+        inline bool is_modified()   const { return flags & item_flag_modified;  }
         
         inline void set_populated(bool populated = true) 
         {
@@ -161,14 +211,18 @@ namespace adam::modules::asterix
     struct record
     {
         string_hash used_uap;       /**< Hash of the used UAP for this record, used for debugging and verification */
-        uint16_t    item_count;     /**< Number of items in this record. */
+        int32_t     parent_offset;  /**< Offset to the parent record, shall be negative. */
+        uint16_t    item_count;     /**< Number of items in this record. Populated + not populated */
         uint16_t    raw_length;     /**< Length of raw data for this record. */
         uint32_t    raw_offset;     /**< Offset in raw buffer where this record starts. */
         uint8_t     category;       /**< Asterix category (e.g. 48, 62). */
         uint8_t     fspec_size;     /**< Size of the FSPEC in bytes */
-        record_flag flags;
-        
-        inline const uap* find_used_uap() const; // defined in asterix-uap.hpp
+        record_flag flags;          /**< Flags for the item. e.g. modified. */
+        uint8_t     reserved;
+
+        inline const uap*    find_used_uap()    const; // defined in asterix-uap.hpp
+        inline const block*  get_parent_block() const { return reinterpret_cast<const block*>(reinterpret_cast<const uint8_t*>(this) + parent_offset); }
+        inline const record* get_next()         const { return has_next() ? reinterpret_cast<const record*>(reinterpret_cast<const uint8_t*>(this) + sizeof(record) + item_count * sizeof(item)) : nullptr; }
         
         inline const item* get_item(uint8_t frn) const 
         { 
@@ -186,6 +240,15 @@ namespace adam::modules::asterix
                 flags &= ~record_flag_modified;
         }
 
+        inline bool has_next() const { return flags & record_flag_has_next; }
+        inline void set_has_next(bool hash = true)
+        {
+            if (hash)
+                flags |= record_flag_has_next;
+            else
+                flags &= ~record_flag_has_next;
+        }
+        
         /**
          * @struct  item_iterator
          * @brief   Forward iterator over the flat item array that follows this record header.
@@ -237,15 +300,31 @@ namespace adam::modules::asterix
      */
     struct block
     {
-        uint16_t record_count;  /**< Number of records in this block. */
-        uint16_t raw_length;    /**< Length of raw data for this block. */
-        uint32_t raw_offset;    /**< Offset in raw buffer where this block starts. */
-        uint16_t item_count;    /**< Total number of items (of all records) in this block. */
-        uint8_t  category;      /**< Asterix category (e.g. 48, 62). */
-        block_flag flags;
+        using record_iterator = internal_type_iterator<record>;
+        
+        int32_t     parent_offset;  /**< Offset to the parent record, shall be negative. */
+        uint16_t    record_count;   /**< Number of records in this block. */
+        uint16_t    raw_length;     /**< Length of raw data for this block. */
+        uint32_t    raw_offset;     /**< Offset in raw buffer where this block starts. */
+        uint16_t    item_count;     /**< Total number of items (of all records) in this block. Populated + not populated. */
+        uint8_t     category;       /**< Asterix category (e.g. 48, 62). */
+        block_flag  flags;          /**< Flags for the block. e.g. modified. */
 
-        inline const uap* get_uap() const; // defined in asterix-uap.hpp
-
+        inline const uap*   get_uap()           const; // defined in asterix-uap.hpp
+        inline const frame* get_parent_frame()  const { return reinterpret_cast<const frame*>(reinterpret_cast<const uint8_t*>(this) + parent_offset); }
+        inline const block* get_next()          const 
+        {
+            if (!has_next()) return nullptr;
+            
+            auto ptr = reinterpret_cast<const uint8_t*>(this) + sizeof(block);
+            for (uint16_t i = 0; i < record_count; ++i)
+            {
+                const auto* rec = reinterpret_cast<const record*>(ptr);
+                ptr += sizeof(record) + rec->item_count * sizeof(item);
+            }
+            return reinterpret_cast<const block*>(ptr);
+        }
+        
         /** @brief Record getter. CAUTION: O(n) Access, slow. Use iterator for iterating */
         inline const record* get_record(uint16_t idx) const 
         {
@@ -265,60 +344,17 @@ namespace adam::modules::asterix
                 flags &= ~block_flag_modified;
         }
 
-        /**
-         * @struct  record_iterator
-         * @brief   Forward iterator over the variable-length record sequence inside this block.
-         *
-         * Records are NOT uniformly sized: each record header is followed by
-         * `item_count * sizeof(item)` bytes. The iterator advances by that exact
-         * stride, mirroring the arithmetic used in get_record().
-         */
-        struct record_iterator
+        inline bool has_next() const { return flags & block_flag_has_next; }
+        inline void set_has_next(bool hash = true)
         {
-            using iterator_category = std::forward_iterator_tag;
-            using value_type        = const record;
-            using difference_type   = std::ptrdiff_t;
-            using pointer           = const record*;
-            using reference         = const record&;
-
-            explicit record_iterator(const uint8_t* ptr) : m_ptr(ptr) {}
-
-            reference operator*()  const { return *reinterpret_cast<const record*>(m_ptr); }
-            pointer   operator->() const { return  reinterpret_cast<const record*>(m_ptr); }
-
-            record_iterator& operator++()
-            {
-                const auto* rec = reinterpret_cast<const record*>(m_ptr);
-                m_ptr += sizeof(record) + rec->item_count * sizeof(item);
-                return *this;
-            }
-
-            record_iterator operator++(int) { auto tmp = *this; ++(*this); return tmp; }
-
-            bool operator==(const record_iterator& rhs) const { return m_ptr == rhs.m_ptr; }
-            bool operator!=(const record_iterator& rhs) const { return m_ptr != rhs.m_ptr; }
-
-        private:
-            const uint8_t* m_ptr;
-        };
-
-        /** @brief Returns an iterator to the first record in this block. */
-        inline record_iterator begin() const
-        {
-            return record_iterator(reinterpret_cast<const uint8_t*>(this) + sizeof(block));
+            if (hash)
+                flags |= block_flag_has_next;
+            else
+                flags &= ~block_flag_has_next;
         }
 
-        /** @brief Returns a past-the-end sentinel. Computed by walking all records once. */
-        inline record_iterator end() const
-        {
-            auto ptr = reinterpret_cast<const uint8_t*>(this) + sizeof(block);
-            for (uint16_t i = 0; i < record_count; ++i)
-            {
-                const auto* rec = reinterpret_cast<const record*>(ptr);
-                ptr += sizeof(record) + rec->item_count * sizeof(item);
-            }
-            return record_iterator(ptr);
-        }
+        inline record_iterator begin()  const { return record_iterator(get_record(0)); }
+        inline record_iterator end()    const { return record_iterator(nullptr); }
     };
 
     /**
@@ -327,12 +363,17 @@ namespace adam::modules::asterix
      */
     struct frame
     {
-        uint16_t block_count;
-        frame_flag flags;
-        uint8_t  reserved;
+        using block_iterator = internal_type_iterator<block>;
+        
+        uint32_t    next_offset;
+        uint16_t    block_count;
+        frame_flag  flags;
+        uint8_t     reserved;
 
         frame(uint16_t blocks) : block_count(blocks), flags(frame_flag_none), reserved(0) {}
 
+        inline const frame* get_next() const { return next_offset ? reinterpret_cast<const frame*>(reinterpret_cast<const uint8_t*>(this) + next_offset) : nullptr; }
+        
         /** @brief Block getter. CAUTION: O(n) Access, slow. Use iterator for iterating */
         inline const block* get_block(uint16_t idx) const 
         {
@@ -357,64 +398,8 @@ namespace adam::modules::asterix
                 flags &= ~frame_flag_modified;
         }
 
-        /**
-         * @struct  block_iterator
-         * @brief   Forward iterator over the variable-length block sequence inside this frame.
-         *
-         * Blocks are NOT uniformly sized: each block header is followed by all its
-         * records and their items. The iterator advances using the same arithmetic
-         * as get_block(), i.e. sizeof(block) + record_count*sizeof(record) + item_count*sizeof(item).
-         */
-        struct block_iterator
-        {
-            using iterator_category = std::forward_iterator_tag;
-            using value_type        = const block;
-            using difference_type   = std::ptrdiff_t;
-            using pointer           = const block*;
-            using reference         = const block&;
-
-            explicit block_iterator(const uint8_t* ptr) : m_ptr(ptr) {}
-
-            reference operator*()  const { return *reinterpret_cast<const block*>(m_ptr); }
-            pointer   operator->() const { return  reinterpret_cast<const block*>(m_ptr); }
-
-            block_iterator& operator++()
-            {
-                const auto* blk = reinterpret_cast<const block*>(m_ptr);
-                m_ptr += sizeof(block)
-                       + blk->record_count * sizeof(record)
-                       + blk->item_count   * sizeof(item);
-                return *this;
-            }
-
-            block_iterator operator++(int) { auto tmp = *this; ++(*this); return tmp; }
-
-            bool operator==(const block_iterator& rhs) const { return m_ptr == rhs.m_ptr; }
-            bool operator!=(const block_iterator& rhs) const { return m_ptr != rhs.m_ptr; }
-
-        private:
-            const uint8_t* m_ptr;
-        };
-
-        /** @brief Returns an iterator to the first block in this frame. */
-        inline block_iterator begin() const
-        {
-            return block_iterator(reinterpret_cast<const uint8_t*>(this) + sizeof(frame));
-        }
-
-        /** @brief Returns a past-the-end sentinel. Computed by walking all blocks once. */
-        inline block_iterator end() const
-        {
-            auto ptr = reinterpret_cast<const uint8_t*>(this) + sizeof(frame);
-            for (uint16_t i = 0; i < block_count; ++i)
-            {
-                const auto* blk = reinterpret_cast<const block*>(ptr);
-                ptr += sizeof(block)
-                     + blk->record_count * sizeof(record)
-                     + blk->item_count   * sizeof(item);
-            }
-            return block_iterator(ptr);
-        }
+        inline block_iterator begin()   const { return block_iterator(get_block(0)); }
+        inline block_iterator end()     const { return block_iterator(nullptr); }
     };
 
     #pragma pack(pop)

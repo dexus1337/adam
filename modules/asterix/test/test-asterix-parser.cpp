@@ -72,6 +72,7 @@ TEST_F(parser_test, parse_fixed)
 
     auto block = buf_header->get_block(0);
     ASSERT_NE(block, nullptr);
+    EXPECT_FALSE(block->has_next());
     EXPECT_EQ(block->category, 48);
     EXPECT_EQ(block->record_count, 1);
     EXPECT_EQ(block->raw_length, 9);
@@ -79,6 +80,7 @@ TEST_F(parser_test, parse_fixed)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
+    EXPECT_FALSE(record->has_next());
     EXPECT_EQ(record->item_count, block->get_uap()->get_highest_frn()); // no children, so item count = last FRN
     EXPECT_EQ(record->fspec_size, 1);
     EXPECT_EQ(record->raw_length, 6);
@@ -153,6 +155,7 @@ TEST_F(parser_test, parse_variable)
     
     auto block = buf_header->get_block(0);
     ASSERT_NE(block, nullptr);
+    EXPECT_FALSE(block->has_next());
     EXPECT_EQ(block->category, 62);
     EXPECT_EQ(block->record_count, 1);
     EXPECT_EQ(block->raw_length, 13ul);
@@ -160,6 +163,8 @@ TEST_F(parser_test, parse_variable)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
+    EXPECT_FALSE(record->has_next());
+    EXPECT_FALSE(record->has_next());
     EXPECT_EQ(record->item_count, block->get_uap()->get_highest_frn()); // no children, so item count = last FRN
     EXPECT_EQ(record->fspec_size, 4);
     EXPECT_EQ(record->raw_length, 10ul);
@@ -257,6 +262,7 @@ TEST_F(parser_test, parse_repetitive)
     // ── Block ────────────────────────────────────────────────────────
     const auto* block = buf_header->get_block(0);
     ASSERT_NE(block, nullptr);
+    EXPECT_FALSE(block->has_next());
     EXPECT_EQ(block->category,     48);
     EXPECT_EQ(block->record_count, 1u);
     EXPECT_EQ(block->raw_length,   TOTAL_LEN);
@@ -265,6 +271,7 @@ TEST_F(parser_test, parse_repetitive)
     // ── Record ───────────────────────────────────────────────────────
     const auto* record = block->get_record(0);
     ASSERT_NE(record, nullptr);
+    EXPECT_FALSE(record->has_next());
     EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn());
     EXPECT_EQ(record->fspec_size,  2u);
     EXPECT_EQ(record->raw_offset,  3ul);
@@ -343,6 +350,7 @@ TEST_F(parser_test, parse_compound)
 
     auto block = buf_header->get_block(0);
     ASSERT_NE(block, nullptr);
+    EXPECT_FALSE(block->has_next());
     EXPECT_EQ(block->category, 62);
     EXPECT_EQ(block->record_count, 1);
     EXPECT_EQ(block->raw_length, 15);
@@ -350,6 +358,7 @@ TEST_F(parser_test, parse_compound)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
+    EXPECT_FALSE(record->has_next());
     auto uap = record->find_used_uap();
     EXPECT_EQ(record->item_count, uap->get_highest_frn() + uap->get_spec(24)->sub_uap->get_highest_frn());
     EXPECT_EQ(record->fspec_size, 4);
@@ -450,6 +459,7 @@ TEST_F(parser_test, parse_explicit_no_uap)
 
     auto block = buf_header->get_block(0);
     ASSERT_NE(block, nullptr);
+    EXPECT_FALSE(block->has_next());
     EXPECT_EQ(block->category,     48);
     EXPECT_EQ(block->record_count, 1);
     EXPECT_EQ(block->raw_length,   12);
@@ -457,6 +467,7 @@ TEST_F(parser_test, parse_explicit_no_uap)
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
+    EXPECT_FALSE(record->has_next());
     EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn());
     EXPECT_EQ(record->raw_length,  9);   // 12 - 3 header bytes
     EXPECT_EQ(record->raw_offset,  3ul);
@@ -528,6 +539,7 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── Block ────────────────────────────────────────────────────────
     const auto* block = buf_header->get_block(0);
     ASSERT_NE(block, nullptr);
+    EXPECT_FALSE(block->has_next());
     EXPECT_EQ(block->category,     48);
     EXPECT_EQ(block->record_count, 1);
     EXPECT_EQ(block->raw_length,   17);
@@ -536,6 +548,7 @@ TEST_F(parser_test, parse_explicit_with_uap)
     // ── Record ───────────────────────────────────────────────────────
     const auto* record = block->get_record(0);
     ASSERT_NE(record, nullptr);
+    EXPECT_FALSE(record->has_next());
     EXPECT_EQ(record->item_count,  block->get_uap()->get_highest_frn() + block->get_uap()->get_spec(28)->sub_uap->get_highest_frn() + block->get_uap()->get_spec(28)->sub_uap->get_spec(4)->sub_uap->get_highest_frn());
     EXPECT_EQ(record->raw_length,  14);    // 17 - 3 block header bytes
     EXPECT_EQ(record->raw_offset,  3ul);
@@ -690,6 +703,7 @@ TEST_F(parser_test, parse_alternative_uap)
 
         const auto* blk = frm->get_block(0);
         ASSERT_NE(blk, nullptr);
+        EXPECT_FALSE(blk->has_next());
         EXPECT_EQ(blk->category,     1);
         EXPECT_EQ(blk->record_count, 1u);
         EXPECT_EQ(blk->raw_length,   11u);
@@ -698,6 +712,7 @@ TEST_F(parser_test, parse_alternative_uap)
         // -- Record --
         const auto* rec = blk->get_record(0);
         ASSERT_NE(rec, nullptr);
+        EXPECT_FALSE(rec->has_next());
         EXPECT_EQ(rec->category,   1);
         EXPECT_EQ(rec->fspec_size, 1u);
         EXPECT_EQ(rec->raw_offset, 3u);   // immediately after 3-byte block header
@@ -804,6 +819,7 @@ TEST_F(parser_test, parse_alternative_uap)
 
         const auto* blk = frm->get_block(0);
         ASSERT_NE(blk, nullptr);
+        EXPECT_FALSE(blk->has_next());
         EXPECT_EQ(blk->category,     1);
         EXPECT_EQ(blk->record_count, 1u);
         EXPECT_EQ(blk->raw_length,   13u);
@@ -812,6 +828,7 @@ TEST_F(parser_test, parse_alternative_uap)
         // -- Record --
         const auto* rec = blk->get_record(0);
         ASSERT_NE(rec, nullptr);
+        EXPECT_FALSE(rec->has_next());
         EXPECT_EQ(rec->category,   1);
         EXPECT_EQ(rec->fspec_size, 1u);
         EXPECT_EQ(rec->raw_offset, 3u);
@@ -934,6 +951,7 @@ TEST_F(parser_test, parse_multiple_blocks_and_records)
     
     auto block48 = buf_header->get_block(0);
     ASSERT_NE(block48, nullptr);
+    EXPECT_TRUE(block48->has_next());
     EXPECT_EQ(block48->category, 48);
     EXPECT_EQ(block48->record_count, 2);
     EXPECT_EQ(block48->raw_length, 10);
@@ -941,6 +959,7 @@ TEST_F(parser_test, parse_multiple_blocks_and_records)
 
     auto record48_0 = block48->get_record(0);
     ASSERT_NE(record48_0, nullptr);
+    EXPECT_TRUE(record48_0->has_next());
     EXPECT_EQ(record48_0->item_count, record48_0->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
     EXPECT_EQ(record48_0->fspec_size, 1);
     EXPECT_EQ(record48_0->raw_length, 3);
@@ -949,6 +968,8 @@ TEST_F(parser_test, parse_multiple_blocks_and_records)
 
     auto record48_1 = block48->get_record(1);
     ASSERT_NE(record48_1, nullptr);
+    EXPECT_EQ(record48_0->get_next(), record48_1);
+    EXPECT_FALSE(record48_1->has_next());
     EXPECT_EQ(record48_1->item_count, record48_1->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
     EXPECT_EQ(record48_1->fspec_size, 1);
     EXPECT_EQ(record48_1->raw_length, 4);
@@ -957,6 +978,8 @@ TEST_F(parser_test, parse_multiple_blocks_and_records)
 
     auto block62 = buf_header->get_block(1);
     ASSERT_NE(block62, nullptr);
+    EXPECT_EQ(block48->get_next(), block62);
+    EXPECT_FALSE(block62->has_next());
     EXPECT_EQ(block62->category, 62);
     EXPECT_EQ(block62->record_count, 1);
     EXPECT_EQ(block62->raw_length, 6);
@@ -964,6 +987,7 @@ TEST_F(parser_test, parse_multiple_blocks_and_records)
 
     auto record62_0 = block62->get_record(0);
     ASSERT_NE(record62_0, nullptr);
+    EXPECT_FALSE(record62_0->has_next());
     EXPECT_EQ(record62_0->item_count, record62_0->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
     EXPECT_EQ(record62_0->raw_length, 3);
     EXPECT_EQ(record62_0->raw_offset, 13);

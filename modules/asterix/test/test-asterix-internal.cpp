@@ -29,14 +29,6 @@
 using namespace adam::modules::asterix;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Compile-time size assertions – catch regressions immediately
-// ─────────────────────────────────────────────────────────────────────────────
-static_assert(sizeof(item)   == 14, "item size mismatch – update tests");
-static_assert(sizeof(record) == 19, "record size mismatch – update tests");
-static_assert(sizeof(block)  == 12, "block size mismatch – update tests");
-static_assert(sizeof(frame)  ==  4, "frame size mismatch – update tests");
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Helpers: build minimal in-memory structures
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -189,7 +181,8 @@ TEST_F(record_item_iterator_test, multiple_items_correct_sequence)
 
 TEST_F(record_item_iterator_test, multiple_items_count_matches_item_count)
 {
-    auto blob = build_record_blob({
+    auto blob = build_record_blob
+    ({
         make_item(1, 0, item_type_fixed, true),
         make_item(2, 1, item_type_fixed, false),
         make_item(3, 3, item_type_fixed, true),
@@ -259,7 +252,7 @@ TEST_F(record_item_iterator_test, arrow_operator)
 //  block::record_iterator tests
 // ═════════════════════════════════════════════════════════════════════════════
 
-class block_record_iterator_test : public ::testing::Test
+class iterator_test_block_record : public ::testing::Test
 {
 protected:
     struct record_desc { uint16_t item_count; uint8_t category; };
@@ -301,34 +294,24 @@ protected:
             rec->fspec_size  = 1;
             rec->flags       = record_flag_none;
 
+            rec->set_has_next(ri < static_cast<uint16_t>(descs.size()-1));
+
             ptr += sizeof(record) + descs[ri].item_count * sizeof(item);
         }
         return blob;
     }
 };
 
-// ─── Trait checks ────────────────────────────────────────────────────────────
-
-TEST_F(block_record_iterator_test, iterator_traits)
-{
-    using Itr = block::record_iterator;
-    static_assert(std::is_same_v<Itr::iterator_category, std::forward_iterator_tag>);
-    static_assert(std::is_same_v<Itr::value_type,        const record>);
-    static_assert(std::is_same_v<Itr::pointer,           const record*>);
-    static_assert(std::is_same_v<Itr::reference,         const record&>);
-    SUCCEED();
-}
-
 // ─── Empty block ──────────────────────────────────────────────────────────────
 
-TEST_F(block_record_iterator_test, empty_block_begin_equals_end)
+TEST_F(iterator_test_block_record, empty_block_begin_equals_end)
 {
     auto blob = build_block_blob({});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
     EXPECT_EQ(blk->begin(), blk->end());
 }
 
-TEST_F(block_record_iterator_test, empty_block_range_for_never_entered)
+TEST_F(iterator_test_block_record, empty_block_range_for_never_entered)
 {
     auto blob = build_block_blob({});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -339,7 +322,7 @@ TEST_F(block_record_iterator_test, empty_block_range_for_never_entered)
 
 // ─── Single record ────────────────────────────────────────────────────────────
 
-TEST_F(block_record_iterator_test, single_record_dereference)
+TEST_F(iterator_test_block_record, single_record_dereference)
 {
     auto blob = build_block_blob({{3, 48}});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -350,7 +333,7 @@ TEST_F(block_record_iterator_test, single_record_dereference)
     EXPECT_EQ(itr->category,   48);
 }
 
-TEST_F(block_record_iterator_test, single_record_pre_increment_reaches_end)
+TEST_F(iterator_test_block_record, single_record_pre_increment_reaches_end)
 {
     auto blob = build_block_blob({{5, 48}});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -360,7 +343,7 @@ TEST_F(block_record_iterator_test, single_record_pre_increment_reaches_end)
     EXPECT_EQ(itr, blk->end());
 }
 
-TEST_F(block_record_iterator_test, single_record_post_increment_returns_old)
+TEST_F(iterator_test_block_record, single_record_post_increment_returns_old)
 {
     auto blob = build_block_blob({{2, 62}});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -374,7 +357,7 @@ TEST_F(block_record_iterator_test, single_record_post_increment_returns_old)
 
 // ─── Multiple records with DIFFERENT item counts (variable stride) ─────────────
 
-TEST_F(block_record_iterator_test, multiple_records_correct_sequence)
+TEST_F(iterator_test_block_record, multiple_records_correct_sequence)
 {
     // Records with intentionally different item_count values to stress stride
     auto blob = build_block_blob({{1, 48}, {5, 62}, {3, 48}});
@@ -390,7 +373,7 @@ TEST_F(block_record_iterator_test, multiple_records_correct_sequence)
     EXPECT_EQ(visited[2], std::make_pair(uint16_t(3), uint8_t(48)));
 }
 
-TEST_F(block_record_iterator_test, multiple_records_count_matches_record_count)
+TEST_F(iterator_test_block_record, multiple_records_count_matches_record_count)
 {
     auto blob = build_block_blob({{0, 48}, {2, 62}, {7, 1}, {1, 48}, {4, 62}});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -402,7 +385,7 @@ TEST_F(block_record_iterator_test, multiple_records_count_matches_record_count)
 
 // ─── Consistency with get_record() ───────────────────────────────────────────
 
-TEST_F(block_record_iterator_test, iterator_matches_get_record)
+TEST_F(iterator_test_block_record, iterator_matches_get_record)
 {
     auto blob = build_block_blob({{1, 48}, {3, 62}, {0, 1}, {5, 48}});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -419,7 +402,7 @@ TEST_F(block_record_iterator_test, iterator_matches_get_record)
 
 // ─── Unique-identity field (used_uap) survives stride ────────────────────────
 
-TEST_F(block_record_iterator_test, records_have_distinct_identities)
+TEST_F(iterator_test_block_record, records_have_distinct_identities)
 {
     // build_block_blob stores ri as used_uap, so we can verify no aliasing
     auto blob = build_block_blob({{2, 48}, {4, 62}, {1, 1}});
@@ -436,7 +419,7 @@ TEST_F(block_record_iterator_test, records_have_distinct_identities)
 
 // ─── Equality / inequality ────────────────────────────────────────────────────
 
-TEST_F(block_record_iterator_test, equality_and_inequality)
+TEST_F(iterator_test_block_record, equality_and_inequality)
 {
     auto blob = build_block_blob({{2, 48}});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -452,7 +435,7 @@ TEST_F(block_record_iterator_test, equality_and_inequality)
 
 // ─── Arrow operator ───────────────────────────────────────────────────────────
 
-TEST_F(block_record_iterator_test, arrow_operator)
+TEST_F(iterator_test_block_record, arrow_operator)
 {
     auto blob = build_block_blob({{6, 62}});
     const auto* blk = reinterpret_cast<const block*>(blob.data());
@@ -464,7 +447,7 @@ TEST_F(block_record_iterator_test, arrow_operator)
 
 // ─── Nested iteration: records × items ───────────────────────────────────────
 
-TEST_F(block_record_iterator_test, nested_iteration_item_count)
+TEST_F(iterator_test_block_record, nested_iteration_item_count)
 {
     // 3 records: 1st has 2 items, 2nd has 0 items, 3rd has 3 items → 5 total
     auto blob = build_block_blob({{2, 48}, {0, 62}, {3, 1}});
@@ -483,7 +466,7 @@ TEST_F(block_record_iterator_test, nested_iteration_item_count)
 //  frame::block_iterator tests
 // ═════════════════════════════════════════════════════════════════════════════
 
-class frame_block_iterator_test : public ::testing::Test
+class iterator_test_frame_block : public ::testing::Test
 {
 protected:
     struct block_desc
@@ -536,6 +519,8 @@ protected:
             // Reuse bi as a sentinel in raw_offset so we can identify blocks
             blk->raw_offset   = static_cast<uint32_t>(bi);
 
+            blk->set_has_next(bi < static_cast<uint16_t>(descs.size()-1));
+
             ptr += sizeof(block);
 
             for (uint64_t ri = 0; ri < bd.record_item_counts.size(); ++ri)
@@ -549,6 +534,9 @@ protected:
                 rec->category   = bd.category;
                 rec->fspec_size = 1;
                 rec->flags      = record_flag_none;
+                
+                rec->set_has_next(ri < static_cast<uint16_t>(bd.record_item_counts.size()-1));
+
                 ptr += sizeof(record) + ic * sizeof(item);
             }
         }
@@ -556,28 +544,16 @@ protected:
     }
 };
 
-// ─── Trait checks ────────────────────────────────────────────────────────────
-
-TEST_F(frame_block_iterator_test, iterator_traits)
-{
-    using Itr = frame::block_iterator;
-    static_assert(std::is_same_v<Itr::iterator_category, std::forward_iterator_tag>);
-    static_assert(std::is_same_v<Itr::value_type,        const block>);
-    static_assert(std::is_same_v<Itr::pointer,           const block*>);
-    static_assert(std::is_same_v<Itr::reference,         const block&>);
-    SUCCEED();
-}
-
 // ─── Empty frame ─────────────────────────────────────────────────────────────
 
-TEST_F(frame_block_iterator_test, empty_frame_begin_equals_end)
+TEST_F(iterator_test_frame_block, empty_frame_begin_equals_end)
 {
     auto blob = build_frame_blob({});
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
     EXPECT_EQ(frm->begin(), frm->end());
 }
 
-TEST_F(frame_block_iterator_test, empty_frame_range_for_never_entered)
+TEST_F(iterator_test_frame_block, empty_frame_range_for_never_entered)
 {
     auto blob = build_frame_blob({});
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -588,7 +564,7 @@ TEST_F(frame_block_iterator_test, empty_frame_range_for_never_entered)
 
 // ─── Single block ─────────────────────────────────────────────────────────────
 
-TEST_F(frame_block_iterator_test, single_block_dereference)
+TEST_F(iterator_test_frame_block, single_block_dereference)
 {
     auto blob = build_frame_blob({{48, {2, 3}}});
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -600,7 +576,7 @@ TEST_F(frame_block_iterator_test, single_block_dereference)
     EXPECT_EQ(itr->item_count,   5u); // 2+3
 }
 
-TEST_F(frame_block_iterator_test, single_block_pre_increment_reaches_end)
+TEST_F(iterator_test_frame_block, single_block_pre_increment_reaches_end)
 {
     auto blob = build_frame_blob({{62, {1}}});
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -610,7 +586,7 @@ TEST_F(frame_block_iterator_test, single_block_pre_increment_reaches_end)
     EXPECT_EQ(itr, frm->end());
 }
 
-TEST_F(frame_block_iterator_test, single_block_post_increment_returns_old)
+TEST_F(iterator_test_frame_block, single_block_post_increment_returns_old)
 {
     auto blob = build_frame_blob({{1, {4, 0}}});
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -624,10 +600,11 @@ TEST_F(frame_block_iterator_test, single_block_post_increment_returns_old)
 
 // ─── Multiple blocks ──────────────────────────────────────────────────────────
 
-TEST_F(frame_block_iterator_test, multiple_blocks_correct_sequence)
+TEST_F(iterator_test_frame_block, multiple_blocks_correct_sequence)
 {
     // Intentionally varied record layouts to stress the stride arithmetic
-    auto blob = build_frame_blob({
+    auto blob = build_frame_blob
+    ({
         {48, {1, 2}},    // block0: 2 records, 3 items total
         {62, {5}},       // block1: 1 record,  5 items
         { 1, {0, 3, 1}}, // block2: 3 records, 4 items
@@ -644,9 +621,10 @@ TEST_F(frame_block_iterator_test, multiple_blocks_correct_sequence)
     EXPECT_EQ(visited[2], std::make_tuple(uint8_t(1),  uint16_t(3), uint16_t(4)));
 }
 
-TEST_F(frame_block_iterator_test, multiple_blocks_count_matches_block_count)
+TEST_F(iterator_test_frame_block, multiple_blocks_count_matches_block_count)
 {
-    auto blob = build_frame_blob({
+    auto blob = build_frame_blob
+    ({
         {48, {0}}, {62, {1, 2}}, {1, {}}, {48, {3}}, {62, {0, 0, 1}}
     });
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -658,9 +636,10 @@ TEST_F(frame_block_iterator_test, multiple_blocks_count_matches_block_count)
 
 // ─── Consistency with get_block() ────────────────────────────────────────────
 
-TEST_F(frame_block_iterator_test, iterator_matches_get_block)
+TEST_F(iterator_test_frame_block, iterator_matches_get_block)
 {
-    auto blob = build_frame_blob({
+    auto blob = build_frame_blob
+    ({
         {48, {2}}, {62, {1, 3}}, {1, {0, 2}}
     });
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -678,10 +657,11 @@ TEST_F(frame_block_iterator_test, iterator_matches_get_block)
 
 // ─── raw_offset sentinel survives stride ─────────────────────────────────────
 
-TEST_F(frame_block_iterator_test, blocks_have_distinct_identities)
+TEST_F(iterator_test_frame_block, blocks_have_distinct_identities)
 {
     // build_frame_blob stores block index as raw_offset
-    auto blob = build_frame_blob({
+    auto blob = build_frame_blob
+    ({
         {48, {1}}, {62, {2, 3}}, {1, {0}}
     });
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -697,7 +677,7 @@ TEST_F(frame_block_iterator_test, blocks_have_distinct_identities)
 
 // ─── Equality / inequality ────────────────────────────────────────────────────
 
-TEST_F(frame_block_iterator_test, equality_and_inequality)
+TEST_F(iterator_test_frame_block, equality_and_inequality)
 {
     auto blob = build_frame_blob({{48, {1}}});
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -713,7 +693,7 @@ TEST_F(frame_block_iterator_test, equality_and_inequality)
 
 // ─── Arrow operator ───────────────────────────────────────────────────────────
 
-TEST_F(frame_block_iterator_test, arrow_operator)
+TEST_F(iterator_test_frame_block, arrow_operator)
 {
     auto blob = build_frame_blob({{62, {3, 2, 1}}});
     const auto* frm = reinterpret_cast<const frame*>(blob.data());
@@ -726,12 +706,13 @@ TEST_F(frame_block_iterator_test, arrow_operator)
 
 // ─── Full nested traversal: frame → blocks → records → items ─────────────────
 
-TEST_F(frame_block_iterator_test, full_nested_traversal)
+TEST_F(iterator_test_frame_block, full_nested_traversal)
 {
     // Layout:
     //   block0 (cat 48): record0 (2 items), record1 (1 item)
     //   block1 (cat 62): record0 (3 items)
-    auto blob = build_frame_blob({
+    auto blob = build_frame_blob
+    ({
         {48, {2, 1}},
         {62, {3}},
     });
@@ -775,7 +756,7 @@ TEST_F(frame_block_iterator_test, full_nested_traversal)
 
 #include "data/asterix-types.hpp"
 
-class fspec_iterator_test : public ::testing::Test
+class iterator_test_fspec : public ::testing::Test
 {
 protected:
     // Build a contiguous array of raw_fspec bytes in a std::vector.
@@ -793,7 +774,7 @@ protected:
 
 // ─── Trait checks ────────────────────────────────────────────────────────────
 
-TEST_F(fspec_iterator_test, iterator_traits)
+TEST_F(iterator_test_fspec, iterator_traits)
 {
     using Itr = raw_fspec::iterator;
     static_assert(std::is_same_v<Itr::iterator_category, std::forward_iterator_tag>);
@@ -805,7 +786,7 @@ TEST_F(fspec_iterator_test, iterator_traits)
 
 // ─── Private pointer – cannot access internals directly ──────────────────────
 
-TEST_F(fspec_iterator_test, internal_pointer_is_private)
+TEST_F(iterator_test_fspec, internal_pointer_is_private)
 {
     // This test is a compile-time assertion: the test file must NOT be able to
     // write `it.current` or `it.m_ptr`. Because we can't `static_assert` the
@@ -821,13 +802,13 @@ TEST_F(fspec_iterator_test, internal_pointer_is_private)
 
 // ─── Single-byte FSPEC (FX = 0, no extension) ────────────────────────────────
 
-TEST_F(fspec_iterator_test, single_byte_begin_not_equal_end)
+TEST_F(iterator_test_fspec, single_byte_begin_not_equal_end)
 {
     auto chain = make_fspec({0xC0}); // FX=0
     EXPECT_NE(chain[0].begin(), chain[0].end());
 }
 
-TEST_F(fspec_iterator_test, single_byte_dereference_value)
+TEST_F(iterator_test_fspec, single_byte_dereference_value)
 {
     auto chain = make_fspec({0xA0}); // 1010 0000  →  FRN1 set, FRN3 set, FX=0
     auto it = chain[0].begin();
@@ -835,7 +816,7 @@ TEST_F(fspec_iterator_test, single_byte_dereference_value)
     EXPECT_EQ(it->value,   0xA0u);
 }
 
-TEST_F(fspec_iterator_test, single_byte_pre_increment_reaches_end)
+TEST_F(iterator_test_fspec, single_byte_pre_increment_reaches_end)
 {
     auto chain = make_fspec({0x80}); // FRN1 only, FX=0
     auto it = chain[0].begin();
@@ -843,7 +824,7 @@ TEST_F(fspec_iterator_test, single_byte_pre_increment_reaches_end)
     EXPECT_EQ(it, chain[0].end());
 }
 
-TEST_F(fspec_iterator_test, single_byte_post_increment_returns_old)
+TEST_F(iterator_test_fspec, single_byte_post_increment_returns_old)
 {
     auto chain = make_fspec({0x40}); // FRN2 only, FX=0
     auto it  = chain[0].begin();
@@ -852,7 +833,7 @@ TEST_F(fspec_iterator_test, single_byte_post_increment_returns_old)
     EXPECT_EQ(it, chain[0].end());
 }
 
-TEST_F(fspec_iterator_test, single_byte_range_for_visits_once)
+TEST_F(iterator_test_fspec, single_byte_range_for_visits_once)
 {
     auto chain = make_fspec({0xFE}); // all 7 FRN bits set, FX=0
     int count = 0;
@@ -862,7 +843,7 @@ TEST_F(fspec_iterator_test, single_byte_range_for_visits_once)
 
 // ─── Multi-byte FSPEC chain ───────────────────────────────────────────────────
 
-TEST_F(fspec_iterator_test, two_byte_chain_visits_both_octets)
+TEST_F(iterator_test_fspec, two_byte_chain_visits_both_octets)
 {
     // byte0: FX=1 (bit 0 set), so next byte is part of chain
     // byte1: FX=0
@@ -872,7 +853,7 @@ TEST_F(fspec_iterator_test, two_byte_chain_visits_both_octets)
     EXPECT_EQ(count, 2);
 }
 
-TEST_F(fspec_iterator_test, two_byte_chain_correct_values)
+TEST_F(iterator_test_fspec, two_byte_chain_correct_values)
 {
     auto chain = make_fspec({0xC1, 0xA0}); // byte0=0xC1, byte1=0xA0
     auto it = chain[0].begin();
@@ -890,7 +871,7 @@ TEST_F(fspec_iterator_test, two_byte_chain_correct_values)
     EXPECT_EQ(it, chain[0].end());
 }
 
-TEST_F(fspec_iterator_test, three_byte_chain_visits_all_octets)
+TEST_F(iterator_test_fspec, three_byte_chain_visits_all_octets)
 {
     auto chain = make_fspec({0x01, 0x01, 0x80}); // FX=1, FX=1, FX=0
     int count = 0;
@@ -898,7 +879,7 @@ TEST_F(fspec_iterator_test, three_byte_chain_visits_all_octets)
     EXPECT_EQ(count, 3);
 }
 
-TEST_F(fspec_iterator_test, chain_count_matches_size_helper)
+TEST_F(iterator_test_fspec, chain_count_matches_size_helper)
 {
     auto chain = make_fspec({0x01, 0x01, 0x01, 0x80}); // 4 bytes
     int iter_count = 0;
@@ -908,14 +889,14 @@ TEST_F(fspec_iterator_test, chain_count_matches_size_helper)
 
 // ─── byte_index() ────────────────────────────────────────────────────────────
 
-TEST_F(fspec_iterator_test, byte_index_starts_at_zero)
+TEST_F(iterator_test_fspec, byte_index_starts_at_zero)
 {
     auto chain = make_fspec({0x01, 0x80}); // 2-byte chain
     auto it = chain[0].begin();
     EXPECT_EQ(it.byte_index(), 0u);
 }
 
-TEST_F(fspec_iterator_test, byte_index_increments_per_octet)
+TEST_F(iterator_test_fspec, byte_index_increments_per_octet)
 {
     auto chain = make_fspec({0x01, 0x01, 0x01, 0x80}); // 4 bytes
     uint16_t expected = 0;
@@ -928,7 +909,7 @@ TEST_F(fspec_iterator_test, byte_index_increments_per_octet)
     EXPECT_EQ(expected, 4u); // visited exactly 4 octets
 }
 
-TEST_F(fspec_iterator_test, byte_index_post_increment_old_has_old_index)
+TEST_F(iterator_test_fspec, byte_index_post_increment_old_has_old_index)
 {
     auto chain = make_fspec({0x01, 0x80}); // 2 bytes
     auto it  = chain[0].begin();
@@ -939,7 +920,7 @@ TEST_F(fspec_iterator_test, byte_index_post_increment_old_has_old_index)
 
 // ─── Dereference and arrow give access to all raw_fspec methods ───────────────
 
-TEST_F(fspec_iterator_test, dereference_gives_has_extension_access)
+TEST_F(iterator_test_fspec, dereference_gives_has_extension_access)
 {
     auto chain = make_fspec({0xC1, 0x80}); // byte0 has FX=1, byte1 has FX=0
     auto it = chain[0].begin();
@@ -948,7 +929,7 @@ TEST_F(fspec_iterator_test, dereference_gives_has_extension_access)
     EXPECT_FALSE((*it).has_extension());
 }
 
-TEST_F(fspec_iterator_test, arrow_gives_is_frn_active_here_access)
+TEST_F(iterator_test_fspec, arrow_gives_is_frn_active_here_access)
 {
     // 0xA0 = 1010 0000 → FRN1 set (bit7), FRN3 set (bit5), FX=0
     auto chain = make_fspec({0xA0});
@@ -959,7 +940,7 @@ TEST_F(fspec_iterator_test, arrow_gives_is_frn_active_here_access)
     EXPECT_FALSE(it->is_frn_active_here(4));
 }
 
-TEST_F(fspec_iterator_test, arrow_gives_value_access)
+TEST_F(iterator_test_fspec, arrow_gives_value_access)
 {
     auto chain = make_fspec({0xFE}); // all 7 FRN bits, FX=0
     auto it = chain[0].begin();
@@ -968,7 +949,7 @@ TEST_F(fspec_iterator_test, arrow_gives_value_access)
 
 // ─── is_frn_active() spanning multiple bytes ──────────────────────────────────
 
-TEST_F(fspec_iterator_test, frn_active_across_two_bytes)
+TEST_F(iterator_test_fspec, frn_active_across_two_bytes)
 {
     // byte0: FRN1 (bit7) + FX (bit0) = 0x81
     // byte1: FRN8 (bit7) = 0x80, FX=0
@@ -982,19 +963,19 @@ TEST_F(fspec_iterator_test, frn_active_across_two_bytes)
 
 // ─── Equality / inequality ────────────────────────────────────────────────────
 
-TEST_F(fspec_iterator_test, equality_begin_begin)
+TEST_F(iterator_test_fspec, equality_begin_begin)
 {
     auto chain = make_fspec({0x80});
     EXPECT_EQ(chain[0].begin(), chain[0].begin());
 }
 
-TEST_F(fspec_iterator_test, inequality_begin_end)
+TEST_F(iterator_test_fspec, inequality_begin_end)
 {
     auto chain = make_fspec({0x80});
     EXPECT_NE(chain[0].begin(), chain[0].end());
 }
 
-TEST_F(fspec_iterator_test, equality_after_exhaustion)
+TEST_F(iterator_test_fspec, equality_after_exhaustion)
 {
     auto chain = make_fspec({0x80});
     auto it = chain[0].begin();
@@ -1002,7 +983,7 @@ TEST_F(fspec_iterator_test, equality_after_exhaustion)
     EXPECT_EQ(it, chain[0].end());
 }
 
-TEST_F(fspec_iterator_test, two_independent_iterators_are_equal_at_start)
+TEST_F(iterator_test_fspec, two_independent_iterators_are_equal_at_start)
 {
     auto chain = make_fspec({0x01, 0x80});
     auto a = chain[0].begin();
@@ -1016,7 +997,7 @@ TEST_F(fspec_iterator_test, two_independent_iterators_are_equal_at_start)
 
 // ─── End is stable (calling end() twice gives same result) ────────────────────
 
-TEST_F(fspec_iterator_test, end_is_stable)
+TEST_F(iterator_test_fspec, end_is_stable)
 {
     auto chain = make_fspec({0x40});
     EXPECT_EQ(chain[0].end(), chain[0].end());

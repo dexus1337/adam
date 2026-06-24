@@ -17,6 +17,48 @@ namespace adam::modules::asterix
         uint32_t&           child_offset
     );
 
+    static inline bool critical_parser_error(adam::buffer*& internal_data)
+    {
+        adam::buffer_manager::get().return_buffer(internal_data);
+        return false;
+    }
+
+    static inline bool resize_internal_data(uint32_t new_size_hint, adam::buffer*& internal_data)
+    {
+        auto newcap = internal_data->get_capacity();
+
+        while (newcap < new_size_hint)
+            newcap *= 1.5f;
+        
+        auto* newbuff = adam::buffer_manager::get().request_buffer(newcap);
+
+        if (!newbuff)
+            return false;
+
+        std::memcpy(newbuff->data(), internal_data->begin(), internal_data->get_size());
+        newbuff->set_size(internal_data->get_size());
+
+        auto* oldbuf = internal_data;
+        internal_data = newbuff;
+
+        adam::buffer_manager::get().return_buffer(oldbuf);
+
+        return true;
+    }
+
+    static inline bool reserve_internal_data(uint32_t size_to_reserve, uint32_t& out_offset, adam::buffer*& internal_data)
+    {
+        if (internal_data->get_remaining_capacity() < size_to_reserve)
+        {
+            if (!resize_internal_data(internal_data->get_size() + size_to_reserve, internal_data))
+                return false;
+        }
+
+        out_offset
+
+        return true;
+    }
+
     static inline bool parse_fspec
     (
         const uint8_t*      raw_data, 
@@ -439,26 +481,20 @@ namespace adam::modules::asterix
         out_offset += sizeof(frame);
 
         uint16_t block_count = 0;
+        uint32_t last_block_offset = 0;
 
         while (raw_offset < raw_length)
         {
             // Block begin
             uint32_t block_start_raw    = raw_offset;
             const auto* raw_block_head  = reinterpret_cast<const raw_block_header*>(raw_data + block_start_raw);
-            if (raw_offset + sizeof(raw_block_header) > raw_length)
-            {
-                adam::buffer_manager::get().return_buffer(internal_data);
-                // Log frame too small
-                return false;
-            }
+
+            if (raw_offset + sizeof(raw_block_header) > raw_length) 
+                return critical_parser_error(internal_data);
 
             uint16_t block_len = raw_block_head->get_length();
-            if (block_len < min_block_length || block_start_raw + block_len > raw_length)
-            {
-                adam::buffer_manager::get().return_buffer(internal_data);
-                // Log Block too small or block too big -> size mismatch
-                return false;
-            }
+            if (block_len < min_block_length || block_start_raw + block_len > raw_length) 
+                return critical_parser_error(internal_data);
 
             raw_offset += sizeof(raw_block_header);
 
@@ -468,11 +504,20 @@ namespace adam::modules::asterix
             block_count++;
 
             // Reserve space for block
-            uint32_t block_off = out_offset;
+            uint32_t block_offset = out_offset;
             out_offset += sizeof(block);
+
+            if (last_block_offset)
+            {
+                auto* last_block = internal_data->at<block>(last_block_offset);
+                last_block->set_has_next();
+            }
+
+            last_block_offset = block_offset;
 
             uint16_t record_count       = 0;
             uint16_t record_items_count = 0;
+            uint32_t last_record_offset = 0;
 
             // Parse records in the block
             while (raw_offset < block_end_raw)
@@ -484,9 +529,8 @@ namespace adam::modules::asterix
             
                 if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns))
                 {
-                    // TODO: FSpec invalid, what now? discard everything? probably only current parsed record
-                    adam::buffer_manager::get().return_buffer(internal_data);
-                    return false;
+                    // Log FSPEC invalid, move to next block
+                    raw_offset = block_end_raw; break;
                 }
 
                 uint8_t fspec_size = static_cast<uint8_t>(raw_offset - record_start_raw);
@@ -496,9 +540,8 @@ namespace adam::modules::asterix
                 const uap* active_uap = raw_rec_head->retrieve_uap(raw_block_head, fspec_size, raw_length);
                 if (!active_uap)
                 {
-                    adam::buffer_manager::get().return_buffer(internal_data);
-                    // Log UAP not available
-                    return false;
+                    // Log UAP not available, move to next block
+                    raw_offset = block_end_raw; break;
                 }
                 
                 // Set possible remaining active_frns to false
@@ -507,17 +550,24 @@ namespace adam::modules::asterix
 
                 if (internal_data->get_capacity() < out_offset + sizeof(record))
                 {
-                    // Out buffer too small for additional record, TODO: resize
-                    adam::buffer_manager::get().return_buffer(internal_data);
-                    return false;
+                    // Out buffer too small for additional record, move to next block
+                    raw_offset = block_end_raw; break;
                 }
 
                 // At this point we have a valid record
                 record_count++;
 
                 // Reserve space for record
-                uint32_t record_off = out_offset;
+                uint32_t record_offset = out_offset;
                 out_offset += sizeof(record);
+
+                if (last_record_offset)
+                {
+                    auto* last_record = internal_data->at<record>(last_record_offset);
+                    last_record->set_has_next();
+                }
+
+                last_record_offset = record_offset;
 
                 // Save the offset where the child items for the current record will be located
                 uint32_t child_items_offset = out_offset + active_uap->get_highest_frn() * sizeof(item);
@@ -543,7 +593,7 @@ namespace adam::modules::asterix
 
                 auto child_count = static_cast<uint16_t>((child_offset - child_items_offset) / sizeof(item));
 
-                auto* cur_rec = internal_data->at<record>(record_off);
+                auto* cur_rec = internal_data->at<record>(record_offset);
                 cur_rec->category   = active_uap->get_cat_number();
                 cur_rec->used_uap   = active_uap->get_name().get_hash();
                 cur_rec->fspec_size = fspec_size;
@@ -555,7 +605,7 @@ namespace adam::modules::asterix
                 record_items_count += cur_rec->item_count;
             }
        
-            auto* cur_blk = internal_data->at<block>(block_off);
+            auto* cur_blk = internal_data->at<block>(block_offset);
             cur_blk->category     = raw_block_head->category;
             cur_blk->raw_length   = block_len;
             cur_blk->raw_offset   = block_start_raw;
@@ -573,4 +623,5 @@ namespace adam::modules::asterix
 
         return true;
     }
+
 }
