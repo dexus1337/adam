@@ -20,6 +20,7 @@ namespace adam::modules::asterix
     static inline bool critical_parser_error(adam::buffer*& internal_data)
     {
         adam::buffer_manager::get().return_buffer(internal_data);
+        internal_data = nullptr;
         return false;
     }
 
@@ -28,7 +29,7 @@ namespace adam::modules::asterix
         auto newcap = internal_data->get_capacity();
 
         while (newcap < new_size_hint)
-            newcap *= 1.5f;
+            newcap = static_cast<uint32_t>(newcap * 1.5f);
         
         auto* newbuff = adam::buffer_manager::get().request_buffer(newcap);
 
@@ -54,7 +55,8 @@ namespace adam::modules::asterix
                 return false;
         }
 
-        out_offset
+        out_offset = internal_data->get_size();
+        internal_data->set_size(out_offset + size_to_reserve);
 
         return true;
     }

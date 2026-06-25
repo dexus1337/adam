@@ -93,6 +93,7 @@ namespace adam
         {
             case data_direction_in:
             {
+                // Populate map for active formats, if anything changed
                 bool formats_updated = m_formats.is_dirty();
                 auto& active_formats = m_formats.get_active();
                 if (formats_updated || m_parse_cache.empty() != active_formats.empty())
@@ -125,11 +126,15 @@ namespace adam
                             internal_data = it->second;
 
                         result &= conn->handle_data(internal_data ? internal_data : buf);
-
-                        if (internal_data)
-                            internal_data->release();
                     }
                 });
+
+                // Release internal format data
+                for (auto& [hash, format] : active_formats)
+                {
+                    if (format->get_parser() && m_parse_cache[hash])
+                        m_parse_cache[hash]->release();
+                }
 
                 break;
             }
