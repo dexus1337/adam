@@ -1636,7 +1636,36 @@ TEST_F(parser_test, parse_full_cat048_message)
 TEST_F(parser_test, benchmark_cat048_parsing)
 {
     std::vector<uint8_t> raw = build_cat048_message();
-    
+
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(static_cast<uint32_t>(raw.size()));
+    adam::buffer* internal_buff = adam::buffer_manager::get().request_buffer(8096);
+    std::memcpy(raw_buf->begin_as<uint8_t>(), raw.data(), raw.size());
+    raw_buf->set_size(static_cast<uint32_t>(raw.size()));
+
+    constexpr int ITERATIONS = 100000;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < ITERATIONS; ++i)
+    {
+        parser.parse(raw_buf, internal_buff);
+        internal_buff->reset();
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+    std::cout << "[          ] Parsed CAT048 message " << ITERATIONS << " times" << std::endl;
+    std::cout << "[          ] Total duration: " << duration / 1000000.0 << " s" << std::endl;
+    std::cout << "[          ] Average time per parse: " << static_cast<double>(duration) / ITERATIONS << " us" << std::endl;
+
+    adam::buffer_manager::get().return_buffer(raw_buf);
+}
+
+TEST_F(parser_test, benchmark_cat048_parsing_with_buffer_requesting)
+{
+    std::vector<uint8_t> raw = build_cat048_message();
+
     adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(static_cast<uint32_t>(raw.size()));
     std::memcpy(raw_buf->begin_as<uint8_t>(), raw.data(), raw.size());
     raw_buf->set_size(static_cast<uint32_t>(raw.size()));

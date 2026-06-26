@@ -17,6 +17,50 @@ namespace adam::modules::asterix
         uint32_t&           child_offset
     );
 
+    static inline uint32_t guess_internal_buffer_size(const uint8_t* raw_data, uint32_t raw_length, uint16_t& bock_count)
+    {
+        // Pre-pass to estimate required capacity based on actual block layouts and record density.
+        // This avoids allocating massive buffers (e.g. 26MB for 64KB inputs) which thrash L1/L2 caches and bypass thread-local caches.
+        uint32_t required_capacity = sizeof(frame);
+        uint32_t scan_offset = 0;
+        bock_count = 0;
+        while (scan_offset < raw_length)
+        {
+            if (scan_offset + sizeof(raw_block_header) > raw_length)
+                break;
+
+            const auto* raw_block_head = reinterpret_cast<const raw_block_header*>(raw_data + scan_offset);
+            uint16_t block_len = raw_block_head->get_length();
+            if (block_len < min_block_length || scan_offset + block_len > raw_length)
+                break;
+
+            bock_count++;
+
+            uint8_t category = raw_block_head->category;
+            const uap* active_uap = uap_pool::get().get_uap(category);
+            uint32_t max_frn = active_uap ? active_uap->get_highest_frn() : 40;
+
+            // Safe educated guess: assume an average minimum record size of 6 bytes (including FSPEC and data).
+            // A record containing data (e.g., DSID + TOD) can almost never be smaller than 6 bytes.
+            uint32_t payload_len = (block_len > sizeof(raw_block_header)) ? (block_len - sizeof(raw_block_header)) : 0;
+            uint32_t est_records = std::max(1u, payload_len / asterix::min_block_length + 1);
+
+            // Reserve space for the record headers, direct UAP items, and 10 extra items per record for compound/explicit children.
+            uint32_t est_items = est_records * (max_frn + 10);
+
+            required_capacity += sizeof(block) + est_records * sizeof(record) + est_items * sizeof(item);
+            scan_offset += block_len;
+        }
+
+        // Safe fallback in case of parsing errors or empty/malformed packets in scan
+        if (required_capacity <= sizeof(frame))
+        {
+            required_capacity = sizeof(frame) + sizeof(block) + sizeof(record) + 40 * sizeof(item);
+        }
+
+        return required_capacity;
+    }
+
     static inline bool critical_parser_error(adam::buffer*& internal_data)
     {
         adam::buffer_manager::get().return_buffer(internal_data);
@@ -24,7 +68,7 @@ namespace adam::modules::asterix
         return false;
     }
 
-    static inline bool resize_internal_data(uint32_t new_size_hint, adam::buffer*& internal_data)
+    static inline bool resize_internal_data(uint32_t new_size_hint, uint32_t old_reserved_size, adam::buffer*& internal_data)
     {
         auto newcap = internal_data->get_capacity();
 
@@ -36,8 +80,7 @@ namespace adam::modules::asterix
         if (!newbuff)
             return false;
 
-        std::memcpy(newbuff->data(), internal_data->begin(), internal_data->get_size());
-        newbuff->set_size(internal_data->get_size());
+        std::memcpy(newbuff->data(), internal_data->begin(), old_reserved_size);
 
         auto* oldbuf = internal_data;
         internal_data = newbuff;
@@ -47,16 +90,15 @@ namespace adam::modules::asterix
         return true;
     }
 
-    static inline bool reserve_internal_data(uint32_t size_to_reserve, uint32_t& out_offset, adam::buffer*& internal_data)
+    static inline bool reserve_internal_data(uint32_t size_to_reserve, uint32_t& out_size, adam::buffer*& internal_data)
     {
-        if (internal_data->get_remaining_capacity() < size_to_reserve)
+        if (out_size + size_to_reserve > internal_data->get_capacity())
         {
-            if (!resize_internal_data(internal_data->get_size() + size_to_reserve, internal_data))
+            if (!resize_internal_data(out_size + size_to_reserve, out_size, internal_data))
                 return false;
         }
 
-        out_offset = internal_data->get_size();
-        internal_data->set_size(out_offset + size_to_reserve);
+        out_size += size_to_reserve;
 
         return true;
     }
@@ -131,6 +173,7 @@ namespace adam::modules::asterix
         // Check raw buffer boundary
         if (raw_offset + spec.data_size > raw_length) return false;
 
+        // Internal data offset already reserved, no need to check
         auto itm = internal_data->at<item>(out_offset);
 
         itm->type           = item_type_fixed;
@@ -165,6 +208,7 @@ namespace adam::modules::asterix
         }
         uint16_t total_len = static_cast<uint16_t>(raw_offset - raw_start_offset);
 
+        // Internal data offset already reserved, no need to check
         auto itm = internal_data->at<item>(out_offset);
 
         itm->type           = item_type_variable;
@@ -208,6 +252,7 @@ namespace adam::modules::asterix
 
         raw_offset += rep_size;
         
+        // Internal data offset already reserved, no need to check
         auto itm = internal_data->at<item>(out_offset);
 
         itm->type           = item_type_repetetive;
@@ -235,15 +280,14 @@ namespace adam::modules::asterix
         uint32_t items_size     = cur_uap->get_highest_frn() * sizeof(item);
 
         // Reserve Space for items
-        out_offset += items_size;
+        if (!reserve_internal_data(items_size, out_offset, internal_data)) return false;
 
         // Zero out all items
         std::memset(internal_data->at<item>(start_out_off), 0, items_size); // I tested only setting the populated bit, but the memset was actually faster. So yea zero everything
 
         for (uint8_t i = 1; i <= cur_uap->get_highest_frn(); ++i)
         {
-            if (!active_child_frns[i])
-                continue;
+            if (!active_child_frns[i]) continue;
 
             uint32_t cur_item_offset = start_out_off + ((i-1) * sizeof(item));
 
@@ -304,8 +348,7 @@ namespace adam::modules::asterix
 
         if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns)) return false;
         
-        // Reserve Space for item + child items
-        out_offset += sizeof(item);
+        // Save child offset
         uint32_t child_items_offset = child_offset + spec.sub_uap->get_highest_frn() * sizeof(item);
 
         if (!parse_children
@@ -323,8 +366,10 @@ namespace adam::modules::asterix
             return false;
             // TODO what now? log
         }
+
         child_offset = child_items_offset;
 
+        // Internal data offset already reserved, no need to check
         auto* itm = internal_data->at<item>(item_start_offset);
         itm->type           = item_type_compound;
         itm->raw_offset     = raw_item_start_offset;
@@ -347,14 +392,14 @@ namespace adam::modules::asterix
         uint32_t item_start_offset      = out_offset;
         uint32_t raw_item_start_offset  = raw_offset;
 
-        if (raw_offset >= raw_length) return false;
+        // Check if length byte is out of buffer
+        if (raw_offset + 1 >= raw_length) return false;
 
+        // Check if supplied lenth is beyond buffer
         uint8_t explicit_len = raw_data[raw_offset]; // length includes this byte
         if (raw_offset + explicit_len > raw_length) return false;
 
-        // Reserve Space for item
-        out_offset += sizeof(item);
-
+        // Internal data offset already reserved, no need to check
         auto* itm = internal_data->at<item>(item_start_offset);
         itm->type           = item_type_explicit;
         itm->raw_offset     = raw_item_start_offset;
@@ -431,50 +476,20 @@ namespace adam::modules::asterix
         if (!buf) return false;
 
         // First of all, we expect only whole blocks in here, so make sure to use a destreamer ahead of this parser
-        uint32_t raw_length = buf->get_size();
-        const uint8_t* raw_data = buf->get_begin_as<uint8_t>();
 
-        // Pre-pass to estimate required capacity based on actual block layouts and record density.
-        // This avoids allocating massive buffers (e.g. 26MB for 64KB inputs) which thrash L1/L2 caches and bypass thread-local caches.
-        uint32_t required_capacity = sizeof(frame);
-        uint32_t scan_offset = 0;
-        while (scan_offset < raw_length)
+        // Guess the internal buffer size
+        auto        raw_data    = buf->get_begin_as<const uint8_t>();
+        auto        raw_length  = buf->get_size();
+        uint16_t    block_count = 0;
+
+        if (!internal_data)
         {
-            if (scan_offset + sizeof(raw_block_header) > raw_length)
-                break;
+            auto internal_buffer_size = guess_internal_buffer_size(raw_data, raw_length, block_count);
 
-            const auto* raw_block_head = reinterpret_cast<const raw_block_header*>(raw_data + scan_offset);
-            uint16_t block_len = raw_block_head->get_length();
-            if (block_len < min_block_length || scan_offset + block_len > raw_length)
-                break;
-
-            uint8_t category = raw_block_head->category;
-            const uap* active_uap = uap_pool::get().get_uap(category);
-            uint32_t max_frn = active_uap ? active_uap->get_highest_frn() : 40;
-
-            // Safe educated guess: assume an average minimum record size of 6 bytes (including FSPEC and data).
-            // A record containing data (e.g., DSID + TOD) can almost never be smaller than 6 bytes.
-            uint32_t payload_len = (block_len > sizeof(raw_block_header)) ? (block_len - sizeof(raw_block_header)) : 0;
-            uint32_t est_records = std::max(1u, payload_len / asterix::min_block_length + 1);
-
-            // Reserve space for the record headers, direct UAP items, and 10 extra items per record for compound/explicit children.
-            uint32_t est_items = est_records * (max_frn + 10);
-
-            required_capacity += sizeof(block) + est_records * sizeof(record) + est_items * sizeof(item);
-            scan_offset += block_len;
+            internal_data = adam::buffer_manager::get().request_buffer(internal_buffer_size);
+            if (!internal_data) return false;
         }
-
-        // Safe fallback in case of parsing errors or empty/malformed packets in scan
-        if (required_capacity <= sizeof(frame))
-        {
-            required_capacity = sizeof(frame) + sizeof(block) + sizeof(record) + 40 * sizeof(item);
-        }
-
-        internal_data = adam::buffer_manager::get().request_buffer(required_capacity);
-        if (!internal_data) return false;
-
-        internal_data->set_referenced_buffer(buf);
-
+        
         uint32_t raw_offset = 0;
         uint32_t out_offset = 0;
 
@@ -482,7 +497,6 @@ namespace adam::modules::asterix
         uint32_t frame_off = out_offset;
         out_offset += sizeof(frame);
 
-        uint16_t block_count = 0;
         uint32_t last_block_offset = 0;
 
         while (raw_offset < raw_length)
@@ -502,12 +516,11 @@ namespace adam::modules::asterix
 
             uint32_t block_end_raw = block_start_raw + block_len;
 
-            // At this point we have a valid block
-            block_count++;
+            // At this point we have a valid block. No need to count blocks (for now) since we already did that in the guess_internal_buffer_size function
 
             // Reserve space for block
             uint32_t block_offset = out_offset;
-            out_offset += sizeof(block);
+            if (!reserve_internal_data(sizeof(block), out_offset, internal_data)) return false;
 
             if (last_block_offset)
             {
@@ -561,7 +574,7 @@ namespace adam::modules::asterix
 
                 // Reserve space for record
                 uint32_t record_offset = out_offset;
-                out_offset += sizeof(record);
+                if (!reserve_internal_data(sizeof(record), out_offset, internal_data)) return false;
 
                 if (last_record_offset)
                 {
@@ -622,6 +635,7 @@ namespace adam::modules::asterix
         cur_frame->reserved    = 0;
         
         internal_data->set_size(out_offset);
+        internal_data->set_referenced_buffer(buf);
 
         return true;
     }

@@ -18,6 +18,7 @@
 #include <chrono>
 
 #include "memory/buffer/buffer-manager.hpp"
+#include "module/internals/essential/data/formats/data-format-transparent.hpp"
 #include "types/string-hashed.hpp"
 #include "data/format.hpp"
 #include "os/os.hpp"
@@ -98,6 +99,7 @@ namespace adam
         inline void* data()                            { return data_as<void>(); }
         inline void* begin()                           { return begin_as<uint8_t>(); }
         inline void* end()                             { return end_as<uint8_t>(); }
+        inline void reset()                            { m_header->size = 0; m_header->start_pos = 0; m_header->timestamp = 0; m_header->data_format_hash = data_format_transparent.get_name(); m_header->reference.set_invalid(); }
         inline void set_size(uint32_t size)            { m_header->size = size; }
         inline void set_start_pos(uint32_t pos)        { m_header->start_pos = pos; }
         inline void move_start_pos(uint32_t offset)    { m_header->start_pos += offset; m_header->size -= offset; }
