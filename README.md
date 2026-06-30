@@ -191,6 +191,37 @@ Parsed Metadata Overlay Buffer (Internal Data Buffer)
 
 ---
 
+### 6. Registry Configuration Subsystem
+ADAM implements a robust and fast binary configuration serialization format to save and restore the complete system topology including general options, loaded modules, ports, processors, and routing connections.
+
+```mermaid
+graph TD
+    subgraph Serialization["Configuration File (*.bin)"]
+        Magic[Magic Header: 0xADACF116] --> SDKVer[SDK Version Info]
+        SDKVer --> CfgHeader[Config Header: Name, Desc, Created, Modified, Object Counts]
+        CfgHeader --> RootParam[Root Parameter List]
+        RootParam --> GenParams[1. General Parameters]
+        RootParam --> PortParams[2. Ports Parameters]
+        RootParam --> ProcParams[3. Processors Parameters]
+        RootParam --> ConnParams[4. Connections Parameters]
+        RootParam --> ModParams[5. Loaded Modules]
+    end
+```
+
+* **Binary Serialization Header**: Every configuration file starts with a standardized header block containing:
+  * **Magic Identifier**: A 4-byte magic signature (`0xADACF116`).
+  * **SDK Version**: A semantic version representation to ensure backward and forward compatibility.
+  * **Configuration Metadata**: High-level details including a friendly `name`, `description`, creation/modification timestamps, and total object counts (ports, processors, connections) to allow quick parsing during configuration scanning.
+* **Registry Configuration Manager (`registry_configuration_manager`)**: Manages the dynamic lookup of configuration paths and files. It implements:
+  * **Configuration Directory Scanning**: Scans all registered config path directories, reads binary headers, and returns structured configuration summaries without loading the entire configuration tree.
+  * **Runtime Importing/Exporting**: Saves the current active configuration to, or imports a saved configuration from, directory storage.
+* **Graceful Missing Dependency Recovery (Unavailability Caching)**: When a configuration references modules, ports, or processors that are currently missing or cannot be loaded (e.g., when a module DLL has not been deployed to the module directory):
+  * Instead of failing the import, the `registry` intercepts these missing dependencies and moves them into dedicated **unavailable registry maps** (`m_unavailable_ports`, `m_unavailable_processors`, `m_unavailable_connections`).
+  * These records cache all parameter options and connection references.
+  * If the missing module is later successfully scanned and loaded, the registry automatically triggers a retry, instantiates the missing elements, recovers their saved settings, and updates the active connections seamlessly.
+
+---
+
 ## 🧩 Modules (Plugins)
 
 ADAM modules can be integrated in two ways:
