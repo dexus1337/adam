@@ -99,9 +99,15 @@ namespace adam
         m_internal_context{ 0, m_registry, *this, m_internal_responses }
     {
         m_lang_param = static_cast<configuration_parameter_integer*>(m_registry.get_parameters().get("language"_ct));
+
+        // Force early initialization of static translations map in dispatcher to ensure it is destroyed after the controller
+        controller_cmd_dispatcher::get_log_event_text(static_cast<controller_cmd_dispatcher::log_event>(0), static_cast<language>(0));
     }
 
-    controller::~controller() {}
+    controller::~controller() 
+    {
+        destroy();
+    }
 
     command_context* controller::get_command_ctx() const
     {

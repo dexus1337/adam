@@ -56,6 +56,7 @@ namespace adam
     class ADAM_SDK_API controller_cmd_dispatcher
     {
     public:
+    
         enum log_event
         {
             language_changed,

@@ -1595,17 +1595,9 @@ namespace adam
             }
 
             buf->set_size(off);
-
-            if (it->second->handle_data(buf, params->direction))
-            {
-                debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_injected, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
-                ctx.set_single_response_status(response_status::success);
-            }
-            else
-            {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
-                ctx.set_single_response_status(response_status::failed);
-            }
+            it->second->handle_data(buf, params->direction);
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_injected, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            ctx.set_single_response_status(response_status::success);
 
             buf->release();
         });

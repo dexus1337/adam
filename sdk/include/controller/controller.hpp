@@ -155,7 +155,7 @@ namespace adam
         controller();
 
         /** @brief Destroys the controller object and cleans up resources.*/
-        ~controller();
+        virtual ~controller();
 
         // COMMAND MANAGEMENT
 

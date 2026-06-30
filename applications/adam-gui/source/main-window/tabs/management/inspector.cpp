@@ -294,6 +294,7 @@ namespace adam::gui
                         ImGui::TableNextRow();
 
                         ImGui::TableSetColumnIndex(0);
+                        ImGui::SetNextItemOpen(expanded_nodes.count(actual_index) > 0);
                         bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow, "");
 
                         ImGui::TableSetColumnIndex(1);
@@ -339,6 +340,7 @@ namespace adam::gui
                     ImGui::TableNextRow();
 
                     ImGui::TableSetColumnIndex(0);
+                    ImGui::SetNextItemOpen(expanded_nodes.count(actual_index) > 0);
                     bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen, "");
 
                     ImGui::TableSetColumnIndex(1);

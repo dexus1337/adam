@@ -13,3 +13,17 @@
         }
     ]
 }*/
+
+/*{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "cwd": "${command:cmake.launchTargetDirectory}",
+            "console": "externalTerminal",
+        }
+    ]
+}*/
