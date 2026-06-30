@@ -34,12 +34,12 @@ graph TD
 
     subgraph Plugins["Dynamic / Statically Linked Modules"]
         direction LR
-        essential[essential (Static)]
-        recrep[Replay & Record]
-        asterix[ASTERIX Parser/Encoder]
-        can[CAN Bus]
-        network[Network Port]
-        serial[Serial Port]
+        essential["essential (Static)"]
+        recrep["Replay & Record"]
+        asterix["ASTERIX Parser/Encoder"]
+        can["CAN Bus"]
+        network["Network Port"]
+        serial["Serial Port"]
     end
 
     subgraph Clients["Client Applications"]
