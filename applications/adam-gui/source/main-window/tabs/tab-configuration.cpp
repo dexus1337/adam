@@ -33,22 +33,22 @@ namespace adam::gui
         static bool initial_sync = true;
         if (initial_sync && commander_active)
         {
-            std::strncpy(save_name, ctrl.commander().get_config_name().c_str(), sizeof(save_name) - 1);
+            std::strncpy(save_name, ctrl.commander().configs().get_name().c_str(), sizeof(save_name) - 1);
             save_name[sizeof(save_name) - 1] = '\0';
-            std::strncpy(save_desc, ctrl.commander().get_config_description().c_str(), sizeof(save_desc) - 1);
+            std::strncpy(save_desc, ctrl.commander().configs().get_description().c_str(), sizeof(save_desc) - 1);
             save_desc[sizeof(save_desc) - 1] = '\0';
             initial_sync = false;
         }
 
         float content_w = ImGui::GetContentRegionAvail().x;
-        float panel_height = ImGui::GetContentRegionAvail().y * 0.35f;
+        float panel_height = ImGui::GetContentRegionAvail().y * 0.333f;
         if (panel_height < 220.0f * dpi_scale) panel_height = 220.0f * dpi_scale;
         
         float half_w = (content_w - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
         float btn_h = ImGui::GetFrameHeight() * 1.5f;
 
         // --- LEFT PANEL (Paths) ---
-        ImGui::BeginChild("##LeftPathPanel", ImVec2(half_w, panel_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::BeginChild("##LeftPathPanel", ImVec2(half_w, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_configuration_paths, lang));
         ImGui::Separator();
@@ -57,7 +57,7 @@ namespace adam::gui
                                        ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_add_path, adam::language_german)).x) + ImGui::GetStyle().FramePadding.x * 2.0f;
 
         if (!commander_active) ImGui::BeginDisabled();
-        static char new_path[384] = "";
+        static char new_path[adam::max_path_length] = "";
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - btn_add_width - ImGui::GetStyle().ItemSpacing.x);
         ImGui::InputTextWithHint("##NewConfigPath", get_gui_string(gui_string_id::ph_new_path, lang), new_path, sizeof(new_path));
         ImGui::SameLine();
@@ -82,10 +82,7 @@ namespace adam::gui
         ImGui::Spacing();
         
         // Calculate remaining table height to prevent overlap with scan button
-        float table_h = panel_height - ImGui::GetCursorPosY() - btn_h - ImGui::GetStyle().ItemSpacing.y - ImGui::GetStyle().WindowPadding.y * 2.0f;
-        if (table_h < 60.0f * dpi_scale) table_h = 60.0f * dpi_scale;
-        
-        if (ImGui::BeginTable("ConfigPathsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, table_h)))
+        if (ImGui::BeginTable("ConfigPathsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, ImGui::GetContentRegionAvail().y - btn_h - ImGui::GetStyle().ItemSpacing.y * 2.0f)))
         {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_index, lang), ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("99").x);
@@ -127,9 +124,10 @@ namespace adam::gui
             ImGui::EndTable();
         }
         
-        // Scan button at the bottom of the left child window
-        ImGui::SetCursorPosY(panel_height - btn_h - ImGui::GetStyle().WindowPadding.y);
+        ImGui::Spacing();
         
+        float bottom_section_y = ImGui::GetCursorPosY();
+
         if (!commander_active) ImGui::BeginDisabled();
         if (ImGui::Button(get_gui_string(gui_string_id::btn_scan_configs, lang), ImVec2(-1.0f, btn_h)))
         {
@@ -145,7 +143,7 @@ namespace adam::gui
         ImGui::SameLine();
         
         // --- RIGHT PANEL (Export Metadata) ---
-        ImGui::BeginChild("##RightMetadataPanel", ImVec2(half_w, panel_height), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::BeginChild("##RightMetadataPanel", ImVec2(half_w, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_config_settings, lang));
         ImGui::Separator();
@@ -177,6 +175,8 @@ namespace adam::gui
         
         float right_btn_w = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
         
+        ImGui::SetCursorPosY(bottom_section_y);
+        
         if (ImGui::Button(get_gui_string(gui_string_id::btn_save, lang), ImVec2(right_btn_w, btn_h)))
         {
             ctrl.enqueue_commander_action([&ctrl, name = std::string(save_name), desc = std::string(save_desc)]() 
@@ -196,8 +196,11 @@ namespace adam::gui
         if (!commander_active) ImGui::EndDisabled();
         
         ImGui::EndChild();
-
         ImGui::Spacing();
+        ImGui::Separator();
+        
+        ImGui::Spacing();
+        
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_available_configurations, lang));
         ImGui::Spacing();
         

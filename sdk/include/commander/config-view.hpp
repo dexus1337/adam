@@ -47,6 +47,12 @@ namespace adam
         const map_available_configs&        get_available() const { return m_available_configs; }
         const std::vector<string_hashed>&   get_paths()     const { return m_paths; }
 
+        std::string&                        name()                { return m_name; }
+        std::string&                        description()         { return m_description; }
+
+        const std::string&                  get_name()      const { return m_name; }
+        const std::string&                  get_description() const { return m_description; }
+
         void lock()   const { spinlock::acquire(m_lock); }
         void unlock() const { spinlock::release(m_lock); }
 
@@ -55,6 +61,8 @@ namespace adam
     private:
         map_available_configs       m_available_configs;
         std::vector<string_hashed>  m_paths;
+        std::string                 m_name;
+        std::string                 m_description;
         mutable std::atomic_flag    m_lock = ATOMIC_FLAG_INIT;
     };
 }

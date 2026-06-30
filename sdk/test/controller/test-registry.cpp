@@ -69,6 +69,13 @@ namespace adam::test
         {
             m_processor_factories[type_name] = adam::registry::factory_data_processor(factory_ptr, nullptr, input_format, input_format_module, output_format, output_format_module);
         }
+
+        void clear()
+        {
+            m_data_formats.clear();
+            m_processor_factories.clear();
+            m_port_factories.clear();
+        }
     };
 
     adam::test::mock_module mock_mod("mock_mod"_ct);
@@ -151,6 +158,7 @@ namespace adam::test
     };
 
     static mock_processor_factory global_mock_proc_factory;
+    static mock_processor_factory global_mock_converter_factory("mock-converter"_ct, "mock_mod"_ct);
 }
 
 class registry_test : public ::testing::Test
@@ -175,6 +183,7 @@ protected:
         if (std::filesystem::exists(adam_config_filepath))
             std::filesystem::remove(adam_config_filepath);
         adam::buffer_manager::get().destroy();
+        adam::test::mock_mod.clear();
     }
 };
 
@@ -221,6 +230,7 @@ TEST_F(registry_test, save_modify_reload_verify)
     active_param->set_value(false);
 
     // 4. Reload from the binary file into a fresh registry to verify persistence
+    ctrl.destroy();
     adam::test::local_controller loaded_ctrl;
     adam::registry& loaded_reg = loaded_ctrl.get_registry();
     EXPECT_TRUE(loaded_reg.load(test_filepath));
@@ -242,6 +252,8 @@ TEST_F(registry_test, save_modify_reload_verify)
     auto* loaded_active_param = static_cast<adam::configuration_parameter_boolean*>(loaded_port->get_parameters().get("started"_ct));
     ASSERT_NE(loaded_active_param, nullptr);
     EXPECT_EQ(loaded_active_param->get_value(), true);
+
+    loaded_ctrl.destroy();
 }
 
 /** @brief Tests that file I/O operations fail gracefully with bad paths or invalid file formats. */
@@ -337,6 +349,8 @@ TEST_F(registry_test, port_type_and_module_persistence)
 
     EXPECT_TRUE(reg.save(test_filepath));
 
+    ctrl.destroy();
+
     adam::test::local_controller loaded_ctrl;
     adam::registry& loaded_reg = loaded_ctrl.get_registry();
     EXPECT_TRUE(loaded_reg.load(test_filepath));
@@ -349,6 +363,8 @@ TEST_F(registry_test, port_type_and_module_persistence)
     auto* loaded_type_param = static_cast<adam::configuration_parameter_string*>(loaded_port->get_parameters().get("type"_ct));
     ASSERT_NE(loaded_type_param, nullptr);
     EXPECT_EQ(loaded_type_param->get_value(), adam::port_internal::type_name());
+    
+    loaded_ctrl.destroy();
 }
 
 /** @brief Tests adding and removing module paths in the registry. */
@@ -435,6 +451,7 @@ TEST_F(registry_test, unavailable_port_retry)
     // 3. Save and reload to ensure it persists
     EXPECT_TRUE(reg.save(test_filepath));
     
+    ctrl.destroy();
     adam::test::local_controller loaded_ctrl;
     adam::registry& loaded_reg = loaded_ctrl.get_registry();
     EXPECT_TRUE(loaded_reg.load(test_filepath));
@@ -476,6 +493,8 @@ TEST_F(registry_test, unavailable_port_retry)
             EXPECT_EQ(inputs[0]->get_name(), "test_retry_port"_ct);
         }
     });
+
+    loaded_ctrl.destroy();
 }
 
 /** @brief Tests valid_chain calculation on connections based on formats and ports. */
@@ -622,6 +641,7 @@ TEST_F(registry_test, unavailable_processor_retry)
     // 3. Save and reload to ensure it persists
     EXPECT_TRUE(reg.save(test_filepath));
     
+    ctrl.destroy();
     adam::test::local_controller loaded_ctrl;
     adam::registry& loaded_reg = loaded_ctrl.get_registry();
     EXPECT_TRUE(loaded_reg.load(test_filepath));
@@ -631,7 +651,7 @@ TEST_F(registry_test, unavailable_processor_retry)
     EXPECT_EQ(loaded_reg.processors().size(), 0u);
     
     // 4. Now let's register the mock module and retry/resolve the processor
-    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_proc_factory);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_converter_factory);
     adam::test::mock_module_injector injector(loaded_reg, &adam::test::mock_mod);
     
     loaded_reg.retry_unavailable_processors("mock_mod"_ct.get_hash());
@@ -652,63 +672,79 @@ TEST_F(registry_test, unavailable_processor_retry)
             EXPECT_EQ(procs[0]->get_name(), "my_unavail_proc"_ct);
         }
     });
+
+    loaded_ctrl.destroy();
 }
 
 /** @brief Tests marking and retrying unavailable processors. */
 TEST_F(registry_test, unavailable_processors)
 {
+    std::cout << "[DEBUG] Starting unavailable_processors test" << std::endl;
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
+    std::cout << "[DEBUG] Controller and registry retrieved" << std::endl;
 
     // 1. Setup mock module with mock processor
 
     adam::test::mock_mod.register_data_format("fmt1"_ct, &adam::test::dummy_fmt1);
     adam::test::mock_mod.register_data_format("fmt2"_ct, &adam::test::dummy_fmt2);
+    std::cout << "[DEBUG] Formats registered on mock_mod" << std::endl;
 
-    adam::test::mock_processor_factory mock_proc_factory("mock-converter"_ct, "mock_mod"_ct);
-    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory, adam::test::dummy_fmt1.get_name(), adam::test::mock_mod.get_name().get_hash(), adam::test::dummy_fmt2.get_name(), adam::test::mock_mod.get_name().get_hash());
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_converter_factory, adam::test::dummy_fmt1.get_name(), adam::test::mock_mod.get_name().get_hash(), adam::test::dummy_fmt2.get_name(), adam::test::mock_mod.get_name().get_hash());
     adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
+    std::cout << "[DEBUG] Processor factory registered and injector created" << std::endl;
 
     // 2. Create input port, output port, processor, and connection
     adam::port* in_port = nullptr;
     adam::port* out_port = nullptr;
     EXPECT_EQ(reg.create_port("in_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &in_port), adam::registry::status_success);
     EXPECT_EQ(reg.create_port("out_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &out_port), adam::registry::status_success);
+    std::cout << "[DEBUG] Ports created" << std::endl;
 
     adam::processor* proc = nullptr;
     EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
+    std::cout << "[DEBUG] Processor created" << std::endl;
 
     adam::connection* conn = nullptr;
     EXPECT_EQ(reg.create_connection("conn1"_ct, &conn), adam::registry::status_success);
     ASSERT_NE(conn, nullptr);
+    std::cout << "[DEBUG] Connection created" << std::endl;
 
     conn->set_input_format(&adam::test::dummy_fmt1);
     conn->set_output_format(&adam::test::dummy_fmt2);
+    std::cout << "[DEBUG] Formats set on connection" << std::endl;
 
     // 3. Link them to the connection
     EXPECT_EQ(reg.connection_add_port("conn1"_ct.get_hash(), "in_port"_ct.get_hash(), true), adam::registry::status_success);
     EXPECT_EQ(reg.connection_add_port("conn1"_ct.get_hash(), "out_port"_ct.get_hash(), false), adam::registry::status_success);
+    std::cout << "[DEBUG] Ports added to connection" << std::endl;
     
     // Without the processor, chain should be invlaid;
     EXPECT_FALSE(conn->check_valid_chain());
+    std::cout << "[DEBUG] First check_valid_chain passed" << std::endl;
 
     EXPECT_EQ(reg.connection_add_processor("conn1"_ct.get_hash(), "proc1"_ct.get_hash()), adam::registry::status_success);
+    std::cout << "[DEBUG] Processor added to connection" << std::endl;
 
     // Now, the data chain should be valid
     EXPECT_TRUE(conn->check_valid_chain());
+    std::cout << "[DEBUG] Second check_valid_chain passed" << std::endl;
 
     // 4. Start the connection
     EXPECT_TRUE(conn->start());
     EXPECT_TRUE(conn->is_started());
+    std::cout << "[DEBUG] Connection started" << std::endl;
 
     // 5. Mark the processor unavailable (unload the mock module)
     reg.mark_processors_unavailable("mock_mod"_ct.get_hash());
+    std::cout << "[DEBUG] Processors marked unavailable" << std::endl;
 
     // 6. Verify processor was moved to unavailable, connection stops, and connection chain is invalid
     EXPECT_FALSE(reg.processors().contains("proc1"_ct));
     EXPECT_TRUE(reg.get_unavailable_processors().contains("proc1"_ct.get_hash()));
     EXPECT_FALSE(conn->check_valid_chain()); // chain should be invalid because of unavailable processor
+    std::cout << "[DEBUG] Processor unavailability verified" << std::endl;
 
     // Double buffer should no longer contain the processor
     conn->processors().iterate([&](const auto& procs) 
@@ -739,6 +775,8 @@ TEST_F(registry_test, unavailable_processors)
         }
     });
     EXPECT_TRUE(conn->unavailable_processors().empty());
+
+    ctrl.destroy();
 }
 
 
@@ -870,8 +908,7 @@ TEST_F(registry_test, destroy_processor_updates_connections)
 /** @brief Tests processor serialization (saving and loading) and ordering works correctly. */
 TEST_F(registry_test, processor_load_save_persistence)
 {
-    adam::test::mock_processor_factory mock_proc_factory("mock-converter"_ct, "mock_mod"_ct);
-    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &mock_proc_factory);
+    adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_converter_factory);
 
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
@@ -893,6 +930,7 @@ TEST_F(registry_test, processor_load_save_persistence)
     EXPECT_TRUE(reg.save(test_filepath));
 
     // Load from binary in a fresh registry
+    ctrl.destroy();
     adam::test::local_controller loaded_ctrl;
     adam::registry& loaded_reg = loaded_ctrl.get_registry();
     
@@ -944,6 +982,8 @@ TEST_F(registry_test, processor_load_save_persistence)
     EXPECT_EQ(order[0], "0"_ct.get_hash());
     EXPECT_EQ(order[1], "1"_ct.get_hash());
     EXPECT_EQ(order[2], "2"_ct.get_hash());
+
+    loaded_ctrl.destroy();
 }
 
 /** @brief Tests manual processor reordering inside a connection. */

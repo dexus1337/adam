@@ -214,9 +214,6 @@ namespace adam
         config_view& configs() { return m_config_view; }
         const config_view& get_configs() const { return m_config_view; }
 
-        const std::string& get_config_name() const { return m_config_name; }
-        const std::string& get_config_description() const { return m_config_description; }
-
         /** @brief Retrieves a reference to the local registry view. */
         registry_view& registry() { return m_registry_view; }
         const registry_view& get_registry() const { return m_registry_view; }
@@ -260,9 +257,6 @@ namespace adam
         registry_view m_registry_view; /**< Local view of the controller's registry components */
         module_view   m_module_view;   /**< Local view of the controller's modules */
         config_view   m_config_view;   /**< Local view of the controller's configs */
-        
-        std::string   m_config_name;
-        std::string   m_config_description;
         
         std::vector<command>  m_command_buffer;  /**< Reusable buffer for building commands */
         std::vector<response> m_response_buffer; /**< Reusable buffer for receiving responses */

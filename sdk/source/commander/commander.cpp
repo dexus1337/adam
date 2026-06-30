@@ -186,8 +186,11 @@ namespace adam
         auto* head = resp->data_as<messages::initial_data_header>();
 
         m_lang = head->lang_info;
-        m_config_name = head->cfg_info.name;
-        m_config_description = head->cfg_info.description;
+        {
+            std::lock_guard<const config_view> lg(m_config_view);
+            m_config_view.name() = head->cfg_info.name;
+            m_config_view.description() = head->cfg_info.description;
+        }
 
         std::lock_guard<const module_view> lg(m_module_view);
 
@@ -1250,5 +1253,7 @@ namespace adam
         std::lock_guard<const config_view> lg(*this);
         m_available_configs.clear();
         m_paths.clear();
+        m_name.clear();
+        m_description.clear();
     }
 }

@@ -27,7 +27,18 @@ namespace adam::gui
         int modules_table_id
     )
     {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+
         bool commander_active = ctrl.is_commander_active();
+        
+        float content_w = ImGui::GetContentRegionAvail().x;
+        float panel_height = ImGui::GetContentRegionAvail().y * 0.333f;
+        if (panel_height < 220.0f * dpi_scale) panel_height = 220.0f * dpi_scale;
+        
+        float btn_h = ImGui::GetFrameHeight() * 1.5f;
+
+        // --- TOP PANEL (Paths + Settings) ---
+        ImGui::BeginChild("##TopPanel", ImVec2(content_w, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_module_paths, lang));
         ImGui::Separator();
@@ -61,9 +72,8 @@ namespace adam::gui
         
         ImGui::Spacing();
         
-        float top_height = ImGui::GetContentRegionAvail().y * 0.333f;
         ImGui::PushID(module_paths_table_id);
-        if (ImGui::BeginTable("ModulePathsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, top_height)))
+        if (ImGui::BeginTable("ModulePathsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, ImGui::GetContentRegionAvail().y - btn_h - ImGui::GetStyle().ItemSpacing.y * 2.0f)))
         {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_index, lang), ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("99").x);
@@ -105,7 +115,7 @@ namespace adam::gui
             ImGui::EndTable();
         }
         ImGui::PopID();
-        
+
         ImGui::Spacing();
         
         if (!commander_active) ImGui::BeginDisabled();
@@ -121,6 +131,10 @@ namespace adam::gui
         }
         if (!commander_active) ImGui::EndDisabled();
             
+        ImGui::EndChild();
+        ImGui::Spacing();
+        ImGui::Separator();
+        
         ImGui::Spacing();
         
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_modules, lang));

@@ -293,7 +293,8 @@ namespace adam
         enum destroy_state
         {
             destroy_state_none = 0,
-            destroy_state_in_progress
+            destroy_state_in_progress,
+            destroy_state_done
         };
 
         std::mutex              m_destroy_mutex;

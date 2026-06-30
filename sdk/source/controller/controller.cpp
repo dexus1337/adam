@@ -123,6 +123,11 @@ namespace adam
 
     bool controller::run(bool async)
     {
+        {
+            std::lock_guard<std::mutex> lock(m_destroy_mutex);
+            m_destroy_state = destroy_state_none;
+        }
+
         this->log(log::info, get_log_event_text(log_event::adam_started, get_language()));
 
         if (!buffer_manager::get().initialize())
@@ -167,6 +172,10 @@ namespace adam
         if (m_destroy_state == destroy_state_in_progress)
         {
             m_destroy_cv.wait(lock, [this] { return m_destroy_state != destroy_state_in_progress; });
+            return true;
+        }
+        if (m_destroy_state == destroy_state_done)
+        {
             return true;
         }
 
@@ -240,7 +249,7 @@ namespace adam
         buffer_manager::get().destroy();
 
         lock.lock();
-        m_destroy_state = destroy_state_none;
+        m_destroy_state = destroy_state_done;
         lock.unlock();
         m_destroy_cv.notify_all();
         
