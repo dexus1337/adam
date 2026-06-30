@@ -9,8 +9,10 @@ namespace adam::modules::asterix::cat048
     // Forward declarations for sub-UAPs so the main UAPs can sit at the top
     extern uap cat048_130_uap;
     extern uap cat048_120_uap;
-    
+
+    // -------------------------------------------------------------------------------------------------------------- //
     // Main UAP for CAT048
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_items = std::to_array<const field_spec> 
     ({
         // FSPEC Byte 1
@@ -47,12 +49,14 @@ namespace adam::modules::asterix::cat048
         { 25, item_type_fixed,       0,      1, "I048/065 Mode-1 Code Confidence Indicator"                            },
         { 26, item_type_fixed,       0,      2, "I048/060 Mode-2 Code Confidence Indicator"                            },
         { 27, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
-        { 28, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()}
+        { 28, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()},
     });
 
-    uap cat048_uap(48, "CAT048 1.32"_ct, cat048_items.data(), cat048_items.size());
+    uap cat048_uap(48, "CAT048 " CAT048_VERSION ""_ct, cat048_items.data(), cat048_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I048/130 Radar Plot Characteristics (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_130_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "SRL - SSR Plot Runlength"                                             },
@@ -61,19 +65,21 @@ namespace adam::modules::asterix::cat048
         {  4, item_type_fixed,       0,      1, "PRL - Primary Plot Runlength"                                         },
         {  5, item_type_fixed,       0,      1, "PAM - Amplitude of Primary Plot"                                      },
         {  6, item_type_fixed,       0,      1, "RDP - Difference in Range"                                            },
-        {  7, item_type_fixed,       0,      1, "SPI - Special Position Identification"                                }
+        {  7, item_type_fixed,       0,      1, "SPI - Special Position Identification"                                },
     });
 
-    uap cat048_130_uap(48, "CAT048 I048/130 1.32"_ct,  cat048_130_items.data(), cat048_130_items.size());
+    uap cat048_130_uap(48, "CAT048 I048/130 " CAT048_VERSION ""_ct,  cat048_130_items.data(), cat048_130_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I048/120 Radial Doppler Speed (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_120_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      2, "CAL - Calculated Doppler Speed"                                       },
-        {  2, item_type_repetetive,  1,      6, "RDS - Raw Doppler Speed"                                              }
+        {  2, item_type_repetetive,  1,      6, "RDS - Raw Doppler Speed"                                              },
     });
 
-    uap cat048_120_uap(48, "CAT048 I048/120 1.32"_ct,  cat048_120_items.data(), cat048_120_items.size());
+    uap cat048_120_uap(48, "CAT048 I048/120 " CAT048_VERSION ""_ct,  cat048_120_items.data(), cat048_120_items.size());
 
     uap& get_uap()
     {

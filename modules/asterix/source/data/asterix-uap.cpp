@@ -1,5 +1,8 @@
 #include "data/asterix-uap.hpp"
 #include "data/categories/001/cat001-uap.hpp"
+#include "data/categories/007/cat007-uap.hpp"
+#include "data/categories/021/cat021-uap.hpp"
+#include "data/categories/034/cat034-uap.hpp"
 #include "data/categories/048/cat048-uap.hpp"
 #include "data/categories/062/cat062-uap.hpp"
 #include <cstring>
@@ -68,6 +71,9 @@ namespace adam::modules::asterix
 
         // Self-initialize with standard supported categories
         register_uap(&cat001::get_uap());
+        register_uap(&cat007::get_uap());
+        register_uap(&cat021::get_uap());
+        register_uap(&cat034::get_uap());
         register_uap(&cat048::get_uap());
         register_uap(&cat062::get_uap());
     }

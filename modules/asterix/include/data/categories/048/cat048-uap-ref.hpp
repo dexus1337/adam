@@ -11,6 +11,9 @@
 #include "data/asterix-uap.hpp"
 #include "api/api-asterix.hpp"
 
+/** @brief ASTERIX CAT048 REF specification edition (Appendix A, December 2024). */
+#define CAT048_REF_VERSION "1.13"
+
 namespace adam::modules::asterix::cat048::ref
 {
     /**

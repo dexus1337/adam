@@ -12,7 +12,9 @@ namespace adam::modules::asterix::cat048::ref
     extern uap cat048_ref_cpc_uap;
     extern uap cat048_ref_g48_uap;
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for Reserved Expansion Field (REF) - Appendix A
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_ref_items = std::to_array<const field_spec>
     ({
         {  1, item_type_compound,    0,      0, "MD5 - Mode 5 Reports",                             &cat048_ref_md5_uap},
@@ -25,9 +27,11 @@ namespace adam::modules::asterix::cat048::ref
         {  8, item_type_compound,    0,      0, "GEN48 - Generic Category 048 Data",                &cat048_ref_g48_uap}
     });
 
-    uap cat048_ref_uap(48, "CAT048 REF 1.13"_ct, cat048_ref_items.data(), cat048_ref_items.size());
+    uap cat048_ref_uap(48, "CAT048 REF " CAT048_REF_VERSION ""_ct, cat048_ref_items.data(), cat048_ref_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for MD5 (Mode 5 Reports)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_ref_md5_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "Mode 5 Summary"                                                       },
@@ -39,9 +43,11 @@ namespace adam::modules::asterix::cat048::ref
         {  7, item_type_fixed,       0,      1, "X Pulse Presence"                                                     }
     });
 
-    uap cat048_ref_md5_uap(48, "CAT048 REF MD5 1.13"_ct, cat048_ref_md5_items.data(), cat048_ref_md5_items.size());
+    uap cat048_ref_md5_uap(48, "CAT048 REF MD5 " CAT048_REF_VERSION ""_ct, cat048_ref_md5_items.data(), cat048_ref_md5_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for M5N (Mode 5 Reports, New Format)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_ref_m5n_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "Mode 5 Summary"                                                       },
@@ -54,9 +60,11 @@ namespace adam::modules::asterix::cat048::ref
         {  8, item_type_fixed,       0,      1, "Figure of Merit"                                                      }
     });
 
-    uap cat048_ref_m5n_uap(48, "CAT048 REF M5N 1.13"_ct, cat048_ref_m5n_items.data(), cat048_ref_m5n_items.size());
+    uap cat048_ref_m5n_uap(48, "CAT048 REF M5N " CAT048_REF_VERSION ""_ct, cat048_ref_m5n_items.data(), cat048_ref_m5n_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for RPC (Radar Plot Characteristics)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_ref_rpc_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "Score"                                                                },
@@ -65,9 +73,11 @@ namespace adam::modules::asterix::cat048::ref
         {  4, item_type_fixed,       0,      2, "Ambiguous Range"                                                      }
     });
 
-    uap cat048_ref_rpc_uap(48, "CAT048 REF RPC 1.13"_ct, cat048_ref_rpc_items.data(), cat048_ref_rpc_items.size());
+    uap cat048_ref_rpc_uap(48, "CAT048 REF RPC " CAT048_REF_VERSION ""_ct, cat048_ref_rpc_items.data(), cat048_ref_rpc_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for RTC (Radar Track Characteristics)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_ref_rtc_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      3, "Plot/Track Link"                                                      },
@@ -83,9 +93,11 @@ namespace adam::modules::asterix::cat048::ref
         { 11, item_type_fixed,       0,      1, "Identity Requested"                                                   }
     });
 
-    uap cat048_ref_rtc_uap(48, "CAT048 REF RTC 1.13"_ct, cat048_ref_rtc_items.data(), cat048_ref_rtc_items.size());
+    uap cat048_ref_rtc_uap(48, "CAT048 REF RTC " CAT048_REF_VERSION ""_ct, cat048_ref_rtc_items.data(), cat048_ref_rtc_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for CPC (Common and Plot Characteristics)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_ref_cpc_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      2, "Plot Number"                                                          },
@@ -94,9 +106,11 @@ namespace adam::modules::asterix::cat048::ref
         {  4, item_type_fixed,       0,      4, "Date"                                                                 }
     });
 
-    uap cat048_ref_cpc_uap(48, "CAT048 REF CPC 1.13"_ct, cat048_ref_cpc_items.data(), cat048_ref_cpc_items.size());
+    uap cat048_ref_cpc_uap(48, "CAT048 REF CPC " CAT048_REF_VERSION ""_ct, cat048_ref_cpc_items.data(), cat048_ref_cpc_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for GEN48 (Generic Category 048 Data)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat048_ref_gen48_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      2, "Alternative Mode 2 Code"                                              },
@@ -106,7 +120,7 @@ namespace adam::modules::asterix::cat048::ref
         {  5, item_type_fixed,       0,      4, "Radar Cross Section in m2"                                            }
     });
 
-    uap cat048_ref_g48_uap(48, "CAT048 REF GEN48 1.13"_ct, cat048_ref_gen48_items.data(), cat048_ref_gen48_items.size());
+    uap cat048_ref_g48_uap(48, "CAT048 REF GEN48 " CAT048_REF_VERSION ""_ct, cat048_ref_gen48_items.data(), cat048_ref_gen48_items.size());
 
     uap& get_uap()
     {

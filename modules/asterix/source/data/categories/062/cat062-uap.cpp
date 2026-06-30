@@ -15,7 +15,9 @@ namespace adam::modules::asterix::cat062
     extern uap cat062_390_uap;
     extern uap cat062_500_uap;
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Main UAP for CAT062
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_items = std::to_array<const field_spec> 
     ({
         // FSPEC Byte 1
@@ -57,12 +59,14 @@ namespace adam::modules::asterix::cat062
         // FSPEC Byte 5
         // FRN 29 to 33 are Spares
         { 34, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()},
-        { 35, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             }
+        { 35, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
 
-    uap cat062_uap(62, "CAT062 1.21"_ct, cat062_items.data(), cat062_items.size());
+    uap cat062_uap(62, "CAT062 " CAT062_VERSION ""_ct, cat062_items.data(), cat062_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/110 Mode 5 Data reports & Extended Mode 1 Code (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_110_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "SUM - Mode 5 Summary"                                                 },
@@ -71,12 +75,14 @@ namespace adam::modules::asterix::cat062
         {  4, item_type_fixed,       0,      2, "GA - Mode 5 GNSS-derived Altitude"                                    },
         {  5, item_type_fixed,       0,      2, "EM1 - Extended Mode 1 Code in Octal Representation"                   },
         {  6, item_type_fixed,       0,      1, "TOS - Time Offset for POS and GA"                                     },
-        {  7, item_type_fixed,       0,      1, "XP - X Pulse Presence"                                                }
+        {  7, item_type_fixed,       0,      1, "XP - X Pulse Presence"                                                },
     });
 
-    uap cat062_110_uap(62, "CAT062 I062/110 1.21"_ct, cat062_110_items.data(), cat062_110_items.size());
+    uap cat062_110_uap(62, "CAT062 I062/110 " CAT062_VERSION ""_ct, cat062_110_items.data(), cat062_110_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/290 System Track Update Ages (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_290_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "TRK - Track age"                                                      },
@@ -88,12 +94,14 @@ namespace adam::modules::asterix::cat062
         {  7, item_type_fixed,       0,      1, "VDL - ADS-B VDL Mode 4 age"                                           },
         {  8, item_type_fixed,       0,      1, "UAT - ADS-B UAT age"                                                  },
         {  9, item_type_fixed,       0,      1, "LOP - Loop age"                                                       },
-        { 10, item_type_fixed,       0,      1, "MLT - Multilateration age"                                            }
+        { 10, item_type_fixed,       0,      1, "MLT - Multilateration age"                                            },
     });
 
-    uap cat062_290_uap(62, "CAT062 I062/290 1.21"_ct, cat062_290_items.data(), cat062_290_items.size());
+    uap cat062_290_uap(62, "CAT062 I062/290 " CAT062_VERSION ""_ct, cat062_290_items.data(), cat062_290_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/295 Track Data Ages (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_295_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "MFL - Measured Flight Level age"                                      },
@@ -126,12 +134,14 @@ namespace adam::modules::asterix::cat062
         { 28, item_type_fixed,       0,      1, "MB - BDS Register Data age"                                           },
         { 29, item_type_fixed,       0,      1, "IAR - Indicated Airspeed age"                                         },
         { 30, item_type_fixed,       0,      1, "MAC - Mach Number age"                                                },
-        { 31, item_type_fixed,       0,      1, "BPS - Barometric Pressure Setting age"                                }
+        { 31, item_type_fixed,       0,      1, "BPS - Barometric Pressure Setting age"                                },
     });
 
-    uap cat062_295_uap(62, "CAT062 I062/295 1.21"_ct, cat062_295_items.data(), cat062_295_items.size());
+    uap cat062_295_uap(62, "CAT062 I062/295 " CAT062_VERSION ""_ct, cat062_295_items.data(), cat062_295_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/340 Measured Information (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_340_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      2, "SID - Sensor Identification"                                          },
@@ -139,12 +149,14 @@ namespace adam::modules::asterix::cat062
         {  3, item_type_fixed,       0,      2, "HEI - Measured 3-D Height"                                            },
         {  4, item_type_fixed,       0,      2, "MDC - Last Measured Mode C code"                                      },
         {  5, item_type_fixed,       0,      2, "MDA - Last Measured Mode 3/A code"                                    },
-        {  6, item_type_fixed,       0,      1, "TYP - Report Type"                                                    }
+        {  6, item_type_fixed,       0,      1, "TYP - Report Type"                                                    },
     });
 
-    uap cat062_340_uap(62, "CAT062 I062/340 1.21"_ct, cat062_340_items.data(), cat062_340_items.size());
+    uap cat062_340_uap(62, "CAT062 I062/340 " CAT062_VERSION ""_ct, cat062_340_items.data(), cat062_340_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/380 Aircraft Derived Data (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_380_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      3, "ADR - Target Address"                                                 },
@@ -174,12 +186,14 @@ namespace adam::modules::asterix::cat062
         { 25, item_type_repetetive,  1,      8, "MB - BDS Register Data"                                               },
         { 26, item_type_fixed,       0,      2, "IAR - Indicated Airspeed"                                             },
         { 27, item_type_fixed,       0,      2, "MAC - Mach Number"                                                    },
-        { 28, item_type_fixed,       0,      2, "BPS - Barometric Pressure Setting"                                    }
+        { 28, item_type_fixed,       0,      2, "BPS - Barometric Pressure Setting"                                    },
     });
 
-    uap cat062_380_uap(62, "CAT062 I062/380 1.21"_ct, cat062_380_items.data(), cat062_380_items.size());
+    uap cat062_380_uap(62, "CAT062 I062/380 " CAT062_VERSION ""_ct, cat062_380_items.data(), cat062_380_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/390 Flight Plan Related Data (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_390_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      2, "TAG - FPPS Identification Tag"                                        },
@@ -199,12 +213,14 @@ namespace adam::modules::asterix::cat062
         { 15, item_type_fixed,       0,      7, "STD - Standard Instrument Departure"                                  },
         { 16, item_type_fixed,       0,      7, "STA - Standard Instrument Arrival"                                    },
         { 17, item_type_fixed,       0,      2, "PEM - Pre-emergency Mode 3/A code"                                    },
-        { 18, item_type_fixed,       0,      6, "PEC - Pre-emergency Callsign"                                         }
+        { 18, item_type_fixed,       0,      6, "PEC - Pre-emergency Callsign"                                         },
     });
 
-    uap cat062_390_uap(62, "CAT062 I062/390 1.21"_ct, cat062_390_items.data(), cat062_390_items.size());
+    uap cat062_390_uap(62, "CAT062 I062/390 " CAT062_VERSION ""_ct, cat062_390_items.data(), cat062_390_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/500 Estimated Accuracies (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_500_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      4, "APC - Estimated Accuracy Of Track Position (Cartesian)"               },
@@ -214,10 +230,10 @@ namespace adam::modules::asterix::cat062
         {  5, item_type_fixed,       0,      1, "ABA - Estimated Accuracy Of Calculated Track Barometric Altitude"     },
         {  6, item_type_fixed,       0,      2, "ATV - Estimated Accuracy Of Track Velocity (Cartesian)"               },
         {  7, item_type_fixed,       0,      2, "AA - Estimated Accuracy Of Acceleration (Cartesian)"                  },
-        {  8, item_type_fixed,       0,      1, "ARC - Estimated Accuracy Of Rate Of Climb/Descent"                    }
+        {  8, item_type_fixed,       0,      1, "ARC - Estimated Accuracy Of Rate Of Climb/Descent"                    },
     });
 
-    uap cat062_500_uap(62, "CAT062 I062/500 1.21"_ct, cat062_500_items.data(), cat062_500_items.size());
+    uap cat062_500_uap(62, "CAT062 I062/500 " CAT062_VERSION ""_ct, cat062_500_items.data(), cat062_500_items.size());
 
     uap& get_uap()
     {

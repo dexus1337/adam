@@ -1,4 +1,4 @@
-#include "data/categories/062/cat062-uap.hpp"
+#include "data/categories/062/cat062-uap-ref.hpp"
 
 namespace adam::modules::asterix::cat062::ref
 {    
@@ -10,7 +10,9 @@ namespace adam::modules::asterix::cat062::ref
     extern uap cat062_ref_mti_uap;
     extern uap cat062_ref_g62_uap;
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for Reserved Expansion Field (REF) - Appendix A
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_ref_items = std::to_array<const field_spec>
     ({
         {  1, item_type_repetetive,  1,      5, "CST - Contributing Sensors with local tracknumber"                    },
@@ -20,23 +22,27 @@ namespace adam::modules::asterix::cat062::ref
         {  5, item_type_compound,    0,      0, "V3 - ADS-B Version 3 Data",                        &cat062_ref_av3_uap},
         {  6, item_type_explicit,    0,      0, "MOI - Miscellaneous Operational Items",            &cat062_ref_moi_uap},
         {  7, item_type_explicit,    0,      0, "MTI - Miscellaneous Technical Items",              &cat062_ref_mti_uap},
-        {  8, item_type_compound,    0,      0, "GEN62 - Generic Category 062 Data",                &cat062_ref_g62_uap}
+        {  8, item_type_compound,    0,      0, "GEN62 - Generic Category 062 Data",                &cat062_ref_g62_uap},
     });
 
-    uap cat062_ref_uap(62, "CAT062 REF 1.4"_ct, cat062_ref_items.data(), cat062_ref_items.size());
+    uap cat062_ref_uap(62, "CAT062 REF " CAT062_REF_VERSION ""_ct, cat062_ref_items.data(), cat062_ref_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for V3 (ADS-B Version 3 Data)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_ref_v3_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "PS3 - Priority Status ADS-B Version 3"                                },
         {  2, item_type_fixed,       0,      3, "AS - Aircraft Status"                                                 },
         {  3, item_type_fixed,       0,      1, "UAS - UAS/RPAS Status"                                                },
-        {  4, item_type_fixed,       0,      1, "CASS - Collision Avoidance System Status"                             }
+        {  4, item_type_fixed,       0,      1, "CASS - Collision Avoidance System Status"                             },
     });
 
-    uap cat062_ref_av3_uap(62, "CAT062 REF ADSB3 1.4"_ct, cat062_ref_v3_items.data(), cat062_ref_v3_items.size());
+    uap cat062_ref_av3_uap(62, "CAT062 REF ADSB3 " CAT062_REF_VERSION ""_ct, cat062_ref_v3_items.data(), cat062_ref_v3_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for MOI (Miscellaneous Operational Items)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_ref_moi_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "ATAD - Age of Target Address"                                         },
@@ -63,12 +69,14 @@ namespace adam::modules::asterix::cat062::ref
         { 22, item_type_fixed,       0,      2, "FPVHR - Fractional Part of Velocity (High Resolution)"                },
         { 23, item_type_fixed,       0,      7, "SCT - SUC Correlation Text"                                           },
         { 24, item_type_fixed,       0,      2, "SCSM - System Calculated Separation Minimum"                          },
-        { 25, item_type_variable,    2,      2, "TCAT - Target Category"                                               }
+        { 25, item_type_variable,    2,      2, "TCAT - Target Category"                                               },
     });
 
-    uap cat062_ref_moi_uap(62, "CAT062 REF MOI 1.4"_ct, cat062_ref_moi_items.data(), cat062_ref_moi_items.size());
+    uap cat062_ref_moi_uap(62, "CAT062 REF MOI " CAT062_REF_VERSION ""_ct, cat062_ref_moi_items.data(), cat062_ref_moi_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for MTI (Miscellaneous Technical Items)
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_ref_mti_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      4, "DATE - Date of Track Information"                                     },
@@ -79,18 +87,20 @@ namespace adam::modules::asterix::cat062::ref
         {  6, item_type_fixed,       0,      3, "TTT - Time of Track Termination"                                      },
         {  7, item_type_fixed,       0,      2, "EXM3A - Expired Mode 3/A Code"                                        },
         {  8, item_type_fixed,       0,      3, "EXADDR - Expired Target Address"                                      },
-        {  9, item_type_fixed,       0,      6, "EXTID - Expired Target Identification"                                }
+        {  9, item_type_fixed,       0,      6, "EXTID - Expired Target Identification"                                },
     });
 
-    uap cat062_ref_mti_uap(62, "CAT062 REF MTI 1.4"_ct, cat062_ref_mti_items.data(), cat062_ref_mti_items.size());
+    uap cat062_ref_mti_uap(62, "CAT062 REF MTI " CAT062_REF_VERSION ""_ct, cat062_ref_mti_items.data(), cat062_ref_mti_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for GEN62 (Generic Category 062 Data) - Placeholder
+    // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_ref_gen62_items = std::to_array<const field_spec>
     ({
-        {  1, item_type_variable,    0,      0, "Spare/Placeholder"                                                    }
+        {  1, item_type_variable,    0,      0, "Spare/Placeholder"                                                    },
     });
 
-    uap cat062_ref_g62_uap(62, "CAT062 REF GEN62 1.4"_ct, cat062_ref_gen62_items.data(), cat062_ref_gen62_items.size());
+    uap cat062_ref_g62_uap(62, "CAT062 REF GEN62 " CAT062_REF_VERSION ""_ct, cat062_ref_gen62_items.data(), cat062_ref_gen62_items.size());
 
     uap& get_uap()
     {

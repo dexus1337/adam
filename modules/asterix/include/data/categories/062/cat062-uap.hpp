@@ -11,6 +11,9 @@
 #include "data/asterix-uap.hpp"
 #include "api/api-asterix.hpp"
 
+/** @brief ASTERIX CAT062 specification edition (Part 9, May 2025). */
+#define CAT062_VERSION "1.21"
+
 namespace adam::modules::asterix::cat062
 {
     /**
