@@ -146,8 +146,9 @@ namespace adam::gui
         float content_h = ImGui::GetContentRegionAvail().y;
 
         static float left_ratio = 0.66f;
-        float dpi_scale     = ImGui::GetStyle()._MainScale;
-        float left_w        = avail_w * left_ratio;
+        
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+        float left_w    = avail_w * left_ratio;
         
         if (avail_w > 0.0f)
         {

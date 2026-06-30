@@ -11,6 +11,7 @@
 #include "memory/buffer/buffer-manager.hpp"
 
 #include <mutex>
+#include <thread>
 #include <iostream>
 
 
@@ -185,6 +186,8 @@ namespace adam
         auto* head = resp->data_as<messages::initial_data_header>();
 
         m_lang = head->lang_info;
+        m_config_name = head->cfg_info.name;
+        m_config_description = head->cfg_info.description;
 
         std::lock_guard<const module_view> lg(m_module_view);
 
@@ -351,6 +354,62 @@ namespace adam
             current_idx++;
         }
 
+        // Config paths & available configs
+        {
+            std::lock_guard<const config_view> lg_cfg(m_config_view);
+            m_config_view.paths().resize(head->cfg_info.paths_count);
+
+            for (size_t i = 0; i < head->cfg_info.paths_count; i++)
+            {
+                if (!resp[current_idx-1].is_extended())
+                    break;
+                
+                auto* path_info = resp[current_idx].data_as<messages::config_path_data>();
+                if (path_info->idx >= m_config_view.paths().size()) {
+                    m_config_view.paths().resize(path_info->idx + 1);
+                }
+                m_config_view.paths()[path_info->idx] = &path_info->path[0];
+                current_idx++;
+            }
+
+            for (size_t i = 0; i < head->cfg_info.available_configs; i++)
+            {
+                if (!resp[current_idx-1].is_extended())
+                    break;
+
+                auto* cfg_info = resp[current_idx].data_as<messages::config_info_data>();
+                
+                std::string path;
+                if (cfg_info->path_idx < m_config_view.paths().size())
+                {
+                    path = m_config_view.paths()[cfg_info->path_idx].c_str();
+                    if (!path.empty() && path.back() != '/' && path.back() != '\\')
+                    {
+                        path += "/";
+                    }
+                    path += cfg_info->filename;
+                }
+                else
+                {
+                    path = cfg_info->filename;
+                }
+
+                config_info info;
+                info.path_idx = cfg_info->path_idx;
+                info.filename = cfg_info->filename;
+                info.name = string_hashed(&cfg_info->name[0]);
+                info.description = string_hashed(&cfg_info->description[0]);
+                info.created = cfg_info->created;
+                info.modified = cfg_info->modified;
+                info.port_count = cfg_info->port_count;
+                info.processor_count = cfg_info->processor_count;
+                info.connection_count = cfg_info->connection_count;
+
+                m_config_view.available().emplace(string_hashed(path), info);
+                current_idx++;
+            }
+        }
+
         return res;
     }
 
@@ -362,6 +421,79 @@ namespace adam
 
         return send_command(cmd);
     }
+
+    response_status commander::request_config_path_add(const string_hashed& path, uint32_t index)
+    {
+        command cmd(command_type::config_path_add);
+        auto* data = cmd.data_as<messages::config_path_data>();
+        data->setup(path.c_str(), index);
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_config_path_remove(uint32_t index)
+    {
+        command cmd(command_type::config_path_remove);
+        auto* data = cmd.data_as<messages::config_path_remove_data>();
+        data->idx = index;
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_config_scan()
+    {
+        {
+            std::lock_guard<const config_view> lg(m_config_view);
+            m_config_view.available().clear();
+        }
+
+        command cmd(command_type::config_scan);
+        return send_command(cmd);
+    }
+
+    response_status commander::request_config_export(uint32_t path_idx, const string_hashed& filename, const std::string& name, const std::string& description)
+    {
+        command cmd(command_type::config_export);
+        auto* data = cmd.data_as<messages::config_export_data>();
+        data->setup(path_idx, filename.c_str(), name.c_str(), description.c_str());
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_config_save(const std::string& name, const std::string& description)
+    {
+        command cmd(command_type::config_save);
+        auto* data = cmd.data_as<messages::config_save_data>();
+        data->setup(name.c_str(), description.c_str());
+
+        return send_command(cmd);
+    }
+
+    response_status commander::request_config_import(uint32_t path_idx, const string_hashed& filename)
+    {
+        command cmd(command_type::config_import);
+        auto* data = cmd.data_as<messages::config_import_data>();
+        data->setup(path_idx, filename.c_str());
+
+        auto status = send_command(cmd);
+        if (status == response_status::success)
+        {
+            // Clear all cached views so stale data from the previous config is gone before repopulating.
+            // registry_view must be cleared first (it may hold refs into module DLL data)
+            m_registry_view.clear();
+
+            // Unload module DLLs from the GUI process and clear the available/loaded/paths lists.
+            // request_initial_data() will re-populate and reload the modules specified by the new config.
+            m_module_view.clear();
+
+            // Clear config paths and available config entries; request_initial_data() refills these.
+            m_config_view.clear();
+
+            request_initial_data();
+        }
+        return status;
+    }
+
 
     response_status commander::request_module_path_remove(uint32_t index)
     {
@@ -1111,5 +1243,12 @@ namespace adam
 
             m_dispatcher.dispatch(event_buffer.data(), evt_idx + 1, ctx);
         }
+    }
+
+    void config_view::clear()
+    {
+        std::lock_guard<const config_view> lg(*this);
+        m_available_configs.clear();
+        m_paths.clear();
     }
 }

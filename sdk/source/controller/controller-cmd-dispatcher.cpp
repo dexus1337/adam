@@ -1,6 +1,7 @@
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "controller/controller.hpp"
 #include "controller/registry.hpp"
+#include "controller/registry-configuration-manager.hpp"
 #include "resources/language-strings.hpp"
 #include "data/port.hpp"
 #include "data/format.hpp"
@@ -27,6 +28,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <thread>
 
 namespace adam
 {
@@ -132,9 +134,24 @@ namespace adam
             data->lang_info.supported_languages   |= 1 << language_english;
             data->lang_info.supported_languages   |= 1 << language_german;
 
+            std::strncpy(data->cfg_info.name, ctx.reg.configs().get_config_name().c_str(), sizeof(data->cfg_info.name) - 1);
+            data->cfg_info.name[sizeof(data->cfg_info.name) - 1] = '\0';
+            std::strncpy(data->cfg_info.description, ctx.reg.configs().get_config_description().c_str(), sizeof(data->cfg_info.description) - 1);
+            data->cfg_info.description[sizeof(data->cfg_info.description) - 1] = '\0';
+
             data->mod_info.available_modules       = static_cast<uint32_t>(ctx.reg.modules().get_available_modules().size());
             data->mod_info.unavailable_modules     = static_cast<uint32_t>(ctx.reg.modules().get_unavailable_modules().size());
             data->mod_info.loaded_modules          = static_cast<uint32_t>(ctx.reg.modules().get_loaded_modules().size());
+
+            auto configs_found = ctx.reg.configs().scan_for_configs();
+            auto* config_paths_list = ctx.reg.configs().get_config_paths();
+            uint32_t config_path_count = 0;
+            if (config_paths_list)
+            {
+                config_path_count = static_cast<uint32_t>(config_paths_list->get_children().size());
+            }
+            data->cfg_info.paths_count = config_path_count;
+            data->cfg_info.available_configs = static_cast<uint32_t>(configs_found.size());
 
             size_t resp_idx = 1;
 
@@ -441,6 +458,38 @@ namespace adam
                 if (resp_idx >= ctx.responses.size())
                     ctx.responses.emplace_back();
             }
+
+            // Config paths
+            if (config_paths_list)
+            {
+                for (const auto& [name, param] : config_paths_list->get_children())
+                {
+                    auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get());
+                    if (!str_param) continue;
+
+                    uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
+
+                    ctx.responses[resp_idx-1].set_extended(true);
+                    auto* path_info = ctx.responses[resp_idx].data_as<messages::config_path_data>();
+                    path_info->setup(str_param->get_value().c_str(), idx);
+                    resp_idx++;
+
+                    if (resp_idx >= ctx.responses.size())
+                        ctx.responses.emplace_back();
+                }
+            }
+
+            // Available configs
+            for (const auto& cfg : configs_found)
+            {
+                ctx.responses[resp_idx-1].set_extended(true);
+                auto* cfg_info = ctx.responses[resp_idx].data_as<messages::config_info_data>();
+                cfg_info->setup(cfg.path_idx, cfg.filename.c_str(), cfg.name.c_str(), cfg.description.c_str(), cfg.created, cfg.modified, cfg.port_count, cfg.processor_count, cfg.connection_count);
+                resp_idx++;
+
+                if (resp_idx >= ctx.responses.size())
+                    ctx.responses.emplace_back();
+            }
         });
 
         register_handler(command_type::set_language, [](const command* cmds, size_t, command_context& ctx) 
@@ -525,6 +574,124 @@ namespace adam
                 ctx.set_single_response_status(response_status::success);
             else
                 ctx.set_single_response_status(response_status::failed);
+        });
+
+        register_handler(command_type::config_path_add, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::config_path_data>();
+            string_hashed path(params->path);
+            uint32_t idx = params->idx;
+
+            if (!ctx.reg.configs().add_config_path(path, &idx))
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_add_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str());
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::config_path_added);
+            auto* evt_data = evt.data_as<messages::config_path_data>();
+            evt_data->setup(path.c_str(), idx);
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_added, ctx.ctrl.get_language()), ctx.tid, path.c_str());
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::config_path_remove, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::config_path_remove_data>();
+
+            if (!ctx.reg.configs().remove_config_path(params->idx))
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, params->idx);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            event evt(event_type::config_path_removed);
+            auto* evt_data = evt.data_as<messages::config_path_remove_data>();
+            evt_data->idx = params->idx;
+            ctx.ctrl.broadcast_event(evt);
+
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_removed, ctx.ctrl.get_language()), ctx.tid, params->idx);
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::config_scan, [](const command*, size_t, command_context& ctx) 
+        {
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_scan_requested, ctx.ctrl.get_language()), ctx.tid);
+            
+            auto configs = ctx.reg.configs().scan_for_configs();
+            for (const auto& cfg : configs)
+            {
+                event evt(event_type::config_available);
+                auto* data = evt.data_as<messages::config_info_data>();
+                data->setup(cfg.path_idx, cfg.filename.c_str(), cfg.name.c_str(), cfg.description.c_str(), cfg.created, cfg.modified, cfg.port_count, cfg.processor_count, cfg.connection_count);
+                ctx.ctrl.broadcast_event(evt);
+            }
+            ctx.set_single_response_status(response_status::success);
+        });
+
+        register_handler(command_type::config_export, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::config_export_data>();
+
+            if (ctx.reg.configs().save_config(params->path_idx, params->filename, params->name, params->description))
+            {
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.set_single_response_status(response_status::success);
+                
+                event evt(event_type::config_available);
+                auto* data = evt.data_as<messages::config_info_data>();
+                uint32_t port_count = static_cast<uint32_t>(ctx.reg.ports().size() + ctx.reg.unavailable_ports().size());
+                uint32_t processor_count = static_cast<uint32_t>(ctx.reg.processors().size() + ctx.reg.unavailable_processors().size());
+                uint32_t connection_count = static_cast<uint32_t>(ctx.reg.connections().size() + ctx.reg.unavailable_connections().size());
+                data->setup(params->path_idx, params->filename, params->name, params->description, ctx.reg.configs().get_config_created(), ctx.reg.configs().get_config_modified(), port_count, processor_count, connection_count);
+                ctx.ctrl.broadcast_event(evt);
+            }
+            else
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.set_single_response_status(response_status::failed);
+            }
+        });
+
+        register_handler(command_type::config_save, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::config_save_data>();
+
+            if (ctx.reg.configs().save_config(0xFFFFFFFF, "adam-config.bin", params->name, params->description))
+            {
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.tid, "adam-config.bin");
+                ctx.set_single_response_status(response_status::success);
+            }
+            else
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.tid, "adam-config.bin");
+                ctx.set_single_response_status(response_status::failed);
+            }
+        });
+
+        register_handler(command_type::config_import, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::config_import_data>();
+
+            ctx.reg.stop_items();
+            if (ctx.reg.configs().load_config(params->path_idx, params->filename))
+            {
+                // Detach resume_active_items into a background thread so we don't block the
+                // command processing thread. Blocking here prevents destroy() from joining
+                // this thread, which means m_registry.save("adam-config.bin") is never reached.
+                std::thread([&reg = ctx.reg]() { reg.resume_active_items(); }).detach();
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_imported, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.set_single_response_status(response_status::success);
+            }
+            else
+            {
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_import_failed, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.set_single_response_status(response_status::failed);
+            }
         });
 
         register_handler(command_type::connection_create, [](const command* cmds, size_t, command_context& ctx) 
@@ -2185,6 +2352,42 @@ namespace adam
             {
                 log_event::port_data_inject_failed,
                 { "Thread {:d} failed to inject data into port \"{}\".", "Thread {:d} konnte keine Daten in Port \"{}\" injizieren." }
+            },
+            {
+                log_event::config_path_added,
+                { "Thread {:d} successfully added config path \"{}\".", "Thread {:d} hat Konfigurationspfad \"{}\" erfolgreich hinzugefügt." }
+            },
+            {
+                log_event::config_path_add_failed,
+                { "Thread {:d} failed to add config path \"{}\".", "Thread {:d} konnte Konfigurationspfad \"{}\" nicht hinzufügen." }
+            },
+            {
+                log_event::config_path_removed,
+                { "Thread {:d} successfully removed config path at index {:d}.", "Thread {:d} hat Konfigurationspfad bei Index {:d} erfolgreich entfernt." }
+            },
+            {
+                log_event::config_path_remove_failed,
+                { "Thread {:d} failed to remove config path at index {:d}.", "Thread {:d} konnte Konfigurationspfad bei Index {:d} nicht entfernen." }
+            },
+            {
+                log_event::config_scan_requested,
+                { "Thread {:d} requested config scan.", "Thread {:d} hat Konfigurations-Scan angefordert." }
+            },
+            {
+                log_event::config_exported,
+                { "Thread {:d} successfully saved configuration: \"{}\".", "Thread {:d} hat Konfiguration erfolgreich gespeichert: \"{}\"." }
+            },
+            {
+                log_event::config_export_failed,
+                { "Thread {:d} failed to save configuration: \"{}\".", "Thread {:d} konnte Konfiguration nicht speichern: \"{}\"." }
+            },
+            {
+                log_event::config_imported,
+                { "Thread {:d} successfully loaded configuration: \"{}\".", "Thread {:d} hat Konfiguration erfolgreich geladen: \"{}\"." }
+            },
+            {
+                log_event::config_import_failed,
+                { "Thread {:d} failed to load configuration: \"{}\".", "Thread {:d} konnte Konfiguration nicht laden: \"{}\"." }
             }
         };
 

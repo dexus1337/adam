@@ -73,6 +73,12 @@ namespace adam
         processor_destroy,
         processor_rename,
 
+        config_path_add,
+        config_path_remove,
+        config_scan,
+        config_export,
+        config_import,
+        config_save,
     };
 
     /**

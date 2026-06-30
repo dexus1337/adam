@@ -3,6 +3,7 @@
 #include "commander/commander.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/message-structs.hpp"
+#include "commander/config-view.hpp"
 #include "data/port.hpp"
 #include "module/module.hpp"
 #include "data/connection.hpp"
@@ -68,6 +69,67 @@ namespace adam
             {
                 paths.erase(paths.begin() + data->idx);
             }
+        });
+
+        register_handler(event_type::config_path_added, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::config_path_data>();
+            std::lock_guard<const config_view> lg(ctx.cmdr.configs());
+            auto& paths = ctx.cmdr.configs().paths();
+            if (data->idx >= paths.size())
+            {
+                paths.push_back(data->path);
+            }
+            else
+            {
+                paths.insert(paths.begin() + data->idx, data->path);
+            }
+        });
+
+        register_handler(event_type::config_path_removed, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::config_path_remove_data>();
+            std::lock_guard<const config_view> lg(ctx.cmdr.configs());
+            auto& paths = ctx.cmdr.configs().paths();
+            if (data->idx < paths.size())
+            {
+                paths.erase(paths.begin() + data->idx);
+            }
+        });
+
+        register_handler(event_type::config_available, [](const event* events, size_t, event_context& ctx) 
+        {
+            auto* data = events[0].get_data_as<messages::config_info_data>();
+            std::lock_guard<const config_view> lg(ctx.cmdr.configs());
+            
+            std::string path;
+            const auto& paths = ctx.cmdr.configs().paths();
+            if (data->path_idx < paths.size())
+            {
+                path = paths[data->path_idx].c_str();
+                if (!path.empty() && path.back() != '/' && path.back() != '\\')
+                {
+                    path += "/";
+                }
+                path += data->filename;
+            }
+            else
+            {
+                path = data->filename;
+            }
+
+            config_info info;
+            info.path_idx = data->path_idx;
+            info.filename = data->filename;
+            info.name = string_hashed(&data->name[0]);
+            info.description = string_hashed(&data->description[0]);
+            info.created = data->created;
+            info.modified = data->modified;
+            info.port_count = data->port_count;
+            info.processor_count = data->processor_count;
+            info.connection_count = data->connection_count;
+
+            ctx.cmdr.configs().available()[string_hashed(path)] = info;
         });
 
         register_handler(event_type::module_loaded, [](const event* events, size_t, event_context& ctx) 

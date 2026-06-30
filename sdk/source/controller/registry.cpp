@@ -43,6 +43,10 @@ namespace adam
             module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
             p.add(std::move(module_paths));
 
+            auto config_paths = std::make_unique<configuration_parameter_list>("config_paths"_ct);
+            config_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./configs/"_ct));
+            p.add(std::move(config_paths));
+
             p.add(std::move(std::make_unique<configuration_parameter_list>("ports"_ct)));
             p.add(std::move(std::make_unique<configuration_parameter_list_sorted>("processors"_ct)));
             p.add(std::move(std::make_unique<configuration_parameter_list>("connections"_ct)));
@@ -58,7 +62,8 @@ namespace adam
         m_processors(),
         m_connections(),
         m_controller(ctrl),
-        m_modules(ctrl)
+        m_modules(ctrl),
+        m_configs(ctrl)
     {
         add_parameters(get_default_parameters());
 
@@ -757,6 +762,8 @@ namespace adam
         configuration_parameter::write_binary(ofs, magic);
         configuration_parameter::write_binary(ofs, decode_version(sdk_version));
 
+        m_configs.write_header(ofs);
+
         // Mock a root configuration_parameter_list to maintain the file format structure
         configuration_parameter::write_binary(ofs, configuration_parameter::type_list);
         configuration_parameter::write_string(ofs, "root");
@@ -854,28 +861,30 @@ namespace adam
         if (get_major(loaded_version) > get_major(sdk_version))
             return false;
 
+        m_configs.read_header(ifs);
+ 
         auto loaded_root = configuration_parameter::deserialize(ifs);
-
+ 
         if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list)
             return false;
-
+ 
         clear();
-
+ 
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
-
+ 
         // 1. Restore general settings
         copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(root_list->get("general"_ct)));
-
+ 
         m_modules.clear_and_unload_all();
         m_modules.scan_for_modules();
-
+ 
         // 2. Restore loaded modules
         if (auto* modules_list = static_cast<configuration_parameter_list*>(root_list->get("modules"_ct)))
         {
             for (auto& [mod_name, mod_param] : modules_list->get_children())
                 m_modules.load_module(mod_name);
         }
-
+ 
         // 3. Restore ports
         if (auto* ports_list = static_cast<configuration_parameter_list*>(root_list->get("ports"_ct)))
         {
@@ -1700,6 +1709,8 @@ namespace adam
         return true;
     }
     
+
+
     void registry::copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source)
     {
         if (!target || !source) return;

@@ -163,7 +163,26 @@ namespace adam::gui
         btn_copy_hex_dump,
         lbl_replay_file,
         lbl_replay_instant,
-        lbl_parameters
+        lbl_parameters,
+
+        col_config_name,
+        col_filename,
+        col_description,
+        col_created,
+        col_modified,
+        col_counts,
+        btn_load_config,
+        btn_save_config,
+        btn_export_config,
+        btn_scan_configs,
+        dlg_save_config,
+        lbl_config_name,
+        lbl_config_description,
+        lbl_configuration_paths,
+        lbl_available_configurations,
+        lbl_config_settings,
+        btn_export,
+        btn_save
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

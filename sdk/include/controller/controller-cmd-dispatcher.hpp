@@ -56,7 +56,7 @@ namespace adam
     class ADAM_SDK_API controller_cmd_dispatcher
     {
     public:
-    
+
         enum log_event
         {
             language_changed,
@@ -131,6 +131,16 @@ namespace adam
             connection_sorting_index_change_failed,
             connection_color_changed,
             connection_color_change_failed,
+
+            config_path_added,
+            config_path_add_failed,
+            config_path_removed,
+            config_path_remove_failed,
+            config_scan_requested,
+            config_exported,
+            config_export_failed,
+            config_imported,
+            config_import_failed
         };
 
         static std::string_view get_log_event_text(log_event event, language lang);

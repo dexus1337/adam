@@ -21,9 +21,10 @@
 
 namespace adam 
 {
-    static ADAM_CONSTEXPR size_t max_name_length = 64;
-    static ADAM_CONSTEXPR size_t max_port_type_length = 64;
-    static ADAM_CONSTEXPR size_t max_path_length = 384;
+    static ADAM_CONSTEXPR size_t max_name_length         = 64;
+    static ADAM_CONSTEXPR size_t max_port_type_length    = 64;
+    static ADAM_CONSTEXPR size_t max_path_length         = 384;
+    static ADAM_CONSTEXPR size_t max_description_length  = 349;
 
     enum data_direction : uint8_t
     {
@@ -38,20 +39,29 @@ namespace adam
         struct initial_data_header
         {
             language_info lang_info;
+
             struct module_base_info
             {
-                uint32_t    module_paths            = 0;
-                uint32_t    available_modules       = 0;
-                uint32_t    unavailable_modules     = 0;
-                uint32_t    loaded_modules          = 0;
+                uint32_t module_paths            = 0;
+                uint32_t available_modules       = 0;
+                uint32_t unavailable_modules     = 0;
+                uint32_t loaded_modules          = 0;
             } mod_info;
 
             struct connections_info
             {
-                uint32_t ports          = 0;
-                uint32_t processors     = 0;
-                uint32_t connections    = 0;
+                uint32_t ports                  = 0;
+                uint32_t processors             = 0;
+                uint32_t connections            = 0;
             } conn_info;
+
+            struct configs_base_info
+            {
+                char     name[max_name_length];
+                char     description[max_description_length];
+                uint32_t paths_count            = 0;
+                uint32_t available_configs      = 0;
+            } cfg_info;
         };
         static_assert(sizeof(initial_data_header) <= command::get_max_data_length(), "initial_data_header exceeds maximum command data size");
 
@@ -246,6 +256,105 @@ namespace adam
             uint64_t edited;
         };
         static_assert(sizeof(connection_property_change_data ) <= command::get_max_data_length(), "connection_property_change_data  exceeds maximum command data size");
+
+        struct config_path_data
+        {
+            uint32_t idx;
+            char path[max_path_length];
+
+            void setup(const char* p, uint32_t i)
+            {
+                std::strncpy(path, p, sizeof(path) - 1);
+                path[sizeof(path) - 1] = '\0';
+                idx = i;
+            }
+        };
+        static_assert(sizeof(config_path_data) <= command::get_max_data_length(), "config_path_data exceeds maximum command data size");
+
+        struct config_path_remove_data
+        {
+            uint32_t idx;
+        };
+        static_assert(sizeof(config_path_remove_data) <= command::get_max_data_length(), "config_path_remove_data exceeds maximum command data size");
+
+        struct config_export_data
+        {
+            uint32_t path_idx;
+            char filename[max_name_length];
+            char name[max_name_length];
+            char description[max_description_length];
+
+            void setup(uint32_t p_idx, const char* f, const char* n, const char* d)
+            {
+                path_idx = p_idx;
+                std::strncpy(filename, f, sizeof(filename) - 1);
+                filename[sizeof(filename) - 1] = '\0';
+                std::strncpy(name, n, sizeof(name) - 1);
+                name[sizeof(name) - 1] = '\0';
+                std::strncpy(description, d, sizeof(description) - 1);
+                description[sizeof(description) - 1] = '\0';
+            }
+        };
+        static_assert(sizeof(config_export_data) <= command::get_max_data_length(), "config_export_data exceeds maximum command data size");
+
+        struct config_save_data
+        {
+            char name[max_name_length];
+            char description[max_description_length];
+
+            void setup(const char* n, const char* d)
+            {
+                std::strncpy(name, n, sizeof(name) - 1);
+                name[sizeof(name) - 1] = '\0';
+                std::strncpy(description, d, sizeof(description) - 1);
+                description[sizeof(description) - 1] = '\0';
+            }
+        };
+        static_assert(sizeof(config_save_data) <= command::get_max_data_length(), "config_save_data exceeds maximum command data size");
+
+        struct config_import_data
+        {
+            uint32_t path_idx;
+            char filename[max_name_length];
+
+            void setup(uint32_t p_idx, const char* f)
+            {
+                path_idx = p_idx;
+                std::strncpy(filename, f, sizeof(filename) - 1);
+                filename[sizeof(filename) - 1] = '\0';
+            }
+        };
+        static_assert(sizeof(config_import_data) <= command::get_max_data_length(), "config_import_data exceeds maximum command data size");
+
+        struct config_info_data
+        {
+            uint32_t path_idx;
+            char filename[max_name_length];
+            char name[max_name_length];
+            char description[max_description_length];
+            uint64_t created;
+            uint64_t modified;
+            uint32_t port_count;
+            uint32_t processor_count;
+            uint32_t connection_count;
+
+            void setup(uint32_t p_idx, const char* f, const char* n, const char* d, uint64_t c, uint64_t m, uint32_t po, uint32_t pr, uint32_t co)
+            {
+                path_idx = p_idx;
+                std::strncpy(filename, f, sizeof(filename) - 1);
+                filename[sizeof(filename) - 1] = '\0';
+                std::strncpy(name, n, sizeof(name) - 1);
+                name[sizeof(name) - 1] = '\0';
+                std::strncpy(description, d, sizeof(description) - 1);
+                description[sizeof(description) - 1] = '\0';
+                created = c;
+                modified = m;
+                port_count = po;
+                processor_count = pr;
+                connection_count = co;
+            }
+        };
+        static_assert(sizeof(config_info_data) <= command::get_max_data_length(), "config_info_data exceeds maximum command data size");
 
         #pragma pack(pop)
     }

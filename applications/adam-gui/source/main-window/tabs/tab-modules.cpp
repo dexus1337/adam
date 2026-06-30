@@ -8,6 +8,7 @@
 
 #include "tab-modules.hpp"
 #include "../main-window.hpp"
+#include "commander/messages/message-structs.hpp"
 
 #include <imgui.h>
 #include <unordered_map>
@@ -36,7 +37,7 @@ namespace adam::gui
 
         if (!commander_active) ImGui::BeginDisabled();
         
-        static char new_path[384] = "";
+        static char new_path[adam::max_path_length] = "";
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - btn_add_width - ImGui::GetStyle().ItemSpacing.x);
         ImGui::InputTextWithHint("##NewPath", get_gui_string(gui_string_id::ph_new_path, lang), new_path, sizeof(new_path));
         ImGui::SameLine();
@@ -47,7 +48,10 @@ namespace adam::gui
         {
             if (commander_active)
             {
-                ctrl.commander().request_module_path_add(adam::string_hashed(&new_path[0]));
+                ctrl.enqueue_commander_action([&ctrl, path_str = std::string(new_path)]() 
+                {
+                    ctrl.commander().request_module_path_add(adam::string_hashed(path_str.c_str()));
+                });
                 new_path[0] = '\0';
             }
         }
@@ -57,7 +61,7 @@ namespace adam::gui
         
         ImGui::Spacing();
         
-        float top_height = ImGui::GetContentRegionAvail().y * 0.35f;
+        float top_height = ImGui::GetContentRegionAvail().y * 0.333f;
         ImGui::PushID(module_paths_table_id);
         if (ImGui::BeginTable("ModulePathsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, top_height)))
         {
@@ -88,7 +92,12 @@ namespace adam::gui
                     ImGui::PushID(static_cast<int>(i));
                     if (i == 0) ImGui::BeginDisabled();
                     if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang), ImVec2(-1.0f, 0.0f)))
-                        ctrl.commander().request_module_path_remove(i);
+                    {
+                        ctrl.enqueue_commander_action([&ctrl, idx = static_cast<uint32_t>(i)]() 
+                        {
+                            ctrl.commander().request_module_path_remove(idx);
+                        });
+                    }
                     if (i == 0) ImGui::EndDisabled();
                     ImGui::PopID();
                 }
@@ -103,7 +112,12 @@ namespace adam::gui
         if (ImGui::Button(get_gui_string(gui_string_id::btn_scan_modules, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))
         {
             if (commander_active)
-                ctrl.commander().request_module_scan();
+            {
+                ctrl.enqueue_commander_action([&ctrl]() 
+                {
+                    ctrl.commander().request_module_scan();
+                });
+            }
         }
         if (!commander_active) ImGui::EndDisabled();
             
@@ -159,9 +173,19 @@ namespace adam::gui
                 if (ImGui::Checkbox("##load", &checkbox_val))
                 {
                     if (checkbox_val)
-                        ctrl.commander().request_module_load(adam::string_hashed(name));
+                    {
+                        ctrl.enqueue_commander_action([&ctrl, name_str = std::string(name)]() 
+                        {
+                            ctrl.commander().request_module_load(adam::string_hashed(name_str.c_str()));
+                        });
+                    }
                     else
-                        ctrl.commander().request_module_unload(adam::string_hashed(name));
+                    {
+                        ctrl.enqueue_commander_action([&ctrl, name_str = std::string(name)]() 
+                        {
+                            ctrl.commander().request_module_unload(adam::string_hashed(name_str.c_str()));
+                        });
+                    }
                 }
                 if (status == 2) ImGui::EndDisabled();
                 ImGui::PopID();

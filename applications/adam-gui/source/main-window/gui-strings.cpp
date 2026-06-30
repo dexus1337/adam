@@ -166,7 +166,25 @@ namespace adam::gui
             { gui_string_id::btn_copy_hex_dump,           { "Copy Hex Dump", "Hex-Dump kopieren" } },
             { gui_string_id::lbl_replay_file,             { "File", "Datei" } },
             { gui_string_id::lbl_replay_instant,          { "instant", "sofort" } },
-            { gui_string_id::lbl_parameters,              { "Parameters###Parameters", "Parameter###Parameters" } }
+            { gui_string_id::lbl_parameters,              { "Parameters###Parameters", "Parameter###Parameters" } },
+            { gui_string_id::col_config_name,             { "Configuration Name", "Konfigurationsname" } },
+            { gui_string_id::col_filename,                { "Filename", "Dateiname" } },
+            { gui_string_id::col_description,             { "Description", "Beschreibung" } },
+            { gui_string_id::col_created,                 { "Created", "Erstellt" } },
+            { gui_string_id::col_modified,                { "Modified", "Geändert" } },
+            { gui_string_id::col_counts,                  { "Ports / Processors / Connections", "Ports / Prozessoren / Verbindungen" } },
+            { gui_string_id::btn_load_config,             { "Import", "Importieren" } },
+            { gui_string_id::btn_save_config,             { "Export current config", "Aktuelle Konfiguration exportieren" } },
+            { gui_string_id::btn_export_config,           { "Export to", "Exportieren nach" } },
+            { gui_string_id::btn_scan_configs,            { "Scan Configurations", "Nach Konfigurationen suchen" } },
+            { gui_string_id::dlg_save_config,             { "Export Configuration", "Konfiguration exportieren" } },
+            { gui_string_id::lbl_config_name,             { "Name", "Name" } },
+            { gui_string_id::lbl_config_description,      { "Description", "Beschreibung" } },
+            { gui_string_id::lbl_configuration_paths,     { "Configuration Paths", "Konfigurationspfade" } },
+            { gui_string_id::lbl_available_configurations,{ "Available Configurations", "Verfügbare Konfigurationen" } },
+            { gui_string_id::lbl_config_settings,         { "Configuration Settings", "Konfigurationseinstellungen" } },
+            { gui_string_id::btn_export,                  { "Export", "Exportieren" } },
+            { gui_string_id::btn_save,                    { "Save", "Speichern" } }
         };
 
         auto it = translations.find(id);

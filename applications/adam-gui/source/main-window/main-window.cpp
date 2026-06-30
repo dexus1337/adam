@@ -328,6 +328,17 @@ namespace adam::gui
                     ImGui::EndChild();
                     ImGui::EndTabItem();
                 }
+                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_configuration, lang)))
+                {
+                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
+                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
+                    if (ImGui::BeginChild("##configuration_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
+                    {
+                        draw_tab_configuration(m_ctrl, lang);
+                    }
+                    ImGui::EndChild();
+                    ImGui::EndTabItem();
+                }
                 if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_modules, lang)))
                 {
                     ImVec2 pad = ImGui::GetStyle().WindowPadding;
@@ -346,17 +357,6 @@ namespace adam::gui
                     if (ImGui::BeginChild("##information_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
                     {
                         draw_tab_information(m_ctrl, lang);
-                    }
-                    ImGui::EndChild();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_configuration, lang)))
-                {
-                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
-                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
-                    if (ImGui::BeginChild("##configuration_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
-                    {
-                        draw_tab_configuration(m_ctrl, lang);
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();

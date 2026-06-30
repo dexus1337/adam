@@ -16,6 +16,7 @@
 #include "commander-event-dispatcher.hpp"
 #include "registry-view.hpp"
 #include "module-view.hpp"
+#include "config-view.hpp"
 #include "os/os.hpp"
 
 #include <unordered_map>
@@ -69,6 +70,22 @@ namespace adam
 
         /** @brief Requests to remove an existing module path. */
         response_status request_module_path_remove(uint32_t index);
+
+        /** @brief Requests to add a new config path. */
+        response_status request_config_path_add(const string_hashed& path, uint32_t index = 0);
+
+        /** @brief Requests to remove an existing config path. */
+        response_status request_config_path_remove(uint32_t index);
+
+        /** @brief Requests a config scan. */
+        response_status request_config_scan();
+
+        /** @brief Requests to save the config. */
+        response_status request_config_export(uint32_t path_idx, const string_hashed& filename, const std::string& name, const std::string& description);
+        response_status request_config_save(const std::string& name, const std::string& description);
+
+        /** @brief Requests to load a config. */
+        response_status request_config_import(uint32_t path_idx, const string_hashed& filename);
 
         /** @brief Requests a module scan. */
         response_status request_module_scan();
@@ -193,6 +210,13 @@ namespace adam
         module_view& modules() { return m_module_view; }
         const module_view& get_modules() const { return m_module_view; }
 
+        /** @brief Retrieves a reference to the local config view. */
+        config_view& configs() { return m_config_view; }
+        const config_view& get_configs() const { return m_config_view; }
+
+        const std::string& get_config_name() const { return m_config_name; }
+        const std::string& get_config_description() const { return m_config_description; }
+
         /** @brief Retrieves a reference to the local registry view. */
         registry_view& registry() { return m_registry_view; }
         const registry_view& get_registry() const { return m_registry_view; }
@@ -235,6 +259,10 @@ namespace adam
 
         registry_view m_registry_view; /**< Local view of the controller's registry components */
         module_view   m_module_view;   /**< Local view of the controller's modules */
+        config_view   m_config_view;   /**< Local view of the controller's configs */
+        
+        std::string   m_config_name;
+        std::string   m_config_description;
         
         std::vector<command>  m_command_buffer;  /**< Reusable buffer for building commands */
         std::vector<response> m_response_buffer; /**< Reusable buffer for receiving responses */

@@ -71,6 +71,10 @@ namespace adam
         processor_unavailable,
         processor_removed,
 
+        config_path_added,
+        config_path_removed,
+        config_available,
+
         shutdown
     };
 

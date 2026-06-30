@@ -19,6 +19,7 @@
 #include "factory/factory.hpp"
 #include "resources/language.hpp"
 #include "controller/registry-module-manager.hpp"
+#include "controller/registry-configuration-manager.hpp"
 #include "data/port.hpp"
 #include "data/connection.hpp"
 #include "data/processor.hpp"
@@ -122,6 +123,8 @@ namespace adam
         unavailable_connection_map&         unavailable_connections()   { return m_unavailable_connections; }
         unavailable_processor_map&          unavailable_processors()    { return m_unavailable_processors; }
         registry_module_manager&            modules()                   { return m_modules; }
+        registry_configuration_manager&     configs()                   { return m_configs; }
+        const registry_configuration_manager& get_configs() const       { return m_configs; }
         
         /** @brief Retrieves the list of configured module paths. */
         const configuration_parameter_list* get_module_paths() const;
@@ -237,5 +240,6 @@ namespace adam
 
         controller&                 m_controller;               /**< A reference to the controller, used for accessing shared resources and orchestrating interactions between components. */
         registry_module_manager     m_modules;                  /**< Manages external modules loaded into the registry. */
+        registry_configuration_manager m_configs;              /**< Manages configurations. */
     };
 }

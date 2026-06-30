@@ -468,6 +468,10 @@ TEST_F(commander_test, initial_data_module_sync)
         ctx.set_single_response_status(adam::response_status::success);
         auto* data = ctx.responses.front().data_as<adam::messages::initial_data_header>();
         data->lang_info.lang = adam::language_english;
+        data->cfg_info.paths_count = 1;
+        data->cfg_info.available_configs = 0;
+        std::memset(data->cfg_info.name, 0, sizeof(data->cfg_info.name));
+        std::memset(data->cfg_info.description, 0, sizeof(data->cfg_info.description));
         
         data->mod_info.module_paths = 1;
         data->mod_info.available_modules = 1;

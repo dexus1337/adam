@@ -31,6 +31,7 @@
 #include "commander/commander-event-dispatcher.hpp"
 #include "commander/registry-view.hpp"
 #include "commander/module-view.hpp"
+#include "commander/config-view.hpp"
 #include "commander/commander.hpp"
 #include "data/format.hpp"
 #include "data/parser.hpp"
