@@ -118,26 +118,61 @@ namespace adam
 
     void buffer_manager::return_buffer(buffer* buf)
     {
-        // If this is a remote buffer, we don't try to reuse it locally.
-        // We just delete our local surrogate object and leave the shared ref_count at 0.
-        // The owner process will automatically scavenge it!
-        if (buf->m_is_resolved)
+        uint32_t current = buf->m_header->ref_count.load(std::memory_order_relaxed);
+        while (true)
         {
-            destroy_resolved_buffer(buf);
-            return;
-        }
-        
-        // Local buffer: Try to transition it back to the free state to recycle immediately.
-        uint32_t expected = 0;
-        if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
-        {
-            uint8_t capacity_class = get_capacity_class(buf->get_capacity());
-            auto& local_list = t_cache.free_lists[capacity_class];
+            if (buf->m_is_resolved)
+            {
+                if (current == 0)
+                {
+                    destroy_resolved_buffer(buf);
+                    return;
+                }
+                
+                uint32_t next = current - 1;
+                if (buf->m_header->ref_count.compare_exchange_weak(current, next, std::memory_order_acq_rel, std::memory_order_acquire))
+                {
+                    if (next == 0)
+                    {
+                        destroy_resolved_buffer(buf);
+                    }
+                    return;
+                }
+            }
+            else
+            {
+                if (current == buffer_free_state)
+                {
+                    return;
+                }
+                
+                uint32_t next;
+                bool recycle = false;
+                if (current == 0 || current == 1)
+                {
+                    next = buffer_free_state;
+                    recycle = true;
+                }
+                else
+                {
+                    next = current - 1;
+                }
+                
+                if (buf->m_header->ref_count.compare_exchange_weak(current, next, std::memory_order_acq_rel, std::memory_order_acquire))
+                {
+                    if (recycle)
+                    {
+                        uint8_t capacity_class = get_capacity_class(buf->get_capacity());
+                        auto& local_list = t_cache.free_lists[capacity_class];
 
-            local_list.push_back(buf);
+                        local_list.push_back(buf);
 
-            if (local_list.size() >= max_thread_cache_size)
-                return_batch(capacity_class, local_list); // Hits the spinlock
+                        if (local_list.size() >= max_thread_cache_size)
+                            return_batch(capacity_class, local_list); // Hits the spinlock
+                    }
+                    return;
+                }
+            }
         }
     }
 

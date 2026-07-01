@@ -34,13 +34,6 @@ TEST_F(logger_sink_test, command_queue_lifecycle)
     EXPECT_TRUE(log_sink.connect());
     EXPECT_TRUE(log_sink.is_active());
     
-    // Theres one log in the queue in debug so yeah remove that
-    debug_statement
-    (
-        adam::log syslog;
-        EXPECT_TRUE(log_sink.queue().pop(syslog, 100))
-    );
-
     adam::log send1(adam::log::error, "logger_sink test error");
     adam::log send2(adam::log::trace, "logger_sink test trace");
 
