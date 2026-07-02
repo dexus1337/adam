@@ -192,7 +192,7 @@ namespace adam::modules::network
                     ::getsockopt(sock, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&err_code), &opt_len);
                     #endif
                 }
-                socket_error_t err_resolved = resolve_socket_error(err_code == 0 ? WSAECONNREFUSED : err_code);
+                socket_error_t err_resolved = resolve_socket_error(err_code); // resolve_socket_error(err_code == 0 ? WSAECONNREFUSED : err_code);
                 ctrl->log(log::error, std::format("TCP-Client: {} ({})", get_event_log_text(log_event::socket_connect_failed, lang), get_error_log_text(err_resolved, lang)));
                 close_socket(sock);
                 return false;

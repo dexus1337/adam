@@ -48,6 +48,9 @@ namespace adam
         if (fd == -1) 
             return false;
 
+        // Force permission, as when creating the shm they dont seem to correctly apply
+        fchmod(fd, 0666);
+
         // Align buffer size to page size
         long page_size = sysconf(_SC_PAGESIZE);
         buffer_size = ((buffer_size + page_size - 1) / page_size) * page_size;
