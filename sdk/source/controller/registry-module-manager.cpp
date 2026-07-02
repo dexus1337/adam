@@ -83,6 +83,7 @@ namespace adam
     {
         if (mod)
         {
+            const_cast<module*>(mod)->set_controller(&m_controller);
             m_internal_modules.emplace(mod->get_name(), mod);
         }
     }
@@ -359,6 +360,7 @@ namespace adam
 
         mod->m_mod_handle   = reinterpret_cast<uintptr_t>(handle);
         mod->m_str_filepath = path_str;
+        mod->set_controller(&m_controller);
         m_loaded_modules.emplace(mod->get_name(), mod);
 
         if (out_module) *out_module = mod;

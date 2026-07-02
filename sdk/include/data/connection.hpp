@@ -11,7 +11,7 @@
 
  
 #include "api/api-sdk.hpp"
-#include "configuration/configuration-item.hpp"
+#include "data/registry-item.hpp"
 #include "types/vector-double-buffer.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/message-structs.hpp"
@@ -33,7 +33,7 @@ namespace adam
      *          The connection owns the input and output data formats; individual ports
      *          carry no format information.
      */
-    class ADAM_SDK_API connection : public configuration_item
+    class ADAM_SDK_API connection : public registry_item
     {
     public:
 

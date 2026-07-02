@@ -36,7 +36,7 @@ namespace adam
     };
 
     processor::processor(const string_hashed& item_name, uint32_t state_buffer_size)
-     :  configuration_item(item_name, processor::get_default_parameters()),
+     :  registry_item(item_name, processor::get_default_parameters()),
         m_format_input(&data_format_transparent),
         m_format_output(&data_format_transparent)
     {

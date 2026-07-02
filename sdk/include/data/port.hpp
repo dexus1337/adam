@@ -10,7 +10,7 @@
 
  
 #include "api/api-sdk.hpp"
-#include "configuration/configuration-item.hpp"
+#include "data/registry-item.hpp"
 #include "types/vector-double-buffer.hpp"
 #include "types/map-double-buffer.hpp"
 #include "commander/messages/command.hpp"
@@ -40,7 +40,7 @@ namespace adam
      *        - type:           The type of the port, used for identification and lookup in the ADAM system.
      * 
      */
-    class ADAM_SDK_API port : public configuration_item
+    class ADAM_SDK_API port : public registry_item
     {
     public:
     

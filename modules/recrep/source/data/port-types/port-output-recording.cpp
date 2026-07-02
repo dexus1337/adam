@@ -152,7 +152,7 @@ namespace adam::modules::recrep
     {
         close_current_file(false);
 
-        auto lang = adam::controller::get().get_language();
+        auto lang = get_controller()->get_language();
 
         auto now = std::chrono::system_clock::now();
         auto time = std::chrono::system_clock::to_time_t(now);
@@ -193,7 +193,7 @@ namespace adam::modules::recrep
         m_file_stream.open(final_path, std::ios::binary | std::ios::out | std::ios::trunc);
         if (!m_file_stream.is_open())
         {
-            adam::controller::get().log(adam::log::error, get_log_event_text(file_open_failed, lang));
+            get_controller()->log(adam::log::error, get_log_event_text(file_open_failed, lang));
             return false;
         }
 

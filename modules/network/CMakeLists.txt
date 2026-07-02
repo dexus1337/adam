@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt for the network module
+# CMakeLists.txt for the network module
 
 include(../../cmake/gtest.cmake)
 enable_testing()
@@ -25,6 +25,9 @@ target_include_directories(adam-module-network
 target_link_libraries(adam-module-network 
     PRIVATE adam-sdk
 )
+if(WIN32)
+    target_link_libraries(adam-module-network PRIVATE ws2_32)
+endif()
 
 target_compile_definitions(adam-module-network
     PRIVATE ADAM_USE_SHARED_SDK
@@ -52,6 +55,9 @@ target_link_libraries(adam-module-network-test
     PRIVATE adam-sdk
     PRIVATE adam-module-network
 )
+if(WIN32)
+    target_link_libraries(adam-module-network-test PRIVATE ws2_32)
+endif()
 
 # Set the output directory for the executable
 set_target_properties(adam-module-network-test PROPERTIES

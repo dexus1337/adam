@@ -45,6 +45,18 @@ namespace adam::modules::serial
         /** @brief Protoype function for data output. */
         virtual bool write(buffer* buff);
 
+        enum class log_event
+        {
+            path_empty,
+            open_failed,
+            open_success,
+            close_success,
+            read_failed,
+            write_failed
+        };
+        static std::string_view get_log_event_text(log_event ev, language lang);
+        void log_event_msg(log::level lvl, log_event ev, std::string_view arg1 = {}, std::string_view arg2 = {});
+
     private:
         #if defined(ADAM_PLATFORM_WINDOWS)
         void* m_handle;

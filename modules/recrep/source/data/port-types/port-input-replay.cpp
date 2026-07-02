@@ -224,7 +224,7 @@ namespace adam::modules::recrep
         // On success: advances m_current_file_index, fills state buffer, sets m_is_first_packet, returns true.
         // On failure: does NOT advance index, returns false (caller is responsible for closing the stream).
 
-        auto lang = adam::controller::get().get_language();
+        auto lang = get_controller()->get_language();
 
         switch (fmt_hash)
         {
@@ -235,17 +235,17 @@ namespace adam::modules::recrep
 
                 if (m_file_stream.gcount() != sizeof(fh))
                 {
-                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(file_too_small, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(file_too_small, lang));
                     return false;
                 }
                 if (fh.magic != pcap::file_header::magic_number)
                 {
-                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
                     return false;
                 }
                 if (fh.ver_maj != pcap::version_major || fh.ver_min != pcap::version_minor)
                 {
-                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(unsupported_version, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(unsupported_version, lang));
                     return false;
                 }
 
@@ -290,17 +290,17 @@ namespace adam::modules::recrep
 
                 if (m_file_stream.gcount() != sizeof(fh))
                 {
-                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(file_too_small, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(file_too_small, lang));
                     return false;
                 }
                 if (fh.magic != rff::file_header::magic_number)
                 {
-                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
                     return false;
                 }
                 if (fh.version.major != '1')
                 {
-                    if (log_errors) adam::controller::get().log(adam::log::error, get_log_event_text(unsupported_version, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(unsupported_version, lang));
                     return false;
                 }
 

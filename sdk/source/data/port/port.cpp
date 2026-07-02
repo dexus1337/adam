@@ -190,7 +190,7 @@ namespace adam
     }
 
     port::port(const string_hashed& item_name, uint32_t state_buffer_size) 
-    :   configuration_item(item_name, port::get_default_parameters()),
+    :   registry_item(item_name, port::get_default_parameters()),
         m_b_threaded(true),
         m_thread(),
         m_in_connections(),

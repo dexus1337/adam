@@ -137,6 +137,8 @@ namespace adam
         if (!new_port)
             return status_error_creation_failed;
 
+        new_port->set_controller(&m_controller);
+
         auto ptr = new_port.get();
         m_ports.emplace(name, std::move(new_port));
         
@@ -233,6 +235,8 @@ namespace adam
         if (!new_processor)
             return status_error_creation_failed;
 
+        new_processor->set_controller(&m_controller);
+
         auto ptr = new_processor.get();
         m_processors.emplace(name, std::move(new_processor));
         
@@ -302,6 +306,7 @@ namespace adam
             return status_error_connection_already_exists;
 
         auto new_connection = std::make_unique<connection>(name);
+        new_connection->set_controller(&m_controller);
         auto timestamp      = std::time(nullptr);
 
         new_connection->get_parameter<configuration_parameter_integer>("date_created"_ct)->set_value(static_cast<int64_t>(timestamp));

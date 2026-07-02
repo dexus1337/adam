@@ -27,6 +27,7 @@ namespace adam
     class port;
     class filter;
     class converter;
+    class controller;
     
     /**
      * @class   module
@@ -93,7 +94,12 @@ namespace adam
         const registry::port_factory_map&       get_port_factories()           const { return m_port_factories; }
         const registry::processor_factory_map&  get_processor_factories()      const { return m_processor_factories; }
 
+        void set_controller(controller* ctrl) { m_controller = ctrl; }
+        controller* get_controller() const { return m_controller; }
+
     protected:
+
+        controller*                     m_controller = nullptr;     /**< Pointer to the main controller */
 
         string_hashed                   m_str_name;                 /**< The name of the module, used for identification and lookup in the ADAM system. */
         string_hashed                   m_str_filepath;             /**< The file path of the module's shared library, used for loading and unloading the module. */

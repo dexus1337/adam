@@ -5,6 +5,7 @@
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module-serial.hpp"
+#include <format>
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
@@ -164,6 +165,7 @@ namespace adam::modules::serial
         
         if (path.empty())
         {
+            log_event_msg(log::error, log_event::path_empty);
             m_started->set_value(false);
             return false;
         }
@@ -183,6 +185,8 @@ namespace adam::modules::serial
         m_handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
         if (m_handle == INVALID_HANDLE_VALUE)
         {
+            DWORD err = ::GetLastError();
+            log_event_msg(log::error, log_event::open_failed, path, std::to_string(err));
             m_started->set_value(false);
             return false;
         }
@@ -236,14 +240,18 @@ namespace adam::modules::serial
         SetCommTimeouts(m_handle, &timeouts);
 
         // Flush any old data in the kernel buffer
-        PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+         PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+        log_event_msg(log::info, log_event::open_success, path, std::to_string(baud_rate));
         #else
         m_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
         if (m_fd < 0)
         {
+            int err = errno;
+            log_event_msg(log::error, log_event::open_failed, path, std::to_string(err));
             m_started->set_value(false);
             return false;
         }
+
 
         struct termios tty;
         if (tcgetattr(m_fd, &tty) == 0) 
@@ -371,6 +379,7 @@ namespace adam::modules::serial
             // Flush any old data in the kernel buffer
             tcflush(m_fd, TCIOFLUSH);
         }
+        log_event_msg(log::info, log_event::open_success, path, std::to_string(baud_rate));
         #endif
         return port::start();
     }
@@ -382,12 +391,14 @@ namespace adam::modules::serial
         {
             CloseHandle(m_handle);
             m_handle = INVALID_HANDLE_VALUE;
+            log_event_msg(log::info, log_event::close_success);
         }
         #else
         if (m_fd >= 0) 
         {
             ::close(m_fd);
             m_fd = -1;
+            log_event_msg(log::info, log_event::close_success);
         }
         #endif
         return port::stop();
@@ -424,6 +435,8 @@ namespace adam::modules::serial
             }
             else
             {
+                DWORD err = ::GetLastError();
+                log_event_msg(log::error, log_event::read_failed, std::to_string(err));
                 return false;
             }
             #else
@@ -431,6 +444,8 @@ namespace adam::modules::serial
             if (rv < 0) 
             {
                 if (errno == EINTR) continue;
+                int err = errno;
+                log_event_msg(log::error, log_event::read_failed, std::to_string(err));
                 return false;
             }
             else if (rv > 0)
@@ -440,7 +455,12 @@ namespace adam::modules::serial
                 {
                     continue;
                 }
-                if (chunk <= 0) return false;
+                if (chunk <= 0)
+                {
+                    int err = errno;
+                    log_event_msg(log::error, log_event::read_failed, std::to_string(err));
+                    return false;
+                }
                 
                 bytes_read += chunk;
 
@@ -495,10 +515,72 @@ namespace adam::modules::serial
         {
             bytes_written = static_cast<int>(dwWritten);
         }
+        else
+        {
+            DWORD err = ::GetLastError();
+            log_event_msg(log::error, log_event::write_failed, std::to_string(err));
+        }
         #else
         bytes_written = ::write(m_fd, data, size);
+        if (bytes_written < 0)
+        {
+            int err = errno;
+            log_event_msg(log::error, log_event::write_failed, std::to_string(err));
+        }
         #endif
 
         return bytes_written == static_cast<int>(size);
+    }
+
+    void port_serial::log_event_msg(log::level lvl, log_event ev, std::string_view arg1, std::string_view arg2)
+    {
+        auto* ctrl = get_controller();
+        language lang = ctrl->get_language();
+        std::string_view fmt = get_log_event_text(ev, lang);
+
+        std::string msg;
+        if (!arg2.empty())
+        {
+            msg = std::vformat(fmt, std::make_format_args(arg1, arg2));
+        }
+        else if (!arg1.empty())
+        {
+            msg = std::vformat(fmt, std::make_format_args(arg1));
+        }
+        else
+        {
+            msg = std::string(fmt);
+        }
+
+        ctrl->log(adam::log(lvl, msg));
+    }
+
+    std::string_view port_serial::get_log_event_text(log_event ev, language lang)
+    {
+        if (lang == language_german)
+        {
+            switch (ev)
+            {
+                case log_event::path_empty:    return "Serieller Port: Gerätepfad ist leer.";
+                case log_event::open_failed:   return "Serieller Port: Fehler beim Öffnen des Geräts '{}'. Fehlercode: {}";
+                case log_event::open_success:  return "Serieller Port: Gerät '{}' erfolgreich geöffnet (Baud: {}).";
+                case log_event::close_success: return "Serieller Port: Gerät geschlossen.";
+                case log_event::read_failed:   return "Serieller Port: Lesefehler. Fehlercode: {}";
+                case log_event::write_failed:  return "Serieller Port: Schreibfehler. Fehlercode: {}";
+            }
+        }
+        else
+        {
+            switch (ev)
+            {
+                case log_event::path_empty:    return "Serial Port: Device path is empty.";
+                case log_event::open_failed:   return "Serial Port: Failed to open device '{}'. Error code: {}";
+                case log_event::open_success:  return "Serial Port: Device '{}' opened successfully (Baud: {}).";
+                case log_event::close_success: return "Serial Port: Device closed.";
+                case log_event::read_failed:   return "Serial Port: Read failed. Error code: {}";
+                case log_event::write_failed:  return "Serial Port: Write failed. Error code: {}";
+            }
+        }
+        return "";
     }
 }
