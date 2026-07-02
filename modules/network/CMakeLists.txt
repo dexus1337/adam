@@ -44,16 +44,19 @@ set_target_properties(adam-module-network PROPERTIES
 
 
 # Create the test application
-add_executable(adam-module-network-test ${test_source_files})
+add_executable(adam-module-network-test ${module_source_files} ${test_source_files})
 
 target_include_directories(adam-module-network-test 
     PRIVATE include/    # Test doesnt need to share headers with others
     PRIVATE source/     # Internal to this lib
 )
 
+target_compile_definitions(adam-module-network-test
+    PRIVATE ADAM_USE_SHARED_SDK
+)
+
 target_link_libraries(adam-module-network-test 
     PRIVATE adam-sdk
-    PRIVATE adam-module-network
 )
 if(WIN32)
     target_link_libraries(adam-module-network-test PRIVATE ws2_32)
@@ -64,8 +67,10 @@ set_target_properties(adam-module-network-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
 )
 
-setup_gtest(adam-module-network-test)
+add_custom_command(TARGET adam-module-network-test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:adam-sdk>
+            $<TARGET_FILE_DIR:adam-module-network-test>
+)
 
-# Discover tests for the VS Code Test Explorer
-include(GoogleTest)
-gtest_discover_tests(adam-module-network-test)
+setup_gtest(adam-module-network-test)

@@ -139,9 +139,9 @@ namespace adam::gui
     // Helper functions
     static inline uint64_t get_unique_node_id(uint64_t port_hash, uint64_t conn_hash, int stage)
     {
-        (void)stage;
         uint64_t id = port_hash;
         id ^= (conn_hash + 0x9e3779b97f4a7c15ULL + (id << 6) + (id >> 2));
+        id ^= (static_cast<uint64_t>(stage) + 0x517cc1b727220a95ULL + (id << 6) + (id >> 2));
         if (static_cast<ImGuiID>(id) == 0)
             id ^= 0x1337;
         return id;

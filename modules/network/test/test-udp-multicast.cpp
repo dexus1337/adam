@@ -1,0 +1,151 @@
+#include <gtest/gtest.h>
+#include "data/port-types/port-udp-multicast.hpp"
+#include "memory/buffer/buffer-manager.hpp"
+
+#if defined(ADAM_PLATFORM_WINDOWS)
+#include <winsock2.h>
+#endif
+
+#include <thread>
+#include <chrono>
+#include <cstring>
+
+using namespace adam;
+using namespace adam::modules::network;
+
+class udp_multicast_test : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+#if defined(ADAM_PLATFORM_WINDOWS)
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+        buffer_manager::get().initialize();
+    }
+
+    void TearDown() override
+    {
+        buffer_manager::get().destroy();
+#if defined(ADAM_PLATFORM_WINDOWS)
+        WSACleanup();
+#endif
+    }
+};
+
+TEST_F(udp_multicast_test, loopback_ipv4)
+{
+    port_udp_multicast receiver("recv_port");
+    port_udp_multicast sender("send_port");
+
+    receiver.set_controller(&controller::get());
+    sender.set_controller(&controller::get());
+
+    auto r_params = receiver.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+    r_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("239.0.0.1"_ct);
+    r_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("127.0.0.1"_ct);
+    r_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15021);
+    r_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv4"_ct);
+    r_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
+    r_params->get<configuration_parameter_boolean>("loopback"_ct)->set_value(true);
+
+    auto s_params = sender.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+    s_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("239.0.0.1"_ct);
+    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("127.0.0.1"_ct);
+    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0); // ephemeral
+    s_params->get<configuration_parameter_integer>("multicast_port"_ct)->set_value(15021);
+    s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv4"_ct);
+    s_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
+    s_params->get<configuration_parameter_boolean>("loopback"_ct)->set_value(true);
+
+    ASSERT_TRUE(receiver.start());
+    ASSERT_TRUE(sender.start());
+
+    buffer* send_buf = buffer_manager::get().request_buffer(128);
+    ASSERT_NE(send_buf, nullptr);
+    const char* test_data = "Hello UDP Multicast IPv4!";
+    std::memcpy(send_buf->data_as<char>(), test_data, std::strlen(test_data) + 1);
+    send_buf->set_size(static_cast<uint32_t>(std::strlen(test_data) + 1));
+
+    EXPECT_TRUE(sender.write(send_buf));
+    send_buf->release();
+
+    buffer* recv_buf = nullptr;
+    bool read_success = false;
+    for (int i = 0; i < 20; ++i)
+    {
+        if (receiver.read(recv_buf))
+        {
+            read_success = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+
+    ASSERT_TRUE(read_success);
+    ASSERT_NE(recv_buf, nullptr);
+    EXPECT_STREQ(recv_buf->data_as<const char>(), test_data);
+    recv_buf->release();
+
+    EXPECT_TRUE(sender.stop());
+    EXPECT_TRUE(receiver.stop());
+}
+
+TEST_F(udp_multicast_test, loopback_ipv6)
+{
+    port_udp_multicast receiver("recv_port_v6");
+    port_udp_multicast sender("send_port_v6");
+
+    receiver.set_controller(&controller::get());
+    sender.set_controller(&controller::get());
+
+    auto r_params = receiver.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+    // Link-local multicast address (all nodes on the link)
+    r_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("ff02::1"_ct);
+    r_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("::1"_ct);
+    r_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15022);
+    r_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);
+    r_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
+    r_params->get<configuration_parameter_boolean>("loopback"_ct)->set_value(true);
+
+    auto s_params = sender.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+    s_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("ff02::1"_ct);
+    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("::1"_ct);
+    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0);
+    s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);
+    s_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
+    s_params->get<configuration_parameter_boolean>("loopback"_ct)->set_value(true);
+
+    ASSERT_TRUE(receiver.start());
+    ASSERT_TRUE(sender.start());
+
+    buffer* send_buf = buffer_manager::get().request_buffer(128);
+    ASSERT_NE(send_buf, nullptr);
+    const char* test_data = "Hello UDP Multicast IPv6!";
+    std::memcpy(send_buf->data_as<char>(), test_data, std::strlen(test_data) + 1);
+    send_buf->set_size(static_cast<uint32_t>(std::strlen(test_data) + 1));
+
+    EXPECT_TRUE(sender.write(send_buf));
+    send_buf->release();
+
+    buffer* recv_buf = nullptr;
+    bool read_success = false;
+    for (int i = 0; i < 20; ++i)
+    {
+        if (receiver.read(recv_buf))
+        {
+            read_success = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+
+    ASSERT_TRUE(read_success);
+    ASSERT_NE(recv_buf, nullptr);
+    EXPECT_STREQ(recv_buf->data_as<const char>(), test_data);
+    recv_buf->release();
+
+    EXPECT_TRUE(sender.stop());
+    EXPECT_TRUE(receiver.stop());
+}
