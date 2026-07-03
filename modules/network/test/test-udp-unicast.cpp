@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "data/port-types/port-udp-unicast.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "data/inspector.hpp"
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <winsock2.h>
@@ -57,26 +58,43 @@ TEST_F(udp_unicast_test, loopback_ipv4)
     ASSERT_TRUE(receiver.start());
     ASSERT_TRUE(sender.start());
 
+    auto r_inspector = std::make_shared<data_inspector>();
+    r_inspector->create(receiver.get_name());
+    receiver.add_inspector(r_inspector);
+
+    std::atomic<bool> read_success{false};
+    buffer* recv_buf = nullptr;
+
+    r_inspector->start_inspecting([&](buffer* buf) 
+    {
+        if (!read_success)
+        {
+            recv_buf = buf;
+            read_success = true;
+        }
+        recv_buf->release();
+    });
+
     buffer* send_buf = buffer_manager::get().request_buffer(128);
     ASSERT_NE(send_buf, nullptr);
     const char* test_data = "Hello UDP Unicast IPv4!";
     std::memcpy(send_buf->data_as<char>(), test_data, std::strlen(test_data) + 1);
     send_buf->set_size(static_cast<uint32_t>(std::strlen(test_data) + 1));
 
-    EXPECT_TRUE(sender.write(send_buf));
+    ASSERT_TRUE(sender.write(send_buf));
     send_buf->release();
 
-    buffer* recv_buf = nullptr;
-    bool read_success = false;
     for (int i = 0; i < 20; ++i)
     {
-        if (receiver.read(recv_buf))
+        if (read_success)
         {
-            read_success = true;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
+
+    receiver.remove_inspector(r_inspector);
+    r_inspector->destroy();
 
     ASSERT_TRUE(read_success);
     ASSERT_NE(recv_buf, nullptr);
@@ -110,26 +128,43 @@ TEST_F(udp_unicast_test, loopback_ipv6)
     ASSERT_TRUE(receiver.start());
     ASSERT_TRUE(sender.start());
 
+    auto r_inspector = std::make_shared<data_inspector>();
+    r_inspector->create(receiver.get_name());
+    receiver.add_inspector(r_inspector);
+
+    std::atomic<bool> read_success{false};
+    buffer* recv_buf = nullptr;
+
+    r_inspector->start_inspecting([&](buffer* buf) 
+    {
+        if (!read_success)
+        {
+            recv_buf = buf;
+            read_success = true;
+        }
+        recv_buf->release();
+    });
+
     buffer* send_buf = buffer_manager::get().request_buffer(128);
     ASSERT_NE(send_buf, nullptr);
     const char* test_data = "Hello UDP Unicast IPv6!";
     std::memcpy(send_buf->data_as<char>(), test_data, std::strlen(test_data) + 1);
     send_buf->set_size(static_cast<uint32_t>(std::strlen(test_data) + 1));
 
-    EXPECT_TRUE(sender.write(send_buf));
+    ASSERT_TRUE(sender.write(send_buf));
     send_buf->release();
 
-    buffer* recv_buf = nullptr;
-    bool read_success = false;
     for (int i = 0; i < 20; ++i)
     {
-        if (receiver.read(recv_buf))
+        if (read_success)
         {
-            read_success = true;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
+
+    receiver.remove_inspector(r_inspector);
+    r_inspector->destroy();
 
     ASSERT_TRUE(read_success);
     ASSERT_NE(recv_buf, nullptr);

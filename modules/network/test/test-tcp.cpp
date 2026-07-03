@@ -2,6 +2,7 @@
 #include "data/port-types/port-tcp-server.hpp"
 #include "data/port-types/port-tcp-client.hpp"
 #include "memory/buffer/buffer-manager.hpp"
+#include "data/inspector.hpp"
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <winsock2.h>
@@ -65,45 +66,79 @@ TEST_F(tcp_test, loopback_ipv4)
     std::memcpy(send_buf->data_as<char>(), test_data, std::strlen(test_data) + 1);
     send_buf->set_size(static_cast<uint32_t>(std::strlen(test_data) + 1));
 
+    auto s_inspector = std::make_shared<data_inspector>();
+    s_inspector->create(server.get_name());
+    server.add_inspector(s_inspector);
+
+    std::atomic<bool> read_success{false};
+    buffer* recv_buf = nullptr;
+
+    s_inspector->start_inspecting([&](buffer* buf) 
+    {
+        if (!read_success)
+        {
+            recv_buf = buf;
+            read_success = true;
+        }
+        recv_buf->release();
+    });
+
     EXPECT_TRUE(client.write(send_buf));
     send_buf->release();
 
-    buffer* recv_buf = nullptr;
-    bool read_success = false;
     for (int i = 0; i < 20; ++i)
     {
-        if (server.read(recv_buf))
+        if (read_success)
         {
-            read_success = true;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
+    server.remove_inspector(s_inspector);
+    s_inspector->destroy();
+
     ASSERT_TRUE(read_success);
     ASSERT_NE(recv_buf, nullptr);
     EXPECT_STREQ(recv_buf->data_as<const char>(), test_data);
+
+    auto c_inspector = std::make_shared<data_inspector>();
+    c_inspector->create(client.get_name());
+    client.add_inspector(c_inspector);
+
+    std::atomic<bool> c_read_success{false};
+    buffer* c_recv_buf = nullptr;
+
+    c_inspector->start_inspecting([&](buffer* buf) 
+    {
+        if (!c_read_success)
+        {
+            c_recv_buf = buf;
+            c_recv_buf->release();
+            c_read_success = true;
+        }
+    });
 
     // Write back from server to client
     EXPECT_TRUE(server.write(recv_buf));
     recv_buf->release();
 
-    read_success = false;
-    recv_buf = nullptr;
     for (int i = 0; i < 20; ++i)
     {
-        if (client.read(recv_buf))
+        if (c_read_success)
         {
-            read_success = true;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
-    ASSERT_TRUE(read_success);
-    ASSERT_NE(recv_buf, nullptr);
-    EXPECT_STREQ(recv_buf->data_as<const char>(), test_data);
-    recv_buf->release();
+    client.remove_inspector(c_inspector);
+    c_inspector->destroy();
+
+    ASSERT_TRUE(c_read_success);
+    ASSERT_NE(c_recv_buf, nullptr);
+    EXPECT_STREQ(c_recv_buf->data_as<const char>(), test_data);
+    c_recv_buf->release();
 
     EXPECT_TRUE(client.stop());
     EXPECT_TRUE(server.stop());
@@ -139,45 +174,77 @@ TEST_F(tcp_test, loopback_ipv6)
     std::memcpy(send_buf->data_as<char>(), test_data, std::strlen(test_data) + 1);
     send_buf->set_size(static_cast<uint32_t>(std::strlen(test_data) + 1));
 
+    auto s_inspector = std::make_shared<data_inspector>();
+    s_inspector->create(server.get_name());
+    server.add_inspector(s_inspector);
+
+    std::atomic<bool> read_success{false};
+    buffer* recv_buf = nullptr;
+
+    s_inspector->start_inspecting([&](buffer* buf) {
+        if (!read_success)
+        {
+            recv_buf = buf;
+            read_success = true;
+        }
+        recv_buf->release();
+    });
+
     EXPECT_TRUE(client.write(send_buf));
     send_buf->release();
 
-    buffer* recv_buf = nullptr;
-    bool read_success = false;
     for (int i = 0; i < 20; ++i)
     {
-        if (server.read(recv_buf))
+        if (read_success)
         {
-            read_success = true;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
+    server.remove_inspector(s_inspector);
+    s_inspector->destroy();
+
     ASSERT_TRUE(read_success);
     ASSERT_NE(recv_buf, nullptr);
     EXPECT_STREQ(recv_buf->data_as<const char>(), test_data);
+
+    auto c_inspector = std::make_shared<data_inspector>();
+    c_inspector->create(client.get_name());
+    client.add_inspector(c_inspector);
+
+    std::atomic<bool> c_read_success{false};
+    buffer* c_recv_buf = nullptr;
+
+    c_inspector->start_inspecting([&](buffer* buf) {
+        if (!c_read_success)
+        {
+            c_recv_buf = buf;
+            c_recv_buf->release();
+            c_read_success = true;
+        }
+    });
 
     // Write back from server to client
     EXPECT_TRUE(server.write(recv_buf));
     recv_buf->release();
 
-    read_success = false;
-    recv_buf = nullptr;
     for (int i = 0; i < 20; ++i)
     {
-        if (client.read(recv_buf))
+        if (c_read_success)
         {
-            read_success = true;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
-    ASSERT_TRUE(read_success);
-    ASSERT_NE(recv_buf, nullptr);
-    EXPECT_STREQ(recv_buf->data_as<const char>(), test_data);
-    recv_buf->release();
+    client.remove_inspector(c_inspector);
+    c_inspector->destroy();
+
+    ASSERT_TRUE(c_read_success);
+    ASSERT_NE(c_recv_buf, nullptr);
+    EXPECT_STREQ(c_recv_buf->data_as<const char>(), test_data);
+    c_recv_buf->release();
 
     EXPECT_TRUE(client.stop());
     EXPECT_TRUE(server.stop());
