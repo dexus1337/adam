@@ -284,7 +284,7 @@ namespace adam
 
         for (auto& [conn_name, conn_ptr] : m_connections)
         {
-            auto* procs_list = conn_ptr->get_parameter<configuration_parameter_list>("processors"_ct);
+            auto* procs_list = conn_ptr->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
             for (auto& [idx_str, param] : procs_list->get_children())
             {
                 if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
@@ -579,7 +579,7 @@ namespace adam
 
             unavail_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
-            auto* list = unavail_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+            auto* list = unavail_it->second->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
             auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(list->get_children().size())));
             param->set_target(proc_name);
             list->add(std::move(param));
@@ -595,7 +595,7 @@ namespace adam
 
         conn_it->second->processors().push_back(processor_it->second.get());
         processor_it->second->connections().push_back(conn_it->second.get());
-        auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+        auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
         auto param = std::make_unique<configuration_parameter_reference>(string_hashed(std::to_string(procs_list->get_children().size())));
         param->set_target(processor_it->second->get_name());
         procs_list->add(std::move(param));
@@ -616,7 +616,7 @@ namespace adam
 
             unavail_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
-            auto* list = unavail_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+            auto* list = unavail_it->second->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
             std::vector<string_hashed> remaining_procs;
 
             for (const auto& [idx_str, param] : list->get_children())
@@ -653,7 +653,7 @@ namespace adam
         {
             conn_it->second->processors().remove(processor_it->second.get());
             processor_it->second->connections().remove(conn_it->second.get());
-            auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+            auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
             procs_list->clear();
             conn_it->second->processors().iterate([&](const auto& procs) 
             {
@@ -680,7 +680,7 @@ namespace adam
 
             unavail_it->second->get_parameter<configuration_parameter_integer>("date_edited"_ct)->set_value(static_cast<int64_t>(std::time(nullptr)));
 
-            auto* list = unavail_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+            auto* list = unavail_it->second->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
             std::vector<string_hashed> procs;
             string_hashed target_proc;
             bool found = false;
@@ -742,7 +742,7 @@ namespace adam
 
         conn_it->second->processors().reorder(procs);
 
-        auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list>("processors"_ct);
+        auto* procs_list = conn_it->second->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
         procs_list->clear();
         for (size_t i = 0; i < procs.size(); ++i)
         {
@@ -1393,7 +1393,7 @@ namespace adam
             {
                 conn->processors().remove(it->second.get());
 
-                auto* procs_list = conn->get_parameter<configuration_parameter_list>("processors"_ct);
+                auto* procs_list = conn->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
                 bool modified = false;
                 for (auto& [idx_str, param] : procs_list->get_children())
                 {
@@ -1523,7 +1523,7 @@ namespace adam
                 }
             }
 
-            auto* procs_list = new_conn->get_parameter<configuration_parameter_list>("processors"_ct);
+            auto* procs_list = new_conn->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
             for (size_t i = 0; i < procs_list->get_children().size(); ++i)
             {
                 if (auto* param = dynamic_cast<configuration_parameter_reference*>(procs_list->get(string_hashed(std::to_string(i)))))

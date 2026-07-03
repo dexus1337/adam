@@ -211,7 +211,7 @@ TEST_F(controller_test, context_management)
     EXPECT_EQ(ctrl.get_command_ctx(), &ctrl.get_default_command_ctx());
     
     std::vector<adam::response> dummy_responses;
-    adam::command_context ctx { adam::os::get_current_thread_id(), ctrl.get_registry(), ctrl, dummy_responses, {} };
+    adam::command_context ctx { adam::os::get_current_thread_id(), ctrl.get_registry(), ctrl, dummy_responses, {}, {}, {} };
     
     ctrl.set_command_ctx(&ctx);
     EXPECT_EQ(ctrl.get_command_ctx(), &ctx);

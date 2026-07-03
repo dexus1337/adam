@@ -70,7 +70,7 @@ namespace adam
 
     bool memory_signaled::destroy() 
     {
-        if (!m_b_active) 
+        if (!is_created()) 
             return true;
 
         notify();
@@ -78,7 +78,7 @@ namespace adam
         bool result = true;
 
         #ifdef   ADAM_PLATFORM_LINUX
-        if (m_sem && m_is_owner)
+        if (m_sem && is_owner())
             result &= (sem_destroy(m_sem) == 0);
         m_sem = nullptr;
         #elifdef ADAM_PLATFORM_WINDOWS
@@ -93,7 +93,7 @@ namespace adam
 
     bool memory_signaled::notify() 
     {
-        if (!m_b_active) return false;
+        if (!is_active()) return false;
 
         #ifdef   ADAM_PLATFORM_LINUX
         if (!m_sem) return false;
@@ -106,7 +106,7 @@ namespace adam
 
     bool memory_signaled::wait(int32_t timeout_ms) 
     {
-        if (!m_b_active) return false;
+        if (!is_active()) return false;
 
         #ifdef ADAM_PLATFORM_LINUX
         if (!m_sem) return false;

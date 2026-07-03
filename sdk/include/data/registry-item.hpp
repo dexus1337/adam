@@ -23,8 +23,8 @@ namespace adam
     {
     public:
 
-        void set_controller(controller* ctrl) { m_controller = ctrl; }
-        controller* get_controller() const { return m_controller; }
+        inline controller* get_controller()             const   { return m_controller; }
+        inline void set_controller(controller* ctrl)            { m_controller = ctrl; }
 
     protected:
 

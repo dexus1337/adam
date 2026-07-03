@@ -10,9 +10,6 @@
  */
 
  
-#include "api/api-sdk.hpp"
-#include "types/string-hashed.hpp"
-
 #include <cstdint>
 
 #ifdef   ADAM_PLATFORM_WINDOWS
@@ -21,8 +18,22 @@
 #include <semaphore>
 #endif
 
+#include "api/api-sdk.hpp"
+#include "types/string-hashed.hpp"
+#include "types/enum-bit-operations.hpp"
+
+
 namespace adam 
 {
+        enum state_flags : uint8_t
+        {
+            state_zero      = 0,
+            state_created   = 1 << 0,
+            state_active    = 1 << 1,
+            state_owned     = 1 << 2,
+        };
+        enable_enum_bit_operations(state_flags);
+
     /**
      * @class   memory
      * @brief   A class responsible for managing shared memory across processes and modules, 
@@ -38,13 +49,16 @@ namespace adam
         /** @brief Destroys the memory object and cleans up resources. */
         ~memory();
 
-        bool is_active()                            const { return m_b_active; }
-        bool is_owner()                             const { return m_is_owner; }
-        void* get()                                 const { return reinterpret_cast<uint8_t*>(m_shared_memory_base) + m_memory_offset; }
-        uint64_t get_size()                         const { return m_shared_memory_size > m_memory_offset ? m_shared_memory_size - m_memory_offset : 0; }
-        const string_hashed& get_name()             const { return m_name; }
+        inline bool is_created()                const { return m_s_state & state_created; }
+        inline bool is_active()                 const { return m_s_state & state_active; }
+        inline bool is_owner()                  const { return m_s_state & state_owned; }
+        inline void* get()                      const { return reinterpret_cast<uint8_t*>(m_shared_memory_base) + m_memory_offset; }
+        inline uint64_t get_size()              const { return m_shared_memory_size > m_memory_offset ? m_shared_memory_size - m_memory_offset : 0; }
+        inline const string_hashed& get_name()  const { return m_name; }
 
-        void set_name(const string_hashed& new_name) { m_name = new_name; }
+
+        inline void set_name(const string_hashed& new_name) { m_name = new_name; }
+        inline void disable()                               { m_s_state &= ~state_active; }
 
         /** @brief Creates the shared memory region, setting up necessary resources. */
         virtual bool create(uint64_t buffer_size);
@@ -52,25 +66,21 @@ namespace adam
         /** @brief Opens the shared memory region, setting up necessary resources. */
         virtual bool open();
 
-        /** @brief Unsets the active flag. */
-        void disable() { m_b_active = false; }
-
         /** @brief Destroys down the shared memory region, cleaning up resources. */
         virtual bool destroy();
 
     protected:
 
-        string_hashed m_name;               /**< The hashed name of the shared memory region, used for identification across processes. */
+        string_hashed   m_name;                 /**< The hashed name of the shared memory region, used for identification across processes. */
 
-        bool        m_b_active;             /**< Flag indicating whether the shared memory region is currently active. Can be used for threads as loop condition. */
-        bool        m_is_owner;             /**< Flag indicating whether this instance is the owner/creator of the shared memory region, responsible for cleanup. */
+        state_flags     m_s_state;              /**< Several Flags that can be used by users/thread. */
 
-        void*       m_shared_memory_base;   /**< Base pointer to the shared memory region used for memory buffers. */
-        uint64_t    m_shared_memory_size;   /**< Total size of the shared memory region. */
-        uint32_t    m_memory_offset;        /**< Offset to the start of usable shared memory (used for signal placement). */
+        void*           m_shared_memory_base;   /**< Base pointer to the shared memory region used for memory buffers. */
+        uint64_t        m_shared_memory_size;   /**< Total size of the shared memory region. */
+        uint32_t        m_memory_offset;        /**< Offset to the start of usable shared memory (used for signal placement). */
 
         #ifdef ADAM_PLATFORM_WINDOWS
-        HANDLE      m_shared_memory_handle; /**< Handle to the shared memory object on Windows. */
+        HANDLE          m_shared_memory_handle; /**< Handle to the shared memory object on Windows. */
         #endif
     };
 }

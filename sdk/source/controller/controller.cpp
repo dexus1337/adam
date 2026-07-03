@@ -96,7 +96,7 @@ namespace adam
         m_dispatcher(),
         m_registry(*this),
         m_internal_responses(1),
-        m_internal_context{ 0, m_registry, *this, m_internal_responses }
+        m_internal_context{ 0, m_registry, *this, m_internal_responses, {}, {}, {} }
     {
         m_lang_param = static_cast<configuration_parameter_integer*>(m_registry.get_parameters().get("language"_ct));
 
@@ -589,7 +589,7 @@ namespace adam
             resps.emplace_back();   // default construct the responses to ensure the data buffer is allocated, so we can directly write into it when popping from the queue
         }
         
-        command_context ctx { data->tid, m_registry, *this, resps, {} };
+        command_context ctx { data->tid, m_registry, *this, resps, {}, {}, {} };
 
         while (data->queue.is_active())
         {

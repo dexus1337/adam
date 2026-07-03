@@ -11,8 +11,7 @@ namespace adam
 {
     memory::memory(const string_hashed& name) 
      :  m_name(name), 
-        m_b_active(false),
-        m_is_owner(false),
+        m_s_state(state_zero),
         m_shared_memory_base(nullptr),
         m_shared_memory_size(0),
         m_memory_offset(0)
@@ -25,7 +24,7 @@ namespace adam
 
     memory::~memory() 
     {
-        if (m_b_active)
+        if (is_created())
             destroy(); 
     }
 
@@ -102,8 +101,7 @@ namespace adam
         if (!success)
             return false;
 
-        m_b_active              = true;
-        m_is_owner              = true;
+        m_s_state               = state_created | state_active | state_owned;
         m_shared_memory_size    = buffer_size;
 
         return true;
@@ -155,8 +153,7 @@ namespace adam
             m_shared_memory_size = mbi.RegionSize;
         #endif
 
-        m_b_active              = true;
-        m_is_owner              = false;
+        m_s_state = state_created | state_active;
 
         return true;
     }
@@ -176,7 +173,7 @@ namespace adam
         }
 
         #ifdef ADAM_PLATFORM_LINUX
-        if (m_is_owner)
+        if (is_owner())
         {
             std::string linux_name = (m_name.c_str()[0] == '/') ? m_name.c_str() : "/" + std::string(m_name.c_str());
             shm_unlink(linux_name.c_str());
@@ -189,7 +186,7 @@ namespace adam
         }
         #endif
 
-        m_b_active = false;
+        m_s_state = state_zero;
 
         return result;
     }

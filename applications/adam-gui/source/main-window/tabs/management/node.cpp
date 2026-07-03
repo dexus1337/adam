@@ -246,7 +246,7 @@ namespace adam::gui
                     snprintf(total_buf, sizeof(total_buf), "%s", get_gui_string(gui_string_id::lbl_replay_instant, lang));
                 }
 
-                char overlay_buf[128];
+                char overlay_buf[131];
                 snprintf(overlay_buf, sizeof(overlay_buf), "%s / %s", elapsed_buf, total_buf);
 
                 ImGui::ProgressBar(static_cast<float>(progress_fraction), ImVec2(-FLT_MIN, 0.0f), overlay_buf);

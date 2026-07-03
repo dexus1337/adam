@@ -180,7 +180,7 @@ namespace adam
     bool connection::start()
     {
         bool result = true;
-        auto& ctrl  = controller::get();
+        auto* ctrl  = get_controller();
 
         m_ports_input.iterate([&](const auto& inputs) 
         {
@@ -190,7 +190,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
+                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
                 }
             }
         });
@@ -203,7 +203,7 @@ namespace adam
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
+                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
                 }
             }
         });
@@ -216,7 +216,7 @@ namespace adam
     bool connection::stop()
     {
         bool result = true;
-        auto& ctrl  = controller::get();
+        auto* ctrl  = get_controller();
 
         auto is_used_elsewhere = [&](port* p)
         {
@@ -243,7 +243,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
+                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
                 }
             }
         });
@@ -256,7 +256,7 @@ namespace adam
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    ctrl.dispatcher().dispatch(&cmd, 1, *ctrl.get_command_ctx());
+                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
                 }
             }
         });

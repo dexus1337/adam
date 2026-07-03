@@ -679,72 +679,57 @@ TEST_F(registry_test, unavailable_processor_retry)
 /** @brief Tests marking and retrying unavailable processors. */
 TEST_F(registry_test, unavailable_processors)
 {
-    std::cout << "[DEBUG] Starting unavailable_processors test" << std::endl;
     adam::test::local_controller ctrl;
     adam::registry& reg = ctrl.get_registry();
-    std::cout << "[DEBUG] Controller and registry retrieved" << std::endl;
 
     // 1. Setup mock module with mock processor
 
     adam::test::mock_mod.register_data_format("fmt1"_ct, &adam::test::dummy_fmt1);
     adam::test::mock_mod.register_data_format("fmt2"_ct, &adam::test::dummy_fmt2);
-    std::cout << "[DEBUG] Formats registered on mock_mod" << std::endl;
 
     adam::test::mock_mod.register_processor_factory("mock-converter"_ct, &adam::test::global_mock_converter_factory, adam::test::dummy_fmt1.get_name(), adam::test::mock_mod.get_name().get_hash(), adam::test::dummy_fmt2.get_name(), adam::test::mock_mod.get_name().get_hash());
     adam::test::mock_module_injector injector(reg, &adam::test::mock_mod);
-    std::cout << "[DEBUG] Processor factory registered and injector created" << std::endl;
 
     // 2. Create input port, output port, processor, and connection
     adam::port* in_port = nullptr;
     adam::port* out_port = nullptr;
     EXPECT_EQ(reg.create_port("in_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &in_port), adam::registry::status_success);
     EXPECT_EQ(reg.create_port("out_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &out_port), adam::registry::status_success);
-    std::cout << "[DEBUG] Ports created" << std::endl;
 
     adam::processor* proc = nullptr;
     EXPECT_EQ(reg.create_processor("proc1"_ct, "mock-converter"_ct, "mock_mod"_ct, &proc), adam::registry::status_success);
     ASSERT_NE(proc, nullptr);
-    std::cout << "[DEBUG] Processor created" << std::endl;
 
     adam::connection* conn = nullptr;
     EXPECT_EQ(reg.create_connection("conn1"_ct, &conn), adam::registry::status_success);
     ASSERT_NE(conn, nullptr);
-    std::cout << "[DEBUG] Connection created" << std::endl;
 
     conn->set_input_format(&adam::test::dummy_fmt1);
     conn->set_output_format(&adam::test::dummy_fmt2);
-    std::cout << "[DEBUG] Formats set on connection" << std::endl;
 
     // 3. Link them to the connection
     EXPECT_EQ(reg.connection_add_port("conn1"_ct.get_hash(), "in_port"_ct.get_hash(), true), adam::registry::status_success);
     EXPECT_EQ(reg.connection_add_port("conn1"_ct.get_hash(), "out_port"_ct.get_hash(), false), adam::registry::status_success);
-    std::cout << "[DEBUG] Ports added to connection" << std::endl;
     
     // Without the processor, chain should be invlaid;
     EXPECT_FALSE(conn->check_valid_chain());
-    std::cout << "[DEBUG] First check_valid_chain passed" << std::endl;
 
     EXPECT_EQ(reg.connection_add_processor("conn1"_ct.get_hash(), "proc1"_ct.get_hash()), adam::registry::status_success);
-    std::cout << "[DEBUG] Processor added to connection" << std::endl;
 
     // Now, the data chain should be valid
     EXPECT_TRUE(conn->check_valid_chain());
-    std::cout << "[DEBUG] Second check_valid_chain passed" << std::endl;
 
     // 4. Start the connection
-    EXPECT_TRUE(conn->start());
+    EXPECT_TRUE(conn->start()); // CRASH HERE WHEN RUN WITH OTHERS
     EXPECT_TRUE(conn->is_started());
-    std::cout << "[DEBUG] Connection started" << std::endl;
 
     // 5. Mark the processor unavailable (unload the mock module)
     reg.mark_processors_unavailable("mock_mod"_ct.get_hash());
-    std::cout << "[DEBUG] Processors marked unavailable" << std::endl;
 
     // 6. Verify processor was moved to unavailable, connection stops, and connection chain is invalid
     EXPECT_FALSE(reg.processors().contains("proc1"_ct));
     EXPECT_TRUE(reg.get_unavailable_processors().contains("proc1"_ct.get_hash()));
     EXPECT_FALSE(conn->check_valid_chain()); // chain should be invalid because of unavailable processor
-    std::cout << "[DEBUG] Processor unavailability verified" << std::endl;
 
     // Double buffer should no longer contain the processor
     conn->processors().iterate([&](const auto& procs) 

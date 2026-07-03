@@ -50,7 +50,7 @@ static item make_item(uint16_t raw_len, uint32_t raw_off,
 //  record::item_iterator tests
 // ═════════════════════════════════════════════════════════════════════════════
 
-class record_item_iterator_test : public ::testing::Test
+class iterator_test_record_item : public ::testing::Test
 {
 protected:
     /**
@@ -85,7 +85,7 @@ protected:
 
 // ─── Trait checks ────────────────────────────────────────────────────────────
 
-TEST_F(record_item_iterator_test, iterator_traits)
+TEST_F(iterator_test_record_item, iterator_traits)
 {
     using Itr = record::item_iterator;
     static_assert(std::is_same_v<Itr::iterator_category, std::forward_iterator_tag>);
@@ -97,14 +97,14 @@ TEST_F(record_item_iterator_test, iterator_traits)
 
 // ─── Empty record ─────────────────────────────────────────────────────────────
 
-TEST_F(record_item_iterator_test, empty_record_begin_equals_end)
+TEST_F(iterator_test_record_item, empty_record_begin_equals_end)
 {
     auto blob = build_record_blob({});
     const auto* rec = reinterpret_cast<const record*>(blob.data());
     EXPECT_EQ(rec->begin(), rec->end());
 }
 
-TEST_F(record_item_iterator_test, empty_record_range_for_is_never_entered)
+TEST_F(iterator_test_record_item, empty_record_range_for_is_never_entered)
 {
     auto blob = build_record_blob({});
     const auto* rec = reinterpret_cast<const record*>(blob.data());
@@ -115,7 +115,7 @@ TEST_F(record_item_iterator_test, empty_record_range_for_is_never_entered)
 
 // ─── Single item ──────────────────────────────────────────────────────────────
 
-TEST_F(record_item_iterator_test, single_item_dereference)
+TEST_F(iterator_test_record_item, single_item_dereference)
 {
     item it0 = make_item(4, 100, item_type_fixed, true);
     auto blob = build_record_blob({it0});
@@ -129,7 +129,7 @@ TEST_F(record_item_iterator_test, single_item_dereference)
     EXPECT_TRUE(itr->is_populated());
 }
 
-TEST_F(record_item_iterator_test, single_item_pre_increment_reaches_end)
+TEST_F(iterator_test_record_item, single_item_pre_increment_reaches_end)
 {
     auto blob = build_record_blob({make_item(2, 0, item_type_fixed, true)});
     const auto* rec = reinterpret_cast<const record*>(blob.data());
@@ -139,7 +139,7 @@ TEST_F(record_item_iterator_test, single_item_pre_increment_reaches_end)
     EXPECT_EQ(itr, rec->end());
 }
 
-TEST_F(record_item_iterator_test, single_item_post_increment_returns_old)
+TEST_F(iterator_test_record_item, single_item_post_increment_returns_old)
 {
     item it0 = make_item(3, 10, item_type_variable, false);
     auto blob = build_record_blob({it0});
@@ -155,7 +155,7 @@ TEST_F(record_item_iterator_test, single_item_post_increment_returns_old)
 
 // ─── Multiple items ───────────────────────────────────────────────────────────
 
-TEST_F(record_item_iterator_test, multiple_items_correct_sequence)
+TEST_F(iterator_test_record_item, multiple_items_correct_sequence)
 {
     item it0 = make_item(2,  4, item_type_fixed,      true);
     item it1 = make_item(0,  0, item_type_fixed,      false); // unpopulated gap
@@ -179,7 +179,7 @@ TEST_F(record_item_iterator_test, multiple_items_correct_sequence)
     EXPECT_TRUE(visited[2]->is_populated());
 }
 
-TEST_F(record_item_iterator_test, multiple_items_count_matches_item_count)
+TEST_F(iterator_test_record_item, multiple_items_count_matches_item_count)
 {
     auto blob = build_record_blob
     ({
@@ -198,7 +198,7 @@ TEST_F(record_item_iterator_test, multiple_items_count_matches_item_count)
 
 // ─── Consistency with get_item() ─────────────────────────────────────────────
 
-TEST_F(record_item_iterator_test, iterator_matches_get_item)
+TEST_F(iterator_test_record_item, iterator_matches_get_item)
 {
     std::vector<item> items;
     for (uint8_t i = 0; i < 8; ++i)
@@ -219,7 +219,7 @@ TEST_F(record_item_iterator_test, iterator_matches_get_item)
 
 // ─── Equality / inequality ────────────────────────────────────────────────────
 
-TEST_F(record_item_iterator_test, equality_and_inequality)
+TEST_F(iterator_test_record_item, equality_and_inequality)
 {
     auto blob = build_record_blob({make_item(1, 0, item_type_fixed, true)});
     const auto* rec = reinterpret_cast<const record*>(blob.data());
@@ -235,7 +235,7 @@ TEST_F(record_item_iterator_test, equality_and_inequality)
 
 // ─── Arrow operator ───────────────────────────────────────────────────────────
 
-TEST_F(record_item_iterator_test, arrow_operator)
+TEST_F(iterator_test_record_item, arrow_operator)
 {
     item it0 = make_item(7, 42, item_type_repetetive, true);
     auto blob = build_record_blob({it0});

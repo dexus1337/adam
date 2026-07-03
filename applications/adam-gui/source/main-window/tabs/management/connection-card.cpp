@@ -826,7 +826,6 @@ namespace adam::gui
             }
 
             // Determine dragging / reordering / snapping for processor
-            bool is_dragging_processor = false;
             bool inside_card = false;
             ImVec2 mouse_pos = ImGui::GetMousePos();
             if (!is_drag_preview)
@@ -838,7 +837,6 @@ namespace adam::gui
                         auto* p_data = (const DragProcessorPayload*)payload->Data;
                         if (p_data->connection == hash)
                         {
-                            is_dragging_processor = true;
                             g_is_dragging_processor = true;
                             g_dragged_processor_conn_hash = hash;
                             g_dragged_processor_hash = p_data->processor;
