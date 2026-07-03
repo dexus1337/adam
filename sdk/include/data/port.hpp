@@ -125,11 +125,12 @@ namespace adam
         virtual const string_hashed_ct& get_type_name() const = 0;
         virtual direction get_direction() const = 0;
 
-        buffer*             get_state_buffer()      const { return m_state_buffer; }
-        state_buffer_data*  get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
+        inline buffer*              get_state_buffer()      const { return m_state_buffer; }
+        inline state_buffer_data*   get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
 
-        state get_state() const { return get_state_buffer_data()->cur_state; }
-        bool is_started() const { return m_started != nullptr && m_started->get_value(); }
+        inline state                get_state()             const { return get_state_buffer_data()->cur_state; }
+        inline bool                 is_running()            const { return get_state_buffer_data()->cur_state == state_running; }
+        inline bool                 is_started()            const { return m_started != nullptr && m_started->get_value(); }
 
         const vector_double_buffer<std::shared_ptr<data_inspector>>&  get_inspectors()        const { return m_inspectors; }
         const vector_double_buffer<connection*>&                      get_in_connections()    const { return m_in_connections; }

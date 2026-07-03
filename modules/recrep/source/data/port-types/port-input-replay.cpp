@@ -424,7 +424,7 @@ namespace adam::modules::recrep
                         );
                         auto expected_time          = m_replay_start_time + adjusted_elapsed_time;
                         
-                        while (is_started())
+                        while (is_running())
                         {
                             auto now = std::chrono::steady_clock::now();
                             if (now >= expected_time) break;
@@ -500,7 +500,7 @@ namespace adam::modules::recrep
                     );
                     auto expected_time = m_replay_start_time + adjusted_elapsed_time;
 
-                    while (is_started())
+                    while (is_running())
                     {
                         auto now = std::chrono::steady_clock::now();
                         if (now >= expected_time) break;

@@ -502,14 +502,14 @@ namespace adam::gui
         {
             for (auto pid : conn->inputs)
             {
-                uint64_t uid = get_unique_node_id(pid, hash, 0);
+                uint64_t uid = get_unique_node_id(pid, hash, 0, node_type_input);
                 if (g_expanded_nodes.count(uid)) in_col_bottom += get_expanded_node_height(uid, dpi_scale);
             }
 
             int stage = 1;
             for (auto fid : conn->processors)
             {
-                uint64_t uid = get_unique_node_id(fid, hash, stage);
+                uint64_t uid = get_unique_node_id(fid, hash, stage, node_type_processor);
                 if (g_expanded_nodes.count(uid))
                 {
                     float h = static_cast<float>(max_rows) * row_height + get_expanded_node_height(uid, dpi_scale);
@@ -520,7 +520,7 @@ namespace adam::gui
 
             for (auto pid : conn->outputs)
             {
-                uint64_t uid = get_unique_node_id(pid, hash, total_stages - 1);
+                uint64_t uid = get_unique_node_id(pid, hash, total_stages - 1, node_type_output);
                 if (g_expanded_nodes.count(uid)) out_col_bottom += get_expanded_node_height(uid, dpi_scale);
             }
         }
@@ -997,7 +997,7 @@ namespace adam::gui
                 stage_pins_out[0].push_back(p_out);
                 current_in_y += row_height;
 
-                uint64_t uid = get_unique_node_id(pid, hash, 0);
+                uint64_t uid = get_unique_node_id(pid, hash, 0, node_type_input);
                 if (is_exp)
                     current_in_y += get_expanded_node_height(uid, dpi_scale);
             }
@@ -1066,7 +1066,7 @@ namespace adam::gui
                 stage_pins_in[total_stages - 1].push_back(p_in);
                 current_out_y += row_height;
 
-                uint64_t uid = get_unique_node_id(pid, hash, total_stages - 1);
+                uint64_t uid = get_unique_node_id(pid, hash, total_stages - 1, node_type_output);
                 if (is_exp)
                     current_out_y += get_expanded_node_height(uid, dpi_scale);
             }

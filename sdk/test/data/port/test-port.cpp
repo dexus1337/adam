@@ -32,7 +32,7 @@ protected:
     protected:
         void worker() override
         {
-            while (is_started())
+            while (is_running())
             {
                 worker_loops++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(2));

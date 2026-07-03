@@ -131,6 +131,7 @@ TEST_F(udp_multicast_test, loopback_ipv6)
     s_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("ff02::1"_ct);
     s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("::1"_ct);
     s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0);
+    s_params->get<configuration_parameter_integer>("multicast_port"_ct)->set_value(15022);
     s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);
     s_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
     s_params->get<configuration_parameter_boolean>("loopback"_ct)->set_value(true);

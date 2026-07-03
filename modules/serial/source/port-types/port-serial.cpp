@@ -421,7 +421,7 @@ namespace adam::modules::serial
         // Loop until data is read or the port is stopped.
         // This makes the call blocking from the caller's perspective,
         // but correctly aborts if the port is shut down.
-        while (is_started())
+        while (is_running())
         {
             #if defined(ADAM_PLATFORM_WINDOWS)
             DWORD dwRead = 0;

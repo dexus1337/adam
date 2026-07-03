@@ -354,7 +354,7 @@ TEST_F(parser_test, parse_compound)
     EXPECT_EQ(block->category, 62);
     EXPECT_EQ(block->record_count, 1);
     EXPECT_EQ(block->raw_length, 15);
-    EXPECT_EQ(block->raw_offset, 0);
+    EXPECT_EQ(block->raw_offset, 0u);
 
     auto record = block->get_record(0);
     ASSERT_NE(record, nullptr);
@@ -571,7 +571,7 @@ TEST_F(parser_test, parse_explicit_with_uap)
     EXPECT_EQ(re->raw_offset, 7ul);   // immediately after the 4-byte FSPEC
 
     // REF children FRN 1-3, 5-8 must not be populated (only RPC = FRN 4 was set)
-    for (int child_frn = 1; child_frn <= 8; ++child_frn)
+    for (uint8_t child_frn = 1; child_frn <= 8; ++child_frn)
     {
         if (child_frn == 4) continue;
         const auto* ch = re->get_child_item(child_frn);

@@ -53,7 +53,7 @@ namespace adam::cli
             if (params.size() == 1)
             {
                 const std::string& val = params[0];
-                adam::log::level new_level;
+                adam::log::level new_level = adam::log::level::info;
                 bool valid = true;
 
                 if (val == "0" || val == "trace") new_level = adam::log::level::trace;

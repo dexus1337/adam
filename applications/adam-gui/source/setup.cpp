@@ -132,7 +132,7 @@ namespace adam::gui
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         
         SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-        window = SDL_CreateWindow("ADAM GUI", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_min_size[0], window_min_size[1], window_flags);
+        window = SDL_CreateWindow("ADAM GUI", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, static_cast<int>(window_min_size[0]), static_cast<int>(window_min_size[1]), window_flags);
         if (!window) return false;
 
         gl_context = SDL_GL_CreateContext(window);

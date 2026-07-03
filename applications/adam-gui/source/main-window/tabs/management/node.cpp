@@ -731,6 +731,7 @@ namespace adam::gui
         std::vector<expanded_port_draw_info>& deferred_expansions
     )
     {
+        (void)conn;
         bool is_light_theme = false;
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
         if (theme_param && theme_param->get_value() == "default-light"_ct)
@@ -761,7 +762,7 @@ namespace adam::gui
         draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f, color.Value.w), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
 
         ImGui::SetCursorScreenPos(p_min);
-        ImGui::PushID((const void*)(intptr_t)(get_unique_node_id(port_hash, hash, stage) ^ 0xABCD));
+        ImGui::PushID((const void*)(intptr_t)(get_unique_node_id(port_hash, hash, stage, type) ^ 0xABCD));
         ImGui::SetNextItemAllowOverlap();
         bool clicked = ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
 
@@ -784,7 +785,7 @@ namespace adam::gui
         bool is_expanded = false;
         if (port_hash != 0)
         {
-            uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage);
+            uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
             is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
 
             // Handle Left Click -> Expand
@@ -837,7 +838,7 @@ namespace adam::gui
         if (is_expanded && !is_drag_preview)
         {
             ImColor captured_color = color;
-            uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage);
+            uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
             float this_expanded_h = get_expanded_node_height(unique_node_id, dpi_scale);
             deferred_expansions.push_back
             ({
@@ -877,7 +878,7 @@ namespace adam::gui
             ImGui::SetCursorScreenPos(ImVec2(input_x, p_min.y + (node_h - input_h) * 0.5f));
             ImGui::PushItemWidth(input_w);
                 
-            ImGui::PushID((const void*)(intptr_t)get_unique_node_id(port_hash, hash, stage));
+            ImGui::PushID((const void*)(intptr_t)get_unique_node_id(port_hash, hash, stage, type));
             bool enter_pressed = ImGui::InputText("##port_edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
             bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
             ImGui::PopID();

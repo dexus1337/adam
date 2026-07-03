@@ -50,7 +50,7 @@ namespace adam
 
     void port::worker()
     {
-        while (get_state_buffer_data()->cur_state == state_running)
+        while (is_running())
         {
             buffer* input = nullptr;
             if (read(input))

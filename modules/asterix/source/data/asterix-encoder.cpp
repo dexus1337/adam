@@ -40,7 +40,7 @@ namespace adam::modules::asterix
                 uint8_t highest_active_frn = 0;
                 for (uint16_t i = 1; i <= sub_uap->get_highest_frn(); ++i)
                 {
-                    const auto* child = itm->get_child_item(i);
+                    const auto* child = itm->get_child_item(static_cast<uint8_t>(i));
                     if (child && child->is_populated())
                     {
                         active_frns[i] = true;
@@ -76,7 +76,7 @@ namespace adam::modules::asterix
                 {
                     if (active_frns[i])
                     {
-                        const auto* child = itm->get_child_item(i);
+                        const auto* child = itm->get_child_item(static_cast<uint8_t>(i));
                         const auto* child_spec = sub_uap->get_spec(static_cast<uint8_t>(i));
                         encode_item(out_buf, out_offset, child, child_spec ? child_spec->sub_uap : nullptr, ref_buf);
                     }
@@ -95,7 +95,7 @@ namespace adam::modules::asterix
                     uint8_t highest_active_frn = 0;
                     for (uint16_t i = 1; i <= sub_uap->get_highest_frn(); ++i)
                     {
-                        const auto* child = itm->get_child_item(i);
+                        const auto* child = itm->get_child_item(static_cast<uint8_t>(i));
                         if (child && child->is_populated())
                         {
                             active_frns[i] = true;
@@ -125,7 +125,7 @@ namespace adam::modules::asterix
                     {
                         if (active_frns[i])
                         {
-                            const auto* child = itm->get_child_item(i);
+                            const auto* child = itm->get_child_item(static_cast<uint8_t>(i));
                             const auto* child_spec = sub_uap->get_spec(static_cast<uint8_t>(i));
                             encode_item(out_buf, out_offset, child, child_spec ? child_spec->sub_uap : nullptr, ref_buf);
                         }
