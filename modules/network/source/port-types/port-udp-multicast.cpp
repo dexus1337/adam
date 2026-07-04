@@ -8,6 +8,11 @@
 #include "module/module.hpp"
 #include "port-types/socket-helpers.hpp"
 
+#if defined(ADAM_PLATFORM_LINUX)
+#include <ifaddrs.h>
+#include <net/if.h>
+#endif
+
 namespace adam::modules::network
 {
     // =========================================================================
@@ -95,6 +100,43 @@ namespace adam::modules::network
     }
 
     // =========================================================================
+    // Helper function to resolve IPv6 address to interface index on Linux
+    // =========================================================================
+#if defined(ADAM_PLATFORM_LINUX)
+    static unsigned int get_ipv6_interface_index(const std::string& ip_str)
+    {
+        if (ip_str.empty() || ip_str == "auto")
+        {
+            return 0;
+        }
+        struct ifaddrs* ifap = nullptr;
+        if (::getifaddrs(&ifap) == -1)
+        {
+            return 0;
+        }
+        unsigned int index = 0;
+        for (struct ifaddrs* ifa = ifap; ifa != nullptr; ifa = ifa->ifa_next)
+        {
+            if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET6)
+            {
+                char addr_str[INET6_ADDRSTRLEN]{};
+                auto* sa = reinterpret_cast<struct sockaddr_in6*>(ifa->ifa_addr);
+                if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)))
+                {
+                    if (ip_str == addr_str)
+                    {
+                        index = ::if_nametoindex(ifa->ifa_name);
+                        break;
+                    }
+                }
+            }
+        }
+        ::freeifaddrs(ifap);
+        return index;
+    }
+#endif
+
+    // =========================================================================
     // start() — create socket, join multicast group, bind
     // =========================================================================
 
@@ -107,7 +149,15 @@ namespace adam::modules::network
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
 
-        if (!resolve_address(m_local_interface->get_value(),
+        // On Linux, to receive multicast, we must bind the socket to the wildcard address (INADDR_ANY/in6addr_any)
+        // rather than a specific unicast IP address.
+        #if defined(ADAM_PLATFORM_LINUX)
+        string_hashed bind_interface = ""_ct;
+        #else
+        string_hashed bind_interface = m_local_interface->get_value();
+        #endif
+
+        if (!resolve_address(bind_interface,
                              static_cast<int>(m_local_port->get_value()),
                              m_ip_version->get_value(), local_addr, local_addr_len, SOCK_DGRAM))
         {
@@ -173,6 +223,16 @@ namespace adam::modules::network
             #endif
             ::setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP,
                          reinterpret_cast<const char*>(&loop), sizeof(loop));
+
+            // Outgoing interface for multicast packets
+            #if defined(ADAM_PLATFORM_LINUX)
+            in_addr if_addr{};
+            if (::inet_pton(AF_INET, m_local_interface->get_value().c_str(), &if_addr) > 0)
+            {
+                ::setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF,
+                             reinterpret_cast<const char*>(&if_addr), sizeof(if_addr));
+            }
+            #endif
         }
         else // AF_INET6
         {
@@ -184,7 +244,11 @@ namespace adam::modules::network
                 close_socket(sock);
                 return false;
             }
+            #if defined(ADAM_PLATFORM_LINUX)
+            mreq6.ipv6mr_interface = get_ipv6_interface_index(m_local_interface->get_value().c_str());
+            #else
             mreq6.ipv6mr_interface = 0; // Use the default interface index.
+            #endif
 
             if (::setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                              reinterpret_cast<const char*>(&mreq6), sizeof(mreq6)) == SOCKET_ERROR_VAL)
@@ -208,6 +272,16 @@ namespace adam::modules::network
             #endif
             ::setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP,
                          reinterpret_cast<const char*>(&loop), sizeof(loop));
+
+            // Outgoing interface for multicast packets
+            #if defined(ADAM_PLATFORM_LINUX)
+            unsigned int if_index = get_ipv6_interface_index(m_local_interface->get_value().c_str());
+            if (if_index > 0)
+            {
+                ::setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF,
+                             reinterpret_cast<const char*>(&if_index), sizeof(if_index));
+            }
+            #endif
         }
 
         // --- Switch to non-blocking so the read loop can use select() timeouts ---
@@ -250,6 +324,17 @@ namespace adam::modules::network
             ctrl->log(log::warning, std::format("[{}] UDP-Multicast: {} ({}:{})", get_name().c_str(), get_event_log_text(log_event::udp_send_failed, lang), m_multicast_ip->get_value().c_str(), m_multicast_port->get_value()));
             return false;
         }
+
+        #if defined(ADAM_PLATFORM_LINUX)
+        if (dest_addr.ss_family == AF_INET6)
+        {
+            auto* dest_in6 = reinterpret_cast<sockaddr_in6*>(&dest_addr);
+            if (IN6_IS_ADDR_MC_LINKLOCAL(&dest_in6->sin6_addr) || IN6_IS_ADDR_LINKLOCAL(&dest_in6->sin6_addr))
+            {
+                dest_in6->sin6_scope_id = get_ipv6_interface_index(m_local_interface->get_value().c_str());
+            }
+        }
+        #endif
 
         const char* data = buff->data_as<const char>();
         size_t      size = buff->get_size();
