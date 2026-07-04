@@ -5,7 +5,7 @@
 #include "configuration/parameters/configuration-parameter-boolean.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
-#include "module/module.hpp"
+#include "module/module-network.hpp"
 #include "port-types/socket-helpers.hpp"
 
 #include <algorithm>
@@ -23,14 +23,14 @@ namespace adam::modules::network
             adam::configuration_parameter_list p;
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
 
-            // --- local_interface ---
-            auto local_iface = std::make_unique<adam::configuration_parameter_string>("local_interface"_ct, ""_ct, create_ip_regex_parameter());
-            local_iface->set_description(language_english, "Local interface IP to listen on (empty = all interfaces)."_ct);
-            local_iface->set_description(language_german,  "Lokale Schnittstellen-IP zum Lauschen (leer = alle Schnittstellen)."_ct);
+            // --- interface ---
+            auto local_iface = create_interface_parameter();
+            local_iface->set_description(language_english, "Local interface to listen on (auto = all interfaces)."_ct);
+            local_iface->set_description(language_german,  "Lokale Schnittstelle, auf der gelauscht werden soll (auto = alle Schnittstellen)."_ct);
             up->add(std::move(local_iface));
 
-            // --- local_port ---
-            auto local_port = std::make_unique<adam::configuration_parameter_integer>("local_port"_ct, 0);
+            // --- interface_port ---
+            auto local_port = std::make_unique<adam::configuration_parameter_integer>("interface_port"_ct, 0);
             local_port->set_description(language_english, "Local port to bind and listen on."_ct);
             local_port->set_description(language_german,  "Lokaler Port zum Binden und Lauschen."_ct);
             up->add(std::move(local_port));
@@ -41,14 +41,13 @@ namespace adam::modules::network
             nodelay->set_description(language_german,  "TCP_NODELAY auf akzeptierten Client-Sockets anwenden (geringere Latenz)."_ct);
             up->add(std::move(nodelay));
 
-            // --- ip_version (auto / ipv4 / ipv6) ---
+            // --- ip_version (ipv4 / ipv6) ---
             configuration_parameter_string::presets_container ip_presets;
-            ip_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("auto"_ct, "auto"_ct));
-            ip_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("ipv4"_ct, "ipv4"_ct));
-            ip_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("ipv6"_ct, "ipv6"_ct));
-            auto ip_ver = std::make_unique<adam::configuration_parameter_string>("ip_version"_ct, "auto"_ct, std::move(ip_presets));
-            ip_ver->set_description(language_english, "IP version to use: auto, ipv4, or ipv6."_ct);
-            ip_ver->set_description(language_german,  "Zu verwendende IP-Version: auto, ipv4 oder ipv6."_ct);
+            ip_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("ipv4"_ct, "ipv4"_ct));
+            ip_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("ipv6"_ct, "ipv6"_ct));
+            auto ip_ver = std::make_unique<adam::configuration_parameter_string>("ip_version"_ct, "ipv4"_ct, std::move(ip_presets));
+            ip_ver->set_description(language_english, "IP version to use: ipv4 or ipv6."_ct);
+            ip_ver->set_description(language_german,  "Zu verwendende IP-Version: ipv4 oder ipv6."_ct);
             up->add(std::move(ip_ver));
 
             p.add(std::move(up));
@@ -74,8 +73,8 @@ namespace adam::modules::network
 
         // Cache user-parameter pointers (read-only after construction).
         auto up          = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
-        m_local_interface = up->get<adam::configuration_parameter_string>("local_interface"_ct);
-        m_local_port      = up->get<adam::configuration_parameter_integer>("local_port"_ct);
+        m_interface       = up->get<adam::configuration_parameter_string>("interface"_ct);
+        m_interface_port  = up->get<adam::configuration_parameter_integer>("interface_port"_ct);
         m_tcp_nodelay     = up->get<adam::configuration_parameter_boolean>("tcp_nodelay"_ct);
         m_ip_version      = up->get<adam::configuration_parameter_string>("ip_version"_ct);
     }
@@ -98,8 +97,13 @@ namespace adam::modules::network
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
 
-        if (!resolve_address(m_local_interface->get_value(),
-                             static_cast<int>(m_local_port->get_value()),
+        std::string resolved_ip;
+        if (!resolve_local_interface_to_ip(m_interface->get_value().c_str(),
+                                           "", 0,
+                                           m_ip_version->get_value(),
+                                           resolved_ip) ||
+            !resolve_address(adam::string_hashed(resolved_ip.c_str()),
+                             static_cast<int>(m_interface_port->get_value()),
                              m_ip_version->get_value(), local_addr, local_addr_len, SOCK_STREAM))
         {
             ctrl->log(log::error, std::format("[{}] TCP-Server: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(socket_error_t::error_address_invalid, lang)));
@@ -151,7 +155,7 @@ namespace adam::modules::network
 
         m_listener = static_cast<uintptr_t>(sock);
 
-        ctrl->log(log::info, std::format("[{}] TCP-Server: {} ({}:{})", get_name().c_str(), get_event_log_text(log_event::tcp_server_started, lang), m_local_interface->get_value().c_str(), m_local_port->get_value()));
+        ctrl->log(log::info, std::format("[{}] TCP-Server: {} ({}:{})", get_name().c_str(), get_event_log_text(log_event::tcp_server_started, lang), m_interface->get_value().c_str(), m_interface_port->get_value()));
 
         return port::start();
     }
@@ -164,11 +168,13 @@ namespace adam::modules::network
     {
         // --- Close the listener socket (prevents new connections) ---
         socket_t listener_sock = static_cast<socket_t>(m_listener);
-        if (listener_sock != INVALID_SOCKET_VAL)
+        if (listener_sock == INVALID_SOCKET_VAL)
         {
-            close_socket(listener_sock);
-            m_listener = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+            return port::stop();
         }
+
+        m_listener = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+        close_socket(listener_sock);
 
         // --- Atomically drain the client list under the spinlock ---
         std::vector<uintptr_t> clients_to_close;
@@ -279,7 +285,7 @@ namespace adam::modules::network
                     else
                     {
                         int err = get_last_error();
-                        if (!is_blocking_error(err))
+                        if (is_running() && static_cast<socket_t>(m_listener) != INVALID_SOCKET_VAL && !is_blocking_error(err))
                         {
                             socket_error_t err_resolved = resolve_socket_error(err);
                             ctrl->log(log::warning, std::format("[{}] TCP-Server: {} — {}", get_name().c_str(), get_event_log_text(log_event::tcp_server_accept_failed, lang), get_error_log_text(err_resolved, lang)));

@@ -11,6 +11,7 @@
 #include "../../main-window.hpp"
 #include "controller/controller.hpp"
 #include <data/port-types/port-input-replay.hpp>
+#include <configuration/parameters/configuration-parameter-boolean.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -320,32 +321,39 @@ namespace adam::gui
 
                     bool has_range = false;
                     std::string range_str;
-                    if (param_type == adam::configuration_parameter::type_integer)
+                    switch (param_type)
                     {
-                        auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr);
-                        if (c_int->get_mode() == adam::configuration_parameter_integer::value_mode_range)
+                        case adam::configuration_parameter::type_integer:
                         {
-                            has_range = true;
-                            if (lang == adam::language_german)
-                                range_str = "Erlaubter Bereich: [" + std::to_string(c_int->get_min_value()) + " - " + std::to_string(c_int->get_max_value()) + "]";
-                            else
-                                range_str = "Allowed Range: [" + std::to_string(c_int->get_min_value()) + " - " + std::to_string(c_int->get_max_value()) + "]";
+                            auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr);
+                            if (c_int->get_mode() == adam::configuration_parameter_integer::value_mode_range)
+                            {
+                                has_range = true;
+                                if (lang == adam::language_german)
+                                    range_str = "Erlaubter Bereich: [" + std::to_string(c_int->get_min_value()) + " - " + std::to_string(c_int->get_max_value()) + "]";
+                                else
+                                    range_str = "Allowed Range: [" + std::to_string(c_int->get_min_value()) + " - " + std::to_string(c_int->get_max_value()) + "]";
+                            }
+                            break;
                         }
-                    }
-                    else if (param_type == adam::configuration_parameter::type_double)
-                    {
-                        auto* c_dbl = static_cast<adam::configuration_parameter_double*>(param_ptr);
-                        if (c_dbl->get_mode() == adam::configuration_parameter_double::value_mode_range)
+                        case adam::configuration_parameter::type_double:
                         {
-                            has_range = true;
-                            char min_buf[32], max_buf[32];
-                            snprintf(min_buf, sizeof(min_buf), "%g", c_dbl->get_min_value());
-                            snprintf(max_buf, sizeof(max_buf), "%g", c_dbl->get_max_value());
-                            if (lang == adam::language_german)
-                                range_str = std::string("Erlaubter Bereich: [") + min_buf + " - " + max_buf + "]";
-                            else
-                                range_str = std::string("Allowed Range: [") + min_buf + " - " + max_buf + "]";
+                            auto* c_dbl = static_cast<adam::configuration_parameter_double*>(param_ptr);
+                            if (c_dbl->get_mode() == adam::configuration_parameter_double::value_mode_range)
+                            {
+                                has_range = true;
+                                char min_buf[32], max_buf[32];
+                                snprintf(min_buf, sizeof(min_buf), "%g", c_dbl->get_min_value());
+                                snprintf(max_buf, sizeof(max_buf), "%g", c_dbl->get_max_value());
+                                if (lang == adam::language_german)
+                                    range_str = std::string("Erlaubter Bereich: [") + min_buf + " - " + max_buf + "]";
+                                else
+                                    range_str = std::string("Allowed Range: [") + min_buf + " - " + max_buf + "]";
+                            }
+                            break;
                         }
+                        default:
+                            break;
                     }
 
                     const adam::string_hashed& desc = param_ptr->get_description(lang);
@@ -371,189 +379,259 @@ namespace adam::gui
                         ImGui::EndTooltip();
                     }
                     
-                    if (param_type == adam::configuration_parameter::type_integer)
+                    switch (param_type)
                     {
-                        auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr);
-                        int64_t current_val = c_int->get_value();
-                        ImGui::SetNextItemWidth(avail_w);
-                        if (c_int->get_mode() == adam::configuration_parameter_integer::value_mode_preset)
+                        case adam::configuration_parameter::type_integer:
                         {
-                            char preview[64] = "";
-                            bool found = false;
-                            for (int64_t preset : c_int->get_presets())
+                            auto* c_int = static_cast<adam::configuration_parameter_integer*>(param_ptr);
+                            int64_t current_val = c_int->get_value();
+                            ImGui::SetNextItemWidth(avail_w);
+                            if (c_int->get_mode() == adam::configuration_parameter_integer::value_mode_preset)
                             {
-                                if (preset == current_val)
+                                char preview[64] = "";
+                                bool found = false;
+                                for (int64_t preset : c_int->get_presets())
                                 {
-                                    snprintf(preview, sizeof(preview), "%lld", (long long)preset);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) snprintf(preview, sizeof(preview), "%lld", (long long)current_val);
-                            
-                            if (ImGui::BeginCombo("##combo", preview))
-                            {
-                                std::vector<int64_t> sorted_presets(c_int->get_presets().begin(), c_int->get_presets().end());
-                                std::sort(sorted_presets.begin(), sorted_presets.end());
-                                
-                                for (int64_t preset : sorted_presets)
-                                {
-                                    char preset_str[64];
-                                    snprintf(preset_str, sizeof(preset_str), "%lld", (long long)preset);
-                                    bool is_selected = (preset == current_val);
-                                    if (ImGui::Selectable(preset_str, is_selected))
+                                    if (preset == current_val)
                                     {
-                                        if (!is_selected)
+                                        snprintf(preview, sizeof(preview), "%lld", (long long)preset);
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (!found) snprintf(preview, sizeof(preview), "%lld", (long long)current_val);
+                                
+                                if (ImGui::BeginCombo("##combo", preview))
+                                {
+                                    std::vector<int64_t> sorted_presets(c_int->get_presets().begin(), c_int->get_presets().end());
+                                    std::sort(sorted_presets.begin(), sorted_presets.end());
+                                    
+                                    for (int64_t preset : sorted_presets)
+                                    {
+                                        char preset_str[64];
+                                        snprintf(preset_str, sizeof(preset_str), "%lld", (long long)preset);
+                                        bool is_selected = (preset == current_val);
+                                        if (ImGui::Selectable(preset_str, is_selected))
                                         {
-                                            c_int->set_value(preset);
-                                            if (is_port)
-                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
-                                            else
-                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                            if (!is_selected)
+                                            {
+                                                c_int->set_value(preset);
+                                                if (is_port)
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                else
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                            }
                                         }
                                     }
-                                }
-                                ImGui::EndCombo();
-                            }
-                        }
-                        else
-                        {
-                            char buf[64];
-                            snprintf(buf, sizeof(buf), "%lld", (long long)current_val);
-                            if (ImGui::InputText("##int", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
-                            {
-                                try 
-                                {
-                                    int64_t new_v = std::stoll(buf);
-                                    if (c_int->set_value(new_v))
-                                    {
-                                        if (is_port)
-                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
-                                        else
-                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
-                                    }
-                                } catch(...) {}
-                            }
-                        }
-                    }
-                    else if (param_type == adam::configuration_parameter::type_double)
-                    {
-                        auto* c_dbl = static_cast<adam::configuration_parameter_double*>(param_ptr);
-                        double current_val = c_dbl->get_value();
-                        ImGui::SetNextItemWidth(avail_w);
-                        if (c_dbl->get_mode() == adam::configuration_parameter_double::value_mode_preset)
-                        {
-                            char preview[64] = "";
-                            bool found = false;
-                            for (double preset : c_dbl->get_presets())
-                            {
-                                if (std::abs(preset - current_val) < 1e-9)
-                                {
-                                    snprintf(preview, sizeof(preview), "%f", preset);
-                                    found = true;
-                                    break;
+                                    ImGui::EndCombo();
                                 }
                             }
-                            if (!found) snprintf(preview, sizeof(preview), "%f", current_val);
-                            
-                            if (ImGui::BeginCombo("##combo", preview))
+                            else
                             {
-                                std::vector<double> sorted_presets(c_dbl->get_presets().begin(), c_dbl->get_presets().end());
-                                std::sort(sorted_presets.begin(), sorted_presets.end());
-                                
-                                for (double preset : sorted_presets)
+                                char buf[64];
+                                snprintf(buf, sizeof(buf), "%lld", (long long)current_val);
+                                if (ImGui::InputText("##int", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
                                 {
-                                    char preset_str[64];
-                                    snprintf(preset_str, sizeof(preset_str), "%f", preset);
-                                    bool is_selected = (std::abs(preset - current_val) < 1e-9);
-                                    if (ImGui::Selectable(preset_str, is_selected))
+                                    try 
                                     {
-                                        if (!is_selected)
+                                        int64_t new_v = std::stoll(buf);
+                                        if (c_int->set_value(new_v))
                                         {
-                                            c_dbl->set_value(preset);
-                                            if (is_port)
-                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
-                                            else
-                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
-                                        }
-                                    }
-                                }
-                                ImGui::EndCombo();
-                            }
-                        }
-                        else
-                        {
-                            char buf[64];
-                            snprintf(buf, sizeof(buf), "%f", current_val);
-                            if (ImGui::InputText("##double", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
-                            {
-                                try 
-                                {
-                                    double new_v = std::stod(buf);
-                                    if (c_dbl->set_value(new_v))
-                                    {
-                                        if (is_port)
-                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
-                                        else
-                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
-                                    }
-                                } catch(...) {}
-                            }
-                        }
-                    }
-                    else if (param_type == adam::configuration_parameter::type_string)
-                    {
-                        auto* c_str = static_cast<adam::configuration_parameter_string*>(param_ptr);
-                        adam::string_hashed current_val = c_str->get_value();
-                        ImGui::SetNextItemWidth(avail_w);
-                        
-                        if (c_str->get_mode() == adam::configuration_parameter_string::value_mode_preset)
-                        {
-                            const char* preview = current_val.c_str();
-                            if (ImGui::BeginCombo("##combo", preview))
-                            {
-                                std::vector<std::string> sorted_presets;
-                                for (const auto& [preset_val, preset_param] : c_str->get_presets())
-                                    sorted_presets.push_back(preset_param->get_value().c_str());
-                                std::sort(sorted_presets.begin(), sorted_presets.end());
-                                
-                                for (const auto& preset_str : sorted_presets)
-                                {
-                                    bool is_selected = (preset_str == preview);
-                                    if (ImGui::Selectable(preset_str.c_str(), is_selected))
-                                    {
-                                        if (!is_selected)
-                                        {
-                                            adam::string_hashed new_v(preset_str.c_str());
-                                            c_str->set_value(new_v);
                                             if (is_port)
                                                 ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
                                             else
                                                 ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
                                         }
+                                    } catch(...) {}
+                                }
+                            }
+                            break;
+                        }
+                        case adam::configuration_parameter::type_double:
+                        {
+                            auto* c_dbl = static_cast<adam::configuration_parameter_double*>(param_ptr);
+                            double current_val = c_dbl->get_value();
+                            ImGui::SetNextItemWidth(avail_w);
+                            if (c_dbl->get_mode() == adam::configuration_parameter_double::value_mode_preset)
+                            {
+                                char preview[64] = "";
+                                bool found = false;
+                                for (double preset : c_dbl->get_presets())
+                                {
+                                    if (std::abs(preset - current_val) < 1e-9)
+                                    {
+                                        snprintf(preview, sizeof(preview), "%f", preset);
+                                        found = true;
+                                        break;
                                     }
                                 }
-                                ImGui::EndCombo();
-                            }
-                        }
-                        else
-                        {
-                            char buf[512];
-                            strncpy(buf, current_val.c_str(), sizeof(buf));
-                            buf[sizeof(buf) - 1] = '\0';
-                            
-                            if (ImGui::InputText("##str", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
-                            {
-                                adam::string_hashed new_v(&buf[0]);
-                                if (c_str->set_value(new_v))
+                                if (!found) snprintf(preview, sizeof(preview), "%f", current_val);
+                                
+                                if (ImGui::BeginCombo("##combo", preview))
                                 {
-                                    if (is_port)
-                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
-                                    else
-                                        ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                    std::vector<double> sorted_presets(c_dbl->get_presets().begin(), c_dbl->get_presets().end());
+                                    std::sort(sorted_presets.begin(), sorted_presets.end());
+                                    
+                                    for (double preset : sorted_presets)
+                                    {
+                                        char preset_str[64];
+                                        snprintf(preset_str, sizeof(preset_str), "%f", preset);
+                                        bool is_selected = (std::abs(preset - current_val) < 1e-9);
+                                        if (ImGui::Selectable(preset_str, is_selected))
+                                        {
+                                            if (!is_selected)
+                                            {
+                                                c_dbl->set_value(preset);
+                                                if (is_port)
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                else
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=preset]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                            }
+                                        }
+                                    }
+                                    ImGui::EndCombo();
                                 }
                             }
+                            else
+                            {
+                                char buf[64];
+                                snprintf(buf, sizeof(buf), "%f", current_val);
+                                if (ImGui::InputText("##double", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
+                                {
+                                    try 
+                                    {
+                                        double new_v = std::stod(buf);
+                                        if (c_dbl->set_value(new_v))
+                                        {
+                                            if (is_port)
+                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                            else
+                                                ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                        }
+                                    } catch(...) {}
+                                }
+                            }
+                            break;
                         }
+                        case adam::configuration_parameter::type_boolean:
+                        {
+                            auto* c_bool = static_cast<adam::configuration_parameter_boolean*>(param_ptr);
+                            bool current_val = c_bool->get_value();
+                            ImGui::SetNextItemWidth(avail_w);
+                            
+                            static const std::unordered_map<adam::language, std::unordered_map<bool, std::string>> bool_translations = {
+                                { adam::language_english, { { true, "Enabled" }, { false, "Disabled" } } },
+                                { adam::language_german,  { { true, "Aktiviert" }, { false, "Deaktiviert" } } }
+                            };
+
+                            auto get_bool_str = [&](bool val) -> const char* {
+                                auto lang_it = bool_translations.find(lang);
+                                if (lang_it != bool_translations.end()) {
+                                    auto val_it = lang_it->second.find(val);
+                                    if (val_it != lang_it->second.end()) {
+                                        return val_it->second.c_str();
+                                    }
+                                }
+                                auto en_it = bool_translations.find(adam::language_english);
+                                if (en_it != bool_translations.end()) {
+                                    auto val_it = en_it->second.find(val);
+                                    if (val_it != en_it->second.end()) {
+                                        return val_it->second.c_str();
+                                    }
+                                }
+                                return val ? "Enabled" : "Disabled";
+                            };
+
+                            const char* preview = get_bool_str(current_val);
+                            if (ImGui::BeginCombo("##combo", preview))
+                            {
+                                bool is_enabled_selected = current_val;
+                                if (ImGui::Selectable(get_bool_str(true), is_enabled_selected))
+                                {
+                                    if (!is_enabled_selected)
+                                    {
+                                        c_bool->set_value(true);
+                                        if (is_port)
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=true]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                        else
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=true]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                    }
+                                }
+
+                                bool is_disabled_selected = !current_val;
+                                if (ImGui::Selectable(get_bool_str(false), is_disabled_selected))
+                                {
+                                    if (!is_disabled_selected)
+                                    {
+                                        c_bool->set_value(false);
+                                        if (is_port)
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=false]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                        else
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=false]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                    }
+                                }
+
+                                ImGui::EndCombo();
+                            }
+                            break;
+                        }
+                        case adam::configuration_parameter::type_string:
+                        {
+                            auto* c_str = static_cast<adam::configuration_parameter_string*>(param_ptr);
+                            adam::string_hashed current_val = c_str->get_value();
+                            ImGui::SetNextItemWidth(avail_w);
+                            
+                            if (c_str->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                            {
+                                const char* preview = current_val.c_str();
+                                if (ImGui::BeginCombo("##combo", preview))
+                                {
+                                    std::vector<std::string> sorted_presets;
+                                    for (const auto& [preset_val, preset_param] : c_str->get_presets())
+                                        sorted_presets.push_back(preset_param->get_value().c_str());
+                                    std::sort(sorted_presets.begin(), sorted_presets.end());
+                                    
+                                    for (const auto& preset_str : sorted_presets)
+                                    {
+                                        bool is_selected = (preset_str == preview);
+                                        if (ImGui::Selectable(preset_str.c_str(), is_selected))
+                                        {
+                                            if (!is_selected)
+                                            {
+                                                adam::string_hashed new_v(preset_str.c_str());
+                                                c_str->set_value(new_v);
+                                                if (is_port)
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                                else
+                                                    ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                            }
+                                        }
+                                    }
+                                    ImGui::EndCombo();
+                                }
+                            }
+                            else
+                            {
+                                char buf[512];
+                                strncpy(buf, current_val.c_str(), sizeof(buf));
+                                buf[sizeof(buf) - 1] = '\0';
+                                
+                                if (ImGui::InputText("##str", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
+                                {
+                                    adam::string_hashed new_v(&buf[0]);
+                                    if (c_str->set_value(new_v))
+                                    {
+                                        if (is_port)
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_port_parameter_set(h, p, v); });
+                                        else
+                                            ctrl.enqueue_commander_action([&ctrl, h=info.port_hash, p=param_name, v=new_v]() { ctrl.commander().request_processor_parameter_set(h, p, v); });
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                            break;
                     }
                     
                     ImGui::PopID();
@@ -929,20 +1007,30 @@ namespace adam::gui
             auto p_it = ports.find(port_hash);
             if (p_it != ports.end())
             {
-                if (p_it->second->started)
+                if (p_it->second->statistic_buffer)
                 {
-                    if (p_it->second->statistic_buffer)
+                    auto* stats = p_it->second->statistic_buffer->data_as<adam::port::state_buffer_data>();
+                    switch (stats->cur_state)
                     {
-                        auto* stats = p_it->second->statistic_buffer->data_as<adam::port::state_buffer_data>();
-                        if (stats->cur_state == adam::port::state_running)
-                            pin_col = get_gui_color(gui_color_id::node_pin_active);
-                        else if (stats->cur_state == adam::port::state_inactive)
-                            pin_col = get_gui_color(gui_color_id::log_warning);
+                        case adam::port::state_running:
+                            if (p_it->second->started)
+                                pin_col = get_gui_color(gui_color_id::node_pin_active);
+                            break;
+                        case adam::port::state_inactive:
+                        case adam::port::state_connecting:
+                            if (p_it->second->started)
+                                pin_col = get_gui_color(gui_color_id::log_warning);
+                            break;
+                        case adam::port::state_error:
+                            pin_col = get_gui_color(gui_color_id::log_error);
+                            break;
+                        default:
+                            break;
                     }
-                    else
-                    {
-                        pin_col = get_gui_color(gui_color_id::node_pin_active);
-                    }
+                }
+                else if (p_it->second->started)
+                {
+                    pin_col = get_gui_color(gui_color_id::node_pin_active);
                 }
             }
         }

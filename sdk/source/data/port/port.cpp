@@ -189,6 +189,12 @@ namespace adam
         return true;
     }
 
+    void port::mark_start_failed()
+    {
+        set_state(state_error);
+        m_started->set_value(false);
+    }
+
     port::port(const string_hashed& item_name, uint32_t state_buffer_size) 
     :   registry_item(item_name, port::get_default_parameters()),
         m_b_threaded(true),

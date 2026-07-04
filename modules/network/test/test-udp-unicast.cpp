@@ -44,13 +44,13 @@ TEST_F(udp_unicast_test, loopback_ipv4)
     sender.set_controller(&controller::get());
 
     auto r_params = receiver.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    r_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("127.0.0.1"_ct);
-    r_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15011);
+    r_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    r_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(15011);
     r_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv4"_ct);
 
     auto s_params = sender.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("127.0.0.1"_ct);
-    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0);
+    s_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    s_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(0);
     s_params->get<configuration_parameter_string>("remote_ip"_ct)->set_value("127.0.0.1"_ct);
     s_params->get<configuration_parameter_integer>("remote_port"_ct)->set_value(15011);
     s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv4"_ct);
@@ -114,13 +114,13 @@ TEST_F(udp_unicast_test, loopback_ipv6)
     sender.set_controller(&controller::get());
 
     auto r_params = receiver.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    r_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("::1"_ct);
-    r_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15012);
+    r_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    r_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(15012);
     r_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);
 
     auto s_params = sender.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("::1"_ct);
-    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0);
+    s_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    s_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(0);
     s_params->get<configuration_parameter_string>("remote_ip"_ct)->set_value("::1"_ct);
     s_params->get<configuration_parameter_integer>("remote_port"_ct)->set_value(15012);
     s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);

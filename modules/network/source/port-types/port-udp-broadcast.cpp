@@ -4,7 +4,7 @@
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
-#include "module/module.hpp"
+#include "module/module-network.hpp"
 #include "port-types/socket-helpers.hpp"
 
 namespace adam::modules::network
@@ -20,14 +20,14 @@ namespace adam::modules::network
             adam::configuration_parameter_list p;
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
 
-            // --- local_interface (IPv4 only) ---
-            auto local_iface = std::make_unique<adam::configuration_parameter_string>("local_interface"_ct, ""_ct, create_ip_regex_parameter());
-            local_iface->set_description(language_english, "Local IPv4 interface to bind to (empty = all interfaces)."_ct);
-            local_iface->set_description(language_german,  "Lokale IPv4-Schnittstelle zur Bindung (leer = alle Schnittstellen)."_ct);
+            // --- interface ---
+            auto local_iface = create_interface_parameter();
+            local_iface->set_description(language_english, "Local interface to bind to (auto = automatic)."_ct);
+            local_iface->set_description(language_german,  "Lokale Schnittstelle zur Bindung (auto = automatisch)."_ct);
             up->add(std::move(local_iface));
 
-            // --- local_port ---
-            auto local_port = std::make_unique<adam::configuration_parameter_integer>("local_port"_ct, 0);
+            // --- interface_port ---
+            auto local_port = std::make_unique<adam::configuration_parameter_integer>("interface_port"_ct, 0);
             local_port->set_description(language_english, "Local port to bind to (0 = any)."_ct);
             local_port->set_description(language_german,  "Lokaler Port zur Bindung (0 = beliebig)."_ct);
             up->add(std::move(local_port));
@@ -94,8 +94,14 @@ namespace adam::modules::network
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
 
-        if (!resolve_address(m_local_interface->get_value(),
-                             static_cast<int>(m_local_port->get_value()),
+        std::string resolved_ip;
+        if (!resolve_local_interface_to_ip(m_interface->get_value().c_str(),
+                                           m_broadcast_ip->get_value().c_str(),
+                                           static_cast<int>(m_remote_port->get_value()),
+                                           ipv4_ver,
+                                           resolved_ip) ||
+            !resolve_address(adam::string_hashed(resolved_ip.c_str()),
+                             static_cast<int>(m_interface_port->get_value()),
                              ipv4_ver, local_addr, local_addr_len, SOCK_DGRAM))
         {
             ctrl->log(log::error, std::format("[{}] UDP-Broadcast: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(socket_error_t::error_address_invalid, lang)));
@@ -151,7 +157,7 @@ namespace adam::modules::network
 
         m_socket = static_cast<uintptr_t>(sock);
 
-        ctrl->log(log::info, std::format("[{}] UDP-Broadcast: {} (Port {})", get_name().c_str(), get_event_log_text(log_event::socket_bind_success, lang), m_local_port->get_value()));
+        ctrl->log(log::info, std::format("[{}] UDP-Broadcast: {} (Port {})", get_name().c_str(), get_event_log_text(log_event::socket_bind_success, lang), m_interface_port->get_value()));
 
         return port::start();
     }

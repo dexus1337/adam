@@ -137,6 +137,7 @@ namespace adam::gui
         btn_remove_processor,
         lbl_data_inspector,
         lbl_active_inspectors,
+        lbl_inspect,
         col_inspect,
         col_port_name,
         col_messages,

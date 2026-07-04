@@ -1,4 +1,4 @@
-#include "module/module.hpp"
+#include "module/module-network.hpp"
 
 #include "data/port-types/port-udp-unicast.hpp"
 #include "data/port-types/port-udp-multicast.hpp"

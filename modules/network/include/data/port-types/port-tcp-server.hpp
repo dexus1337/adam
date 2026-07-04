@@ -29,10 +29,10 @@ namespace adam::modules::network
      * @brief TCP Server Port — accepts multiple clients and broadcasts data bidirectionally.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - local_interface  (string)  — Local IP to listen on (default "0.0.0.0").
-     *          - local_port       (integer) — Local port to bind and listen on (default 0).
+     *          - interface        (string)  — Local interface to listen on (default "auto").
+     *          - interface_port   (integer) — Local port to bind and listen on (default 0).
      *          - tcp_nodelay      (boolean) — Apply TCP_NODELAY to each accepted client socket (default true).
-     *          - ip_version       (string)  — "auto", "ipv4", or "ipv6".
+     *          - ip_version       (string)  — "ipv4" or "ipv6".
      */
     class ADAM_NETWORK_API port_tcp_server : public port_in_out
     {
@@ -111,8 +111,8 @@ namespace adam::modules::network
         std::atomic_flag              m_clients_mutex = ATOMIC_FLAG_INIT;
 
         // --- User-parameter pointers (set in constructor, read-only thereafter) ---
-        configuration_parameter_string*  m_local_interface = nullptr; ///< Local interface IP.
-        configuration_parameter_integer* m_local_port      = nullptr; ///< Local listen port.
+        configuration_parameter_string*  m_interface = nullptr; ///< Local interface IP.
+        configuration_parameter_integer* m_interface_port = nullptr; ///< Local listen port.
         configuration_parameter_boolean* m_tcp_nodelay     = nullptr; ///< TCP_NODELAY on accepted sockets.
         configuration_parameter_string*  m_ip_version      = nullptr; ///< "auto", "ipv4", "ipv6".
     };

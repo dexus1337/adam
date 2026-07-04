@@ -74,168 +74,16 @@ namespace adam::gui
         bool is_drag_preview,
         float dpi_scale,
         float port_w,
-        bool is_unavailable
+        bool is_unavailable,
+        const std::vector<std::pair<adam::string_hashed, adam::string_hashed>>& available_formats,
+        bool input_missing,
+        bool output_missing
     )
     {
         bool commander_active = ctrl.is_commander_active();
-        const auto& connections = ctrl.commander().registry().get_connections();
-
-        ImGui::AlignTextToFramePadding();
-
-        char name_buf[max_name_length];
-        std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
-        name_buf[sizeof(name_buf) - 1] = '\0';
-
-        ImGui::PushID("conn_name_edit");
-        bool enter_pressed = false;
-        bool deactivated = false;
-        if (!is_drag_preview)
-        {
-            ImGui::SetNextItemWidth(port_w);
-            enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
-            deactivated = ImGui::IsItemDeactivatedAfterEdit();
-        }
-        else
-        {
-            ImGui::TextUnformatted(name_buf);
-        }
-        ImGui::PopID();
-
-        if (enter_pressed || deactivated)
-        {
-            if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
-            {
-                adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
-                if (connections.find(proposed_hash) == connections.end())
-                {
-                    adam::string_hash old_hash = conn->name.get_hash();
-                    adam::string_hashed new_name(&name_buf[0]);
-                    ctrl.enqueue_commander_action([&ctrl, old_hash, new_name]() { ctrl.commander().request_connection_rename(old_hash, new_name); });
-                }
-            }
-        }
-
-        ImGui::SameLine();
-
-        ImVec4 conn_color_vec;
-        if (conn->color == 0)
-        {
-            conn_color_vec = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
-        }
-        else
-        {
-            conn_color_vec.x = ((conn->color >> 16) & 0xFF) / 255.0f;
-            conn_color_vec.y = ((conn->color >> 8) & 0xFF) / 255.0f;
-            conn_color_vec.z = (conn->color & 0xFF) / 255.0f;
-            conn_color_vec.w = 1.0f;
-        }
-
-        if (!is_drag_preview)
-        {
-            ImGui::PushID("conn_color_edit");
-                
-            if (ImGui::ColorButton("##color_btn", conn_color_vec, ImGuiColorEditFlags_NoTooltip))
-            {
-                ImGui::OpenPopup("ColorPickerPopup");
-            }
-            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-            {
-                conn->color = 0;
-                if (commander_active)
-                {
-                    adam::string_hash h = conn->name.get_hash();
-                    ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_color_change(h, 0); });
-                }
-            }
-                
-            if (ImGui::BeginPopup("ColorPickerPopup"))
-            {
-                float picker_col[3] = { conn_color_vec.x, conn_color_vec.y, conn_color_vec.z };
-                    
-                if (conn->color == 0) 
-                {
-                    picker_col[0] = 1.0f; picker_col[1] = 1.0f; picker_col[2] = 1.0f;
-                }
-
-                if (ImGui::ColorPicker3("##picker", picker_col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview))
-                {
-                    uint32_t new_color = (static_cast<uint32_t>(picker_col[0] * 255.0f + 0.5f) << 16) |
-                                         (static_cast<uint32_t>(picker_col[1] * 255.0f + 0.5f) << 8) |
-                                         (static_cast<uint32_t>(picker_col[2] * 255.0f + 0.5f));
-                    if (new_color == 0) new_color = 0x000001; 
-                    conn->color = new_color;
-                }
-                    
-                if (ImGui::IsItemDeactivatedAfterEdit())
-                {
-                    if (commander_active)
-                    {
-                        adam::string_hash h = conn->name.get_hash();
-                        uint32_t c = conn->color;
-                        ctrl.enqueue_commander_action([&ctrl, h, c]() { ctrl.commander().request_connection_color_change(h, c); });
-                    }
-                }
-                    
-                ImGui::EndPopup();
-            }
-            ImGui::PopID();
-        }
-        else
-        {
-            ImGui::ColorButton("##color_preview", conn_color_vec, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
-        }
-
-        if (!is_unavailable)
-        {
-            const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
-            const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
-                
-            ImGui::SameLine();
-
-            bool started = conn->started;
-            bool can_start = !started && conn->valid_chain;
-
-            if (!can_start) ImGui::BeginDisabled();
-            if (ImGui::Button(btn_start_str) && !is_drag_preview)
-            {
-                adam::string_hash h = conn->name.get_hash();
-                ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_start(h); });
-            }
-            if (!can_start) ImGui::EndDisabled();
-                
-            ImGui::SameLine();
-            if (!started) ImGui::BeginDisabled();
-            if (ImGui::Button(btn_stop_str) && !is_drag_preview)
-            {
-                adam::string_hash h = conn->name.get_hash();
-                ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_stop(h); });
-            }
-            if (!started) ImGui::EndDisabled();
-        }
-        else
-        {
-            ImGui::SameLine();
-            ImGui::TextColored(get_gui_color(gui_color_id::log_warning), "%s", get_gui_string(gui_string_id::stat_unavailable, lang));
-        }
-
-        const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
-        float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-            
-        ImGui::SameLine(ImGui::GetWindowWidth() - btn_delete_w - ImGui::GetStyle().WindowPadding.x);
-            
-        if (ImGui::Button(btn_delete_str) && !is_drag_preview)
-        {
-            if (conn->inputs.empty() && conn->outputs.empty() && conn->processors.empty())
-            {
-                adam::string_hash h = conn->name.get_hash();
-                ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_destroy(h); });
-            }
-            else
-            {
-                g_connection_to_delete = conn->name;
-                g_request_delete_popup = true;
-            }
-        }
+        float avail_x = ImGui::GetContentRegionAvail().x;
+        float pad_x = ImGui::GetStyle().WindowPadding.x;
+        float spacing_x = ImGui::GetStyle().ItemSpacing.x;
 
         if (sort_mode == 6 && !is_drag_preview)
         {
@@ -262,10 +110,444 @@ namespace adam::gui
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
             }
         }
+
+        // --- Row 1 Layout ---
+        ImGui::AlignTextToFramePadding();
+
+        // 1. Left column: Add Input button "+", Input Format combo, and Inspect checkbox (mirrored label/checkmark)
+        float btn_w = ImGui::GetFrameHeight();
+        const char* inspect_lbl = get_gui_string(gui_string_id::lbl_inspect, lang);
+        float cb_size = ImGui::GetFrameHeight();
+        float inspect_w = ImGui::CalcTextSize(inspect_lbl).x + cb_size + ImGui::GetStyle().ItemInnerSpacing.x;
+        float combo_w = port_w - btn_w - inspect_w - spacing_x * 2.0f;
+
+        ImGui::SetCursorPosX(pad_x);
+        ImGui::BeginGroup();
+        if (!is_drag_preview)
+        {
+            if (ImGui::Button("+##add_input", ImVec2(btn_w, 0)) && !is_drag_preview)
+            {
+                g_target_connection = conn->name;
+                g_target_direction = adam::port::direction_in;
+                g_request_port_popup = true;
+            }
+
+            ImGui::SameLine();
+            char in_fmt_str[256];
+            snprintf(in_fmt_str, sizeof(in_fmt_str), "%s", conn->input_format.c_str());
+            if (!conn->input_format_module.empty())
+            {
+                size_t len = strlen(in_fmt_str);
+                snprintf(in_fmt_str + len, sizeof(in_fmt_str) - len, " [%s]", conn->input_format_module.c_str());
+            }
+
+            if (input_missing) ImGui::PushStyleColor(ImGuiCol_Text, get_gui_color(gui_color_id::log_warning));
+
+            ImGui::SetNextItemWidth(combo_w);
+            ImGui::PushID("conn_input_format_combo");
+            bool in_combo_open = ImGui::BeginCombo("##InputFormatCombo", in_fmt_str);
+            if (input_missing)
+            {
+                ImGui::PopStyleColor();
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), conn->input_format_module.c_str());
+                    ImGui::EndTooltip();
+                }
+            }
+
+            if (in_combo_open)
+            {
+                for (const auto& [fmt, mod] : available_formats)
+                {
+                    char item_str[256];
+                    snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
+                    if (!mod.empty())
+                    {
+                        size_t len = strlen(item_str);
+                        snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
+                    }
+                    bool is_selected = (fmt == conn->input_format && mod == conn->input_format_module);
+                    if (ImGui::Selectable(item_str, is_selected))
+                    {
+                        if (!is_selected)
+                        {
+                            ctrl.enqueue_commander_action([&ctrl, hash, fmt, mod]() {
+                                ctrl.commander().request_connection_set_input_data_format(hash, fmt.get_hash(), mod.get_hash());
+                            });
+                        }
+                    }
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopID();
+
+            ImGui::SameLine();
+            bool input_inspect_val = ctrl.commander().get_connection_input_inspectors().find(hash) != ctrl.commander().get_connection_input_inspectors().end();
+            bool toggle_inspect = false;
+
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted(inspect_lbl);
+            if (ImGui::IsItemClicked())
+            {
+                toggle_inspect = true;
+                input_inspect_val = !input_inspect_val;
+            }
+
+            ImGui::SameLine();
+            ImGui::PushID("conn_input_inspect");
+            if (ImGui::Checkbox("##conn_input_inspect_cb", &input_inspect_val) || toggle_inspect)
+            {
+                if (input_inspect_val)
+                {
+                    ctrl.enqueue_commander_action([&ctrl, hash]() {
+                        auto& cmdr = ctrl.commander();
+                        if (cmdr.get_connection_input_inspectors().find(hash) == cmdr.get_connection_input_inspectors().end())
+                        {
+                            adam::data_inspector* new_inspector = nullptr;
+                            cmdr.request_connection_input_inspector_create(hash, make_inspector_connection_input_buffer_callback(hash), new_inspector);
+                        }
+                    });
+                    g_request_open_inspector = true;
+                    g_connection_input_to_expand_in_inspector = hash;
+                    g_pending_inspector_connections_input.insert(hash);
+                }
+                else
+                {
+                    g_expanded_inspector_connections_input.erase(hash);
+                    g_pending_inspector_connections_input.erase(hash);
+                    ctrl.enqueue_commander_action([&ctrl, hash]() {
+                        auto& cmdr = ctrl.commander();
+                        auto it = cmdr.connection_input_inspectors().find(hash);
+                        if (it != cmdr.connection_input_inspectors().end())
+                        {
+                            cmdr.request_connection_input_inspector_destroy(it->second);
+                        }
+                    });
+                }
+            }
+            ImGui::PopID();
+        }
         else
         {
-            ImGui::Separator();
+            ImGui::Dummy(ImVec2(port_w, ImGui::GetFrameHeight()));
         }
+        ImGui::EndGroup();
+
+
+
+        // 3. Middle column: Centered connection controls (color, name [size of port_w], start, stop, delete)
+        char name_buf[max_name_length];
+        std::strncpy(name_buf, conn->name.c_str(), sizeof(name_buf));
+        name_buf[sizeof(name_buf) - 1] = '\0';
+
+        const char* btn_delete_str = get_gui_string(gui_string_id::btn_delete, lang);
+        float name_w = port_w;
+        float color_w = ImGui::GetFrameHeight();
+        float btn_start_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_start, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_stop_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_stop, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_delete_w = ImGui::CalcTextSize(btn_delete_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+
+        float total_controls_w = 0.0f;
+        if (!is_drag_preview)
+        {
+            total_controls_w += color_w + spacing_x;
+            total_controls_w += name_w;
+            if (!is_unavailable)
+            {
+                total_controls_w += spacing_x + btn_start_w + spacing_x + btn_stop_w;
+            }
+            else
+            {
+                total_controls_w += spacing_x + ImGui::CalcTextSize(get_gui_string(gui_string_id::stat_unavailable, lang)).x;
+            }
+            total_controls_w += spacing_x + btn_delete_w;
+            total_controls_w += spacing_x + btn_w;
+        }
+        else
+        {
+            total_controls_w = ImGui::CalcTextSize(name_buf).x;
+        }
+
+        float start_mid_x = pad_x + (avail_x - total_controls_w) * 0.5f;
+        if (!is_drag_preview)
+        {
+            float min_start_x = pad_x + port_w + spacing_x;
+            if (start_mid_x < min_start_x) start_mid_x = min_start_x;
+        }
+
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(start_mid_x);
+        ImGui::BeginGroup();
+
+        // 3.1. Color selector
+        ImVec4 conn_color_vec;
+        if (conn->color == 0)
+        {
+            conn_color_vec = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+        }
+        else
+        {
+            conn_color_vec.x = ((conn->color >> 16) & 0xFF) / 255.0f;
+            conn_color_vec.y = ((conn->color >> 8) & 0xFF) / 255.0f;
+            conn_color_vec.z = (conn->color & 0xFF) / 255.0f;
+            conn_color_vec.w = 1.0f;
+        }
+
+        if (!is_drag_preview)
+        {
+            ImGui::PushID("conn_color_edit");
+            if (ImGui::ColorButton("##color_btn", conn_color_vec, ImGuiColorEditFlags_NoTooltip))
+            {
+                ImGui::OpenPopup("ColorPickerPopup");
+            }
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+            {
+                conn->color = 0;
+                if (commander_active)
+                {
+                    adam::string_hash h = conn->name.get_hash();
+                    ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_color_change(h, 0); });
+                }
+            }
+            if (ImGui::BeginPopup("ColorPickerPopup"))
+            {
+                float picker_col[3] = { conn_color_vec.x, conn_color_vec.y, conn_color_vec.z };
+                if (conn->color == 0)
+                {
+                    picker_col[0] = 1.0f; picker_col[1] = 1.0f; picker_col[2] = 1.0f;
+                }
+                if (ImGui::ColorPicker3("##picker", picker_col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview))
+                {
+                    uint32_t new_color = (static_cast<uint32_t>(picker_col[0] * 255.0f + 0.5f) << 16) |
+                                         (static_cast<uint32_t>(picker_col[1] * 255.0f + 0.5f) << 8) |
+                                         (static_cast<uint32_t>(picker_col[2] * 255.0f + 0.5f));
+                    if (new_color == 0) new_color = 0x000001;
+                    conn->color = new_color;
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                {
+                    if (commander_active)
+                    {
+                        adam::string_hash h = conn->name.get_hash();
+                        uint32_t c = conn->color;
+                        ctrl.enqueue_commander_action([&ctrl, h, c]() { ctrl.commander().request_connection_color_change(h, c); });
+                    }
+                }
+                ImGui::EndPopup();
+            }
+            ImGui::PopID();
+            ImGui::SameLine();
+        }
+        else
+        {
+            ImGui::ColorButton("##color_preview", conn_color_vec, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+            ImGui::SameLine();
+        }
+
+        // 3.2. Name field
+        ImGui::PushID("conn_name_edit");
+        bool enter_pressed = false;
+        bool deactivated = false;
+        if (!is_drag_preview)
+        {
+            ImGui::SetNextItemWidth(name_w);
+            enter_pressed = ImGui::InputText("##edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+            deactivated = ImGui::IsItemDeactivatedAfterEdit();
+        }
+        else
+        {
+            ImGui::TextUnformatted(name_buf);
+        }
+        ImGui::PopID();
+
+        if (enter_pressed || deactivated)
+        {
+            if (name_buf[0] != '\0' && conn->name != string_hashed(&name_buf[0]))
+            {
+                adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
+                const auto& connections = ctrl.commander().registry().get_connections();
+                if (connections.find(proposed_hash) == connections.end())
+                {
+                    adam::string_hash old_hash = conn->name.get_hash();
+                    adam::string_hashed new_name(&name_buf[0]);
+                    ctrl.enqueue_commander_action([&ctrl, old_hash, new_name]() { ctrl.commander().request_connection_rename(old_hash, new_name); });
+                }
+            }
+        }
+
+        // 3.3. Start, Stop, Delete buttons
+        if (!is_drag_preview)
+        {
+            ImGui::SameLine();
+            if (!is_unavailable)
+            {
+                const char* btn_start_str = get_gui_string(gui_string_id::btn_start, lang);
+                const char* btn_stop_str  = get_gui_string(gui_string_id::btn_stop, lang);
+                bool started = conn->started;
+                bool can_start = !started && conn->valid_chain;
+
+                if (!can_start) ImGui::BeginDisabled();
+                if (ImGui::Button(btn_start_str) && !is_drag_preview)
+                {
+                    adam::string_hash h = conn->name.get_hash();
+                    ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_start(h); });
+                }
+                if (!can_start) ImGui::EndDisabled();
+
+                ImGui::SameLine();
+                if (!started) ImGui::BeginDisabled();
+                if (ImGui::Button(btn_stop_str) && !is_drag_preview)
+                {
+                    adam::string_hash h = conn->name.get_hash();
+                    ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_stop(h); });
+                }
+                if (!started) ImGui::EndDisabled();
+            }
+            else
+            {
+                ImGui::TextColored(get_gui_color(gui_color_id::log_warning), "%s", get_gui_string(gui_string_id::stat_unavailable, lang));
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button(btn_delete_str) && !is_drag_preview)
+            {
+                if (conn->inputs.empty() && conn->outputs.empty() && conn->processors.empty())
+                {
+                    adam::string_hash h = conn->name.get_hash();
+                    ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_connection_destroy(h); });
+                }
+                else
+                {
+                    g_connection_to_delete = conn->name;
+                    g_request_delete_popup = true;
+                }
+            }
+
+            bool can_add_processor = !conn->inputs.empty() && !conn->outputs.empty();
+            if (!can_add_processor) ImGui::BeginDisabled();
+
+            ImGui::SameLine();
+            if (ImGui::Button("+##add_processor", ImVec2(btn_w, 0)) && !is_drag_preview)
+            {
+                g_target_connection = conn->name;
+                g_request_processor_popup = true;
+            }
+
+            if (!can_add_processor) ImGui::EndDisabled();
+        }
+        ImGui::EndGroup();
+
+        // 4. Right column: Inspect checkbox, Output Format Combo, and Add Output button "+"
+        if (!is_drag_preview)
+        {
+            ImGui::SameLine(pad_x + avail_x - port_w);
+            ImGui::BeginGroup();
+
+            bool output_inspect_val = ctrl.commander().get_connection_output_inspectors().find(hash) != ctrl.commander().get_connection_output_inspectors().end();
+            ImGui::PushID("conn_output_inspect");
+            if (ImGui::Checkbox(inspect_lbl, &output_inspect_val))
+            {
+                if (output_inspect_val)
+                {
+                    ctrl.enqueue_commander_action([&ctrl, hash]() {
+                        auto& cmdr = ctrl.commander();
+                        if (cmdr.get_connection_output_inspectors().find(hash) == cmdr.get_connection_output_inspectors().end())
+                        {
+                            adam::data_inspector* new_inspector = nullptr;
+                            cmdr.request_connection_output_inspector_create(hash, make_inspector_connection_output_buffer_callback(hash), new_inspector);
+                        }
+                    });
+                    g_request_open_inspector = true;
+                    g_connection_output_to_expand_in_inspector = hash;
+                    g_pending_inspector_connections_output.insert(hash);
+                }
+                else
+                {
+                    g_expanded_inspector_connections_output.erase(hash);
+                    g_pending_inspector_connections_output.erase(hash);
+                    ctrl.enqueue_commander_action([&ctrl, hash]() {
+                        auto& cmdr = ctrl.commander();
+                        auto it = cmdr.connection_output_inspectors().find(hash);
+                        if (it != cmdr.connection_output_inspectors().end())
+                        {
+                            cmdr.request_connection_output_inspector_destroy(it->second);
+                        }
+                    });
+                }
+            }
+            ImGui::PopID();
+
+            ImGui::SameLine();
+            char out_fmt_str[256];
+            snprintf(out_fmt_str, sizeof(out_fmt_str), "%s", conn->output_format.c_str());
+            if (!conn->output_format_module.empty())
+            {
+                size_t len = strlen(out_fmt_str);
+                snprintf(out_fmt_str + len, sizeof(out_fmt_str) - len, " [%s]", conn->output_format_module.c_str());
+            }
+
+            if (output_missing) ImGui::PushStyleColor(ImGuiCol_Text, get_gui_color(gui_color_id::log_warning));
+
+            ImGui::SetNextItemWidth(combo_w);
+            ImGui::PushID("conn_output_format_combo");
+            bool out_combo_open = ImGui::BeginCombo("##OutputFormatCombo", out_fmt_str);
+            if (output_missing)
+            {
+                ImGui::PopStyleColor();
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), conn->output_format_module.c_str());
+                    ImGui::EndTooltip();
+                }
+            }
+
+            if (out_combo_open)
+            {
+                for (const auto& [fmt, mod] : available_formats)
+                {
+                    char item_str[256];
+                    snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
+                    if (!mod.empty())
+                    {
+                        size_t len = strlen(item_str);
+                        snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
+                    }
+                    bool is_selected = (fmt == conn->output_format && mod == conn->output_format_module);
+                    if (ImGui::Selectable(item_str, is_selected))
+                    {
+                        if (!is_selected)
+                        {
+                            ctrl.enqueue_commander_action([&ctrl, hash, fmt, mod]() {
+                                ctrl.commander().request_connection_set_output_data_format(hash, fmt.get_hash(), mod.get_hash());
+                            });
+                        }
+                    }
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopID();
+
+            ImGui::SameLine();
+            if (ImGui::Button("+##add_output", ImVec2(btn_w, 0)) && !is_drag_preview)
+            {
+                g_target_connection = conn->name;
+                g_target_direction = adam::port::direction_out;
+                g_request_port_popup = true;
+            }
+            ImGui::EndGroup();
+        }
+        else
+        {
+            ImGui::SameLine(pad_x + avail_x - port_w);
+            ImGui::Dummy(ImVec2(port_w, ImGui::GetFrameHeight()));
+        }
+
+        ImGui::Separator();
     }
 
     void draw_connection_lines
@@ -356,59 +638,7 @@ namespace adam::gui
         }
     }
 
-    void draw_connection_card_footer
-    (
-        gui_controller& ctrl,
-        adam::language lang,
-        adam::connection_view* conn,
-        bool is_drag_preview,
-        float port_w,
-        float current_y,
-        float start_x,
-        float avail_x,
-        float avail_w
-    )
-    {
-        (void)ctrl;
-        const char* btn_add_input_str = get_gui_string(gui_string_id::btn_add_input, lang);
-        const char* btn_add_processor_str = get_gui_string(gui_string_id::btn_add_processor, lang);
-        const char* btn_add_output_str = get_gui_string(gui_string_id::btn_add_output, lang);
-
-        float add_in_w = ImGui::CalcTextSize(btn_add_input_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-        float in_x = start_x + port_w * 0.5f - add_in_w * 0.5f;
-        ImGui::SetCursorPos(ImVec2(std::max(start_x, in_x), current_y));
-        if (ImGui::Button(btn_add_input_str) && !is_drag_preview)
-        {
-            g_target_connection = conn->name;
-            g_target_direction = adam::port::direction_in;
-            g_request_port_popup = true;
-        }
-
-        if (!conn->inputs.empty())
-        {
-            float add_out_w = ImGui::CalcTextSize(btn_add_output_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-            float out_x = start_x + avail_x - port_w * 0.5f - add_out_w * 0.5f;
-            ImGui::SetCursorPos(ImVec2(std::min(start_x + avail_x - add_out_w, out_x), current_y));
-            if (ImGui::Button(btn_add_output_str) && !is_drag_preview)
-            {
-                g_target_connection = conn->name;
-                g_target_direction = adam::port::direction_out;
-                g_request_port_popup = true;
-            }
-
-            if (!conn->outputs.empty())
-            {
-                float add_proc_w = ImGui::CalcTextSize(btn_add_processor_str).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-                float center_x = (avail_w - add_proc_w) * 0.5f;
-                ImGui::SetCursorPos(ImVec2(center_x, current_y));
-                if (ImGui::Button(btn_add_processor_str) && !is_drag_preview)
-                {
-                    g_target_connection = conn->name;
-                    g_request_processor_popup = true;
-                }
-            }
-        }
-    }
+    // draw_connection_card_footer has been completely removed in favor of header integration
 
     void draw_connection_card
     (
@@ -430,6 +660,41 @@ namespace adam::gui
         bool is_unavailable = conn->is_unavailable;
         bool input_missing = false;
         bool output_missing = false;
+
+        static std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
+        static int s_formats_frame = -1;
+        if (!is_drag_preview)
+        {
+            std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
+            const auto& modules = ctrl.commander().get_modules();
+
+            if (ImGui::GetFrameCount() != s_formats_frame)
+            {
+                s_formats_frame = ImGui::GetFrameCount();
+                available_formats.clear();
+                for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
+                {
+                    if (modules.is_module_loaded(mod_name))
+                    {
+                        for (const auto& fmt : mod_info.data_formats)
+                            available_formats.push_back({ fmt, mod_name });
+                    }
+                }
+            }
+
+            if (is_unavailable)
+            {
+                if (!modules.is_module_loaded(conn->input_format_module))
+                {
+                    input_missing = true;
+                }
+                
+                if (!modules.is_module_loaded(conn->output_format_module))
+                {
+                    output_missing = true;
+                }
+            }
+        }
 
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
         bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
@@ -478,16 +743,18 @@ namespace adam::gui
         float row_height = node_h + 10.0f * dpi_scale;
             
         float base_height = ImGui::GetStyle().WindowPadding.y * 2.0f;
-        base_height += ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y;
-        base_height += (sort_mode == 6 && !is_drag_preview ? 4.0f * dpi_scale : 1.0f) + ImGui::GetStyle().ItemSpacing.y;
-
-        if (!is_drag_preview)
-            base_height += ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y;
-
-        if (max_rows > 0 || !conn->processors.empty())
-            base_height += ImGui::GetStyle().ItemSpacing.y * 2.0f + 1.0f;
         
+        // 1. Top drag handle / separator spacing
+        if (sort_mode == 6 && !is_drag_preview)
+        {
+            base_height += 4.0f * dpi_scale + ImGui::GetStyle().ItemSpacing.y;
+        }
+        
+        // 2. Row 1 (Combos/Buttons/Controls)
         base_height += ImGui::GetFrameHeight();
+        
+        // 3. Separator between header and columns
+        base_height += ImGui::GetStyle().ItemSpacing.y + 1.0f;
 
         int total_stages = 2 + static_cast<int>(conn->processors.size());
 
@@ -526,6 +793,10 @@ namespace adam::gui
         }
         
         float max_col_h = std::max({in_col_bottom, out_col_bottom, max_proc_h});
+        if (max_col_h > 0.0f)
+        {
+            max_col_h += 3.0f * dpi_scale;
+        }
         float child_height = base_height + max_col_h;
 
         if (!is_drag_preview) ImGui::BeginGroup();
@@ -569,247 +840,9 @@ namespace adam::gui
                 }
             }
 
-            draw_connection_card_header(ctrl, lang, sort_mode, hash, conn, is_drag_preview, dpi_scale, port_w, is_unavailable);
+            draw_connection_card_header(ctrl, lang, sort_mode, hash, conn, is_drag_preview, dpi_scale, port_w, is_unavailable, available_formats, input_missing, output_missing);
 
             ImVec2 cur_pos = ImGui::GetCursorScreenPos();
-
-            if (!is_drag_preview)
-            {
-                static std::vector<std::pair<adam::string_hashed, adam::string_hashed>> available_formats;
-                static int s_formats_frame = -1;
-                {
-                    std::lock_guard<const adam::module_view> mod_lg(ctrl.commander().modules());
-                    const auto& modules = ctrl.commander().get_modules();
-
-                    if (ImGui::GetFrameCount() != s_formats_frame)
-                    {
-                        s_formats_frame = ImGui::GetFrameCount();
-                        available_formats.clear();
-                        for (const auto& [mod_name, mod_info] : ctrl.commander().get_modules().database())
-                        {
-                            if (modules.is_module_loaded(mod_name))
-                            {
-                                for (const auto& fmt : mod_info.data_formats)
-                                    available_formats.push_back({ fmt, mod_name });
-                            }
-                        }
-                    }
-
-                      if (is_unavailable)
-                      {
-                           if (!modules.is_module_loaded(conn->input_format_module))
-                           {
-                               input_missing = true;
-                           }
-                           
-                           if (!modules.is_module_loaded(conn->output_format_module))
-                           {
-                               output_missing = true;
-                           }
-                      }
-                }
-
-                ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y));
-                char in_fmt_str[256];
-                snprintf(in_fmt_str, sizeof(in_fmt_str), "%s", conn->input_format.c_str());
-                  if (!conn->input_format_module.empty())
-                  {
-                      size_t len = strlen(in_fmt_str);
-                      snprintf(in_fmt_str + len, sizeof(in_fmt_str) - len, " [%s]", conn->input_format_module.c_str());
-                  }
-
-                if (input_missing)
-                {
-                    ImGui::PushStyleColor(ImGuiCol_Text, get_gui_color(gui_color_id::log_warning));
-                }
-
-                float cb_size = ImGui::GetFrameHeight();
-                const char* inspect_lbl = get_gui_string(gui_string_id::col_inspect, lang);
-                float inspect_w = ImGui::CalcTextSize(inspect_lbl).x + cb_size + ImGui::GetStyle().ItemInnerSpacing.x;
-
-                ImGui::SetNextItemWidth(port_w - inspect_w - ImGui::GetStyle().ItemSpacing.x);
-                ImGui::PushID("conn_input_format_combo");
-                bool in_combo_open = ImGui::BeginCombo("##InputFormatCombo", in_fmt_str);
-                
-                if (input_missing)
-                {
-                    ImGui::PopStyleColor();
-                    if (ImGui::IsItemHovered())
-                    {
-                        ImGui::BeginTooltip();
-                        ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), conn->input_format_module.c_str());
-                        ImGui::EndTooltip();
-                    }
-                }
-
-                if (in_combo_open)
-                {
-                    for (const auto& [fmt, mod] : available_formats)
-                    {
-                         char item_str[256];
-                         snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
-                         if (!mod.empty())
-                         {
-                             size_t len = strlen(item_str);
-                             snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
-                         }
-                        
-                        bool is_selected = (fmt == conn->input_format && mod == conn->input_format_module);
-                        if (ImGui::Selectable(item_str, is_selected))
-                        {
-                            if (!is_selected)
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, hash, fmt, mod]()
-                                {
-                                    ctrl.commander().request_connection_set_input_data_format(hash, fmt.get_hash(), mod.get_hash());
-                                });
-                            }
-                        }
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
-                    }
-                    ImGui::EndCombo();
-                }
-                ImGui::PopID();
-
-                ImGui::SameLine();
-                bool input_inspect_val = ctrl.commander().get_connection_input_inspectors().find(hash) != ctrl.commander().get_connection_input_inspectors().end();
-                ImGui::PushID("conn_input_inspect");
-                if (ImGui::Checkbox(inspect_lbl, &input_inspect_val))
-                {
-                    if (input_inspect_val)
-                    {
-                        ctrl.enqueue_commander_action([&ctrl, hash]() 
-                        {
-                            auto& cmdr = ctrl.commander();
-                            if (cmdr.get_connection_input_inspectors().find(hash) == cmdr.get_connection_input_inspectors().end())
-                            {
-                                adam::data_inspector* new_inspector = nullptr;
-                                cmdr.request_connection_input_inspector_create(hash, make_inspector_connection_input_buffer_callback(hash), new_inspector);
-                            }
-                        });
-                        g_request_open_inspector = true;
-                        g_connection_input_to_expand_in_inspector = hash;
-                        g_pending_inspector_connections_input.insert(hash);
-                    }
-                    else
-                    {
-                        g_expanded_inspector_connections_input.erase(hash);
-                        g_pending_inspector_connections_input.erase(hash);
-                        ctrl.enqueue_commander_action([&ctrl, hash]() 
-                        {
-                            auto& cmdr = ctrl.commander();
-                            auto it = cmdr.connection_input_inspectors().find(hash);
-                            if (it != cmdr.connection_input_inspectors().end())
-                            {
-                                cmdr.request_connection_input_inspector_destroy(it->second);
-                            }
-                        });
-                    }
-                }
-                ImGui::PopID();
-
-                ImGui::SetCursorScreenPos(ImVec2(cur_pos.x + avail_x - port_w, cur_pos.y));
-                char out_fmt_str[256];
-                snprintf(out_fmt_str, sizeof(out_fmt_str), "%s", conn->output_format.c_str());
-                  if (!conn->output_format_module.empty())
-                  {
-                      size_t len = strlen(out_fmt_str);
-                      snprintf(out_fmt_str + len, sizeof(out_fmt_str) - len, " [%s]", conn->output_format_module.c_str());
-                  }
-
-                if (output_missing)
-                {
-                    ImGui::PushStyleColor(ImGuiCol_Text, get_gui_color(gui_color_id::log_warning));
-                }
-
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextUnformatted(inspect_lbl);
-                ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
-                bool output_inspect_val = ctrl.commander().get_connection_output_inspectors().find(hash) != ctrl.commander().get_connection_output_inspectors().end();
-                ImGui::PushID("conn_output_inspect");
-                if (ImGui::Checkbox("##inspect_out", &output_inspect_val))
-                {
-                    if (output_inspect_val)
-                    {
-                        ctrl.enqueue_commander_action([&ctrl, hash]() 
-                        {
-                            auto& cmdr = ctrl.commander();
-                            if (cmdr.get_connection_output_inspectors().find(hash) == cmdr.get_connection_output_inspectors().end())
-                            {
-                                adam::data_inspector* new_inspector = nullptr;
-                                cmdr.request_connection_output_inspector_create(hash, make_inspector_connection_output_buffer_callback(hash), new_inspector);
-                            }
-                        });
-                        g_request_open_inspector = true;
-                        g_connection_output_to_expand_in_inspector = hash;
-                        g_pending_inspector_connections_output.insert(hash);
-                    }
-                    else
-                    {
-                        g_expanded_inspector_connections_output.erase(hash);
-                        g_pending_inspector_connections_output.erase(hash);
-                        ctrl.enqueue_commander_action([&ctrl, hash]() 
-                        {
-                            auto& cmdr = ctrl.commander();
-                            auto it = cmdr.connection_output_inspectors().find(hash);
-                            if (it != cmdr.connection_output_inspectors().end())
-                            {
-                                cmdr.request_connection_output_inspector_destroy(it->second);
-                            }
-                        });
-                    }
-                }
-                ImGui::PopID();
-
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(port_w - inspect_w - ImGui::GetStyle().ItemSpacing.x);
-                ImGui::PushID("conn_output_format_combo");
-                bool out_combo_open = ImGui::BeginCombo("##OutputFormatCombo", out_fmt_str);
-
-                if (output_missing)
-                {
-                    ImGui::PopStyleColor();
-                    if (ImGui::IsItemHovered())
-                    {
-                        ImGui::BeginTooltip();
-                        ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), conn->output_format_module.c_str());
-                        ImGui::EndTooltip();
-                    }
-                }
-
-                if (out_combo_open)
-                {
-                    for (const auto& [fmt, mod] : available_formats)
-                    {
-                         char item_str[256];
-                         snprintf(item_str, sizeof(item_str), "%s", fmt.c_str());
-                         if (!mod.empty())
-                         {
-                             size_t len = strlen(item_str);
-                             snprintf(item_str + len, sizeof(item_str) - len, " [%s]", mod.c_str());
-                         }
-                        
-                        bool is_selected = (fmt == conn->output_format && mod == conn->output_format_module);
-                        if (ImGui::Selectable(item_str, is_selected))
-                        {
-                            if (!is_selected)
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, hash, fmt, mod]()
-                                {
-                                    ctrl.commander().request_connection_set_output_data_format(hash, fmt.get_hash(), mod.get_hash());
-                                });
-                            }
-                        }
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
-                    }
-                    ImGui::EndCombo();
-                }
-                ImGui::PopID();
-
-                cur_pos.y += ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y;
-            }
                 
             float total_node_widths = 2.0f * port_w + static_cast<float>(std::max(0, total_stages - 2)) * proc_w;
             float gap = (total_stages > 1) ? (avail_x - total_node_widths) / static_cast<float>(total_stages - 1) : 0.0f;
@@ -1078,19 +1111,7 @@ namespace adam::gui
                 draw_expanded_port_node(ctrl, lang, ctrl.commander().registry(), dpi_scale, draw_list, info);
             }
 
-            ImGui::SetCursorScreenPos(ImVec2(cur_pos.x, cur_pos.y + max_col_h));
-                
-            if (max_rows > 0 || !conn->processors.empty())
-            {
-                ImGui::Spacing();
-                ImGui::Separator();
-            }
-                
-            float avail_w = ImGui::GetWindowWidth();
-            float current_y = ImGui::GetCursorPosY();
-            float start_x = ImGui::GetStyle().WindowPadding.x;
 
-            draw_connection_card_footer(ctrl, lang, conn, is_drag_preview, port_w, current_y, start_x, avail_x, avail_w);
         }
         ImGui::EndChild();
 

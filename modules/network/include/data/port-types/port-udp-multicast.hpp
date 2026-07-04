@@ -26,8 +26,8 @@ namespace adam::modules::network
      * @brief UDP Multicast Port — sends and receives UDP multicast datagrams on IPv4 or IPv6.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - local_interface  (string)  — Local interface IP to bind to (default "0.0.0.0").
-     *          - local_port       (integer) — Local port to bind to (usually the same as multicast_port).
+     *          - interface        (string)  — Local interface to bind to (default "auto").
+     *          - interface_port   (integer) — Local port to bind to (usually the same as multicast_port).
      *          - multicast_ip     (string)  — Multicast group address (e.g. "239.0.0.1" or "ff02::1").
      *          - multicast_port   (integer) — Destination multicast port for outgoing datagrams.
      *          - ttl              (integer) — Multicast Time-To-Live / hop limit (default 1).

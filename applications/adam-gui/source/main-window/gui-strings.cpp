@@ -140,6 +140,7 @@ namespace adam::gui
             { gui_string_id::btn_remove_processor,        { "Remove Processor", "Prozessor entfernen" } },
             { gui_string_id::lbl_data_inspector,          { "Data Inspector", "Dateninspektor" } },
             { gui_string_id::lbl_active_inspectors,       { "Active Inspectors", "Aktive Inspektoren" } },
+            { gui_string_id::lbl_inspect,                 { "Inspect", "Inspizieren" } },
             { gui_string_id::col_inspect,                 { "On", "An" } },
             { gui_string_id::col_port_name,               { "Port Name", "Name des Ports" } },
             { gui_string_id::col_messages,                { "Messages", "Nachrichten" } },

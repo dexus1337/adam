@@ -37,10 +37,17 @@
     #include <netinet/tcp.h>
     #include <cerrno>
     #include <netdb.h>
+    #include <ifaddrs.h>
+    #include <net/if.h>
     using socket_t = int;
     #define INVALID_SOCKET_VAL (-1)
     #define SOCKET_ERROR_VAL   (-1)
 #endif
+
+#include <vector>
+#include <set>
+#include <algorithm>
+#include <cstdlib>
 
 #include <array>
 #include <unordered_map>
@@ -487,6 +494,406 @@ namespace adam::modules::network
         #endif
         ::setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY,
                      reinterpret_cast<const char*>(&ipv6only), sizeof(ipv6only));
+    }
+
+    // =========================================================================
+    // Local interface enumeration & routing helpers
+    // =========================================================================
+
+    /**
+     * @brief Returns a sorted list of unique system interface names (OS-side).
+     */
+    inline std::vector<std::string> get_system_interfaces()
+    {
+        std::vector<std::string> interfaces;
+        std::set<std::string> unique_names;
+#if defined(ADAM_PLATFORM_WINDOWS)
+        ULONG outBufLen = 15000;
+        PIP_ADAPTER_ADDRESSES pAddresses = (PIP_ADAPTER_ADDRESSES*)std::malloc(outBufLen);
+        if (pAddresses)
+        {
+            ULONG flags = GAA_FLAG_SKIP_DNS_SERVER;
+            DWORD dwRetVal = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, pAddresses, &outBufLen);
+            if (dwRetVal == ERROR_BUFFER_OVERFLOW)
+            {
+                std::free(pAddresses);
+                pAddresses = (PIP_ADAPTER_ADDRESSES*)std::malloc(outBufLen);
+            }
+            if (pAddresses && GetAdaptersAddresses(AF_UNSPEC, flags, NULL, pAddresses, &outBufLen) == NO_ERROR)
+            {
+                for (PIP_ADAPTER_ADDRESSES pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next)
+                {
+                    if (pCurrAddresses->AdapterName)
+                    {
+                        unique_names.insert(pCurrAddresses->AdapterName);
+                    }
+                }
+            }
+            if (pAddresses)
+            {
+                std::free(pAddresses);
+            }
+        }
+#else
+        struct ifaddrs* ifap = nullptr;
+        if (::getifaddrs(&ifap) == 0)
+        {
+            for (struct ifaddrs* ifa = ifap; ifa != nullptr; ifa = ifa->ifa_next)
+            {
+                if (ifa->ifa_name && std::strlen(ifa->ifa_name) > 0)
+                {
+                    unique_names.insert(ifa->ifa_name);
+                }
+            }
+            ::freeifaddrs(ifap);
+        }
+#endif
+        interfaces.assign(unique_names.begin(), unique_names.end());
+        return interfaces;
+    }
+
+    /**
+     * @brief Finds the local IP address that the OS routing table would use to route to a destination IP.
+     */
+    inline std::string resolve_auto_interface_for_remote(const std::string& remote_ip, int remote_port, const adam::string_hashed& ip_version)
+    {
+        if (remote_ip.empty())
+            return "";
+
+        sockaddr_storage dest_addr{};
+        int dest_addr_len = 0;
+        if (!resolve_address(adam::string_hashed(remote_ip.c_str()), remote_port, ip_version, dest_addr, dest_addr_len, SOCK_DGRAM))
+        {
+            return "";
+        }
+
+        socket_t temp_sock = ::socket(dest_addr.ss_family, SOCK_DGRAM, IPPROTO_UDP);
+        if (temp_sock == INVALID_SOCKET_VAL)
+        {
+            return "";
+        }
+
+        if (::connect(temp_sock, reinterpret_cast<sockaddr*>(&dest_addr), dest_addr_len) == SOCKET_ERROR_VAL)
+        {
+            close_socket(temp_sock);
+            return "";
+        }
+
+        sockaddr_storage local_addr{};
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        int local_addr_len = sizeof(local_addr);
+        #else
+        socklen_t local_addr_len = sizeof(local_addr);
+        #endif
+
+        if (::getsockname(temp_sock, reinterpret_cast<sockaddr*>(&local_addr), &local_addr_len) == SOCKET_ERROR_VAL)
+        {
+            close_socket(temp_sock);
+            return "";
+        }
+
+        close_socket(temp_sock);
+
+        char local_ip_str[INET6_ADDRSTRLEN]{};
+        if (local_addr.ss_family == AF_INET)
+        {
+            auto* sa = reinterpret_cast<sockaddr_in*>(&local_addr);
+            if (::inet_ntop(AF_INET, &sa->sin_addr, local_ip_str, sizeof(local_ip_str)))
+            {
+                return local_ip_str;
+            }
+        }
+        else if (local_addr.ss_family == AF_INET6)
+        {
+            auto* sa = reinterpret_cast<sockaddr_in6*>(&local_addr);
+            if (::inet_ntop(AF_INET6, &sa->sin6_addr, local_ip_str, sizeof(local_ip_str)))
+            {
+                return local_ip_str;
+            }
+        }
+
+        return "";
+    }
+
+    /**
+     * @brief Resolves a system interface name to an IP address matching the requested family.
+     */
+    inline std::string resolve_interface_to_ip(const std::string& interface_name, int family)
+    {
+        if (interface_name.empty() || interface_name == "auto")
+        {
+            return "";
+        }
+#if defined(ADAM_PLATFORM_WINDOWS)
+        ULONG outBufLen = 15000;
+        PIP_ADAPTER_ADDRESSES pAddresses = (PIP_ADAPTER_ADDRESSES*)std::malloc(outBufLen);
+        if (pAddresses)
+        {
+            ULONG flags = GAA_FLAG_SKIP_DNS_SERVER;
+            DWORD dwRetVal = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, pAddresses, &outBufLen);
+            if (dwRetVal == ERROR_BUFFER_OVERFLOW)
+            {
+                std::free(pAddresses);
+                pAddresses = (PIP_ADAPTER_ADDRESSES*)std::malloc(outBufLen);
+            }
+            if (pAddresses && GetAdaptersAddresses(AF_UNSPEC, flags, NULL, pAddresses, &outBufLen) == NO_ERROR)
+            {
+                for (PIP_ADAPTER_ADDRESSES pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next)
+                {
+                    if (pCurrAddresses->AdapterName && interface_name == pCurrAddresses->AdapterName)
+                    {
+                        for (PIP_ADAPTER_UNICAST_ADDRESS pUnicast = pCurrAddresses->FirstUnicastAddress; pUnicast != nullptr; pUnicast = pUnicast->Next)
+                        {
+                            if (pUnicast->Address.lpSockaddr)
+                            {
+                                int sa_family = pUnicast->Address.lpSockaddr->sa_family;
+                                if (family == AF_UNSPEC || sa_family == family)
+                                {
+                                    char addr_str[INET6_ADDRSTRLEN]{};
+                                    if (sa_family == AF_INET)
+                                    {
+                                        auto* sa = reinterpret_cast<sockaddr_in*>(pUnicast->Address.lpSockaddr);
+                                        if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)))
+                                        {
+                                            std::free(pAddresses);
+                                            return addr_str;
+                                        }
+                                    }
+                                    else if (sa_family == AF_INET6)
+                                    {
+                                        auto* sa = reinterpret_cast<sockaddr_in6*>(pUnicast->Address.lpSockaddr);
+                                        if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)))
+                                        {
+                                            std::free(pAddresses);
+                                            return addr_str;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (pAddresses)
+            {
+                std::free(pAddresses);
+            }
+        }
+#else
+        struct ifaddrs* ifap = nullptr;
+        if (::getifaddrs(&ifap) == 0)
+        {
+            std::string resolved_ip = "";
+            for (struct ifaddrs* ifa = ifap; ifa != nullptr; ifa = ifa->ifa_next)
+            {
+                if (ifa->ifa_name && interface_name == ifa->ifa_name && ifa->ifa_addr)
+                {
+                    int sa_family = ifa->ifa_addr->sa_family;
+                    if (family == AF_UNSPEC || sa_family == family)
+                    {
+                        char addr_str[INET6_ADDRSTRLEN]{};
+                        if (sa_family == AF_INET)
+                        {
+                            auto* sa = reinterpret_cast<sockaddr_in*>(ifa->ifa_addr);
+                            if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)))
+                            {
+                                resolved_ip = addr_str;
+                                break;
+                            }
+                        }
+                        else if (sa_family == AF_INET6)
+                        {
+                            auto* sa = reinterpret_cast<sockaddr_in6*>(ifa->ifa_addr);
+                            if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)))
+                            {
+                                resolved_ip = addr_str;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            ::freeifaddrs(ifap);
+            return resolved_ip;
+        }
+#endif
+        return "";
+    }
+
+    /**
+     * @brief Resolves local interface name or "auto" to an IP address matching destination and IP version rules.
+     */
+    inline bool resolve_local_interface_to_ip(const std::string& interface_val,
+                                              const std::string& remote_ip,
+                                              int remote_port,
+                                              const adam::string_hashed& ip_version,
+                                              std::string& resolved_ip)
+    {
+        int family = AF_UNSPEC;
+        if (ip_version == "ipv4"_ct) family = AF_INET;
+        else if (ip_version == "ipv6"_ct) family = AF_INET6;
+        else if (!remote_ip.empty())
+        {
+            sockaddr_storage dest_addr{};
+            int dest_addr_len = 0;
+            if (resolve_address(adam::string_hashed(remote_ip.c_str()), remote_port, ip_version, dest_addr, dest_addr_len, SOCK_DGRAM))
+            {
+                family = dest_addr.ss_family;
+            }
+        }
+
+        if (interface_val.empty() || interface_val == "auto")
+        {
+            if (!remote_ip.empty())
+            {
+                resolved_ip = resolve_auto_interface_for_remote(remote_ip, remote_port, ip_version);
+                if (!resolved_ip.empty())
+                {
+                    return true;
+                }
+            }
+            resolved_ip = (family == AF_INET6) ? "::" : "0.0.0.0";
+            return true;
+        }
+
+        resolved_ip = resolve_interface_to_ip(interface_val, family);
+        if (!resolved_ip.empty())
+        {
+            return true;
+        }
+
+        if (family != AF_UNSPEC)
+        {
+            resolved_ip = resolve_interface_to_ip(interface_val, AF_UNSPEC);
+            if (!resolved_ip.empty())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @brief Gets the OS interface index for the given local_interface value.
+     */
+    inline unsigned int get_interface_index(const std::string& interface_val,
+                                            const std::string& dest_ip,
+                                            int dest_port,
+                                            const adam::string_hashed& ip_version)
+    {
+        if (interface_val.empty() || interface_val == "auto")
+        {
+            if (!dest_ip.empty())
+            {
+                std::string local_ip = resolve_auto_interface_for_remote(dest_ip, dest_port, ip_version);
+                if (!local_ip.empty())
+                {
+#if defined(ADAM_PLATFORM_WINDOWS)
+                    ULONG outBufLen = 15000;
+                    PIP_ADAPTER_ADDRESSES pAddresses = (PIP_ADAPTER_ADDRESSES*)std::malloc(outBufLen);
+                    if (pAddresses)
+                    {
+                        ULONG flags = GAA_FLAG_SKIP_DNS_SERVER;
+                        DWORD dwRetVal = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, pAddresses, &outBufLen);
+                        if (dwRetVal == ERROR_BUFFER_OVERFLOW)
+                        {
+                            std::free(pAddresses);
+                            pAddresses = (PIP_ADAPTER_ADDRESSES*)std::malloc(outBufLen);
+                        }
+                        if (pAddresses && GetAdaptersAddresses(AF_UNSPEC, flags, NULL, pAddresses, &outBufLen) == NO_ERROR)
+                        {
+                            for (PIP_ADAPTER_ADDRESSES pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next)
+                            {
+                                for (PIP_ADAPTER_UNICAST_ADDRESS pUnicast = pCurrAddresses->FirstUnicastAddress; pUnicast != nullptr; pUnicast = pUnicast->Next)
+                                {
+                                    if (pUnicast->Address.lpSockaddr)
+                                    {
+                                        char addr_str[INET6_ADDRSTRLEN]{};
+                                        if (pUnicast->Address.lpSockaddr->sa_family == AF_INET)
+                                        {
+                                            auto* sa = reinterpret_cast<sockaddr_in*>(pUnicast->Address.lpSockaddr);
+                                            if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)) && local_ip == addr_str)
+                                            {
+                                                unsigned int idx = pCurrAddresses->Ipv6IfIndex;
+                                                std::free(pAddresses);
+                                                return idx;
+                                            }
+                                        }
+                                        else if (pUnicast->Address.lpSockaddr->sa_family == AF_INET6)
+                                        {
+                                            auto* sa = reinterpret_cast<sockaddr_in6*>(pUnicast->Address.lpSockaddr);
+                                            if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)) && local_ip == addr_str)
+                                            {
+                                                unsigned int idx = pCurrAddresses->Ipv6IfIndex;
+                                                std::free(pAddresses);
+                                                return idx;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (pAddresses) std::free(pAddresses);
+                    }
+#else
+                    struct ifaddrs* ifap = nullptr;
+                    if (::getifaddrs(&ifap) == 0)
+                    {
+                        unsigned int idx = 0;
+                        for (struct ifaddrs* ifa = ifap; ifa != nullptr; ifa = ifa->ifa_next)
+                        {
+                            if (ifa->ifa_name && ifa->ifa_addr)
+                            {
+                                char addr_str[INET6_ADDRSTRLEN]{};
+                                if (ifa->ifa_addr->sa_family == AF_INET)
+                                {
+                                    auto* sa = reinterpret_cast<sockaddr_in*>(ifa->ifa_addr);
+                                    if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)) && local_ip == addr_str)
+                                    {
+                                        idx = ::if_nametoindex(ifa->ifa_name);
+                                        break;
+                                    }
+                                }
+                                else if (ifa->ifa_addr->sa_family == AF_INET6)
+                                {
+                                    auto* sa = reinterpret_cast<sockaddr_in6*>(ifa->ifa_addr);
+                                    if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)) && local_ip == addr_str)
+                                    {
+                                        idx = ::if_nametoindex(ifa->ifa_name);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        ::freeifaddrs(ifap);
+                        if (idx > 0) return idx;
+                    }
+#endif
+                }
+            }
+            return 0;
+        }
+
+        return ::if_nametoindex(interface_val.c_str());
+    }
+
+    /**
+     * @brief Builds a configuration parameter string with all system interface name presets.
+     */
+    inline std::unique_ptr<adam::configuration_parameter_string> create_interface_parameter()
+    {
+        configuration_parameter_string::presets_container presets;
+        presets.emplace("auto"_ct, std::make_unique<configuration_parameter_string>("auto"_ct, "auto"_ct));
+        
+        for (const auto& name : get_system_interfaces())
+        {
+            string_hashed hashed_name(name.c_str());
+            presets.emplace(hashed_name, std::make_unique<configuration_parameter_string>(hashed_name, hashed_name));
+        }
+
+        return std::make_unique<adam::configuration_parameter_string>(
+            "interface"_ct, "auto"_ct, std::move(presets));
     }
 
 } // namespace adam::modules::network

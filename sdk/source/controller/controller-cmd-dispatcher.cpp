@@ -1675,6 +1675,8 @@ namespace adam
             {
                 if (it != ctx.reg.ports().end())
                 {
+                    it->second->mark_start_failed();
+
                     ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
                 }
                 else

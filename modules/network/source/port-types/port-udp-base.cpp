@@ -111,8 +111,8 @@ namespace adam::modules::network
     void port_udp_base::init_base_params(bool has_ip_version)
     {
         auto up = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
-        m_local_interface = up->get<adam::configuration_parameter_string>("local_interface"_ct);
-        m_local_port      = up->get<adam::configuration_parameter_integer>("local_port"_ct);
+        m_interface      = up->get<adam::configuration_parameter_string>("interface"_ct);
+        m_interface_port = up->get<adam::configuration_parameter_integer>("interface_port"_ct);
         if (has_ip_version)
             m_ip_version  = up->get<adam::configuration_parameter_string>("ip_version"_ct);
     }

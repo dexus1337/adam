@@ -5,7 +5,7 @@
 #include "configuration/parameters/configuration-parameter-boolean.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
-#include "module/module.hpp"
+#include "module/module-network.hpp"
 #include "port-types/socket-helpers.hpp"
 
 namespace adam::modules::network
@@ -21,10 +21,10 @@ namespace adam::modules::network
             adam::configuration_parameter_list p;
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
 
-            // --- local_interface (optional) ---
-            auto local_iface = std::make_unique<adam::configuration_parameter_string>("local_interface"_ct, ""_ct, create_ip_regex_parameter());
-            local_iface->set_description(language_english, "Optional local interface IP to bind before connecting (empty = any)."_ct);
-            local_iface->set_description(language_german,  "Optionale lokale Schnittstellen-IP vor dem Verbinden (leer = beliebig)."_ct);
+            // --- interface ---
+            auto local_iface = create_interface_parameter();
+            local_iface->set_description(language_english, "Local interface to bind before connecting (auto = automatic)."_ct);
+            local_iface->set_description(language_german,  "Lokale Schnittstelle vor dem Verbinden (auto = automatisch)."_ct);
             up->add(std::move(local_iface));
 
             // --- remote_ip ---
@@ -82,7 +82,7 @@ namespace adam::modules::network
 
         // Cache user-parameter pointers (read-only after construction).
         auto up               = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
-        m_local_interface      = up->get<adam::configuration_parameter_string>("local_interface"_ct);
+        m_interface            = up->get<adam::configuration_parameter_string>("interface"_ct);
         m_remote_ip            = up->get<adam::configuration_parameter_string>("remote_ip"_ct);
         m_remote_port          = up->get<adam::configuration_parameter_integer>("remote_port"_ct);
         m_reconnect_interval_ms = up->get<adam::configuration_parameter_integer>("reconnect_interval_ms"_ct);
@@ -176,12 +176,17 @@ namespace adam::modules::network
                          reinterpret_cast<const char*>(&val), sizeof(val));
         }
 
-        // --- Optional local interface bind ---
-        if (!m_local_interface->get_value().empty())
+        // --- Local interface bind ---
+        std::string resolved_ip;
+        if (resolve_local_interface_to_ip(m_interface->get_value().c_str(),
+                                           m_remote_ip->get_value().c_str(),
+                                           static_cast<int>(m_remote_port->get_value()),
+                                           m_ip_version->get_value(),
+                                           resolved_ip))
         {
             sockaddr_storage local_addr{};
             int              local_addr_len = 0;
-            if (resolve_address(m_local_interface->get_value(), 0,
+            if (resolve_address(adam::string_hashed(resolved_ip.c_str()), 0,
                                 m_ip_version->get_value(), local_addr, local_addr_len, SOCK_STREAM))
             {
                 ::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len);
@@ -217,7 +222,7 @@ namespace adam::modules::network
             timeval tv{ 2, 0 }; // 2-second connect timeout.
             int select_res = ::select(static_cast<int>(sock) + 1, nullptr, &write_fds, &err_fds, &tv);
 
-            if (select_res <= 0 || FD_ISSET(sock, &err_fds) || get_state_buffer_data()->cur_state != state_running)
+            if (select_res <= 0 || FD_ISSET(sock, &err_fds) || !is_running())
             {
                 // Timeout, error, or the port was stopped while we waited.
                 int err_code = 0;
@@ -290,7 +295,13 @@ namespace adam::modules::network
             {
                 // No connection yet (or we disconnected) — attempt to connect.
                 if (connect())
+                {
+                    set_state(state_running);
                     continue; // Connection succeeded; loop back to start reading.
+                }
+
+                // Connection failed — mark as connecting
+                set_state(state_connecting);
 
                 // Connection failed — wait the reconnect interval before retrying,
                 // but wake up every 100 ms to check whether the port was stopped.

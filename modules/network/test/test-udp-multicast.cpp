@@ -52,16 +52,16 @@ TEST_F(udp_multicast_test, loopback_ipv4)
 
     auto r_params = receiver.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
     r_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("239.0.0.1"_ct);
-    r_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("127.0.0.1"_ct);
-    r_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15021);
+    r_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    r_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(15021);
     r_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv4"_ct);
     r_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
     r_params->get<configuration_parameter_boolean>("loopback"_ct)->set_value(true);
 
     auto s_params = sender.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
     s_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("239.0.0.1"_ct);
-    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("127.0.0.1"_ct);
-    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0); // ephemeral
+    s_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    s_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(0); // ephemeral
     s_params->get<configuration_parameter_integer>("multicast_port"_ct)->set_value(15021);
     s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv4"_ct);
     s_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
@@ -123,24 +123,19 @@ static std::string get_multicast_capable_ipv6_interface()
     struct ifaddrs* ifap = nullptr;
     if (::getifaddrs(&ifap) == -1)
     {
-        return "::1";
+        return "lo";
     }
-    std::string ip = "::1";
+    std::string name = "lo";
     for (struct ifaddrs* ifa = ifap; ifa != nullptr; ifa = ifa->ifa_next)
     {
         if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET6 && (ifa->ifa_flags & IFF_MULTICAST) && (ifa->ifa_flags & IFF_UP))
         {
-            char addr_str[INET6_ADDRSTRLEN]{};
-            auto* sa = reinterpret_cast<struct sockaddr_in6*>(ifa->ifa_addr);
-            if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)))
-            {
-                ip = addr_str;
-                break;
-            }
+            name = ifa->ifa_name;
+            break;
         }
     }
     ::freeifaddrs(ifap);
-    return ip;
+    return name;
 }
 #endif
 
@@ -152,7 +147,7 @@ TEST_F(udp_multicast_test, loopback_ipv6)
     receiver.set_controller(&controller::get());
     sender.set_controller(&controller::get());
 
-    std::string local_interface = "::1";
+    std::string local_interface = "auto";
     #if defined(ADAM_PLATFORM_LINUX)
     local_interface = get_multicast_capable_ipv6_interface();
     #endif
@@ -160,16 +155,16 @@ TEST_F(udp_multicast_test, loopback_ipv6)
     auto r_params = receiver.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
     // Link-local multicast address (all nodes on the link)
     r_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("ff02::1"_ct);
-    r_params->get<configuration_parameter_string>("local_interface"_ct)->set_value(adam::string_hashed(local_interface.c_str()));
-    r_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15022);
+    r_params->get<configuration_parameter_string>("interface"_ct)->set_value(adam::string_hashed(local_interface.c_str()));
+    r_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(15022);
     r_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);
     r_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);
     r_params->get<configuration_parameter_boolean>("loopback"_ct)->set_value(true);
 
     auto s_params = sender.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
     s_params->get<configuration_parameter_string>("multicast_ip"_ct)->set_value("ff02::1"_ct);
-    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value(adam::string_hashed(local_interface.c_str()));
-    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0);
+    s_params->get<configuration_parameter_string>("interface"_ct)->set_value(adam::string_hashed(local_interface.c_str()));
+    s_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(0);
     s_params->get<configuration_parameter_integer>("multicast_port"_ct)->set_value(15022);
     s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);
     s_params->get<configuration_parameter_integer>("ttl"_ct)->set_value(1);

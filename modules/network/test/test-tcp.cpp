@@ -45,8 +45,8 @@ TEST_F(tcp_test, loopback_ipv4)
     client.set_controller(&controller::get());
 
     auto s_params = server.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("127.0.0.1"_ct);
-    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15041);
+    s_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    s_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(15041);
     s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv4"_ct);
 
     auto c_params = client.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
@@ -153,8 +153,8 @@ TEST_F(tcp_test, loopback_ipv6)
     client.set_controller(&controller::get());
 
     auto s_params = server.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("::1"_ct);
-    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15042);
+    s_params->get<configuration_parameter_string>("interface"_ct)->set_value("lo"_ct);
+    s_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(15042);
     s_params->get<configuration_parameter_string>("ip_version"_ct)->set_value("ipv6"_ct);
 
     auto c_params = client.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);

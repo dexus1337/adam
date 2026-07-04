@@ -44,12 +44,12 @@ TEST_F(udp_broadcast_test, loopback_ipv4)
     sender.set_controller(&controller::get());
 
     auto r_params = receiver.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    r_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("0.0.0.0"_ct);
-    r_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(15031);
+    r_params->get<configuration_parameter_string>("interface"_ct)->set_value("auto"_ct);
+    r_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(15031);
 
     auto s_params = sender.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-    s_params->get<configuration_parameter_string>("local_interface"_ct)->set_value("0.0.0.0"_ct);
-    s_params->get<configuration_parameter_integer>("local_port"_ct)->set_value(0); // ephemeral
+    s_params->get<configuration_parameter_string>("interface"_ct)->set_value("auto"_ct);
+    s_params->get<configuration_parameter_integer>("interface_port"_ct)->set_value(0); // ephemeral
     s_params->get<configuration_parameter_string>("broadcast_ip"_ct)->set_value("255.255.255.255"_ct);
     s_params->get<configuration_parameter_integer>("remote_port"_ct)->set_value(15031);
 

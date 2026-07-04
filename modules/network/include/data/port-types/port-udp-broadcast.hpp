@@ -26,8 +26,8 @@ namespace adam::modules::network
      * @brief UDP Broadcast Port (IPv4 only) — sends and receives UDP subnet-broadcast datagrams.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - local_interface  (string)  — Local IPv4 interface to bind to (default "0.0.0.0").
-     *          - local_port       (integer) — Local port to bind to (0 = any).
+     *          - interface        (string)  — Local interface to bind to (default "auto").
+     *          - interface_port   (integer) — Local port to bind to (0 = any).
      *          - broadcast_ip     (string)  — Destination broadcast address (default "255.255.255.255").
      *          - remote_port      (integer) — Destination port for outgoing broadcasts.
      *

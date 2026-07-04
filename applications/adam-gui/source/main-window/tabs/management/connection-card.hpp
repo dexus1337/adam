@@ -36,7 +36,10 @@ namespace adam::gui
         bool is_drag_preview,
         float dpi_scale,
         float port_w,
-        bool is_unavailable
+        bool is_unavailable,
+        const std::vector<std::pair<adam::string_hashed, adam::string_hashed>>& available_formats,
+        bool input_missing,
+        bool output_missing
     );
 
     void draw_connection_lines
@@ -52,19 +55,6 @@ namespace adam::gui
         const std::vector<std::vector<connection_pin_data>>& stage_pins_in,
         const std::vector<std::vector<connection_pin_data>>& stage_pins_out,
         adam::connection_view* conn
-    );
-
-    void draw_connection_card_footer
-    (
-        gui_controller& ctrl,
-        adam::language lang,
-        adam::connection_view* conn,
-        bool is_drag_preview,
-        float port_w,
-        float current_y,
-        float start_x,
-        float avail_x,
-        float avail_w
     );
 
     void draw_connection_card

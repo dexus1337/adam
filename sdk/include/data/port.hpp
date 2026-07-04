@@ -57,7 +57,9 @@ namespace adam
             state_stopped,
             state_started,
             state_running,
-            state_inactive
+            state_inactive,
+            state_error,
+            state_connecting
         };
 
         #pragma pack(push, 1)
@@ -129,7 +131,7 @@ namespace adam
         inline state_buffer_data*   get_state_buffer_data() const { return m_state_buffer->data_as<state_buffer_data>(); }
 
         inline state                get_state()             const { return get_state_buffer_data()->cur_state; }
-        inline bool                 is_running()            const { return get_state_buffer_data()->cur_state == state_running; }
+        inline bool                 is_running()            const { return get_state_buffer_data()->cur_state == state_running || get_state_buffer_data()->cur_state == state_connecting; }
         inline bool                 is_started()            const { return m_started != nullptr && m_started->get_value(); }
 
         const vector_double_buffer<std::shared_ptr<data_inspector>>&  get_inspectors()        const { return m_inspectors; }
@@ -157,6 +159,9 @@ namespace adam
 
         /** @brief Stops the port. */
         virtual bool stop();
+
+        /** @brief Marks the port as failed to start, setting it to the error state. */
+        virtual void mark_start_failed();
 
         /** @brief Protoype function for data input */
         virtual bool read(buffer*& buff) = 0;

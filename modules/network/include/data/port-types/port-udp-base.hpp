@@ -7,7 +7,7 @@
  *
  *          Provides a single implementation of the common select/recvfrom read loop,
  *          the stop() teardown, the ip_version configuration preset block, and the
- *          m_socket / m_local_interface / m_local_port / m_ip_version members that every
+ *          m_socket / m_interface / m_interface_port / m_ip_version members that every
  *          UDP port requires.  Concrete subclasses only need to implement start() and write().
  *
  * @version 1.0
@@ -84,8 +84,8 @@ namespace adam::modules::network
         uintptr_t m_socket; ///< Native socket handle stored as uintptr_t for atomic compatibility.
 
         // User-parameter pointers — populated by init_base_params().
-        configuration_parameter_string*  m_local_interface = nullptr; ///< Local interface IP to bind to.
-        configuration_parameter_integer* m_local_port      = nullptr; ///< Local port to bind to.
+        configuration_parameter_string*  m_interface = nullptr; ///< Local interface IP to bind to.
+        configuration_parameter_integer* m_interface_port      = nullptr; ///< Local port to bind to.
         configuration_parameter_string*  m_ip_version      = nullptr; ///< "ipv4", "ipv6", or "auto".
 
         // -----------------------------------------------------------------
@@ -93,7 +93,7 @@ namespace adam::modules::network
         // -----------------------------------------------------------------
 
         /**
-         * @brief Populates m_local_interface, m_local_port, and m_ip_version from
+         * @brief Populates m_interface, m_interface_port, and m_ip_version from
          *        the already-added "user_parameters" configuration list.
          *
          *        Must be called from the subclass constructor after add_parameters().

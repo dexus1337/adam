@@ -28,7 +28,7 @@ namespace adam::modules::network
      * @brief TCP Client Port — connects to a remote TCP server and exchanges data bidirectionally.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - local_interface      (string)  — Optional local IP to bind before connecting ("" = any).
+     *          - interface            (string)  — Local interface to bind before connecting (default "auto").
      *          - remote_ip            (string)  — Remote server IP or hostname (default "127.0.0.1").
      *          - remote_port          (integer) — Remote server port (default 0).
      *          - reconnect_interval_ms (integer) — Milliseconds between reconnect attempts (0 = disabled, default 2000).
@@ -115,7 +115,7 @@ namespace adam::modules::network
         std::atomic_flag         m_write_mutex = ATOMIC_FLAG_INIT;
 
         // --- User-parameter pointers (set in constructor, read-only thereafter) ---
-        configuration_parameter_string*  m_local_interface      = nullptr; ///< Optional local interface IP.
+        configuration_parameter_string*  m_interface            = nullptr; ///< Optional local interface IP.
         configuration_parameter_string*  m_remote_ip            = nullptr; ///< Remote server address.
         configuration_parameter_integer* m_remote_port          = nullptr; ///< Remote server port.
         configuration_parameter_integer* m_reconnect_interval_ms = nullptr; ///< Reconnect retry delay in ms.

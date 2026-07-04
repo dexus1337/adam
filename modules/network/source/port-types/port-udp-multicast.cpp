@@ -5,7 +5,7 @@
 #include "configuration/parameters/configuration-parameter-boolean.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
-#include "module/module.hpp"
+#include "module/module-network.hpp"
 #include "port-types/socket-helpers.hpp"
 
 #if defined(ADAM_PLATFORM_LINUX)
@@ -26,14 +26,14 @@ namespace adam::modules::network
             adam::configuration_parameter_list p;
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
 
-            // --- local_interface ---
-            auto local_iface = std::make_unique<adam::configuration_parameter_string>("local_interface"_ct, ""_ct, create_ip_regex_parameter());
-            local_iface->set_description(language_english, "Local interface IP to bind to (empty = any/all interfaces)."_ct);
-            local_iface->set_description(language_german,  "Lokale Schnittstellen-IP zur Bindung (leer = beliebig/alle Schnittstellen)."_ct);
+            // --- interface ---
+            auto local_iface = create_interface_parameter();
+            local_iface->set_description(language_english, "Local interface to bind to (auto = automatic)."_ct);
+            local_iface->set_description(language_german,  "Lokale Schnittstelle zur Bindung (auto = automatisch)."_ct);
             up->add(std::move(local_iface));
 
-            // --- local_port ---
-            auto local_port = std::make_unique<adam::configuration_parameter_integer>("local_port"_ct, 0);
+            // --- interface_port ---
+            auto local_port = std::make_unique<adam::configuration_parameter_integer>("interface_port"_ct, 0);
             local_port->set_description(language_english, "Local port to bind to (usually the same as multicast_port)."_ct);
             local_port->set_description(language_german,  "Lokaler Port zur Bindung (normalerweise identisch mit multicast_port)."_ct);
             up->add(std::move(local_port));
@@ -99,42 +99,7 @@ namespace adam::modules::network
         stop();
     }
 
-    // =========================================================================
-    // Helper function to resolve IPv6 address to interface index on Linux
-    // =========================================================================
-#if defined(ADAM_PLATFORM_LINUX)
-    static unsigned int get_ipv6_interface_index(const std::string& ip_str)
-    {
-        if (ip_str.empty() || ip_str == "auto")
-        {
-            return 0;
-        }
-        struct ifaddrs* ifap = nullptr;
-        if (::getifaddrs(&ifap) == -1)
-        {
-            return 0;
-        }
-        unsigned int index = 0;
-        for (struct ifaddrs* ifa = ifap; ifa != nullptr; ifa = ifa->ifa_next)
-        {
-            if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET6)
-            {
-                char addr_str[INET6_ADDRSTRLEN]{};
-                auto* sa = reinterpret_cast<struct sockaddr_in6*>(ifa->ifa_addr);
-                if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)))
-                {
-                    if (ip_str == addr_str)
-                    {
-                        index = ::if_nametoindex(ifa->ifa_name);
-                        break;
-                    }
-                }
-            }
-        }
-        ::freeifaddrs(ifap);
-        return index;
-    }
-#endif
+
 
     // =========================================================================
     // start() — create socket, join multicast group, bind
@@ -149,16 +114,27 @@ namespace adam::modules::network
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
 
+        std::string resolved_ip;
+        if (!resolve_local_interface_to_ip(m_interface->get_value().c_str(),
+                                           m_multicast_ip->get_value().c_str(),
+                                           static_cast<int>(m_multicast_port->get_value()),
+                                           m_ip_version->get_value(),
+                                           resolved_ip))
+        {
+            ctrl->log(log::error, std::format("[{}] UDP-Multicast: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(socket_error_t::error_address_invalid, lang)));
+            return false;
+        }
+
         // On Linux, to receive multicast, we must bind the socket to the wildcard address (INADDR_ANY/in6addr_any)
         // rather than a specific unicast IP address.
         #if defined(ADAM_PLATFORM_LINUX)
-        string_hashed bind_interface = ""_ct;
+        std::string bind_interface = (resolved_ip.find(':') != std::string::npos) ? "::" : "0.0.0.0";
         #else
-        string_hashed bind_interface = m_local_interface->get_value();
+        std::string bind_interface = resolved_ip;
         #endif
 
-        if (!resolve_address(bind_interface,
-                             static_cast<int>(m_local_port->get_value()),
+        if (!resolve_address(adam::string_hashed(bind_interface.c_str()),
+                             static_cast<int>(m_interface_port->get_value()),
                              m_ip_version->get_value(), local_addr, local_addr_len, SOCK_DGRAM))
         {
             ctrl->log(log::error, std::format("[{}] UDP-Multicast: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(socket_error_t::error_address_invalid, lang)));
@@ -199,7 +175,7 @@ namespace adam::modules::network
                 close_socket(sock);
                 return false;
             }
-            ::inet_pton(AF_INET, m_local_interface->get_value().c_str(), &mreq.imr_interface);
+            ::inet_pton(AF_INET, resolved_ip.c_str(), &mreq.imr_interface);
 
             if (::setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                              reinterpret_cast<const char*>(&mreq), sizeof(mreq)) == SOCKET_ERROR_VAL)
@@ -227,7 +203,7 @@ namespace adam::modules::network
             // Outgoing interface for multicast packets
             #if defined(ADAM_PLATFORM_LINUX)
             in_addr if_addr{};
-            if (::inet_pton(AF_INET, m_local_interface->get_value().c_str(), &if_addr) > 0)
+            if (::inet_pton(AF_INET, resolved_ip.c_str(), &if_addr) > 0)
             {
                 ::setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF,
                              reinterpret_cast<const char*>(&if_addr), sizeof(if_addr));
@@ -245,7 +221,10 @@ namespace adam::modules::network
                 return false;
             }
             #if defined(ADAM_PLATFORM_LINUX)
-            mreq6.ipv6mr_interface = get_ipv6_interface_index(m_local_interface->get_value().c_str());
+            mreq6.ipv6mr_interface = get_interface_index(m_interface->get_value().c_str(),
+                                                         m_multicast_ip->get_value().c_str(),
+                                                         static_cast<int>(m_multicast_port->get_value()),
+                                                         m_ip_version->get_value());
             #else
             mreq6.ipv6mr_interface = 0; // Use the default interface index.
             #endif
@@ -275,7 +254,10 @@ namespace adam::modules::network
 
             // Outgoing interface for multicast packets
             #if defined(ADAM_PLATFORM_LINUX)
-            unsigned int if_index = get_ipv6_interface_index(m_local_interface->get_value().c_str());
+            unsigned int if_index = get_interface_index(m_interface->get_value().c_str(),
+                                                        m_multicast_ip->get_value().c_str(),
+                                                        static_cast<int>(m_multicast_port->get_value()),
+                                                        m_ip_version->get_value());
             if (if_index > 0)
             {
                 ::setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF,
@@ -294,7 +276,7 @@ namespace adam::modules::network
 
         m_socket = static_cast<uintptr_t>(sock);
 
-        ctrl->log(log::info, std::format("[{}] UDP-Multicast: {} (Group {}, Port {})", get_name().c_str(), get_event_log_text(log_event::multicast_join_success, lang), m_multicast_ip->get_value().c_str(), m_local_port->get_value()));
+        ctrl->log(log::info, std::format("[{}] UDP-Multicast: {} (Group {}, Port {})", get_name().c_str(), get_event_log_text(log_event::multicast_join_success, lang), m_multicast_ip->get_value().c_str(), m_interface_port->get_value()));
 
         return port::start();
     }
@@ -331,7 +313,10 @@ namespace adam::modules::network
             auto* dest_in6 = reinterpret_cast<sockaddr_in6*>(&dest_addr);
             if (IN6_IS_ADDR_MC_LINKLOCAL(&dest_in6->sin6_addr) || IN6_IS_ADDR_LINKLOCAL(&dest_in6->sin6_addr))
             {
-                dest_in6->sin6_scope_id = get_ipv6_interface_index(m_local_interface->get_value().c_str());
+                dest_in6->sin6_scope_id = get_interface_index(m_interface->get_value().c_str(),
+                                                              m_multicast_ip->get_value().c_str(),
+                                                              static_cast<int>(m_multicast_port->get_value()),
+                                                              m_ip_version->get_value());
             }
         }
         #endif
