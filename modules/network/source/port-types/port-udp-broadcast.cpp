@@ -5,7 +5,6 @@
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module-network.hpp"
-#include "port-types/socket-helpers.hpp"
 
 namespace adam::modules::network
 {
@@ -44,7 +43,7 @@ namespace adam::modules::network
             remote_port->set_description(language_german,  "Zielport für ausgehende Broadcast-Datagramme."_ct);
             up->add(std::move(remote_port));
 
-            // Note: No ip_version parameter — UDP broadcast is IPv4-only.
+            // Note: No ip_version parameter - UDP broadcast is IPv4-only.
 
             p.add(std::move(up));
             return p;
@@ -60,11 +59,10 @@ namespace adam::modules::network
         : port_udp_base(item_name)
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
-        get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
 
         add_parameters(port_udp_broadcast::get_user_parameters());
 
-        // Wire base-class shared pointers (no ip_version — broadcast is IPv4 only).
+        // Wire base-class shared pointers (no ip_version - broadcast is IPv4 only).
         init_base_params(/*has_ip_version=*/false);
 
         // Wire broadcast-specific parameter pointers.
@@ -79,32 +77,27 @@ namespace adam::modules::network
     }
 
     // =========================================================================
-    // start() — create socket, enable SO_BROADCAST, bind
+    // start() - create socket, enable SO_BROADCAST, bind
     // =========================================================================
 
     bool port_udp_broadcast::start()
     {
-        auto*    ctrl = get_controller();
-        language lang = ctrl->get_language();
-
-        // Broadcast is always IPv4 — use the ipv4 hash constant.
+        // Broadcast is always IPv4 - use the ipv4 hash constant.
         static const adam::string_hashed ipv4_ver("ipv4"_ct);
 
         // --- Resolve local bind address (always IPv4) ---
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
+        std::string      resolved_ip;
 
-        std::string resolved_ip;
-        if (!resolve_local_interface_to_ip(m_interface->get_value().c_str(),
-                                           m_broadcast_ip->get_value().c_str(),
-                                           static_cast<int>(m_remote_port->get_value()),
-                                           ipv4_ver,
-                                           resolved_ip) ||
-            !resolve_address(adam::string_hashed(resolved_ip.c_str()),
-                             static_cast<int>(m_interface_port->get_value()),
-                             ipv4_ver, local_addr, local_addr_len, SOCK_DGRAM))
+        if (!resolve_bind_address(m_interface->get_value(),
+                                  m_broadcast_ip->get_value(),
+                                  static_cast<int>(m_remote_port->get_value()),
+                                  static_cast<int>(m_interface_port->get_value()),
+                                  ipv4_ver, SOCK_DGRAM,
+                                  local_addr, local_addr_len, resolved_ip))
         {
-            ctrl->log(log::error, std::format("[{}] UDP-Broadcast: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(socket_error_t::error_address_invalid, lang)));
+            log_network_socket_error(log::error, log_event::socket_bind_failed, socket_error_t::error_address_invalid, "UDP-Broadcast");
             return false;
         }
 
@@ -112,12 +105,11 @@ namespace adam::modules::network
         socket_t sock = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (sock == INVALID_SOCKET_VAL)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::error, std::format("[{}] UDP-Broadcast: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_creation_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
             return false;
         }
 
-        // --- Enable SO_BROADCAST so we can send to broadcast addresses ---
+        // --- Enable SO_BROADCAST ---
         #if defined(ADAM_PLATFORM_WINDOWS)
         BOOL broadcast_val = TRUE;
         #else
@@ -127,43 +119,44 @@ namespace adam::modules::network
                          reinterpret_cast<const char*>(&broadcast_val),
                          sizeof(broadcast_val)) == SOCKET_ERROR_VAL)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::error, std::format("[{}] UDP-Broadcast: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_option_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::error, log_event::socket_option_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
             close_socket(sock);
             return false;
         }
 
-        // --- Allow address reuse so multiple listeners can share the same port ---
+        // --- Allow address reuse ---
         int reuse = 1;
         ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
                      reinterpret_cast<const char*>(&reuse), sizeof(reuse));
 
-        // --- Bind to the local address ---
+        // --- Bind ---
         if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::error, std::format("[{}] UDP-Broadcast: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
             close_socket(sock);
             return false;
         }
 
-        // --- Switch to non-blocking so the read loop can use select() timeouts ---
+        // --- Non-blocking ---
         if (!set_nonblocking(sock, true))
         {
-            ctrl->log(log::error, std::format("[{}] UDP-Broadcast: {}", get_name().c_str(), get_event_log_text(log_event::socket_option_failed, lang)));
+            log_network_message(log::error, log_event::socket_option_failed, "UDP-Broadcast");
             close_socket(sock);
             return false;
         }
 
         m_socket = static_cast<uintptr_t>(sock);
 
-        ctrl->log(log::info, std::format("[{}] UDP-Broadcast: {} (Port {})", get_name().c_str(), get_event_log_text(log_event::socket_bind_success, lang), m_interface_port->get_value()));
+        resolve_active_ip(sock);
+
+        log_network_message(log::info, log_event::socket_bind_success, "UDP-Broadcast",
+                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_interface_port->get_value()));
 
         return port::start();
     }
 
     // =========================================================================
-    // write() — send a broadcast datagram
+    // write() - send a broadcast datagram
     // =========================================================================
 
     bool port_udp_broadcast::write(buffer* buff)
@@ -173,13 +166,10 @@ namespace adam::modules::network
         socket_t sock = static_cast<socket_t>(m_socket);
         if (sock == INVALID_SOCKET_VAL) return false;
 
-        auto*    ctrl = get_controller();
-        language lang = ctrl->get_language();
-
-        // Broadcast is always IPv4 — use the ipv4 hash constant.
+        // Broadcast is always IPv4 - use the ipv4 hash constant.
         static const adam::string_hashed ipv4_ver("ipv4"_ct);
 
-        // --- Resolve the broadcast destination address (always IPv4) ---
+        // --- Resolve the broadcast destination address ---
         sockaddr_storage dest_addr{};
         int              dest_addr_len = 0;
 
@@ -187,7 +177,8 @@ namespace adam::modules::network
                              static_cast<int>(m_remote_port->get_value()),
                              ipv4_ver, dest_addr, dest_addr_len, SOCK_DGRAM))
         {
-            ctrl->log(log::warning, std::format("[{}] UDP-Broadcast: {} ({}:{})", get_name().c_str(), get_event_log_text(log_event::udp_send_failed, lang), m_broadcast_ip->get_value().c_str(), m_remote_port->get_value()));
+            log_network_message(log::warning, log_event::udp_send_failed, "UDP-Broadcast",
+                                std::format("({}:{})", m_broadcast_ip->get_value().c_str(), m_remote_port->get_value()));
             return false;
         }
 
@@ -204,8 +195,7 @@ namespace adam::modules::network
 
         if (sent < 0)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::warning, std::format("[{}] UDP-Broadcast: {} — {}", get_name().c_str(), get_event_log_text(log_event::udp_send_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::warning, log_event::udp_send_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
             return false;
         }
 

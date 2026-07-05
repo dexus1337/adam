@@ -17,24 +17,35 @@
  * @date    04.07.2026
  */
 
-#include "api/api-network.hpp"
-#include <adam-sdk.hpp>
+#include "data/port-types/port-network.hpp"
 #include <atomic>
 #include <vector>
 
 namespace adam::modules::network
 {
+    struct tcp_server_stats
+    {
+        struct client_info
+        {
+            char ip[48];
+            uint32_t port;
+            bool active;
+        };
+        client_info clients[16];
+        uint32_t active_clients_count;
+    };
+
     /**
      * @class port_tcp_server
-     * @brief TCP Server Port — accepts multiple clients and broadcasts data bidirectionally.
+     * @brief TCP Server Port - accepts multiple clients and broadcasts data bidirectionally.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - interface        (string)  — Local interface to listen on (default "auto").
-     *          - interface_port   (integer) — Local port to bind and listen on (default 0).
-     *          - tcp_nodelay      (boolean) — Apply TCP_NODELAY to each accepted client socket (default true).
-     *          - ip_version       (string)  — "ipv4" or "ipv6".
+     *          - interface        (string)  - Local interface to listen on (default "auto").
+     *          - interface_port   (integer) - Local port to bind and listen on (default 0).
+     *          - tcp_nodelay      (boolean) - Apply TCP_NODELAY to each accepted client socket (default true).
+     *          - ip_version       (string)  - "ipv4" or "ipv6".
      */
-    class ADAM_NETWORK_API port_tcp_server : public port_in_out
+    class ADAM_NETWORK_API port_tcp_server : public port_network
     {
     public:
 
@@ -99,7 +110,7 @@ namespace adam::modules::network
 
         /** @brief The listener socket accepting new connections. Stored as uintptr_t so
          *         it is compatible with atomic operations. Only accessed from start()/stop()
-         *         and the worker thread — no spinlock required for m_listener itself. */
+         *         and the worker thread - no spinlock required for m_listener itself. */
         uintptr_t                     m_listener;
 
         /** @brief List of all currently connected client socket handles. */
@@ -107,8 +118,12 @@ namespace adam::modules::network
 
         /** @brief Spinlock protecting m_clients between the worker thread (read/accept)
          *         and any caller thread invoking write() or stop().
-         *         Held for nanoseconds only — never while doing I/O. */
+         *         Held for nanoseconds only - never while doing I/O. */
         std::atomic_flag              m_clients_mutex = ATOMIC_FLAG_INIT;
+
+        // --- Private helpers ---
+        void add_client_to_stats(socket_t client_sock, const sockaddr_storage& client_addr);
+        void remove_client_from_stats(socket_t client_sock);
 
         // --- User-parameter pointers (set in constructor, read-only thereafter) ---
         configuration_parameter_string*  m_interface = nullptr; ///< Local interface IP.

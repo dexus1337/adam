@@ -152,7 +152,7 @@ namespace adam::modules::asterix
         for (uint8_t oct = 0; oct < fspec_octets; ++oct)
         {
             uint8_t val = raw_data[raw_offset + oct];
-            for (int bit = 7; bit >= 0; --bit)  // All 8 bits are data bits — no FX
+            for (int bit = 7; bit >= 0; --bit)  // All 8 bits are data bits - no FX
             {
                 uint16_t frn = static_cast<uint16_t>((oct * 8) + (8 - bit));
 
@@ -436,7 +436,7 @@ namespace adam::modules::asterix
         }
         else
         {
-            // Unparsed explicit payload — no manual parsing possible
+            // Unparsed explicit payload - no manual parsing possible
             raw_offset += explicit_len;
         }
 

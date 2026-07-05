@@ -14,9 +14,7 @@
  * @date    04.07.2026
  */
 
-#include "api/api-network.hpp"
-#include <adam-sdk.hpp>
-#include "port-types/socket-helpers.hpp"
+#include "data/port-types/port-network.hpp"
 
 namespace adam::modules::network
 {
@@ -32,7 +30,7 @@ namespace adam::modules::network
      *          - start()                         (socket creation + protocol-specific options)
      *          - write()                         (sendto with their specific destination)
      */
-    class ADAM_NETWORK_API port_udp_base : public port_in_out
+    class ADAM_NETWORK_API port_udp_base : public port_network
     {
     public:
 
@@ -41,7 +39,7 @@ namespace adam::modules::network
          * @param item_name  The port item name passed to port_in_out.
          */
         explicit port_udp_base(const string_hashed& item_name)
-            : port_in_out(item_name)
+            : port_network(item_name)
             , m_socket(static_cast<uintptr_t>(INVALID_SOCKET_VAL))
         {
         }
@@ -49,7 +47,7 @@ namespace adam::modules::network
         virtual ~port_udp_base() = default;
 
         // -----------------------------------------------------------------
-        // Shared stop() — closes the UDP socket and logs the event.
+        // Shared stop() - closes the UDP socket and logs the event.
         // -----------------------------------------------------------------
 
         /**
@@ -64,7 +62,7 @@ namespace adam::modules::network
         virtual bool stop() override;
 
         // -----------------------------------------------------------------
-        // Shared read() — select + recvfrom loop, identical for all UDP types.
+        // Shared read() - select + recvfrom loop, identical for all UDP types.
         // -----------------------------------------------------------------
 
         /**
@@ -83,7 +81,7 @@ namespace adam::modules::network
 
         uintptr_t m_socket; ///< Native socket handle stored as uintptr_t for atomic compatibility.
 
-        // User-parameter pointers — populated by init_base_params().
+        // User-parameter pointers - populated by init_base_params().
         configuration_parameter_string*  m_interface = nullptr; ///< Local interface IP to bind to.
         configuration_parameter_integer* m_interface_port      = nullptr; ///< Local port to bind to.
         configuration_parameter_string*  m_ip_version      = nullptr; ///< "ipv4", "ipv6", or "auto".
@@ -113,6 +111,7 @@ namespace adam::modules::network
          * @param up  The user_parameters list to append to.
          */
         static void add_ip_version_param(adam::configuration_parameter_list_sorted* up);
+
     };
 
 } // namespace adam::modules::network

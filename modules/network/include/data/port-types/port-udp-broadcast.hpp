@@ -8,8 +8,8 @@
  *          Inherits the common select/recvfrom read loop and stop() teardown from
  *          port_udp_base.  This port is IPv4-only; UDP broadcast is not supported
  *          on IPv6.  Concrete responsibilities:
- *            - start()  — creates a UDP socket with SO_BROADCAST enabled, then binds it.
- *            - write()  — sends a datagram to the configured broadcast address and port.
+ *            - start()  - creates a UDP socket with SO_BROADCAST enabled, then binds it.
+ *            - write()  - sends a datagram to the configured broadcast address and port.
  *
  * @version 2.0
  * @date    04.07.2026
@@ -23,13 +23,13 @@ namespace adam::modules::network
 {
     /**
      * @class port_udp_broadcast
-     * @brief UDP Broadcast Port (IPv4 only) — sends and receives UDP subnet-broadcast datagrams.
+     * @brief UDP Broadcast Port (IPv4 only) - sends and receives UDP subnet-broadcast datagrams.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - interface        (string)  — Local interface to bind to (default "auto").
-     *          - interface_port   (integer) — Local port to bind to (0 = any).
-     *          - broadcast_ip     (string)  — Destination broadcast address (default "255.255.255.255").
-     *          - remote_port      (integer) — Destination port for outgoing broadcasts.
+     *          - interface        (string)  - Local interface to bind to (default "auto").
+     *          - interface_port   (integer) - Local port to bind to (0 = any).
+     *          - broadcast_ip     (string)  - Destination broadcast address (default "255.255.255.255").
+     *          - remote_port      (integer) - Destination port for outgoing broadcasts.
      *
      *        Note: ip_version is fixed to IPv4; there is no ip_version parameter.
      */

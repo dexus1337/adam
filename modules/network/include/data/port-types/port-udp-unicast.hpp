@@ -7,8 +7,8 @@
  *
  *          Inherits the common select/recvfrom read loop and stop() teardown from
  *          port_udp_base.  Concrete responsibilities:
- *            - start()  — creates and binds a UDP socket to the configured local interface/port.
- *            - write()  — sends a datagram to the configured remote IP and port.
+ *            - start()  - creates and binds a UDP socket to the configured local interface/port.
+ *            - write()  - sends a datagram to the configured remote IP and port.
  *
  * @version 2.0
  * @date    04.07.2026
@@ -22,14 +22,14 @@ namespace adam::modules::network
 {
     /**
      * @class port_udp_unicast
-     * @brief UDP Unicast Port — sends and receives standard point-to-point UDP datagrams.
+     * @brief UDP Unicast Port - sends and receives standard point-to-point UDP datagrams.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - interface        (string)  — Local interface to bind to (default "auto").
-     *          - interface_port   (integer) — Local port to bind to (0 = any).
-     *          - remote_ip        (string)  — Destination IP for outgoing datagrams.
-     *          - remote_port      (integer) — Destination port for outgoing datagrams.
-     *          - ip_version       (string)  — "auto", "ipv4", or "ipv6".
+     *          - interface        (string)  - Local interface to bind to (default "auto").
+     *          - interface_port   (integer) - Local port to bind to (0 = any).
+     *          - remote_ip        (string)  - Destination IP for outgoing datagrams.
+     *          - remote_port      (integer) - Destination port for outgoing datagrams.
+     *          - ip_version       (string)  - "auto", "ipv4", or "ipv6".
      */
     class ADAM_NETWORK_API port_udp_unicast : public port_udp_base
     {

@@ -100,7 +100,7 @@ namespace adam::modules::asterix::cat001
     // is a Plot or a Track, and returns the corresponding sub-UAP.
     //
     // Navigation logic:
-    //   1. FRN 2 (I001/020, TRD) must be active in the FSPEC — it is the only
+    //   1. FRN 2 (I001/020, TRD) must be active in the FSPEC - it is the only
     //      field that carries the msg_type discriminator bit.
     //   2. Move the data pointer past the FSPEC octets.
     //   3. If FRN 1 (I001/010, 2 bytes) is present, skip its data bytes.

@@ -6,7 +6,6 @@
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module-network.hpp"
-#include "port-types/socket-helpers.hpp"
 
 namespace adam::modules::network
 {
@@ -72,11 +71,10 @@ namespace adam::modules::network
     // =========================================================================
 
     port_tcp_client::port_tcp_client(const string_hashed& item_name)
-        : port_in_out(item_name)
+        : port_network(item_name)
         , m_socket(static_cast<uintptr_t>(INVALID_SOCKET_VAL))
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
-        get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
 
         add_parameters(port_tcp_client::get_user_parameters());
 
@@ -101,8 +99,6 @@ namespace adam::modules::network
 
     bool port_tcp_client::start()
     {
-        // The worker thread managed by port::start() will call read() in a loop,
-        // which handles connection and reconnection internally.
         return port::start();
     }
 
@@ -112,8 +108,8 @@ namespace adam::modules::network
 
     bool port_tcp_client::stop()
     {
-        // Atomically take the socket handle under the spinlock so that write()
-        // cannot observe a half-closed state.
+        set_state(state_stopped);
+
         socket_t sock = static_cast<socket_t>(INVALID_SOCKET_VAL);
         {
             adam::spinlock::guard lock(m_write_mutex);
@@ -121,27 +117,24 @@ namespace adam::modules::network
             m_socket = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
         }
 
-        // Close the socket outside the spinlock — close_socket() is a syscall.
         if (sock != INVALID_SOCKET_VAL)
         {
             close_socket(sock);
-            auto* ctrl = get_controller();
-            language lang = ctrl->get_language();
-            ctrl->log(log::info, std::format("[{}] TCP-Client: {}", get_name().c_str(), get_event_log_text(log_event::tcp_client_stopped, lang)));
+            log_network_message(log::info, log_event::tcp_client_stopped, "TCP-Client");
         }
+
+        m_active_ip.clear();
 
         return port::stop();
     }
 
     // =========================================================================
-    // connect() — called by read() when the socket is invalid
+    // connect() - called by read() when the socket is invalid
     // =========================================================================
 
     bool port_tcp_client::connect()
     {
-        auto*      ctrl   = get_controller();
-        language   lang   = ctrl->get_language();
-
+        if (!is_running()) return false;
 
         // --- Resolve the remote server address ---
         sockaddr_storage dest_addr{};
@@ -151,7 +144,8 @@ namespace adam::modules::network
                              static_cast<int>(m_remote_port->get_value()),
                              m_ip_version->get_value(), dest_addr, dest_addr_len, SOCK_STREAM))
         {
-            ctrl->log(log::error, std::format("[{}] TCP-Client: {} ({}:{})", get_name().c_str(), get_event_log_text(log_event::tcp_address_resolution_failed, lang), m_remote_ip->get_value().c_str(), m_remote_port->get_value()));
+            log_network_message(log::error, log_event::tcp_address_resolution_failed, "TCP-Client",
+                                std::format("({}:{})", m_remote_ip->get_value().c_str(), m_remote_port->get_value()));
             return false;
         }
 
@@ -159,12 +153,11 @@ namespace adam::modules::network
         socket_t sock = ::socket(dest_addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
         if (sock == INVALID_SOCKET_VAL)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::error, std::format("[{}] TCP-Client: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_creation_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "TCP-Client");
             return false;
         }
 
-        // --- TCP_NODELAY — disable Nagle for latency-sensitive pipelines ---
+        // --- TCP_NODELAY ---
         if (m_tcp_nodelay->get_value())
         {
             #if defined(ADAM_PLATFORM_WINDOWS)
@@ -178,8 +171,8 @@ namespace adam::modules::network
 
         // --- Local interface bind ---
         std::string resolved_ip;
-        if (resolve_local_interface_to_ip(m_interface->get_value().c_str(),
-                                           m_remote_ip->get_value().c_str(),
+        if (resolve_local_interface_to_ip(m_interface->get_value(),
+                                           m_remote_ip->get_value(),
                                            static_cast<int>(m_remote_port->get_value()),
                                            m_ip_version->get_value(),
                                            resolved_ip))
@@ -193,9 +186,10 @@ namespace adam::modules::network
             }
         }
 
-        // --- Non-blocking connect so we can respect a connect timeout / port stop ---
+        // --- Non-blocking connect ---
         if (!set_nonblocking(sock, true))
         {
+            log_network_message(log::error, log_event::socket_option_failed, "TCP-Client");
             close_socket(sock);
             return false;
         }
@@ -206,25 +200,32 @@ namespace adam::modules::network
             int err = get_last_error();
             if (!is_blocking_error(err))
             {
-                // Hard connect failure (e.g. connection refused).
-                socket_error_t err_resolved = resolve_socket_error(err);
-                ctrl->log(log::error, std::format("[{}] TCP-Client: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_connect_failed, lang), get_error_log_text(err_resolved, lang)));
+                log_network_socket_error(log::error, log_event::socket_connect_failed, resolve_socket_error(err), "TCP-Client");
                 close_socket(sock);
                 return false;
             }
 
-            // Connect is in progress (EINPROGRESS / WSAEWOULDBLOCK) — wait with select().
+            // EINPROGRESS / WSAEWOULDBLOCK - wait with select()
             fd_set write_fds, err_fds;
             FD_ZERO(&write_fds); FD_ZERO(&err_fds);
             FD_SET(sock, &write_fds);
             FD_SET(sock, &err_fds);
 
-            timeval tv{ 2, 0 }; // 2-second connect timeout.
+            int64_t timeout_ms = m_reconnect_interval_ms->get_value();
+
+            timeval tv{};
+            tv.tv_sec  = static_cast<long>(timeout_ms / 1000);
+            tv.tv_usec = static_cast<long>((timeout_ms % 1000) * 1000);
             int select_res = ::select(static_cast<int>(sock) + 1, nullptr, &write_fds, &err_fds, &tv);
 
             if (select_res <= 0 || FD_ISSET(sock, &err_fds) || !is_running())
             {
-                // Timeout, error, or the port was stopped while we waited.
+                if (!is_running())
+                {
+                    close_socket(sock);
+                    return false;
+                }
+
                 int err_code = 0;
                 if (select_res == 0)
                 {
@@ -244,13 +245,11 @@ namespace adam::modules::network
                     ::getsockopt(sock, SOL_SOCKET, SO_ERROR,
                                  reinterpret_cast<char*>(&err_code), &opt_len);
                 }
-                socket_error_t err_resolved = resolve_socket_error(err_code);
-                ctrl->log(log::error, std::format("[{}] TCP-Client: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_connect_failed, lang), get_error_log_text(err_resolved, lang)));
+                log_network_socket_error(log::error, log_event::socket_connect_failed, resolve_socket_error(err_code), "TCP-Client");
                 close_socket(sock);
                 return false;
             }
 
-            // Verify there is no pending socket-level error before declaring success.
             int sock_err = 0;
             #if defined(ADAM_PLATFORM_WINDOWS)
             int opt_len = sizeof(sock_err);
@@ -260,64 +259,70 @@ namespace adam::modules::network
             if (::getsockopt(sock, SOL_SOCKET, SO_ERROR,
                              reinterpret_cast<char*>(&sock_err), &opt_len) < 0 || sock_err != 0)
             {
-                socket_error_t err_resolved = resolve_socket_error(sock_err);
-                ctrl->log(log::error, std::format("[{}] TCP-Client: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_connect_failed, lang), get_error_log_text(err_resolved, lang)));
+                log_network_socket_error(log::error, log_event::socket_connect_failed, resolve_socket_error(sock_err), "TCP-Client");
                 close_socket(sock);
                 return false;
             }
         }
 
-        // --- Publish the connected socket under the spinlock ---
         {
             adam::spinlock::guard lock(m_write_mutex);
             m_socket = static_cast<uintptr_t>(sock);
         }
 
-        ctrl->log(log::info, std::format("[{}] TCP-Client: {} ({}:{})", get_name().c_str(), get_event_log_text(log_event::tcp_client_connected, lang), m_remote_ip->get_value().c_str(), m_remote_port->get_value()));
+        resolve_active_ip(sock);
+
+        log_network_message(log::info, log_event::tcp_client_connected, "TCP-Client",
+                            std::format("{} ({}) -> {}:{}", get_active_interface().c_str(), get_active_ip().c_str(), m_remote_ip->get_value().c_str(), m_remote_port->get_value()));
 
         return true;
     }
 
     // =========================================================================
-    // read() — connect + select/recv loop
+    // read()
     // =========================================================================
 
     bool port_tcp_client::read(buffer*& buff)
     {
-        auto*    ctrl = get_controller();
-        language lang = ctrl->get_language();
-
         while (is_running())
         {
             socket_t sock = static_cast<socket_t>(m_socket);
 
             if (sock == INVALID_SOCKET_VAL)
             {
-                // No connection yet (or we disconnected) — attempt to connect.
-                if (connect())
+                auto start_time = std::chrono::steady_clock::now();
+                bool connected  = connect();
+                auto end_time    = std::chrono::steady_clock::now();
+
+                if (connected)
                 {
                     set_state(state_running);
-                    continue; // Connection succeeded; loop back to start reading.
+                    continue;
                 }
 
-                // Connection failed — mark as connecting
+                if (!is_running())
+                {
+                    return false;
+                }
+
                 set_state(state_connecting);
 
-                // Connection failed — wait the reconnect interval before retrying,
-                // but wake up every 100 ms to check whether the port was stopped.
                 int64_t interval = m_reconnect_interval_ms->get_value();
-                if (interval <= 0) interval = 2000;
+                auto    elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+                int64_t sleep_ms = interval - elapsed;
 
-                int64_t slept = 0;
-                while (slept < interval && is_running())
+                if (sleep_ms > 0)
                 {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                    slept += 100;
+                    int64_t slept = 0;
+                    while (slept < sleep_ms && is_running())
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                        slept += 50;
+                    }
                 }
-                return false; // Signal port to call read() again.
+                return false;
             }
 
-            // --- Wait for incoming data (100 ms timeout) ---
             fd_set read_fds;
             FD_ZERO(&read_fds);
             FD_SET(sock, &read_fds);
@@ -330,7 +335,6 @@ namespace adam::modules::network
                 int err = get_last_error();
                 if (is_blocking_error(err)) continue;
 
-                // Hard socket error — invalidate and let next iteration reconnect.
                 socket_t s_to_close = INVALID_SOCKET_VAL;
                 {
                     adam::spinlock::guard lock(m_write_mutex);
@@ -338,12 +342,12 @@ namespace adam::modules::network
                     m_socket   = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
                 }
                 if (s_to_close != INVALID_SOCKET_VAL) close_socket(s_to_close);
+                m_active_ip.clear();
                 return false;
             }
 
             if (rv > 0)
             {
-                // Data is ready — receive it into a temporary stack buffer.
                 uint8_t temp_buf[4096];
                 #if defined(ADAM_PLATFORM_WINDOWS)
                 int chunk = ::recv(sock, reinterpret_cast<char*>(temp_buf), sizeof(temp_buf), 0);
@@ -356,7 +360,6 @@ namespace adam::modules::network
                     int err = get_last_error();
                     if (is_blocking_error(err)) continue;
 
-                    // Receive error — close and allow reconnect.
                     socket_t s_to_close = INVALID_SOCKET_VAL;
                     {
                         adam::spinlock::guard lock(m_write_mutex);
@@ -364,13 +367,16 @@ namespace adam::modules::network
                         m_socket   = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
                     }
                     if (s_to_close != INVALID_SOCKET_VAL) close_socket(s_to_close);
-                    ctrl->log(log::warning, std::format("[{}] TCP-Client: {}", get_name().c_str(), get_event_log_text(log_event::tcp_client_disconnected, lang)));
+                    m_active_ip.clear();
+                    if (is_running())
+                    {
+                        log_network_message(log::warning, log_event::tcp_client_disconnected, "TCP-Client");
+                    }
                     return false;
                 }
 
                 if (chunk == 0)
                 {
-                    // Server closed the connection gracefully (EOF).
                     socket_t s_to_close = INVALID_SOCKET_VAL;
                     {
                         adam::spinlock::guard lock(m_write_mutex);
@@ -378,11 +384,14 @@ namespace adam::modules::network
                         m_socket   = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
                     }
                     if (s_to_close != INVALID_SOCKET_VAL) close_socket(s_to_close);
-                    ctrl->log(log::info, std::format("[{}] TCP-Client: {}", get_name().c_str(), get_event_log_text(log_event::tcp_client_disconnected, lang)));
+                    m_active_ip.clear();
+                    if (is_running())
+                    {
+                        log_network_message(log::info, log_event::tcp_client_disconnected, "TCP-Client");
+                    }
                     return false;
                 }
 
-                // --- Wrap received bytes in a buffer and return it to the port framework ---
                 buff = buffer_manager::get().request_buffer(chunk);
                 if (!buff) return false;
 
@@ -391,47 +400,36 @@ namespace adam::modules::network
                 buff->set_timestamp();
                 return true;
             }
-            // rv == 0: timeout — loop back to check the running state.
         }
 
         return false;
     }
 
     // =========================================================================
-    // write() — send data to the connected server
+    // write()
     // =========================================================================
 
     bool port_tcp_client::write(buffer* buff)
     {
         if (!buff || buff->get_size() == 0) return false;
 
-        // Read the socket handle atomically — hold the spinlock only for this one load.
         socket_t sock = static_cast<socket_t>(INVALID_SOCKET_VAL);
         {
             adam::spinlock::guard lock(m_write_mutex);
             sock = static_cast<socket_t>(m_socket);
         }
-        if (sock == INVALID_SOCKET_VAL) return false; // Not connected.
+        if (sock == INVALID_SOCKET_VAL) return false;
 
         const char* data = buff->data_as<const char>();
         size_t      size = buff->get_size();
 
-        #if defined(ADAM_PLATFORM_WINDOWS)
-        int sent = ::send(sock, data, static_cast<int>(size), 0);
-        #else
-        int sent = ::send(sock, data, size, 0);
-        #endif
-
-        if (sent < 0)
+        if (!send_all(sock, data, size))
         {
-            auto*    ctrl = get_controller();
-            language lang = ctrl->get_language();
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::warning, std::format("[{}] TCP-Client: {} — {}", get_name().c_str(), get_event_log_text(log_event::tcp_client_send_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::warning, log_event::tcp_client_send_failed, resolve_socket_error(get_last_error()), "TCP-Client");
             return false;
         }
 
-        return sent == static_cast<int>(size);
+        return true;
     }
 
 } // namespace adam::modules::network

@@ -353,7 +353,7 @@ namespace adam::modules::recrep
                 }
             }
 
-            // Format hash was already resolved during file collection in start() — no ext lookup needed.
+            // Format hash was already resolved during file collection in start() - no ext lookup needed.
             const auto& [file_path, fmt_hash] = m_files[m_current_file_index];
             m_file_stream.open(file_path, std::ios::binary);
 
@@ -480,7 +480,7 @@ namespace adam::modules::recrep
                 // time_diff_ms is the absolute ms offset from the start of the recording
                 // (file_header.time_start). ALL packets, including the first, are scheduled at
                 // m_replay_start_time + time_diff_ms / speed. A packet at offset 0 sends immediately;
-                // a packet at offset 5000ms delays 5 seconds — which is the intended behaviour.
+                // a packet at offset 5000ms delays 5 seconds - which is the intended behaviour.
                 std::chrono::nanoseconds packet_ts_ns(static_cast<uint64_t>(bh.time_diff_ms) * 1000000ull);
 
                 // Sleep logic for set speed

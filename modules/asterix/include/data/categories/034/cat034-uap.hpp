@@ -24,7 +24,7 @@ namespace adam::modules::asterix::cat034
      *
      * CAT034 carries Monoradar Service Messages (north markers, sector crossings,
      * geographical filters, jamming strobes, solar storms). A single UAP is defined
-     * for all message types — I034/000 (Message Type) at FRN 2 identifies the
+     * for all message types - I034/000 (Message Type) at FRN 2 identifies the
      * specific message variant.
      *
      * @return Reference to the CAT034 UAP structure.

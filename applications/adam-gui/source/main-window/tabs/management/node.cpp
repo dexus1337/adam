@@ -102,6 +102,7 @@ namespace adam::gui
         
         if (!is_child_visible)
         {
+            ImGui::EndChild();
             return;
         }
 

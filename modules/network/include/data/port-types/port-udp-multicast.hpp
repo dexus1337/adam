@@ -7,9 +7,9 @@
  *
  *          Inherits the common select/recvfrom read loop and stop() teardown from
  *          port_udp_base.  Concrete responsibilities:
- *            - start()  — creates a UDP socket, joins the multicast group, sets TTL/hops
+ *            - start()  - creates a UDP socket, joins the multicast group, sets TTL/hops
  *                         and loopback options, then binds.
- *            - write()  — sends a datagram to the multicast group address and port.
+ *            - write()  - sends a datagram to the multicast group address and port.
  *
  * @version 2.0
  * @date    04.07.2026
@@ -23,16 +23,16 @@ namespace adam::modules::network
 {
     /**
      * @class port_udp_multicast
-     * @brief UDP Multicast Port — sends and receives UDP multicast datagrams on IPv4 or IPv6.
+     * @brief UDP Multicast Port - sends and receives UDP multicast datagrams on IPv4 or IPv6.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - interface        (string)  — Local interface to bind to (default "auto").
-     *          - interface_port   (integer) — Local port to bind to (usually the same as multicast_port).
-     *          - multicast_ip     (string)  — Multicast group address (e.g. "239.0.0.1" or "ff02::1").
-     *          - multicast_port   (integer) — Destination multicast port for outgoing datagrams.
-     *          - ttl              (integer) — Multicast Time-To-Live / hop limit (default 1).
-     *          - loopback         (boolean) — Whether sent datagrams loop back to local sockets (default true).
-     *          - ip_version       (string)  — "auto", "ipv4", or "ipv6".
+     *          - interface        (string)  - Local interface to bind to (default "auto").
+     *          - interface_port   (integer) - Local port to bind to (usually the same as multicast_port).
+     *          - multicast_ip     (string)  - Multicast group address (e.g. "239.0.0.1" or "ff02::1").
+     *          - multicast_port   (integer) - Destination multicast port for outgoing datagrams.
+     *          - ttl              (integer) - Multicast Time-To-Live / hop limit (default 1).
+     *          - loopback         (boolean) - Whether sent datagrams loop back to local sockets (default true).
+     *          - ip_version       (string)  - "auto", "ipv4", or "ipv6".
      */
     class ADAM_NETWORK_API port_udp_multicast : public port_udp_base
     {

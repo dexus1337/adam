@@ -18,11 +18,11 @@ namespace adam::modules::network
         {
             close_socket(sock);
             m_socket = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
-
-            auto* ctrl = get_controller();
-            language lang = ctrl->get_language();
-            ctrl->log(log::info, std::format("[{}] {}", get_name().c_str(), get_event_log_text(log_event::udp_socket_closed, lang)));
+            log_network_message(log::info, log_event::udp_socket_closed, "");
         }
+
+        m_active_ip.clear();
+
         return port::stop();
     }
 
@@ -32,8 +32,6 @@ namespace adam::modules::network
 
     bool port_udp_base::read(buffer*& buff)
     {
-        // Snapshot the socket handle; if it becomes invalid mid-run (stop() was called),
-        // the select() will fail and we will exit the loop cleanly.
         socket_t sock = static_cast<socket_t>(m_socket);
         if (sock == INVALID_SOCKET_VAL) return false;
 
@@ -42,7 +40,6 @@ namespace adam::modules::network
 
         while (is_running())
         {
-            // Re-read the handle each iteration in case stop() was called.
             sock = static_cast<socket_t>(m_socket);
             if (sock == INVALID_SOCKET_VAL) return false;
 
@@ -50,7 +47,6 @@ namespace adam::modules::network
             FD_ZERO(&read_fds);
             FD_SET(sock, &read_fds);
 
-            // 100 ms timeout keeps the thread responsive to stop().
             timeval tv{ 0, 100000 };
 
             int rv = ::select(static_cast<int>(sock) + 1, &read_fds, nullptr, nullptr, &tv);
@@ -58,12 +54,11 @@ namespace adam::modules::network
             {
                 int err = get_last_error();
                 if (is_blocking_error(err)) continue;
-                return false; // Hard socket error — port will attempt to restart.
+                return false;
             }
 
             if (rv > 0)
             {
-                // A datagram is waiting; receive it.
                 sockaddr_storage from_addr{};
                 #if defined(ADAM_PLATFORM_WINDOWS)
                 int from_len = sizeof(from_addr);
@@ -87,7 +82,6 @@ namespace adam::modules::network
                 bytes_read = chunk;
                 break;
             }
-            // rv == 0: timeout — loop back and check the running state again.
         }
 
         if (bytes_read > 0)

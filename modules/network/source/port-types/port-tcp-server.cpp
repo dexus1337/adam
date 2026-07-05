@@ -6,9 +6,9 @@
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module-network.hpp"
-#include "port-types/socket-helpers.hpp"
 
 #include <algorithm>
+#include <cstring>
 
 namespace adam::modules::network
 {
@@ -61,13 +61,12 @@ namespace adam::modules::network
     // =========================================================================
 
     port_tcp_server::port_tcp_server(const string_hashed& item_name)
-        : port_in_out(item_name)
+        : port_network(item_name, (sizeof(state_buffer_data) + sizeof(tcp_server_stats) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t))
         , m_listener(static_cast<uintptr_t>(INVALID_SOCKET_VAL))
         , m_clients()
         , m_clients_mutex()
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
-        get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
 
         add_parameters(port_tcp_server::get_user_parameters());
 
@@ -90,23 +89,17 @@ namespace adam::modules::network
 
     bool port_tcp_server::start()
     {
-        auto*      ctrl   = get_controller();
-        language lang = ctrl->get_language();
-
         // --- Resolve the local listen address ---
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
+        std::string      resolved_ip;
 
-        std::string resolved_ip;
-        if (!resolve_local_interface_to_ip(m_interface->get_value().c_str(),
-                                           "", 0,
-                                           m_ip_version->get_value(),
-                                           resolved_ip) ||
-            !resolve_address(adam::string_hashed(resolved_ip.c_str()),
-                             static_cast<int>(m_interface_port->get_value()),
-                             m_ip_version->get_value(), local_addr, local_addr_len, SOCK_STREAM))
+        if (!resolve_bind_address(m_interface->get_value(), "", 0,
+                                  static_cast<int>(m_interface_port->get_value()),
+                                  m_ip_version->get_value(), SOCK_STREAM,
+                                  local_addr, local_addr_len, resolved_ip))
         {
-            ctrl->log(log::error, std::format("[{}] TCP-Server: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(socket_error_t::error_address_invalid, lang)));
+            log_network_socket_error(log::error, log_event::socket_bind_failed, socket_error_t::error_address_invalid, "TCP-Server");
             return false;
         }
 
@@ -114,12 +107,11 @@ namespace adam::modules::network
         socket_t sock = ::socket(local_addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
         if (sock == INVALID_SOCKET_VAL)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::error, std::format("[{}] TCP-Server: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_creation_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "TCP-Server");
             return false;
         }
 
-        // --- Reuse address so we can restart quickly after a crash ---
+        // --- Reuse address ---
         int reuse = 1;
         ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
                      reinterpret_cast<const char*>(&reuse), sizeof(reuse));
@@ -130,8 +122,7 @@ namespace adam::modules::network
         // --- Bind ---
         if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::error, std::format("[{}] TCP-Server: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_bind_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "TCP-Server");
             close_socket(sock);
             return false;
         }
@@ -139,23 +130,28 @@ namespace adam::modules::network
         // --- Listen ---
         if (::listen(sock, SOMAXCONN) == SOCKET_ERROR_VAL)
         {
-            socket_error_t err = resolve_socket_error(get_last_error());
-            ctrl->log(log::error, std::format("[{}] TCP-Server: {} — {}", get_name().c_str(), get_event_log_text(log_event::socket_listen_failed, lang), get_error_log_text(err, lang)));
+            log_network_socket_error(log::error, log_event::socket_listen_failed, resolve_socket_error(get_last_error()), "TCP-Server");
             close_socket(sock);
             return false;
         }
 
-        // --- Non-blocking so the read loop can time out and check the running state ---
+        // --- Non-blocking listener ---
         if (!set_nonblocking(sock, true))
         {
-            ctrl->log(log::error, std::format("[{}] TCP-Server: {}", get_name().c_str(), get_event_log_text(log_event::socket_option_failed, lang)));
+            log_network_message(log::error, log_event::socket_option_failed, "TCP-Server");
             close_socket(sock);
             return false;
         }
 
         m_listener = static_cast<uintptr_t>(sock);
 
-        ctrl->log(log::info, std::format("[{}] TCP-Server: {} ({}:{})", get_name().c_str(), get_event_log_text(log_event::tcp_server_started, lang), m_interface->get_value().c_str(), m_interface_port->get_value()));
+        resolve_active_ip(sock);
+
+        // Initialize statistics block to zero
+        std::memset(&get_state_buffer_data()->user_data<tcp_server_stats>(), 0, sizeof(tcp_server_stats));
+
+        log_network_message(log::info, log_event::tcp_server_started, "TCP-Server",
+                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_interface_port->get_value()));
 
         return port::start();
     }
@@ -166,7 +162,6 @@ namespace adam::modules::network
 
     bool port_tcp_server::stop()
     {
-        // --- Close the listener socket (prevents new connections) ---
         socket_t listener_sock = static_cast<socket_t>(m_listener);
         if (listener_sock == INVALID_SOCKET_VAL)
         {
@@ -176,7 +171,6 @@ namespace adam::modules::network
         m_listener = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
         close_socket(listener_sock);
 
-        // --- Atomically drain the client list under the spinlock ---
         std::vector<uintptr_t> clients_to_close;
         {
             adam::spinlock::guard lock(m_clients_mutex);
@@ -184,16 +178,18 @@ namespace adam::modules::network
             m_clients.clear();
         }
 
-        // --- Close client sockets outside the spinlock (syscalls must not be locked) ---
         for (auto c : clients_to_close)
         {
             socket_t cs = static_cast<socket_t>(c);
             close_socket(cs);
         }
 
-        auto* ctrl = get_controller();
-        language lang = ctrl->get_language();
-        ctrl->log(log::info, std::format("[{}] TCP-Server: {}", get_name().c_str(), get_event_log_text(log_event::tcp_server_stopped, lang)));
+        // Clear statistics
+        std::memset(&get_state_buffer_data()->user_data<tcp_server_stats>(), 0, sizeof(tcp_server_stats));
+
+        log_network_message(log::info, log_event::tcp_server_stopped, "TCP-Server");
+
+        m_active_ip.clear();
 
         return port::stop();
     }
@@ -204,21 +200,16 @@ namespace adam::modules::network
 
     bool port_tcp_server::read(buffer*& buff)
     {
-        auto*    ctrl = get_controller();
-        language lang = ctrl->get_language();
-
         while (is_running())
         {
             socket_t listener_sock = static_cast<socket_t>(m_listener);
             if (listener_sock == INVALID_SOCKET_VAL) return false;
 
-            // --- Build the fd_set from the listener and all current clients ---
             fd_set read_fds;
             FD_ZERO(&read_fds);
             FD_SET(listener_sock, &read_fds);
             int max_fd = static_cast<int>(listener_sock);
 
-            // Snapshot the client list so we don't hold the spinlock during select().
             std::vector<uintptr_t> clients_copy;
             {
                 adam::spinlock::guard lock(m_clients_mutex);
@@ -233,7 +224,6 @@ namespace adam::modules::network
                     max_fd = static_cast<int>(cs);
             }
 
-            // 100 ms timeout keeps the thread responsive to stop().
             timeval tv{ 0, 100000 };
             int rv = ::select(max_fd + 1, &read_fds, nullptr, nullptr, &tv);
 
@@ -246,7 +236,7 @@ namespace adam::modules::network
 
             if (rv > 0)
             {
-                // --- 1. Check for new incoming connections on the listener ---
+                // --- 1. Check for new incoming connections ---
                 if (FD_ISSET(listener_sock, &read_fds))
                 {
                     sockaddr_storage client_addr{};
@@ -261,7 +251,6 @@ namespace adam::modules::network
 
                     if (client_sock != INVALID_SOCKET_VAL)
                     {
-                        // Configure the accepted client socket.
                         set_nonblocking(client_sock, true);
 
                         if (m_tcp_nodelay->get_value())
@@ -275,20 +264,14 @@ namespace adam::modules::network
                                          reinterpret_cast<const char*>(&val), sizeof(val));
                         }
 
-                        // Register the new client under the spinlock.
-                        {
-                            adam::spinlock::guard lock(m_clients_mutex);
-                            m_clients.push_back(static_cast<uintptr_t>(client_sock));
-                        }
-                        ctrl->log(log::info, std::format("[{}] TCP-Server: {}", get_name().c_str(), get_event_log_text(log_event::tcp_server_client_connected, lang)));
+                        add_client_to_stats(client_sock, client_addr);
                     }
                     else
                     {
                         int err = get_last_error();
                         if (is_running() && static_cast<socket_t>(m_listener) != INVALID_SOCKET_VAL && !is_blocking_error(err))
                         {
-                            socket_error_t err_resolved = resolve_socket_error(err);
-                            ctrl->log(log::warning, std::format("[{}] TCP-Server: {} — {}", get_name().c_str(), get_event_log_text(log_event::tcp_server_accept_failed, lang), get_error_log_text(err_resolved, lang)));
+                            log_network_socket_error(log::warning, log_event::tcp_server_accept_failed, resolve_socket_error(err), "TCP-Server");
                         }
                     }
                 }
@@ -308,7 +291,6 @@ namespace adam::modules::network
 
                     if (chunk > 0)
                     {
-                        // Data received — wrap it in a buffer and return.
                         buff = buffer_manager::get().request_buffer(chunk);
                         if (buff)
                         {
@@ -320,19 +302,18 @@ namespace adam::modules::network
                     }
                     else
                     {
-                        // chunk == 0 (graceful close) or chunk < 0 (error) — remove client.
                         {
                             adam::spinlock::guard lock(m_clients_mutex);
                             auto it = std::find(m_clients.begin(), m_clients.end(), c);
                             if (it != m_clients.end())
                                 m_clients.erase(it);
+
+                            remove_client_from_stats(cs);
                         }
                         close_socket(cs);
-                        ctrl->log(log::info, std::format("[{}] TCP-Server: {}", get_name().c_str(), get_event_log_text(log_event::tcp_server_client_disconnected, lang)));
                     }
                 }
             }
-            // rv == 0: timeout — loop back to check the running state.
         }
 
         return false;
@@ -346,37 +327,29 @@ namespace adam::modules::network
     {
         if (!buff || buff->get_size() == 0) return false;
 
-        // Snapshot the client list — hold the spinlock only for the copy.
         std::vector<uintptr_t> clients_copy;
         {
             adam::spinlock::guard lock(m_clients_mutex);
             clients_copy = m_clients;
         }
 
-        if (clients_copy.empty()) return true; // No clients — broadcast is a no-op.
+        if (clients_copy.empty()) return true;
 
         const char* data = buff->data_as<const char>();
         size_t      size = buff->get_size();
 
-        // --- Send to every client; collect failures ---
         std::vector<uintptr_t> failed_clients;
         for (auto c : clients_copy)
         {
             socket_t cs = static_cast<socket_t>(c);
-            #if defined(ADAM_PLATFORM_WINDOWS)
-            int sent = ::send(cs, data, static_cast<int>(size), 0);
-            #else
-            int sent = ::send(cs, data, size, 0);
-            #endif
-
-            if (sent < 0 && !is_blocking_error(get_last_error()))
+            if (!send_all_nonblocking(cs, data, size))
+            {
                 failed_clients.push_back(c);
+            }
         }
 
-        // --- Remove and close failed clients ---
         if (!failed_clients.empty())
         {
-            // Remove from the authoritative list under the spinlock.
             {
                 adam::spinlock::guard lock(m_clients_mutex);
                 for (auto fc : failed_clients)
@@ -384,21 +357,106 @@ namespace adam::modules::network
                     auto it = std::find(m_clients.begin(), m_clients.end(), fc);
                     if (it != m_clients.end())
                         m_clients.erase(it);
+
+                    socket_t fcs = static_cast<socket_t>(fc);
+                    remove_client_from_stats(fcs);
                 }
             }
 
-            // Close sockets and log outside the spinlock.
-            auto*    ctrl = get_controller();
-            language lang = ctrl->get_language();
             for (auto fc : failed_clients)
             {
                 socket_t fcs = static_cast<socket_t>(fc);
                 close_socket(fcs);
-                ctrl->log(log::info, std::format("[{}] TCP-Server: {}", get_name().c_str(), get_event_log_text(log_event::tcp_server_client_disconnected, lang)));
             }
         }
 
         return true;
+    }
+
+    // =========================================================================
+    // Client Tracking & Statistics Helpers (No Duplication)
+    // =========================================================================
+
+    void port_tcp_server::add_client_to_stats(socket_t client_sock, const sockaddr_storage& client_addr)
+    {
+        char client_ip_str[48]{};
+        uint32_t client_port = 0;
+        if (client_addr.ss_family == AF_INET)
+        {
+            auto* sa = reinterpret_cast<const sockaddr_in*>(&client_addr);
+            ::inet_ntop(AF_INET, &sa->sin_addr, client_ip_str, sizeof(client_ip_str));
+            client_port = ntohs(sa->sin_port);
+        }
+        else if (client_addr.ss_family == AF_INET6)
+        {
+            auto* sa = reinterpret_cast<const sockaddr_in6*>(&client_addr);
+            ::inet_ntop(AF_INET6, &sa->sin6_addr, client_ip_str, sizeof(client_ip_str));
+            client_port = ntohs(sa->sin6_port);
+        }
+
+        {
+            adam::spinlock::guard lock(m_clients_mutex);
+            m_clients.push_back(static_cast<uintptr_t>(client_sock));
+
+            tcp_server_stats& stats = get_state_buffer_data()->user_data<tcp_server_stats>();
+            for (auto& c_info : stats.clients)
+            {
+                if (!c_info.active)
+                {
+                    std::strncpy(c_info.ip, client_ip_str, sizeof(c_info.ip) - 1);
+                    c_info.port = client_port;
+                    c_info.active = true;
+                    stats.active_clients_count++;
+                    break;
+                }
+            }
+        }
+        log_network_message(log::info, log_event::tcp_server_client_connected, "TCP-Server",
+                            std::format("({}:{})", client_ip_str, client_port));
+    }
+
+    void port_tcp_server::remove_client_from_stats(socket_t client_sock)
+    {
+        char client_ip_str[48]{};
+        uint32_t client_port = 0;
+
+        sockaddr_storage peer_addr{};
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        int peer_len = sizeof(peer_addr);
+        #else
+        socklen_t peer_len = sizeof(peer_addr);
+        #endif
+        if (::getpeername(client_sock, reinterpret_cast<sockaddr*>(&peer_addr), &peer_len) == 0)
+        {
+            if (peer_addr.ss_family == AF_INET)
+            {
+                auto* sa = reinterpret_cast<sockaddr_in*>(&peer_addr);
+                ::inet_ntop(AF_INET, &sa->sin_addr, client_ip_str, sizeof(client_ip_str));
+                client_port = ntohs(sa->sin_port);
+            }
+            else if (peer_addr.ss_family == AF_INET6)
+            {
+                auto* sa = reinterpret_cast<sockaddr_in6*>(&peer_addr);
+                ::inet_ntop(AF_INET6, &sa->sin6_addr, client_ip_str, sizeof(client_ip_str));
+                client_port = ntohs(sa->sin6_port);
+            }
+
+            tcp_server_stats& stats = get_state_buffer_data()->user_data<tcp_server_stats>();
+            for (auto& c_info : stats.clients)
+            {
+                if (c_info.active && std::strcmp(c_info.ip, client_ip_str) == 0 && c_info.port == client_port)
+                {
+                    c_info.active = false;
+                    std::memset(c_info.ip, 0, sizeof(c_info.ip));
+                    c_info.port = 0;
+                    if (stats.active_clients_count > 0)
+                        stats.active_clients_count--;
+                    break;
+                }
+            }
+        }
+        log_network_message(log::info, log_event::tcp_server_client_disconnected, "TCP-Server",
+                            std::format("({}:{})", client_ip_str, client_port));
     }
 
 } // namespace adam::modules::network

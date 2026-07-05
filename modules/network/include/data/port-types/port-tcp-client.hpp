@@ -17,25 +17,24 @@
  * @date    04.07.2026
  */
 
-#include "api/api-network.hpp"
-#include <adam-sdk.hpp>
+#include "data/port-types/port-network.hpp"
 #include <atomic>
 
 namespace adam::modules::network
 {
     /**
      * @class port_tcp_client
-     * @brief TCP Client Port — connects to a remote TCP server and exchanges data bidirectionally.
+     * @brief TCP Client Port - connects to a remote TCP server and exchanges data bidirectionally.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - interface            (string)  — Local interface to bind before connecting (default "auto").
-     *          - remote_ip            (string)  — Remote server IP or hostname (default "127.0.0.1").
-     *          - remote_port          (integer) — Remote server port (default 0).
-     *          - reconnect_interval_ms (integer) — Milliseconds between reconnect attempts (0 = disabled, default 2000).
-     *          - tcp_nodelay          (boolean) — Disable Nagle's algorithm for lower latency (default true).
-     *          - ip_version           (string)  — "auto", "ipv4", or "ipv6".
+     *          - interface            (string)  - Local interface to bind before connecting (default "auto").
+     *          - remote_ip            (string)  - Remote server IP or hostname (default "127.0.0.1").
+     *          - remote_port          (integer) - Remote server port (default 0).
+     *          - reconnect_interval_ms (integer) - Milliseconds between reconnect attempts (0 = disabled, default 2000).
+     *          - tcp_nodelay          (boolean) - Disable Nagle's algorithm for lower latency (default true).
+     *          - ip_version           (string)  - "auto", "ipv4", or "ipv6".
      */
-    class ADAM_NETWORK_API port_tcp_client : public port_in_out
+    class ADAM_NETWORK_API port_tcp_client : public port_network
     {
     public:
 
