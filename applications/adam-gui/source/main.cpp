@@ -144,15 +144,28 @@ int main(int, char**)
             if (target_fps > 0.0)
             {
                 auto target_frame_duration = std::chrono::duration<double>(1.0 / target_fps);
-                auto elapsed = std::chrono::steady_clock::now() - last_frame_time;
-                if (elapsed < target_frame_duration)
+                auto next_frame_time = last_frame_time + std::chrono::duration_cast<std::chrono::steady_clock::duration>(target_frame_duration);
+                std::this_thread::sleep_until(next_frame_time);
+
+                auto now = std::chrono::steady_clock::now();
+                if (now - last_frame_time > target_frame_duration * 2.0)
                 {
-                    std::this_thread::sleep_for(target_frame_duration - elapsed);
+                    last_frame_time = now;
+                }
+                else
+                {
+                    last_frame_time = next_frame_time;
                 }
             }
+            else
+            {
+                last_frame_time = std::chrono::steady_clock::now();
+            }
         }
-        
-        last_frame_time = std::chrono::steady_clock::now();
+        else
+        {
+            last_frame_time = std::chrono::steady_clock::now();
+        }
     }
 
     ui_window.save_window_state();
