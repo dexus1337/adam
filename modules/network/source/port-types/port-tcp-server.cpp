@@ -89,6 +89,7 @@ namespace adam::modules::network
 
     bool port_tcp_server::start()
     {
+        set_state(state_starting);
         // --- Resolve the local listen address ---
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
@@ -123,15 +124,17 @@ namespace adam::modules::network
         if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
         {
             log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "TCP-Server");
-            close_socket(sock);
+            close_and_clear_socket(sock);
             return false;
         }
+
+        resolve_active_ip(sock);
 
         // --- Listen ---
         if (::listen(sock, SOMAXCONN) == SOCKET_ERROR_VAL)
         {
             log_network_socket_error(log::error, log_event::socket_listen_failed, resolve_socket_error(get_last_error()), "TCP-Server");
-            close_socket(sock);
+            close_and_clear_socket(sock);
             return false;
         }
 
@@ -139,19 +142,17 @@ namespace adam::modules::network
         if (!set_nonblocking(sock, true))
         {
             log_network_message(log::error, log_event::socket_option_failed, "TCP-Server");
-            close_socket(sock);
+            close_and_clear_socket(sock);
             return false;
         }
 
         m_listener = static_cast<uintptr_t>(sock);
 
-        resolve_active_ip(sock);
-
         // Initialize statistics block to zero
         std::memset(&get_state_buffer_data()->user_data<tcp_server_stats>(), 0, sizeof(tcp_server_stats));
 
         log_network_message(log::info, log_event::tcp_server_started, "TCP-Server",
-                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_interface_port->get_value()));
+                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_active_port));
 
         return port::start();
     }
@@ -162,6 +163,7 @@ namespace adam::modules::network
 
     bool port_tcp_server::stop()
     {
+        set_state(state_stopping);
         socket_t listener_sock = static_cast<socket_t>(m_listener);
         if (listener_sock == INVALID_SOCKET_VAL)
         {
@@ -234,84 +236,86 @@ namespace adam::modules::network
                 return false;
             }
 
-            if (rv > 0)
+            if (rv == 0)
             {
-                // --- 1. Check for new incoming connections ---
-                if (FD_ISSET(listener_sock, &read_fds))
+                continue;
+            }
+
+            // --- 1. Check for new incoming connections ---
+            if (FD_ISSET(listener_sock, &read_fds))
+            {
+                sockaddr_storage client_addr{};
+                #if defined(ADAM_PLATFORM_WINDOWS)
+                int       client_len = sizeof(client_addr);
+                #else
+                socklen_t client_len = sizeof(client_addr);
+                #endif
+                socket_t client_sock = ::accept(listener_sock,
+                                                reinterpret_cast<sockaddr*>(&client_addr),
+                                                &client_len);
+
+                if (client_sock != INVALID_SOCKET_VAL)
                 {
-                    sockaddr_storage client_addr{};
-                    #if defined(ADAM_PLATFORM_WINDOWS)
-                    int       client_len = sizeof(client_addr);
-                    #else
-                    socklen_t client_len = sizeof(client_addr);
-                    #endif
-                    socket_t client_sock = ::accept(listener_sock,
-                                                    reinterpret_cast<sockaddr*>(&client_addr),
-                                                    &client_len);
+                    set_nonblocking(client_sock, true);
 
-                    if (client_sock != INVALID_SOCKET_VAL)
+                    if (m_tcp_nodelay->get_value())
                     {
-                        set_nonblocking(client_sock, true);
-
-                        if (m_tcp_nodelay->get_value())
-                        {
-                            #if defined(ADAM_PLATFORM_WINDOWS)
-                            BOOL val = TRUE;
-                            #else
-                            int  val = 1;
-                            #endif
-                            ::setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY,
-                                         reinterpret_cast<const char*>(&val), sizeof(val));
-                        }
-
-                        add_client_to_stats(client_sock, client_addr);
+                        #if defined(ADAM_PLATFORM_WINDOWS)
+                        BOOL val = TRUE;
+                        #else
+                        int  val = 1;
+                        #endif
+                        ::setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY,
+                                     reinterpret_cast<const char*>(&val), sizeof(val));
                     }
-                    else
+
+                    add_client_to_stats(client_sock, client_addr);
+                }
+                else
+                {
+                    int err = get_last_error();
+                    if (is_running() && static_cast<socket_t>(m_listener) != INVALID_SOCKET_VAL && !is_blocking_error(err))
                     {
-                        int err = get_last_error();
-                        if (is_running() && static_cast<socket_t>(m_listener) != INVALID_SOCKET_VAL && !is_blocking_error(err))
-                        {
-                            log_network_socket_error(log::warning, log_event::tcp_server_accept_failed, resolve_socket_error(err), "TCP-Server");
-                        }
+                        log_network_socket_error(log::warning, log_event::tcp_server_accept_failed, resolve_socket_error(err), "TCP-Server");
                     }
                 }
+            }
 
-                // --- 2. Check for readable data on existing client sockets ---
-                for (auto c : clients_copy)
+            // --- 2. Check for readable data on existing client sockets ---
+            for (auto c : clients_copy)
+            {
+                socket_t cs = static_cast<socket_t>(c);
+                if (!FD_ISSET(cs, &read_fds)) continue;
+
+                uint8_t temp_buf[4096];
+                #if defined(ADAM_PLATFORM_WINDOWS)
+                int chunk = ::recv(cs, reinterpret_cast<char*>(temp_buf), sizeof(temp_buf), 0);
+                #else
+                int chunk = ::recv(cs, temp_buf, sizeof(temp_buf), 0);
+                #endif
+
+                if (chunk > 0)
                 {
-                    socket_t cs = static_cast<socket_t>(c);
-                    if (!FD_ISSET(cs, &read_fds)) continue;
-
-                    uint8_t temp_buf[4096];
-                    #if defined(ADAM_PLATFORM_WINDOWS)
-                    int chunk = ::recv(cs, reinterpret_cast<char*>(temp_buf), sizeof(temp_buf), 0);
-                    #else
-                    int chunk = ::recv(cs, temp_buf, sizeof(temp_buf), 0);
-                    #endif
-
-                    if (chunk > 0)
+                    buff = buffer_manager::get().request_buffer(chunk);
+                    if (buff)
                     {
-                        buff = buffer_manager::get().request_buffer(chunk);
-                        if (buff)
-                        {
-                            std::memcpy(buff->data_as<uint8_t>(), temp_buf, chunk);
-                            buff->set_size(chunk);
-                            buff->set_timestamp();
-                            return true;
-                        }
+                        std::memcpy(buff->data_as<uint8_t>(), temp_buf, chunk);
+                        buff->set_size(chunk);
+                        buff->set_timestamp();
+                        return true;
                     }
-                    else
+                }
+                else
+                {
                     {
-                        {
-                            adam::spinlock::guard lock(m_clients_mutex);
-                            auto it = std::find(m_clients.begin(), m_clients.end(), c);
-                            if (it != m_clients.end())
-                                m_clients.erase(it);
+                        adam::spinlock::guard lock(m_clients_mutex);
+                        auto it = std::find(m_clients.begin(), m_clients.end(), c);
+                        if (it != m_clients.end())
+                            m_clients.erase(it);
 
-                            remove_client_from_stats(cs);
-                        }
-                        close_socket(cs);
+                        remove_client_from_stats(cs);
                     }
+                    close_socket(cs);
                 }
             }
         }

@@ -26,6 +26,12 @@ namespace adam::modules::network
             local_iface->set_description(language_german,  "Lokale Schnittstelle vor dem Verbinden (auto = automatisch)."_ct);
             up->add(std::move(local_iface));
 
+            // --- interface_port ---
+            auto local_port = std::make_unique<adam::configuration_parameter_integer>("interface_port"_ct, 0);
+            local_port->set_description(language_english, "Local port to bind to (0 = any)."_ct);
+            local_port->set_description(language_german,  "Lokaler Port zur Bindung (0 = beliebig)."_ct);
+            up->add(std::move(local_port));
+
             // --- remote_ip ---
             auto remote_ip = std::make_unique<adam::configuration_parameter_string>("remote_ip"_ct, "127.0.0.1"_ct, create_ip_regex_parameter());
             remote_ip->set_description(language_english, "Remote server IP address or hostname."_ct);
@@ -79,13 +85,14 @@ namespace adam::modules::network
         add_parameters(port_tcp_client::get_user_parameters());
 
         // Cache user-parameter pointers (read-only after construction).
-        auto up               = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
-        m_interface            = up->get<adam::configuration_parameter_string>("interface"_ct);
-        m_remote_ip            = up->get<adam::configuration_parameter_string>("remote_ip"_ct);
-        m_remote_port          = up->get<adam::configuration_parameter_integer>("remote_port"_ct);
+        auto up                 = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+        m_interface             = up->get<adam::configuration_parameter_string>("interface"_ct);
+        m_interface_port        = up->get<adam::configuration_parameter_integer>("interface_port"_ct);
+        m_remote_ip             = up->get<adam::configuration_parameter_string>("remote_ip"_ct);
+        m_remote_port           = up->get<adam::configuration_parameter_integer>("remote_port"_ct);
         m_reconnect_interval_ms = up->get<adam::configuration_parameter_integer>("reconnect_interval_ms"_ct);
-        m_tcp_nodelay          = up->get<adam::configuration_parameter_boolean>("tcp_nodelay"_ct);
-        m_ip_version           = up->get<adam::configuration_parameter_string>("ip_version"_ct);
+        m_tcp_nodelay           = up->get<adam::configuration_parameter_boolean>("tcp_nodelay"_ct);
+        m_ip_version            = up->get<adam::configuration_parameter_string>("ip_version"_ct);
     }
 
     port_tcp_client::~port_tcp_client()
@@ -99,6 +106,7 @@ namespace adam::modules::network
 
     bool port_tcp_client::start()
     {
+        set_state(state_starting);
         return port::start();
     }
 
@@ -108,7 +116,7 @@ namespace adam::modules::network
 
     bool port_tcp_client::stop()
     {
-        set_state(state_stopped);
+        set_state(state_stopping);
 
         socket_t sock = static_cast<socket_t>(INVALID_SOCKET_VAL);
         {
@@ -140,12 +148,9 @@ namespace adam::modules::network
         sockaddr_storage dest_addr{};
         int              dest_addr_len = 0;
 
-        if (!resolve_address(m_remote_ip->get_value(),
-                             static_cast<int>(m_remote_port->get_value()),
-                             m_ip_version->get_value(), dest_addr, dest_addr_len, SOCK_STREAM))
+        if (!resolve_address(m_remote_ip->get_value(), static_cast<int>(m_remote_port->get_value()), m_ip_version->get_value(), dest_addr, dest_addr_len, SOCK_STREAM))
         {
-            log_network_message(log::error, log_event::tcp_address_resolution_failed, "TCP-Client",
-                                std::format("({}:{})", m_remote_ip->get_value().c_str(), m_remote_port->get_value()));
+            log_network_message(log::error, log_event::tcp_address_resolution_failed, "TCP-Client", std::format("({}:{})", m_remote_ip->get_value().c_str(), m_remote_port->get_value()));
             return false;
         }
 
@@ -154,6 +159,7 @@ namespace adam::modules::network
         if (sock == INVALID_SOCKET_VAL)
         {
             log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "TCP-Client");
+            set_state(state_error);
             return false;
         }
 
@@ -165,104 +171,155 @@ namespace adam::modules::network
             #else
             int  val = 1;
             #endif
-            ::setsockopt(sock, IPPROTO_TCP, TCP_NODELAY,
-                         reinterpret_cast<const char*>(&val), sizeof(val));
+            ::setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&val), sizeof(val));
         }
 
         // --- Local interface bind ---
         std::string resolved_ip;
-        if (resolve_local_interface_to_ip(m_interface->get_value(),
-                                           m_remote_ip->get_value(),
-                                           static_cast<int>(m_remote_port->get_value()),
-                                           m_ip_version->get_value(),
-                                           resolved_ip))
+        if (!resolve_local_interface_to_ip
+        (
+            m_interface->get_value(),
+            m_remote_ip->get_value(),
+            static_cast<int>(m_remote_port->get_value()),
+            m_ip_version->get_value(),
+            resolved_ip
+        ))
         {
-            sockaddr_storage local_addr{};
-            int              local_addr_len = 0;
-            if (resolve_address(adam::string_hashed(resolved_ip.c_str()), 0,
-                                m_ip_version->get_value(), local_addr, local_addr_len, SOCK_STREAM))
-            {
-                ::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len);
-            }
+            log_network_socket_error(log::error, log_event::socket_bind_failed, socket_error_t::error_address_invalid, "TCP-Client");
+            close_and_clear_socket(sock);
+            set_state(state_error);
+            return false;
         }
+
+        sockaddr_storage local_addr{};
+        int              local_addr_len = 0;
+
+        if (!resolve_address(adam::string_hashed(resolved_ip.c_str()), static_cast<int>(m_interface_port->get_value()), m_ip_version->get_value(), local_addr, local_addr_len, SOCK_STREAM))
+        {
+            log_network_message(log::error, log_event::tcp_address_resolution_failed, "TCP-Client", std::format("({}:{})", resolved_ip.c_str(), m_interface_port->get_value()));
+            close_and_clear_socket(sock);
+            set_state(state_error);
+            return false;
+        }
+
+        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
+        {
+            log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "TCP-Client");
+            close_and_clear_socket(sock);
+            set_state(state_error);
+            return false;
+        }
+
+        resolve_active_ip(sock);
 
         // --- Non-blocking connect ---
         if (!set_nonblocking(sock, true))
         {
             log_network_message(log::error, log_event::socket_option_failed, "TCP-Client");
-            close_socket(sock);
+            close_and_clear_socket(sock);
+            set_state(state_error);
             return false;
         }
 
         int conn_res = ::connect(sock, reinterpret_cast<sockaddr*>(&dest_addr), dest_addr_len);
-        if (conn_res == SOCKET_ERROR_VAL)
+        if (conn_res != SOCKET_ERROR_VAL)
         {
-            int err = get_last_error();
-            if (!is_blocking_error(err))
             {
-                log_network_socket_error(log::error, log_event::socket_connect_failed, resolve_socket_error(err), "TCP-Client");
-                close_socket(sock);
-                return false;
+                adam::spinlock::guard lock(m_write_mutex);
+                m_socket = static_cast<uintptr_t>(sock);
             }
+            log_network_message
+            (
+                log::info, 
+                log_event::tcp_client_connected, 
+                "TCP-Client",
+                std::format("{} ({}) -> {}:{}", get_active_interface().c_str(), get_active_ip().c_str(), m_remote_ip->get_value().c_str(), m_remote_port->get_value())
+            );
+            return true;
+        }
 
-            // EINPROGRESS / WSAEWOULDBLOCK - wait with select()
-            fd_set write_fds, err_fds;
+        int err = get_last_error();
+        if (!is_blocking_error(err))
+        {
+            log_network_socket_error(log::warning, log_event::socket_connect_failed, resolve_socket_error(err), "TCP-Client");
+            close_and_clear_socket(sock);
+            return false;
+        }
+
+        // EINPROGRESS / WSAEWOULDBLOCK - wait with select()
+        fd_set write_fds, err_fds;
+        int64_t timeout_ms = m_reconnect_interval_ms->get_value();
+        int select_res = 0;
+        int64_t elapsed_ms = 0;
+
+        while (elapsed_ms < timeout_ms && is_running())
+        {
+            timeval tv{};
+            tv.tv_sec  = 0;
+            tv.tv_usec = 50000; // 50ms
+
             FD_ZERO(&write_fds); FD_ZERO(&err_fds);
             FD_SET(sock, &write_fds);
             FD_SET(sock, &err_fds);
 
-            int64_t timeout_ms = m_reconnect_interval_ms->get_value();
-
-            timeval tv{};
-            tv.tv_sec  = static_cast<long>(timeout_ms / 1000);
-            tv.tv_usec = static_cast<long>((timeout_ms % 1000) * 1000);
-            int select_res = ::select(static_cast<int>(sock) + 1, nullptr, &write_fds, &err_fds, &tv);
-
-            if (select_res <= 0 || FD_ISSET(sock, &err_fds) || !is_running())
+            select_res = ::select(static_cast<int>(sock) + 1, nullptr, &write_fds, &err_fds, &tv);
+            if (select_res != 0)
             {
-                if (!is_running())
-                {
-                    close_socket(sock);
-                    return false;
-                }
-
-                int err_code = 0;
-                if (select_res == 0)
-                {
-                    #if defined(ADAM_PLATFORM_WINDOWS)
-                    err_code = WSAETIMEDOUT;
-                    #else
-                    err_code = ETIMEDOUT;
-                    #endif
-                }
-                else if (FD_ISSET(sock, &err_fds))
-                {
-                    #if defined(ADAM_PLATFORM_WINDOWS)
-                    int opt_len = sizeof(err_code);
-                    #else
-                    socklen_t opt_len = sizeof(err_code);
-                    #endif
-                    ::getsockopt(sock, SOL_SOCKET, SO_ERROR,
-                                 reinterpret_cast<char*>(&err_code), &opt_len);
-                }
-                log_network_socket_error(log::error, log_event::socket_connect_failed, resolve_socket_error(err_code), "TCP-Client");
-                close_socket(sock);
-                return false;
+                break;
             }
+            elapsed_ms += 50;
+        }
 
-            int sock_err = 0;
+        if (!is_running())
+        {
+            close_and_clear_socket(sock);
+            return false;
+        }
+
+        if (select_res < 0)
+        {
+            log_network_socket_error(log::warning, log_event::socket_connect_failed, resolve_socket_error(get_last_error()), "TCP-Client");
+            close_and_clear_socket(sock);
+            return false;
+        }
+
+        if (select_res == 0)
+        {
             #if defined(ADAM_PLATFORM_WINDOWS)
-            int opt_len = sizeof(sock_err);
+            int err_code = WSAETIMEDOUT;
             #else
-            socklen_t opt_len = sizeof(sock_err);
+            err_code = ETIMEDOUT;
             #endif
-            if (::getsockopt(sock, SOL_SOCKET, SO_ERROR,
-                             reinterpret_cast<char*>(&sock_err), &opt_len) < 0 || sock_err != 0)
-            {
-                log_network_socket_error(log::error, log_event::socket_connect_failed, resolve_socket_error(sock_err), "TCP-Client");
-                close_socket(sock);
-                return false;
-            }
+            log_network_socket_error(log::warning, log_event::socket_connect_failed, resolve_socket_error(err_code), "TCP-Client");
+            close_and_clear_socket(sock);
+            return false;
+        }
+
+        if (FD_ISSET(sock, &err_fds))
+        {
+            int err_code = 0;
+            #if defined(ADAM_PLATFORM_WINDOWS)
+            int opt_len = sizeof(err_code);
+            #else
+            socklen_t opt_len = sizeof(err_code);
+            #endif
+            ::getsockopt(sock, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&err_code), &opt_len);
+            log_network_socket_error(log::warning, log_event::socket_connect_failed, resolve_socket_error(err_code), "TCP-Client");
+            close_and_clear_socket(sock);
+            return false;
+        }
+
+        int sock_err = 0;
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        int opt_len = sizeof(sock_err);
+        #else
+        socklen_t opt_len = sizeof(sock_err);
+        #endif
+        if (::getsockopt(sock, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&sock_err), &opt_len) < 0 || sock_err != 0)
+        {
+            log_network_socket_error(log::warning, log_event::socket_connect_failed, resolve_socket_error(sock_err), "TCP-Client");
+            close_and_clear_socket(sock);
+            return false;
         }
 
         {
@@ -270,10 +327,13 @@ namespace adam::modules::network
             m_socket = static_cast<uintptr_t>(sock);
         }
 
-        resolve_active_ip(sock);
-
-        log_network_message(log::info, log_event::tcp_client_connected, "TCP-Client",
-                            std::format("{} ({}) -> {}:{}", get_active_interface().c_str(), get_active_ip().c_str(), m_remote_ip->get_value().c_str(), m_remote_port->get_value()));
+        log_network_message
+        (
+            log::info, 
+            log_event::tcp_client_connected, 
+            "TCP-Client",
+            std::format("{} ({}) -> {}:{}", get_active_interface().c_str(), get_active_ip().c_str(), m_remote_ip->get_value().c_str(), m_remote_port->get_value())
+        );
 
         return true;
     }
@@ -290,22 +350,17 @@ namespace adam::modules::network
 
             if (sock == INVALID_SOCKET_VAL)
             {
+                set_state(state_starting);
+
                 auto start_time = std::chrono::steady_clock::now();
                 bool connected  = connect();
-                auto end_time    = std::chrono::steady_clock::now();
+                auto end_time   = std::chrono::steady_clock::now();
 
                 if (connected)
                 {
                     set_state(state_running);
                     continue;
                 }
-
-                if (!is_running())
-                {
-                    return false;
-                }
-
-                set_state(state_connecting);
 
                 int64_t interval = m_reconnect_interval_ms->get_value();
                 auto    elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();

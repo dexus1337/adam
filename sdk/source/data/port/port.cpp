@@ -50,6 +50,8 @@ namespace adam
 
     void port::worker()
     {
+        set_state(state_running);
+        
         while (is_running())
         {
             buffer* input = nullptr;
@@ -159,7 +161,6 @@ namespace adam
     bool port::start()
     {
         reset_state_buffer();
-        set_state(state_running);
 
         m_started->set_value(true);
 
@@ -172,20 +173,27 @@ namespace adam
             m_thread = std::thread(&port::worker, this);
         }
 
+        set_state(state_started);
         return true;
     }
 
     bool port::stop()
     {
-        set_state(state_stopped);
-
         m_started->set_value(false);
 
         if (m_b_threaded && m_thread.joinable())
         {
-            m_thread.join();
+            if (m_thread.get_id() == std::this_thread::get_id())
+            {
+                m_thread.detach();
+            }
+            else
+            {
+                m_thread.join();
+            }
         }
 
+        set_state(state_stopped);
         return true;
     }
 

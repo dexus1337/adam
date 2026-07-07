@@ -106,6 +106,7 @@ namespace adam::modules::network
 
         std::string get_active_interface() const;
         const std::string& get_active_ip() const { return m_active_ip; }
+        int get_active_port() const { return m_active_port; }
 
     protected:
         void resolve_active_ip(uintptr_t socket_handle);
@@ -120,6 +121,7 @@ namespace adam::modules::network
         // Error code translation
         static int get_last_error();
         static void close_socket(socket_t& s);
+        void close_and_clear_socket(socket_t& s);
         static bool set_nonblocking(socket_t s, bool non_blocking);
         static bool is_blocking_error(int error);
         static socket_error_t resolve_socket_error(int os_error);
@@ -167,5 +169,6 @@ namespace adam::modules::network
 
         std::string m_active_ip;
         std::string m_active_interface;
+        int         m_active_port = 0;
     };
 }

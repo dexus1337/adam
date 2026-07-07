@@ -261,11 +261,6 @@ namespace adam
             }
         });
 
-        if (result)
-        {
-            m_started->set_value(false);
-        }
-
         return result;
     }
 }

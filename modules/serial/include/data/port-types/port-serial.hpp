@@ -45,6 +45,26 @@ namespace adam::modules::serial
         /** @brief Protoype function for data output. */
         virtual bool write(buffer* buff);
 
+        enum class serial_error_t : int
+        {
+            success,
+            error_file_not_found,
+            error_access_denied,
+            error_invalid_handle,
+            error_bad_command,
+            error_gen_failure,
+            error_operation_aborted,
+            error_device_removed,
+            error_device_not_connected,
+            error_io,
+            error_no_device,
+            error_not_a_tty,
+            error_unknown
+        };
+
+        static std::string_view get_error_log_text(serial_error_t err, language lang);
+        static serial_error_t resolve_serial_error(uint32_t os_error);
+
         enum class log_event
         {
             path_empty,
@@ -52,7 +72,8 @@ namespace adam::modules::serial
             open_success,
             close_success,
             read_failed,
-            write_failed
+            write_failed,
+            device_removed
         };
         static std::string_view get_log_event_text(log_event ev, language lang);
         void log_event_msg(log::level lvl, log_event ev, std::string_view arg1 = {}, std::string_view arg2 = {});
@@ -63,6 +84,8 @@ namespace adam::modules::serial
         #else
         int m_fd;
         #endif
+
+        void close_handle();
 
         adam::configuration_parameter_integer* m_rttc = nullptr;
         adam::configuration_parameter_integer* m_rttm = nullptr;

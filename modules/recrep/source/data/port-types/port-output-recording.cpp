@@ -103,6 +103,7 @@ namespace adam::modules::recrep
 
     bool port_output_recording::start()
     {
+        set_state(state_starting);
         auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
 
         m_data_format_param    = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
@@ -122,6 +123,7 @@ namespace adam::modules::recrep
 
     bool port_output_recording::stop()
     {
+        set_state(state_stopping);
         close_current_file(true);
         
         return port_output::stop();

@@ -13,6 +13,7 @@ namespace adam::modules::network
 
     bool port_udp_base::stop()
     {
+        set_state(state_stopping);
         socket_t sock = static_cast<socket_t>(m_socket);
         if (sock != INVALID_SOCKET_VAL)
         {

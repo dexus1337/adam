@@ -115,6 +115,7 @@ namespace adam::modules::network
 
         // --- User-parameter pointers (set in constructor, read-only thereafter) ---
         configuration_parameter_string*  m_interface            = nullptr; ///< Optional local interface IP.
+        configuration_parameter_integer* m_interface_port       = nullptr; ///< Optional local interface port.
         configuration_parameter_string*  m_remote_ip            = nullptr; ///< Remote server address.
         configuration_parameter_integer* m_remote_port          = nullptr; ///< Remote server port.
         configuration_parameter_integer* m_reconnect_interval_ms = nullptr; ///< Reconnect retry delay in ms.

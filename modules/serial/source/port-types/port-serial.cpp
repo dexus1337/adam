@@ -6,6 +6,8 @@
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module-serial.hpp"
 #include <format>
+#include <unordered_map>
+#include <array>
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
@@ -15,6 +17,7 @@
 #include <termios.h>
 #include <poll.h>
 #include <cerrno>
+#include <cstring>
 #endif
 
 namespace adam::modules::serial
@@ -159,6 +162,7 @@ namespace adam::modules::serial
 
     bool port_serial::start()
     {
+        set_state(state_starting);
         auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
 
         auto path = user_params->get<adam::configuration_parameter_string>("path"_ct)->get_value();
@@ -166,7 +170,6 @@ namespace adam::modules::serial
         if (path.empty())
         {
             log_event_msg(log::error, log_event::path_empty);
-            m_started->set_value(false);
             return false;
         }
 
@@ -186,8 +189,10 @@ namespace adam::modules::serial
         if (m_handle == INVALID_HANDLE_VALUE)
         {
             DWORD err = ::GetLastError();
-            log_event_msg(log::error, log_event::open_failed, path, std::to_string(err));
-            m_started->set_value(false);
+            language lang = get_controller()->get_language();
+            std::string_view err_txt = get_error_log_text(resolve_serial_error(err), lang);
+            std::string err_desc = std::format("{} (Error code: {})", err_txt, err);
+            log_event_msg(log::error, log_event::open_failed, path, err_desc);
             return false;
         }
 
@@ -240,18 +245,20 @@ namespace adam::modules::serial
         SetCommTimeouts(m_handle, &timeouts);
 
         // Flush any old data in the kernel buffer
-         PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+        PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+        
         log_event_msg(log::info, log_event::open_success, path, std::to_string(baud_rate));
         #else
         m_fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
         if (m_fd < 0)
         {
             int err = errno;
-            log_event_msg(log::error, log_event::open_failed, path, std::to_string(err));
-            m_started->set_value(false);
+            language lang = get_controller()->get_language();
+            std::string_view err_txt = get_error_log_text(resolve_serial_error(err), lang);
+            std::string err_desc = std::format("{} (Error code: {})", err_txt, err);
+            log_event_msg(log::error, log_event::open_failed, path, err_desc);
             return false;
         }
-
 
         struct termios tty;
         if (tcgetattr(m_fd, &tty) == 0) 
@@ -386,9 +393,19 @@ namespace adam::modules::serial
 
     bool port_serial::stop()
     {
+        set_state(state_stopping);
+        close_handle();
+        return port::stop();
+    }
+
+    void port_serial::close_handle()
+    {
         #if defined(ADAM_PLATFORM_WINDOWS)
         if (m_handle != INVALID_HANDLE_VALUE) 
         {
+            ::PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+            ::CancelIoEx(m_handle, NULL);
+
             CloseHandle(m_handle);
             m_handle = INVALID_HANDLE_VALUE;
             log_event_msg(log::info, log_event::close_success);
@@ -401,7 +418,6 @@ namespace adam::modules::serial
             log_event_msg(log::info, log_event::close_success);
         }
         #endif
-        return port::stop();
     }
 
     bool port_serial::read(buffer*& buff)
@@ -410,9 +426,6 @@ namespace adam::modules::serial
         int bytes_read = 0;
 
         #if defined(ADAM_PLATFORM_LINUX)
-        long total_timeout = (m_rttc->get_value() < 0 ? 0 : m_rttc->get_value()) + 
-                             (m_rttm->get_value() < 0 ? 0 : m_rttm->get_value()) * sizeof(temp_buf);
-
         struct pollfd pfd;
         pfd.fd = m_fd;
         pfd.events = POLLIN;
@@ -432,20 +445,39 @@ namespace adam::modules::serial
                     bytes_read = static_cast<int>(dwRead);
                     break;
                 }
+                else
+                {
+                    // Read timed out (0 bytes). Yield to prevent 100% CPU spinning.
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
             }
             else
             {
                 DWORD err = ::GetLastError();
-                log_event_msg(log::error, log_event::read_failed, std::to_string(err));
+                if (is_running())
+                {
+                    language lang = get_controller()->get_language();
+                    std::string_view err_txt = get_error_log_text(resolve_serial_error(err), lang);
+                    log_event_msg(log::error, log_event::read_failed, err_txt, std::to_string(err));
+                    set_state(state_error);
+                    close_handle();
+                }
                 return false;
             }
             #else
-            int rv = poll(&pfd, 1, static_cast<int>(total_timeout));
+            int rv = poll(&pfd, 1, 100); // 100ms interval for responsive shutdown
             if (rv < 0) 
             {
                 if (errno == EINTR) continue;
                 int err = errno;
-                log_event_msg(log::error, log_event::read_failed, std::to_string(err));
+                if (is_running())
+                {
+                    language lang = get_controller()->get_language();
+                    std::string_view err_txt = get_error_log_text(resolve_serial_error(err), lang);
+                    log_event_msg(log::error, log_event::read_failed, err_txt, std::to_string(err));
+                    set_state(state_error);
+                    close_handle();
+                }
                 return false;
             }
             else if (rv > 0)
@@ -458,7 +490,14 @@ namespace adam::modules::serial
                 if (chunk <= 0)
                 {
                     int err = errno;
-                    log_event_msg(log::error, log_event::read_failed, std::to_string(err));
+                    if (is_running())
+                    {
+                        language lang = get_controller()->get_language();
+                        std::string_view err_txt = get_error_log_text(resolve_serial_error(err), lang);
+                        log_event_msg(log::error, log_event::read_failed, err_txt, std::to_string(err));
+                        set_state(state_error);
+                        close_handle();
+                    }
                     return false;
                 }
                 
@@ -552,35 +591,128 @@ namespace adam::modules::serial
             msg = std::string(fmt);
         }
 
-        ctrl->log(adam::log(lvl, msg));
+        ctrl->log(adam::log(lvl, std::format("[{}] {}", get_name().c_str(), msg)));
     }
 
     std::string_view port_serial::get_log_event_text(log_event ev, language lang)
     {
-        if (lang == language_german)
+        using arr = std::array<std::string_view, adam::languages_count>;
+
+        static const std::unordered_map<log_event, arr> table =
         {
-            switch (ev)
-            {
-                case log_event::path_empty:    return "Serieller Port: Gerätepfad ist leer.";
-                case log_event::open_failed:   return "Serieller Port: Fehler beim Öffnen des Geräts '{}'. Fehlercode: {}";
-                case log_event::open_success:  return "Serieller Port: Gerät '{}' erfolgreich geöffnet (Baud: {}).";
-                case log_event::close_success: return "Serieller Port: Gerät geschlossen.";
-                case log_event::read_failed:   return "Serieller Port: Lesefehler. Fehlercode: {}";
-                case log_event::write_failed:  return "Serieller Port: Schreibfehler. Fehlercode: {}";
-            }
-        }
-        else
-        {
-            switch (ev)
-            {
-                case log_event::path_empty:    return "Serial Port: Device path is empty.";
-                case log_event::open_failed:   return "Serial Port: Failed to open device '{}'. Error code: {}";
-                case log_event::open_success:  return "Serial Port: Device '{}' opened successfully (Baud: {}).";
-                case log_event::close_success: return "Serial Port: Device closed.";
-                case log_event::read_failed:   return "Serial Port: Read failed. Error code: {}";
-                case log_event::write_failed:  return "Serial Port: Write failed. Error code: {}";
-            }
-        }
-        return "";
+            { log_event::path_empty,
+              { "Serial Port: Device path is empty.",
+                "Serieller Port: Gerätepfad ist leer." }},
+            { log_event::open_failed,
+              { "Serial Port: Failed to open device '{}'. Error: {}",
+                "Serieller Port: Fehler beim Öffnen des Geräts '{}'. Fehler: {}" }},
+            { log_event::open_success,
+              { "Serial Port: Device '{}' opened successfully (Baud: {}).",
+                "Serieller Port: Gerät '{}' erfolgreich geöffnet (Baud: {})." }},
+            { log_event::close_success,
+              { "Serial Port: Device closed.",
+                "Serieller Port: Gerät geschlossen." }},
+            { log_event::read_failed,
+              { "Serial Port: Read failed. Error: {} (Error code: {})",
+                "Serieller Port: Lesefehler. Fehler: {} (Fehlercode: {})" }},
+            { log_event::write_failed,
+              { "Serial Port: Write failed. Error code: {}",
+                "Serieller Port: Schreibfehler. Fehlercode: {}" }},
+            { log_event::device_removed,
+              { "Serial Port: Device was disconnected or removed. Error code: {} ({})",
+                "Serieller Port: Gerät wurde getrennt oder entfernt. Fehlercode: {} ({})" }}
+        };
+
+        auto it = table.find(ev);
+        if (it != table.end())
+            return it->second[static_cast<int>(lang)];
+
+        return lang == language_german ? "Unbekanntes Ereignis." : "Unknown event.";
     }
+
+    port_serial::serial_error_t port_serial::resolve_serial_error(uint32_t os_error)
+    {
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        switch (os_error)
+        {
+            case 0:                          return serial_error_t::success;
+            case ERROR_FILE_NOT_FOUND:       return serial_error_t::error_file_not_found;
+            case ERROR_ACCESS_DENIED:        return serial_error_t::error_access_denied;
+            case ERROR_INVALID_HANDLE:       return serial_error_t::error_invalid_handle;
+            case ERROR_BAD_COMMAND:          return serial_error_t::error_bad_command;
+            case ERROR_GEN_FAILURE:          return serial_error_t::error_gen_failure;
+            case ERROR_OPERATION_ABORTED:    return serial_error_t::error_operation_aborted;
+            case ERROR_DEVICE_REMOVED:       return serial_error_t::error_device_removed;
+            case ERROR_DEVICE_NOT_CONNECTED: return serial_error_t::error_device_not_connected;
+            default:                         return serial_error_t::error_unknown;
+        }
+        #else
+        switch (os_error)
+        {
+            case 0:      return serial_error_t::success;
+            case ENODEV: return serial_error_t::error_no_device;
+            case EIO:    return serial_error_t::error_io;
+            case EBADF:  return serial_error_t::error_invalid_handle;
+            case ENOTTY: return serial_error_t::error_not_a_tty;
+            case ENOENT: return serial_error_t::error_file_not_found;
+            case EACCES: return serial_error_t::error_access_denied;
+            default:     return serial_error_t::error_unknown;
+        }
+        #endif
+    }
+
+    std::string_view port_serial::get_error_log_text(serial_error_t err, language lang)
+    {
+        using arr = std::array<std::string_view, adam::languages_count>;
+
+        static const std::unordered_map<serial_error_t, arr> table =
+        {
+            { serial_error_t::success,
+              { "Success.",
+                "Erfolgreich." }},
+            { serial_error_t::error_file_not_found,
+              { "Device or path not found.",
+                "Gerät oder Pfad nicht gefunden." }},
+            { serial_error_t::error_access_denied,
+              { "Access denied (port may be in use).",
+                "Zugriff verweigert (Port wird möglicherweise bereits verwendet)." }},
+            { serial_error_t::error_invalid_handle,
+              { "Invalid handle or bad file descriptor.",
+                "Ungültiges Handle oder fehlerhafter Dateideskriptor." }},
+            { serial_error_t::error_bad_command,
+              { "Device does not recognize the command (device might have been unplugged).",
+                "Gerät erkennt den Befehl nicht (Gerät wurde möglicherweise getrennt)." }},
+            { serial_error_t::error_gen_failure,
+              { "A device attached to the system is not functioning.",
+                "Ein an das System angeschlossenes Gerät funktioniert nicht." }},
+            { serial_error_t::error_operation_aborted,
+              { "I/O operation aborted.",
+                "E/A-Vorgang abgebrochen." }},
+            { serial_error_t::error_device_removed,
+              { "Device was removed.",
+                "Gerät wurde entfernt." }},
+            { serial_error_t::error_device_not_connected,
+              { "Device is not connected.",
+                "Gerät ist nicht verbunden." }},
+            { serial_error_t::error_io,
+              { "I/O error.",
+                "E/A-Fehler." }},
+            { serial_error_t::error_no_device,
+              { "No such device.",
+                "Gerät existiert nicht." }},
+            { serial_error_t::error_not_a_tty,
+              { "Not a typewriter/serial terminal.",
+                "Kein serielles Terminal (TTY)." }},
+            { serial_error_t::error_unknown,
+              { "Unknown serial error.",
+                "Unbekannter serieller Fehler." }}
+        };
+
+        auto it = table.find(err);
+        if (it != table.end())
+            return it->second[static_cast<int>(lang)];
+
+        return lang == language_german ? "Unbekannter Fehler." : "Unknown error.";
+    }
+
 }

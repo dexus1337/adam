@@ -1014,11 +1014,13 @@ namespace adam::gui
                     switch (stats->cur_state)
                     {
                         case adam::port::state_running:
+                        case adam::port::state_started:
                             if (p_it->second->started)
                                 pin_col = get_gui_color(gui_color_id::node_pin_active);
                             break;
                         case adam::port::state_inactive:
-                        case adam::port::state_connecting:
+                        case adam::port::state_starting:
+                        case adam::port::state_stopping:
                             if (p_it->second->started)
                                 pin_col = get_gui_color(gui_color_id::log_warning);
                             break;

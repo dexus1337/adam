@@ -82,6 +82,7 @@ namespace adam::modules::network
 
     bool port_udp_broadcast::start()
     {
+        set_state(state_starting);
         // Broadcast is always IPv4 - use the ipv4 hash constant.
         static const adam::string_hashed ipv4_ver("ipv4"_ct);
 
@@ -120,7 +121,7 @@ namespace adam::modules::network
                          sizeof(broadcast_val)) == SOCKET_ERROR_VAL)
         {
             log_network_socket_error(log::error, log_event::socket_option_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
-            close_socket(sock);
+            close_and_clear_socket(sock);
             return false;
         }
 
@@ -133,24 +134,24 @@ namespace adam::modules::network
         if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
         {
             log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
-            close_socket(sock);
+            close_and_clear_socket(sock);
             return false;
         }
+
+        resolve_active_ip(sock);
 
         // --- Non-blocking ---
         if (!set_nonblocking(sock, true))
         {
             log_network_message(log::error, log_event::socket_option_failed, "UDP-Broadcast");
-            close_socket(sock);
+            close_and_clear_socket(sock);
             return false;
         }
 
         m_socket = static_cast<uintptr_t>(sock);
 
-        resolve_active_ip(sock);
-
         log_network_message(log::info, log_event::socket_bind_success, "UDP-Broadcast",
-                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_interface_port->get_value()));
+                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_active_port));
 
         return port::start();
     }

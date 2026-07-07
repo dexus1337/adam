@@ -176,6 +176,7 @@ namespace adam::modules::network
     port_network::port_network(const string_hashed& item_name, uint32_t state_buffer_size)
         : port_in_out(item_name, state_buffer_size)
         , m_active_ip()
+        , m_active_port(0)
     {
         get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
     }
@@ -198,6 +199,7 @@ namespace adam::modules::network
         {
             m_active_ip.clear();
             m_active_interface.clear();
+            m_active_port = 0;
             return;
         }
 
@@ -210,17 +212,21 @@ namespace adam::modules::network
         if (::getsockname(sock, reinterpret_cast<sockaddr*>(&local_addr_bound), &local_addr_bound_len) == 0)
         {
             char addr_str[INET6_ADDRSTRLEN]{};
+            int  local_port = 0;
             if (local_addr_bound.ss_family == AF_INET)
             {
                 auto* sa = reinterpret_cast<sockaddr_in*>(&local_addr_bound);
                 ::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str));
+                local_port = ntohs(sa->sin_port);
             }
             else if (local_addr_bound.ss_family == AF_INET6)
             {
                 auto* sa = reinterpret_cast<sockaddr_in6*>(&local_addr_bound);
                 ::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str));
+                local_port = ntohs(sa->sin6_port);
             }
             m_active_ip = addr_str;
+            m_active_port = local_port;
 
             // Resolve the active interface name from adapter cache
             m_active_interface.clear();
@@ -271,7 +277,66 @@ namespace adam::modules::network
             language lang = ctrl->get_language();
             std::string prefix_str = prefix.empty() ? "" : std::format("{}: ", prefix);
             std::string extra_str = extra.empty() ? "" : std::format(" {}", extra);
-            ctrl->log(lvl, std::format("[{}] {}{}{}", get_name().c_str(), prefix_str, get_event_log_text(ev, lang), extra_str));
+            
+            std::string context;
+            if (lvl == log::error || lvl == log::warning)
+            {
+                std::string iface_val = m_active_interface;
+                std::string ip_val = m_active_ip;
+                int64_t port_val = m_active_port;
+
+                auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+                if (user_params)
+                {
+                    if (iface_val.empty())
+                    {
+                        if (auto p = user_params->get<adam::configuration_parameter_string>("interface"_ct))
+                            iface_val = p->get_value().c_str();
+                    }
+                    if (port_val <= 0)
+                    {
+                        if (auto p = user_params->get<adam::configuration_parameter_integer>("interface_port"_ct))
+                            port_val = p->get_value();
+                    }
+                }
+
+                std::vector<std::string> parts;
+                if (!iface_val.empty()) parts.push_back(std::format("Interface: {}", iface_val));
+                if (!ip_val.empty())
+                {
+                    if (port_val > 0)
+                        parts.push_back(std::format("Local Address: {}:{}", ip_val, port_val));
+                    else
+                        parts.push_back(std::format("Local IP: {}", ip_val));
+                }
+                else if (port_val >= 0)
+                {
+                    parts.push_back(std::format("Local Port: {}", port_val));
+                }
+
+                if (!parts.empty())
+                {
+                    context = " [";
+                    for (size_t i = 0; i < parts.size(); ++i)
+                    {
+                        if (i > 0) context += ", ";
+                        context += parts[i];
+                    }
+                    context += "]";
+                }
+            }
+
+            std::string_view event_text = get_event_log_text(ev, lang);
+            if (ev == log_event::socket_connect_failed && !extra.empty())
+            {
+                event_text = "";
+                if (!extra_str.empty() && extra_str[0] == ' ')
+                {
+                    extra_str = extra_str.substr(1);
+                }
+            }
+
+            ctrl->log(lvl, std::format("[{}] {}{}{}{}", get_name().c_str(), prefix_str, event_text, extra_str, context));
         }
     }
 
@@ -280,7 +345,7 @@ namespace adam::modules::network
         if (auto* ctrl = get_controller())
         {
             language lang = ctrl->get_language();
-            log_network_message(lvl, ev, prefix, std::format("- {}", get_error_log_text(err, lang)));
+            log_network_message(lvl, ev, prefix, std::format("{}", get_error_log_text(err, lang)));
         }
     }
 
@@ -308,6 +373,12 @@ namespace adam::modules::network
             #endif
             s = INVALID_SOCKET_VAL;
         }
+    }
+
+    void port_network::close_and_clear_socket(socket_t& s)
+    {
+        close_socket(s);
+        resolve_active_ip(INVALID_SOCKET_VAL);
     }
 
     bool port_network::set_nonblocking(socket_t s, bool non_blocking)

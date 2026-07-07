@@ -113,7 +113,7 @@ namespace adam::modules::recrep
 
     bool port_input_replay::start() 
     {
-        set_state(state_started);
+        set_state(state_starting);
 
         m_files.clear();
         m_current_file_index = 0;
@@ -209,12 +209,15 @@ namespace adam::modules::recrep
 
     bool port_input_replay::stop() 
     {
+        set_state(state_stopping);
+
         bool result = port_input::stop();
+
         if (m_file_stream.is_open())
-        {
             m_file_stream.close();
-        }
+
         m_files.clear();
+
         return result;
     }
 
@@ -333,9 +336,7 @@ namespace adam::modules::recrep
     bool port_input_replay::open_next_file()
     {
         if (m_file_stream.is_open())
-        {
             m_file_stream.close();
-        }
 
         while (get_state() != state_stopped)
         {
