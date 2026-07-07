@@ -32,9 +32,9 @@ namespace adam::modules::network
             up->add(std::move(local_port));
 
             // --- broadcast_ip ---
-            auto broadcast_ip = std::make_unique<adam::configuration_parameter_string>("broadcast_ip"_ct, "255.255.255.255"_ct, create_ip_regex_parameter());
-            broadcast_ip->set_description(language_english, "Broadcast destination address (e.g. 255.255.255.255 or subnet broadcast)."_ct);
-            broadcast_ip->set_description(language_german,  "Broadcast-Zieladresse (z.B. 255.255.255.255 oder Subnet-Broadcast)."_ct);
+            auto broadcast_ip = std::make_unique<adam::configuration_parameter_string>("broadcast_ip"_ct, "auto"_ct, create_ip_regex_parameter());
+            broadcast_ip->set_description(language_english, "Broadcast destination address (e.g. 255.255.255.255, auto, or subnet broadcast)."_ct);
+            broadcast_ip->set_description(language_german,  "Broadcast-Zieladresse (z.B. 255.255.255.255, auto oder Subnet-Broadcast)."_ct);
             up->add(std::move(broadcast_ip));
 
             // --- remote_port ---
@@ -140,6 +140,37 @@ namespace adam::modules::network
 
         resolve_active_ip(sock);
 
+        // --- Resolve broadcast IP ---
+        std::string target_broadcast = m_broadcast_ip->get_value();
+        if (target_broadcast.empty() || target_broadcast == "auto")
+        {
+            target_broadcast = "255.255.255.255";
+            std::string active_ip = get_active_ip();
+            if (!active_ip.empty() && active_ip != "0.0.0.0")
+            {
+                auto& cache = get_adapter_cache();
+                if (cache.empty()) refresh_adapter_cache();
+                bool found = false;
+                for (const auto& info : cache)
+                {
+                    for (size_t j = 0; j < info.ipv4_addresses.size(); ++j)
+                    {
+                        if (info.ipv4_addresses[j] == active_ip)
+                        {
+                            if (j < info.ipv4_broadcasts.size())
+                            {
+                                target_broadcast = info.ipv4_broadcasts[j];
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (found) break;
+                }
+            }
+        }
+        m_resolved_broadcast_ip = adam::string_hashed(target_broadcast.c_str());
+
         // --- Non-blocking ---
         if (!set_nonblocking(sock, true))
         {
@@ -150,8 +181,20 @@ namespace adam::modules::network
 
         m_socket = static_cast<uintptr_t>(sock);
 
-        log_network_message(log::info, log_event::socket_bind_success, "UDP-Broadcast",
-                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_active_port));
+        log_network_message
+        (
+            log::info, 
+            log_event::socket_bind_success, 
+            "UDP-Broadcast",
+            std::format
+            (
+                "{} ({}) Port {}, Broadcast: {}",
+                get_active_interface().c_str(),
+                get_active_ip().c_str(),
+                m_active_port,
+                m_resolved_broadcast_ip.c_str()
+            )
+        );
 
         return port::start();
     }
@@ -174,12 +217,12 @@ namespace adam::modules::network
         sockaddr_storage dest_addr{};
         int              dest_addr_len = 0;
 
-        if (!resolve_address(m_broadcast_ip->get_value(),
+        if (!resolve_address(m_resolved_broadcast_ip,
                              static_cast<int>(m_remote_port->get_value()),
                              ipv4_ver, dest_addr, dest_addr_len, SOCK_DGRAM))
         {
             log_network_message(log::warning, log_event::udp_send_failed, "UDP-Broadcast",
-                                std::format("({}:{})", m_broadcast_ip->get_value().c_str(), m_remote_port->get_value()));
+                                std::format("({}:{})", m_resolved_broadcast_ip.c_str(), m_remote_port->get_value()));
             return false;
         }
 

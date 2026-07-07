@@ -165,6 +165,8 @@ namespace adam::gui
             { gui_string_id::btn_copy_hex,                { "Copy Hex", "Hex kopieren" } },
             { gui_string_id::btn_copy_ascii,              { "Copy ASCII", "ASCII kopieren" } },
             { gui_string_id::btn_copy_hex_dump,           { "Copy Hex Dump", "Hex-Dump kopieren" } },
+            { gui_string_id::btn_copy_message,            { "Copy Message", "Nachricht kopieren" } },
+            { gui_string_id::btn_copy_row,                { "Copy Row", "Zeile kopieren" } },
             { gui_string_id::lbl_replay_file,             { "File", "Datei" } },
             { gui_string_id::lbl_replay_instant,          { "instant", "sofort" } },
             { gui_string_id::lbl_parameters,              { "Parameters###Parameters", "Parameter###Parameters" } },

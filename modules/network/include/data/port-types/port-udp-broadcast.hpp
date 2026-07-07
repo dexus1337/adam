@@ -79,6 +79,9 @@ namespace adam::modules::network
 
         /** @brief Destination port for outgoing broadcast datagrams. */
         configuration_parameter_integer* m_remote_port  = nullptr;
+
+        /** @brief Resolved IPv4 broadcast destination address (cached after start). */
+        adam::string_hashed              m_resolved_broadcast_ip;
     };
 
 } // namespace adam::modules::network

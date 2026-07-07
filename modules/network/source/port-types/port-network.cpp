@@ -521,7 +521,7 @@ namespace adam::modules::network
 
     static bool is_virtual_or_useless_adapter(PIP_ADAPTER_ADDRESSES adapter)
     {
-        if (adapter->IfType == IF_TYPE_SOFTWARE_LOOPBACK || adapter->IfType == IF_TYPE_TUNNEL)
+        if (adapter->IfType == IF_TYPE_TUNNEL)
         {
             return true;
         }
@@ -560,7 +560,11 @@ namespace adam::modules::network
                     }
 
                     adapter_info info;
-                    if (p_curr_addresses->FriendlyName)
+                    if (p_curr_addresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
+                    {
+                        info.friendly_name = "localhost";
+                    }
+                    else if (p_curr_addresses->FriendlyName)
                     {
                         info.friendly_name = pwchar_to_utf8(p_curr_addresses->FriendlyName);
                     }
@@ -581,6 +585,31 @@ namespace adam::modules::network
                                 if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)))
                                 {
                                     info.ipv4_addresses.push_back(addr_str);
+                                    
+                                    uint32_t ip_host = ntohl(sa->sin_addr.s_addr);
+                                    if (ip_host == 0x7F000001) // 127.0.0.1
+                                    {
+                                        info.ipv4_broadcasts.push_back("127.0.0.1");
+                                    }
+                                    else
+                                    {
+                                        uint32_t prefix_len = p_unicast->OnLinkPrefixLength;
+                                        if (prefix_len > 32) prefix_len = 32;
+                                        uint32_t mask_host = (prefix_len == 0) ? 0 : (0xFFFFFFFF << (32 - prefix_len));
+                                        uint32_t broad_host = ip_host | ~mask_host;
+                                        
+                                        in_addr broad_addr;
+                                        broad_addr.s_addr = htonl(broad_host);
+                                        char broad_str[INET_ADDRSTRLEN]{};
+                                        if (::inet_ntop(AF_INET, &broad_addr, broad_str, sizeof(broad_str)))
+                                        {
+                                            info.ipv4_broadcasts.push_back(broad_str);
+                                        }
+                                        else
+                                        {
+                                            info.ipv4_broadcasts.push_back("255.255.255.255");
+                                        }
+                                    }
                                 }
                             }
                             else if (p_unicast->Address.lpSockaddr->sa_family == AF_INET6)
@@ -610,13 +639,13 @@ namespace adam::modules::network
                     continue;
                 }
                 std::string name(ifa->ifa_name);
-                if (name == "lo" || name.find("loopback") != std::string::npos)
+                if (name.find("loopback") != std::string::npos)
                 {
                     continue;
                 }
 
                 auto& info = map[name];
-                info.friendly_name = name;
+                info.friendly_name = (name == "lo") ? "localhost" : name;
                 info.adapter_name = name;
                 info.index = ::if_nametoindex(ifa->ifa_name);
 
@@ -627,6 +656,22 @@ namespace adam::modules::network
                     if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)))
                     {
                         info.ipv4_addresses.push_back(addr_str);
+                        
+                        std::string broad_str = "255.255.255.255";
+                        if (sa->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
+                        {
+                            broad_str = "127.0.0.1";
+                        }
+                        else if (ifa->ifa_broadaddr && (ifa->ifa_flags & IFF_BROADCAST))
+                        {
+                            char b_str[INET_ADDRSTRLEN]{};
+                            auto* broad_sa = reinterpret_cast<sockaddr_in*>(ifa->ifa_broadaddr);
+                            if (::inet_ntop(AF_INET, &broad_sa->sin_addr, b_str, sizeof(b_str)))
+                            {
+                                broad_str = b_str;
+                            }
+                        }
+                        info.ipv4_broadcasts.push_back(broad_str);
                     }
                 }
                 else if (ifa->ifa_addr->sa_family == AF_INET6)

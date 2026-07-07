@@ -94,6 +94,7 @@ namespace adam::modules::network
         std::string friendly_name;
         std::string adapter_name;
         std::vector<std::string> ipv4_addresses;
+        std::vector<std::string> ipv4_broadcasts;
         std::vector<std::string> ipv6_addresses;
         unsigned int index = 0;
     };

@@ -599,14 +599,11 @@ namespace adam::gui
             ImGui::TableHeadersRow();
 
             auto log_history = m_ctrl.get_log_history();
+            int i = 0;
             for (const auto& log_line : log_history)
             {
                 ImGui::TableNextRow();
                 
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(adam::get_log_time_string(log_line.timestamp).c_str());
-
-                ImGui::TableSetColumnIndex(1);
                 const char* level_text = "";
                 float r, g, b;
                 adam::get_log_appearance(log_line.level, level_text, r, g, b);
@@ -621,10 +618,42 @@ namespace adam::gui
                     default:                        color = ImVec4(r, g, b, 1.0f); break; // Fallback to SDK defaults
                 }
 
+                ImGui::TableSetColumnIndex(0);
+                ImGui::PushID(i);
+                std::string time_str = adam::get_log_time_string(log_line.timestamp);
+                ImGui::Selectable(time_str.c_str(), false, ImGuiSelectableFlags_SpanAllColumns);
+                
+                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                {
+                    ImGui::SetClipboardText(log_line.text.c_str());
+                }
+
+                if (ImGui::BeginPopupContextItem())
+                {
+                    if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_copy_message, lang)))
+                    {
+                        ImGui::SetClipboardText(log_line.text.c_str());
+                    }
+                    if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_copy_row, lang)))
+                    {
+                        char row_str[1024];
+                        snprintf(row_str, sizeof(row_str), "[%s] [%s] %s", 
+                                 time_str.c_str(),
+                                 level_text,
+                                 log_line.text.c_str());
+                        ImGui::SetClipboardText(row_str);
+                    }
+                    ImGui::EndPopup();
+                }
+                ImGui::PopID();
+
+                ImGui::TableSetColumnIndex(1);
                 ImGui::TextColored(color, "%s", level_text);
 
                 ImGui::TableSetColumnIndex(2);
                 ImGui::TextUnformatted(log_line.text.c_str());
+
+                i++;
             }
 
             if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())

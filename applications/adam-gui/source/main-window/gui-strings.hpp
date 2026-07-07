@@ -162,6 +162,8 @@ namespace adam::gui
         btn_copy_hex,
         btn_copy_ascii,
         btn_copy_hex_dump,
+        btn_copy_message,
+        btn_copy_row,
         lbl_replay_file,
         lbl_replay_instant,
         lbl_parameters,
