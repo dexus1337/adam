@@ -239,45 +239,133 @@ namespace adam::gui
         
         ImGui::BeginChild("##outer_child", ImVec2(0, inspector_height), true);
 
-        float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
-        ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
-
-        bool auto_scroll = ImGui::GetScrollY() >= ImGui::GetScrollMaxY();
-
-        bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
-            
         auto setup_inner_columns = [&]() 
         {
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed, 55.0f * dpi_scale);
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_NoSort, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort, 55.0f * dpi_scale);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_timestamp, lang), ImGuiTableColumnFlags_WidthFixed, 120.0f * dpi_scale);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_hex, lang), ImGuiTableColumnFlags_WidthStretch, 0.75f);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
         };
 
+        // Draw the static header table above the scrollable region
+        int sort_col = -1;
+        bool sort_asc = true;
+        bool sort_active = false;
+
+        float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
+        bool header_table_begun = ImGui::BeginTable("InspectorTableHeader", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Sortable, ImVec2(header_w, 0));
+        if (header_table_begun)
+        {
+            setup_inner_columns();
+            ImGui::TableHeadersRow();
+            ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs();
+            if (sort_specs && sort_specs->SpecsCount > 0)
+            {
+                sort_col = sort_specs->Specs[0].ColumnIndex;
+                sort_asc = (sort_specs->Specs[0].SortDirection == ImGuiSortDirection_Ascending);
+                sort_active = true;
+            }
+            ImGui::EndTable();
+        }
+
+        float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
+        ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+
+        bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
+                                     (ImGui::IsMouseDown(ImGuiMouseButton_Left) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows));
+
+        if (active_user_scrolling && ImGui::GetScrollMaxY() > 0.0f && ImGui::GetScrollY() < ImGui::GetScrollMaxY() - 5.0f * dpi_scale)
+        {
+            port_data.was_at_bottom = false;
+        }
+        bool auto_scroll = port_data.was_at_bottom;
+
+        // Build sorted indices map
+        std::vector<int> indices(buffers.size());
+        for (int i = 0; i < (int)buffers.size(); ++i) indices[i] = i;
+
+        if (sort_active && sort_col >= 0)
+        {
+            auto compare_buffers = [&](int a_idx, int b_idx) -> bool 
+            {
+                const auto& a = buffers[a_idx];
+                const auto& b = buffers[b_idx];
+                
+                if (sort_col == 1) // Index
+                {
+                    return sort_asc ? (a_idx < b_idx) : (a_idx > b_idx);
+                }
+                else if (sort_col == 2) // Timestamp
+                {
+                    if (a.timestamp != b.timestamp)
+                        return sort_asc ? (a.timestamp < b.timestamp) : (a.timestamp > b.timestamp);
+                    return sort_asc ? (a_idx < b_idx) : (a_idx > b_idx);
+                }
+                else if (sort_col == 3) // Size
+                {
+                    if (a.size != b.size)
+                        return sort_asc ? (a.size < b.size) : (a.size > b.size);
+                    return sort_asc ? (a_idx < b_idx) : (a_idx > b_idx);
+                }
+                else if (sort_col == 4 || sort_col == 5) // Hex or ASCII preview comparison (string comparison)
+                {
+                    char a_hex[64], b_hex[64], a_ascii[32], b_ascii[32];
+                    size_t a_len = std::min((size_t)a.size, (size_t)16);
+                    size_t b_len = std::min((size_t)b.size, (size_t)16);
+                    
+                    fill_hex_preview(data_pool.data() + a.offset, a_len, 16, a_hex, sizeof(a_hex), a_ascii, sizeof(a_ascii));
+                    fill_hex_preview(data_pool.data() + b.offset, b_len, 16, b_hex, sizeof(b_hex), b_ascii, sizeof(b_ascii));
+                    
+                    int cmp = 0;
+                    if (sort_col == 4) cmp = std::strcmp(a_hex, b_hex);
+                    else cmp = std::strcmp(a_ascii, b_ascii);
+                    
+                    if (cmp != 0)
+                        return sort_asc ? (cmp < 0) : (cmp > 0);
+                    return sort_asc ? (a_idx < b_idx) : (a_idx > b_idx);
+                }
+                return false;
+            };
+
+            std::sort(indices.begin(), indices.end(), compare_buffers);
+        }
+
+        bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
+            
         int current_pushed_id = -1;
 
         if (table_begun)
         {
             setup_inner_columns();
-            ImGui::TableHeadersRow();
         }
 
         float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
 
+        // Clean up expanded nodes that are out of bounds
         std::vector<size_t> expanded_list(expanded_nodes.begin(), expanded_nodes.end());
         while (!expanded_list.empty() && expanded_list.back() >= buffers.size()) {
             expanded_nodes.erase(expanded_list.back());
             expanded_list.pop_back();
         }
 
-        int current_idx = 0;
-        int expanded_list_idx = 0;
-
-        while (current_idx < (int)buffers.size())
+        // Find all indices in the sorted array that are expanded
+        std::vector<int> sorted_expanded_positions;
+        for (int j = 0; j < (int)indices.size(); ++j)
         {
-            int chunk_end = (expanded_list_idx < (int)expanded_list.size()) ? static_cast<int>(expanded_list[expanded_list_idx]) : (int)buffers.size();
+            if (expanded_nodes.count(indices[j]) > 0)
+            {
+                sorted_expanded_positions.push_back(j);
+            }
+        }
+
+        int current_idx = 0;
+        int expanded_pos_idx = 0;
+
+        while (current_idx < (int)indices.size())
+        {
+            int chunk_end = (expanded_pos_idx < (int)sorted_expanded_positions.size()) ? sorted_expanded_positions[expanded_pos_idx] : (int)indices.size();
 
             int unexpanded_count = chunk_end - current_idx;
             if (unexpanded_count > 0 && table_begun)
@@ -288,7 +376,8 @@ namespace adam::gui
                 {
                     for (int j = clipper.DisplayStart; j < clipper.DisplayEnd; ++j)
                     {
-                        int actual_index = current_idx + j;
+                        int sorted_idx = current_idx + j;
+                        int actual_index = indices[sorted_idx];
                         const auto& ib = buffers[actual_index];
 
                         ImGui::TableNextRow();
@@ -330,9 +419,10 @@ namespace adam::gui
                 }
             }
 
-            if (chunk_end < (int)buffers.size())
+            if (chunk_end < (int)indices.size())
             {
-                int actual_index = chunk_end;
+                int sorted_idx = chunk_end;
+                int actual_index = indices[sorted_idx];
                 const auto& ib = buffers[actual_index];
                 
                 if (table_begun)
@@ -392,9 +482,9 @@ namespace adam::gui
 
                 current_pushed_id = actual_index;
                 ImGui::PushID(current_pushed_id);
-                if (actual_index < (int)buffers.size() - 1)
+                if (sorted_idx < (int)indices.size() - 1)
                 {
-                    table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+                    table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
                     if (table_begun)
                     {
                         setup_inner_columns();
@@ -405,7 +495,7 @@ namespace adam::gui
                     table_begun = false;
                 }
 
-                expanded_list_idx++;
+                expanded_pos_idx++;
                 current_idx = chunk_end + 1;
             }
             else
@@ -427,6 +517,11 @@ namespace adam::gui
         if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
         {
             ImGui::SetScrollY(ImGui::GetScrollMaxY());
+        }
+
+        if (!auto_scroll)
+        {
+            port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
         }
         
         ImGui::EndChild();
