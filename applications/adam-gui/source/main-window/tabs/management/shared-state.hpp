@@ -59,6 +59,7 @@ namespace adam::gui
         ImColor captured_color;
         float this_expanded_h;
         adam::string_hash hash;
+        float header_w;
     };
 
     struct port_display_info
@@ -115,6 +116,7 @@ namespace adam::gui
     extern std::unordered_set<uint64_t> g_expanded_nodes;
     extern std::unordered_set<uint64_t> g_expanded_inject_nodes;
     extern std::unordered_set<uint64_t> g_expanded_param_nodes;
+    extern std::unordered_set<uint64_t> g_expanded_stats_nodes;
     extern std::unordered_set<adam::string_hash> g_expanded_inspector_ports;
     extern std::unordered_set<adam::string_hash> g_pending_inspector_ports;
 

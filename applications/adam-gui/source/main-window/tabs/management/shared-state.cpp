@@ -41,6 +41,7 @@ namespace adam::gui
     std::unordered_set<uint64_t> g_expanded_nodes;
     std::unordered_set<uint64_t> g_expanded_inject_nodes;
     std::unordered_set<uint64_t> g_expanded_param_nodes;
+    std::unordered_set<uint64_t> g_expanded_stats_nodes;
     std::unordered_set<adam::string_hash> g_expanded_inspector_ports;
     std::unordered_set<adam::string_hash> g_pending_inspector_ports;
 

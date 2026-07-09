@@ -239,13 +239,6 @@ namespace adam::gui
         
         ImGui::BeginChild("##outer_child", ImVec2(0, inspector_height), true);
 
-        float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
-        ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
-
-        bool auto_scroll = ImGui::GetScrollY() >= ImGui::GetScrollMaxY();
-
-        bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
-            
         auto setup_inner_columns = [&]() 
         {
             ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
@@ -256,12 +249,37 @@ namespace adam::gui
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
         };
 
+        // Draw the static header table above the scrollable region
+        float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
+        bool header_table_begun = ImGui::BeginTable("InspectorTableHeader", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg, ImVec2(header_w, 0));
+        if (header_table_begun)
+        {
+            setup_inner_columns();
+            ImGui::TableHeadersRow();
+            ImGui::EndTable();
+        }
+
+        float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
+        ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+
+        bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
+                                     (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
+                                      (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) || 
+                                       ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)));
+
+        if (active_user_scrolling && ImGui::GetScrollMaxY() > 0.0f && ImGui::GetScrollY() < ImGui::GetScrollMaxY() - 5.0f * dpi_scale)
+        {
+            port_data.was_at_bottom = false;
+        }
+        bool auto_scroll = port_data.was_at_bottom;
+
+        bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
+            
         int current_pushed_id = -1;
 
         if (table_begun)
         {
             setup_inner_columns();
-            ImGui::TableHeadersRow();
         }
 
         float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
@@ -394,7 +412,7 @@ namespace adam::gui
                 ImGui::PushID(current_pushed_id);
                 if (actual_index < (int)buffers.size() - 1)
                 {
-                    table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+                    table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
                     if (table_begun)
                     {
                         setup_inner_columns();
@@ -427,6 +445,11 @@ namespace adam::gui
         if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
         {
             ImGui::SetScrollY(ImGui::GetScrollMaxY());
+        }
+
+        if (!auto_scroll)
+        {
+            port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
         }
         
         ImGui::EndChild();

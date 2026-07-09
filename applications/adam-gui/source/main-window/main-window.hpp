@@ -49,6 +49,7 @@ namespace adam::gui
         std::vector<inspected_buffer> buffers;
         std::vector<uint8_t> data_pool;
         std::set<size_t> expanded_nodes;
+        bool was_at_bottom = true;
     };
 
     struct inspection_data

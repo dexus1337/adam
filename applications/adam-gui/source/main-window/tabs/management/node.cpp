@@ -36,6 +36,9 @@ namespace adam::gui
         if (g_expanded_param_nodes.count(uid))
             h += 150.0f * dpi_scale;
 
+        if (g_expanded_stats_nodes.count(uid))
+            h += 100.0f * dpi_scale;
+
         return h;
     }
 
@@ -50,13 +53,54 @@ namespace adam::gui
     )
     {
         float exp_pad = 8.0f * dpi_scale;
-        ImVec2 exp_min(info.p_max.x - info.current_node_w, info.p_max.y - 1.5f * dpi_scale);
-        ImVec2 exp_max(info.p_max.x, info.p_max.y + info.this_expanded_h);
+
+        float exp_w = info.current_node_w;
+        float header_w = info.header_w;
+
+        // Center the expanded view relative to the header node
+        float left_x = (info.p_max.x - header_w * 0.5f) - exp_w * 0.5f;
+        float right_x = left_x + exp_w;
+
+        // Clamp to current child window bounds so that it fits nicely without overflowing the card
+        float win_min_x = ImGui::GetWindowPos().x;
+        float win_max_x = win_min_x + ImGui::GetWindowWidth();
+        float margin = 4.0f * dpi_scale;
+        if (left_x < win_min_x + margin)
+        {
+            left_x = win_min_x + margin;
+            right_x = left_x + exp_w;
+        }
+        else if (right_x > win_max_x - margin)
+        {
+            right_x = win_max_x - margin;
+            left_x = right_x - exp_w;
+        }
+
+        float gap = -1.5f * dpi_scale;
+        if (info.type == node_type_processor && info.header_w < info.current_node_w)
+        {
+            gap = 6.0f * dpi_scale;
+        }
+        ImVec2 exp_min(left_x, info.p_max.y + gap);
+        ImVec2 exp_max(right_x, info.p_max.y + info.this_expanded_h);
 
         ImVec4 bg_col = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
         bg_col.w = 1.0f;
-        draw_list->AddRectFilled(exp_min, exp_max, ImColor(bg_col), 6.0f * dpi_scale, ImDrawFlags_RoundCornersBottom);
-        draw_list->AddRect(exp_min, exp_max, ImColor(info.captured_color.Value.x * 1.2f, info.captured_color.Value.y * 1.2f, info.captured_color.Value.z * 1.2f), 6.0f * dpi_scale, ImDrawFlags_RoundCornersBottom, 1.5f * dpi_scale);
+        
+        ImDrawFlags corners = (gap > 0.0f) ? ImDrawFlags_RoundCornersAll : ImDrawFlags_RoundCornersBottom;
+        draw_list->AddRectFilled(exp_min, exp_max, ImColor(bg_col), 6.0f * dpi_scale, corners);
+        draw_list->AddRect(exp_min, exp_max, ImColor(info.captured_color.Value.x * 1.2f, info.captured_color.Value.y * 1.2f, info.captured_color.Value.z * 1.2f), 6.0f * dpi_scale, corners, 1.5f * dpi_scale);
+
+        if (info.type == node_type_processor && info.header_w < info.current_node_w)
+        {
+            float center_x = info.p_max.x - info.header_w * 0.5f;
+            draw_list->AddLine(
+                ImVec2(center_x, info.p_max.y), 
+                ImVec2(center_x, info.p_max.y + gap), 
+                info.captured_color, 
+                2.0f * dpi_scale
+            );
+        }
 
         // Draw type and module
         bool p_started = false;
@@ -96,7 +140,7 @@ namespace adam::gui
         ImGui::SetCursorScreenPos(ImVec2(exp_min.x + exp_pad, exp_min.y + exp_pad));
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        bool is_child_visible = ImGui::BeginChild(static_cast<ImGuiID>(info.unique_node_id), ImVec2(info.current_node_w - exp_pad * 2.0f, info.this_expanded_h - exp_pad * 2.0f), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        bool is_child_visible = ImGui::BeginChild(static_cast<ImGuiID>(info.unique_node_id), ImVec2(info.current_node_w - exp_pad * 2.0f, info.this_expanded_h - gap - exp_pad * 2.0f), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
         
@@ -106,165 +150,71 @@ namespace adam::gui
             return;
         }
 
+        if (info.type == node_type_processor && info.header_w < info.current_node_w)
+        {
+            ImVec2 header_min = ImGui::GetCursorScreenPos();
+            float h_height = ImGui::GetFrameHeight() + 4.0f * dpi_scale;
+            ImVec2 header_max(header_min.x + (info.current_node_w - exp_pad * 2.0f), header_min.y + h_height);
+
+            // Draw the colored header rectangle
+            ImGui::GetWindowDrawList()->AddRectFilled(header_min, header_max, info.captured_color, 4.0f * dpi_scale);
+            ImGui::GetWindowDrawList()->AddRect(header_min, header_max, ImColor(info.captured_color.Value.x * 1.2f, info.captured_color.Value.y * 1.2f, info.captured_color.Value.z * 1.2f), 4.0f * dpi_scale, 0, 1.0f * dpi_scale);
+
+            // Get processor name to populate buffer
+            char name_buf[max_name_length];
+            const char* proc_name = "Unknown Processor";
+            if (proc_it != registry.get_processors().end())
+                proc_name = proc_it->second->name.c_str();
+            std::strncpy(name_buf, proc_name, sizeof(name_buf));
+            name_buf[sizeof(name_buf) - 1] = '\0';
+
+            // Center the InputText text field
+            float text_w = ImGui::CalcTextSize(name_buf).x;
+            float field_w = text_w + ImGui::GetStyle().FramePadding.x * 2.0f + 8.0f * dpi_scale;
+            float max_field_w = header_max.x - header_min.x - 24.0f * dpi_scale;
+            if (field_w > max_field_w) field_w = max_field_w;
+            if (field_w < 32.0f * dpi_scale) field_w = 32.0f * dpi_scale;
+
+            float field_x = header_min.x + (header_max.x - header_min.x - field_w) * 0.5f + 4.0f * dpi_scale;
+            ImGui::SetCursorScreenPos(ImVec2(field_x, header_min.y + (h_height - ImGui::GetFrameHeight()) * 0.5f));
+            ImGui::PushItemWidth(field_w);
+
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+            ImGui::PushID("CompactProcRename");
+            bool enter_pressed = ImGui::InputText("##proc_edit", name_buf, sizeof(name_buf), ImGuiInputTextFlags_EnterReturnsTrue);
+            bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
+            ImGui::PopID();
+
+            ImGui::PopStyleColor(3);
+            ImGui::PopItemWidth();
+
+            if ((enter_pressed || deactivated) && name_buf[0] != '\0' && std::strcmp(proc_name, name_buf) != 0)
+            {
+                adam::string_hash proposed_hash = adam::string_hashed(&name_buf[0]).get_hash();
+                if (registry.get_processors().find(proposed_hash) == registry.get_processors().end())
+                {
+                    adam::string_hashed new_name(&name_buf[0]);
+                    ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash, new_name]() 
+                    { 
+                        ctrl.commander().request_processor_rename(port_hash, new_name); 
+                    });
+                }
+            }
+
+            // Restore cursor position below the header card plus spacing
+            ImGui::SetCursorScreenPos(ImVec2(header_min.x, header_max.y + 8.0f * dpi_scale));
+        }
+
         ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s [%s]", p_type, p_module);
         ImGui::Separator();
 
-        // Draw stats
-        if (has_stats && stats)
-        {
-            auto format_bytes_to_buf = [](uint64_t bytes, char* buf, size_t buf_size) 
-            {
-                if (bytes < 1024) snprintf(buf, buf_size, "%llu B", (unsigned long long)bytes);
-                else if (bytes < 1024 * 1024) snprintf(buf, buf_size, "%.2f KB", bytes / 1024.0);
-                else if (bytes < 1024 * 1024 * 1024) snprintf(buf, buf_size, "%.2f MB", bytes / (1024.0 * 1024.0));
-                else snprintf(buf, buf_size, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
-            };
-            
-            if (ImGui::BeginTable("PortStatsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg))
-            {
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_statistics, lang), ImGuiTableColumnFlags_WidthFixed, 100.0f * dpi_scale);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang), ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableHeadersRow();
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_handled, lang));
-                ImGui::TableNextColumn();
-                ImGui::Text("%llu", (unsigned long long)stats->total_buffers_handled);
-                ImGui::TableNextColumn();
-                char buf_handled[64];
-                format_bytes_to_buf(stats->total_bytes_handled, buf_handled, sizeof(buf_handled));
-                ImGui::TextUnformatted(buf_handled);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
-                ImGui::TableNextColumn();
-                ImGui::Text("%llu", (unsigned long long)stats->total_buffers_discarded);
-                ImGui::TableNextColumn();
-                char buf_discarded[64];
-                format_bytes_to_buf(stats->total_bytes_discarded, buf_discarded, sizeof(buf_discarded));
-                ImGui::TextUnformatted(buf_discarded);
-
-                ImGui::EndTable();
-            }
-
-            // Replay specific stats
-            bool is_replay = (is_port && p_it != registry.get_ports().end() && p_it->second->type == "replay"_ct && p_it->second->type_module == "recrep"_ct);
-            if (is_replay && p_started)
-            {
-                auto* replay_stats = p_it->second->statistic_buffer->data_as<adam::modules::recrep::port_input_replay::replay_state_buffer_data>();
-                
-                std::string full_path = replay_stats->file_name;
-                size_t last_slash = full_path.find_last_of("/\\");
-                std::string display_name = (last_slash != std::string::npos) ? full_path.substr(last_slash + 1) : full_path;
-
-                // Display File name
-                ImGui::Spacing();
-                ImGui::Text("%s: %s", get_gui_string(gui_string_id::lbl_replay_file, lang), display_name.c_str());
-                if (ImGui::IsItemHovered() && !full_path.empty())
-                {
-                    ImGui::SetTooltip("%s", full_path.c_str());
-                }
-
-                // Total play time calculations
-                uint64_t duration_ns = replay_stats->file_time_end > replay_stats->file_time_start ? (replay_stats->file_time_end - replay_stats->file_time_start) : 0;
-                double speed = 1.0;
-                auto* speed_param = p_it->second->user_params.get<adam::configuration_parameter_double>("speed"_ct);
-                if (speed_param)
-                {
-                    speed = speed_param->get_value();
-                }
-
-                double total_play_time_sec = 0.0;
-                if (speed > 0.0)
-                {
-                    total_play_time_sec = (static_cast<double>(duration_ns) / 1e9) / speed;
-                }
-
-                // Elapsed time calculations
-                double elapsed_real_sec = 0.0;
-                if (p_started)
-                {
-                    uint64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-                    if (now_ns > replay_stats->replay_start_time)
-                    {
-                        elapsed_real_sec = static_cast<double>(now_ns - replay_stats->replay_start_time) / 1e9;
-                    }
-                }
-
-                if (elapsed_real_sec > total_play_time_sec)
-                {
-                    elapsed_real_sec = total_play_time_sec;
-                }
-
-                double progress_fraction = 0.0;
-                double duration_sec = static_cast<double>(duration_ns) / 1e9;
-                if (duration_sec > 0.0)
-                {
-                    if (speed > 0.0)
-                    {
-                        progress_fraction = elapsed_real_sec / total_play_time_sec;
-                    }
-                    else
-                    {
-                        progress_fraction = p_started ? 1.0 : 0.0;
-                    }
-                }
-                if (progress_fraction > 1.0) progress_fraction = 1.0;
-                if (progress_fraction < 0.0) progress_fraction = 0.0;
-
-                // Format elapsed time and total play time
-                auto format_time = [](double total_seconds, char* buf, size_t buf_size)
-                {
-                    if (total_seconds < 0.0) total_seconds = 0.0;
-                    int hours = static_cast<int>(total_seconds / 3600.0);
-                    int minutes = static_cast<int>((total_seconds - hours * 3600.0) / 60.0);
-                    double seconds = total_seconds - hours * 3600.0 - minutes * 60.0;
-                    if (hours > 0)
-                    {
-                        snprintf(buf, buf_size, "%dh %dm %.2fs", hours, minutes, seconds);
-                    }
-                    else if (minutes > 0)
-                    {
-                        snprintf(buf, buf_size, "%dm %.2fs", minutes, seconds);
-                    }
-                    else
-                    {
-                        snprintf(buf, buf_size, "%.2fs", seconds);
-                    }
-                };
-
-                char elapsed_buf[64];
-                char total_buf[64];
-                format_time(elapsed_real_sec, elapsed_buf, sizeof(elapsed_buf));
-                if (speed > 0.0)
-                {
-                    format_time(total_play_time_sec, total_buf, sizeof(total_buf));
-                }
-                else
-                {
-                    snprintf(total_buf, sizeof(total_buf), "%s", get_gui_string(gui_string_id::lbl_replay_instant, lang));
-                }
-
-                char overlay_buf[131];
-                snprintf(overlay_buf, sizeof(overlay_buf), "%s / %s", elapsed_buf, total_buf);
-
-                ImGui::ProgressBar(static_cast<float>(progress_fraction), ImVec2(-FLT_MIN, 0.0f), overlay_buf);
-            }
-        }
-        else
-        {
-            ImGui::TextDisabled("%s", get_gui_string(gui_string_id::lbl_stat_unavailable, lang));
-        }
-        ImGui::Separator();
-
-        float btn_w = (ImGui::GetContentRegionAvail().x - exp_pad) * 0.5f;
-
-        // Start/Stop
+        // Start/Stop at the top
         if (is_port)
         {
+            float btn_w = (ImGui::GetContentRegionAvail().x - exp_pad) * 0.5f;
             ImGui::PushID((const void*)(intptr_t)(info.port_hash ^ 0x1111));
             if (p_started) ImGui::BeginDisabled();
             if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang), ImVec2(btn_w, 0)))
@@ -283,6 +233,180 @@ namespace adam::gui
             
             ImGui::Separator();
         }
+
+        // Statistics wrapped in an expandable Tree Node
+        ImGui::PushID((const void*)(intptr_t)(info.unique_node_id ^ 0x6666));
+        bool stats_expanded = g_expanded_stats_nodes.count(info.unique_node_id) > 0;
+        
+        bool stats_tree_open = ImGui::TreeNodeEx(get_gui_string(gui_string_id::lbl_statistics, lang), stats_expanded ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+        if (stats_tree_open != stats_expanded)
+        {
+            if (stats_tree_open)
+                g_expanded_stats_nodes.insert(info.unique_node_id);
+            else
+                g_expanded_stats_nodes.erase(info.unique_node_id);
+
+            g_expanded_node_heights.erase(info.unique_node_id); // Invalidate cache to force layout recalculation
+        }
+
+        if (stats_tree_open)
+        {
+            ImGui::Unindent();
+            
+            if (has_stats && stats)
+            {
+                auto format_bytes_to_buf = [](uint64_t bytes, char* buf, size_t buf_size) 
+                {
+                    if (bytes < 1024) snprintf(buf, buf_size, "%llu B", (unsigned long long)bytes);
+                    else if (bytes < 1024 * 1024) snprintf(buf, buf_size, "%.2f KB", bytes / 1024.0);
+                    else if (bytes < 1024 * 1024 * 1024) snprintf(buf, buf_size, "%.2f MB", bytes / (1024.0 * 1024.0));
+                    else snprintf(buf, buf_size, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+                };
+                
+                if (ImGui::BeginTable("PortStatsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg))
+                {
+                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 100.0f * dpi_scale);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang), ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableHeadersRow();
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_handled, lang));
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_handled);
+                    ImGui::TableNextColumn();
+                    char buf_handled[64];
+                    format_bytes_to_buf(stats->total_bytes_handled, buf_handled, sizeof(buf_handled));
+                    ImGui::TextUnformatted(buf_handled);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_discarded);
+                    ImGui::TableNextColumn();
+                    char buf_discarded[64];
+                    format_bytes_to_buf(stats->total_bytes_discarded, buf_discarded, sizeof(buf_discarded));
+                    ImGui::TextUnformatted(buf_discarded);
+
+                    ImGui::EndTable();
+                }
+
+                // Replay specific stats
+                bool is_replay = (is_port && p_it != registry.get_ports().end() && p_it->second->type == "replay"_ct && p_it->second->type_module == "recrep"_ct);
+                if (is_replay && p_started)
+                {
+                    auto* replay_stats = p_it->second->statistic_buffer->data_as<adam::modules::recrep::port_input_replay::replay_state_buffer_data>();
+                    
+                    std::string full_path = replay_stats->file_name;
+                    size_t last_slash = full_path.find_last_of("/\\");
+                    std::string display_name = (last_slash != std::string::npos) ? full_path.substr(last_slash + 1) : full_path;
+
+                    // Display File name
+                    ImGui::Spacing();
+                    ImGui::Text("%s: %s", get_gui_string(gui_string_id::lbl_replay_file, lang), display_name.c_str());
+                    if (ImGui::IsItemHovered() && !full_path.empty())
+                    {
+                        ImGui::SetTooltip("%s", full_path.c_str());
+                    }
+
+                    // Total play time calculations
+                    uint64_t duration_ns = replay_stats->file_time_end > replay_stats->file_time_start ? (replay_stats->file_time_end - replay_stats->file_time_start) : 0;
+                    double speed = 1.0;
+                    auto* speed_param = p_it->second->user_params.get<adam::configuration_parameter_double>("speed"_ct);
+                    if (speed_param)
+                    {
+                        speed = speed_param->get_value();
+                    }
+
+                    double total_play_time_sec = 0.0;
+                    if (speed > 0.0)
+                    {
+                        total_play_time_sec = (static_cast<double>(duration_ns) / 1e9) / speed;
+                    }
+
+                    // Elapsed time calculations
+                    double elapsed_real_sec = 0.0;
+                    if (p_started)
+                    {
+                        uint64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+                        if (now_ns > replay_stats->replay_start_time)
+                        {
+                            elapsed_real_sec = static_cast<double>(now_ns - replay_stats->replay_start_time) / 1e9;
+                        }
+                    }
+
+                    if (elapsed_real_sec > total_play_time_sec)
+                    {
+                        elapsed_real_sec = total_play_time_sec;
+                    }
+
+                    double progress_fraction = 0.0;
+                    double duration_sec = static_cast<double>(duration_ns) / 1e9;
+                    if (duration_sec > 0.0)
+                    {
+                        if (speed > 0.0)
+                        {
+                            progress_fraction = elapsed_real_sec / total_play_time_sec;
+                        }
+                        else
+                        {
+                            progress_fraction = p_started ? 1.0 : 0.0;
+                        }
+                    }
+                    if (progress_fraction > 1.0) progress_fraction = 1.0;
+                    if (progress_fraction < 0.0) progress_fraction = 0.0;
+
+                    // Format elapsed time and total play time
+                    auto format_time = [](double total_seconds, char* buf, size_t buf_size)
+                    {
+                        if (total_seconds < 0.0) total_seconds = 0.0;
+                        int hours = static_cast<int>(total_seconds / 3600.0);
+                        int minutes = static_cast<int>((total_seconds - hours * 3600.0) / 60.0);
+                        double seconds = total_seconds - hours * 3600.0 - minutes * 60.0;
+                        if (hours > 0)
+                        {
+                            snprintf(buf, buf_size, "%dh %dm %.2fs", hours, minutes, seconds);
+                        }
+                        else if (minutes > 0)
+                        {
+                            snprintf(buf, buf_size, "%dm %.2fs", minutes, seconds);
+                        }
+                        else
+                        {
+                            snprintf(buf, buf_size, "%.2fs", seconds);
+                        }
+                    };
+
+                    char elapsed_buf[64];
+                    char total_buf[64];
+                    format_time(elapsed_real_sec, elapsed_buf, sizeof(elapsed_buf));
+                    if (speed > 0.0)
+                    {
+                        format_time(total_play_time_sec, total_buf, sizeof(total_buf));
+                    }
+                    else
+                    {
+                        snprintf(total_buf, sizeof(total_buf), "%s", get_gui_string(gui_string_id::lbl_replay_instant, lang));
+                    }
+
+                    char overlay_buf[131];
+                    snprintf(overlay_buf, sizeof(overlay_buf), "%s / %s", elapsed_buf, total_buf);
+
+                    ImGui::ProgressBar(static_cast<float>(progress_fraction), ImVec2(-FLT_MIN, 0.0f), overlay_buf);
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("%s", get_gui_string(gui_string_id::lbl_stat_unavailable, lang));
+            }
+            
+            ImGui::Indent();
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+        ImGui::Separator();
 
         // Parameters
         if (user_params && !user_params->get_children().empty() && ((is_port && p_it != registry.get_ports().end() && !p_it->second->is_unavailable) || (!is_port && proc_it != registry.get_processors().end() && !proc_it->second->is_unavailable)))
@@ -772,9 +896,9 @@ namespace adam::gui
         }
         ImGui::PopID();
 
-        // Cache height
+        // Cache height (including top gap offset)
         float exact_inner_h = ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y;
-        g_expanded_node_heights[info.unique_node_id] = exact_inner_h + exp_pad * 2.0f;
+        g_expanded_node_heights[info.unique_node_id] = exact_inner_h + exp_pad * 2.0f + gap;
 
         ImGui::EndChild();
     }
@@ -826,6 +950,16 @@ namespace adam::gui
             current_node_w = proc_w;
         }
             
+        bool compact_processors = false;
+        if (total_stages > 2)
+        {
+            float gap_if_large = (avail_x - static_cast<float>(total_stages) * port_w) / static_cast<float>(total_stages - 1);
+            if (gap_if_large < 10.0f * dpi_scale)
+            {
+                compact_processors = true;
+            }
+        }
+            
         float node_x;
         if (total_stages == 1) node_x = cur_pos.x;
         else if (stage == 0) node_x = cur_pos.x;
@@ -836,9 +970,23 @@ namespace adam::gui
             
         ImVec2 p_min(node_x, node_y);
         ImVec2 p_max(node_x + current_node_w, node_y + node_h);
+
+        bool is_expanded = false;
+        uint64_t unique_node_id = 0;
+        if (port_hash != 0)
+        {
+            unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
+            is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
+        }
+
+        ImDrawFlags header_corners = ImDrawFlags_RoundCornersAll;
+        if (is_expanded && !(type == node_type_processor && compact_processors))
+        {
+            header_corners = ImDrawFlags_RoundCornersTop;
+        }
             
-        draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale);
-        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f, color.Value.w), 6.0f * dpi_scale, 0, 1.5f * dpi_scale);
+        draw_list->AddRectFilled(p_min, p_max, color, 6.0f * dpi_scale, header_corners);
+        draw_list->AddRect(p_min, p_max, ImColor(color.Value.x * 1.2f, color.Value.y * 1.2f, color.Value.z * 1.2f, color.Value.w), 6.0f * dpi_scale, header_corners, 1.5f * dpi_scale);
 
         ImGui::SetCursorScreenPos(p_min);
         ImGui::PushID((const void*)(intptr_t)(get_unique_node_id(port_hash, hash, stage, type) ^ 0xABCD));
@@ -861,19 +1009,23 @@ namespace adam::gui
             }
         }
 
-        bool is_expanded = false;
         if (port_hash != 0)
         {
-            uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
-            is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
-
             // Handle Left Click -> Expand
             if (clicked)
             {
                 if (is_expanded)
+                {
                     g_expanded_nodes.erase(unique_node_id);
+                }
                 else
+                {
+                    if (compact_processors)
+                    {
+                        g_expanded_nodes.clear();
+                    }
                     g_expanded_nodes.insert(unique_node_id);
+                }
                 is_expanded = !is_expanded;
             }
 
@@ -919,6 +1071,9 @@ namespace adam::gui
             ImColor captured_color = color;
             uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
             float this_expanded_h = get_expanded_node_height(unique_node_id, dpi_scale);
+            
+            float exp_w = (type == node_type_processor) ? port_w : current_node_w;
+
             deferred_expansions.push_back
             ({
                 type,
@@ -926,15 +1081,22 @@ namespace adam::gui
                 port_hash,
                 unique_node_id,
                 p_max,
-                current_node_w,
+                exp_w,
                 captured_color,
                 this_expanded_h,
-                hash
+                hash,
+                current_node_w
             });
         }
             
         // Draw Port Name
-        if (port_hash != 0 && !is_drag_preview)
+        bool allow_edit = (port_hash != 0 && !is_drag_preview);
+        if (type == node_type_processor && compact_processors)
+        {
+            allow_edit = false;
+        }
+
+        if (allow_edit)
         {
             char name_buf[max_name_length];
             std::strncpy(name_buf, name, sizeof(name_buf));
@@ -951,7 +1113,7 @@ namespace adam::gui
             if (input_w < 32.0f * dpi_scale)
                 input_w = 32.0f * dpi_scale;
                     
-            float input_x = p_min.x + (current_node_w - input_w) * 0.5f;
+            float input_x = p_min.x + (current_node_w - input_w) * 0.5f + 4.0f * dpi_scale;
             float input_h = ImGui::GetFrameHeight();
                 
             ImGui::SetCursorScreenPos(ImVec2(input_x, p_min.y + (node_h - input_h) * 0.5f));
@@ -991,7 +1153,8 @@ namespace adam::gui
         {
             float text_width = ImGui::CalcTextSize(name).x;
             float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
-            if (text_x < p_min.x + 8.0f * dpi_scale) text_x = p_min.x + 8.0f * dpi_scale;
+            float min_margin = (type == node_type_processor && compact_processors) ? 2.0f * dpi_scale : 8.0f * dpi_scale;
+            if (text_x < p_min.x + min_margin) text_x = p_min.x + min_margin;
             ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
             draw_list->PushClipRect(p_min, p_max, true);
             draw_list->AddText(text_pos, ImColor(1.0f, 1.0f, 1.0f, color.Value.w), name);

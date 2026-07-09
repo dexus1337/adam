@@ -840,6 +840,35 @@ namespace adam::gui
                 }
             }
 
+            if (compact_processors && !is_drag_preview)
+            {
+                std::vector<uint64_t> expanded_in_this_conn;
+                for (auto pid : conn->inputs)
+                {
+                    uint64_t uid = get_unique_node_id(pid, hash, 0, node_type_input);
+                    if (g_expanded_nodes.count(uid)) expanded_in_this_conn.push_back(uid);
+                }
+                int current_stage = 1;
+                for (auto fid : conn->processors)
+                {
+                    uint64_t uid = get_unique_node_id(fid, hash, current_stage++, node_type_processor);
+                    if (g_expanded_nodes.count(uid)) expanded_in_this_conn.push_back(uid);
+                }
+                for (auto pid : conn->outputs)
+                {
+                    uint64_t uid = get_unique_node_id(pid, hash, total_stages - 1, node_type_output);
+                    if (g_expanded_nodes.count(uid)) expanded_in_this_conn.push_back(uid);
+                }
+
+                if (expanded_in_this_conn.size() > 1)
+                {
+                    for (size_t i = 1; i < expanded_in_this_conn.size(); ++i)
+                    {
+                        g_expanded_nodes.erase(expanded_in_this_conn[i]);
+                    }
+                }
+            }
+
             draw_connection_card_header(ctrl, lang, sort_mode, hash, conn, is_drag_preview, dpi_scale, port_w, is_unavailable, available_formats, input_missing, output_missing);
 
             ImVec2 cur_pos = ImGui::GetCursorScreenPos();
@@ -1063,7 +1092,7 @@ namespace adam::gui
                 if (compact_processors)
                 {
                     char short_name[16];
-                    snprintf(short_name, sizeof(short_name), "%02d   ", processor_idx);
+                    snprintf(short_name, sizeof(short_name), "%02d", processor_idx);
                     draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, short_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
                 }
                 else
