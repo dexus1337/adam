@@ -9,15 +9,6 @@
  *            1. Connects to the configured remote address (with a 2-second connect timeout).
  *            2. Reads incoming data in a non-blocking select() loop.
  *            3. Automatically reconnects after any disconnect, with a configurable interval.
- *
- *          Outgoing writes (write()) are fully independent of the read loop and protected
- *          by a dedicated spinlock covering only the socket-handle read.
- * 
- *          We need to fully rework the tcp client and server. I want you to use the vector_double_buffer to host the client sockets.
- *          For the tcp client we can use the spinlock defined in port base class. We need to set m_use_spinlock_for_write like we do in the recording port
- * 
- *          This should make the code muss less lines and more structured and overviewable. Remember to use guard clauses whereever possible
- *
  * @version 2.0
  * @date    04.07.2026
  */
@@ -105,14 +96,16 @@ namespace adam::modules::network
          */
         bool connect();
 
-        // --- Socket handle ---
-        /** @brief Native socket handle stored as uintptr_t. Accessed from both the worker
-         *         thread (read/connect) and the caller thread (write/stop) under m_write_mutex. */
-        uintptr_t m_socket;
+        /**
+         * @brief Releases the socket, invalidates the handle, and optionally logs the disconnection.
+         * @param lvl        Log level to use for the disconnect log.
+         * @param should_log If true, logs the disconnection event.
+         */
+        void reset_socket_with_log(adam::log::level lvl = adam::log::info, bool should_log = false);
 
-        /** @brief Spinlock protecting reads and writes of m_socket between the worker thread
-         *         and any caller invoking write() or stop(). Held for nanoseconds only. 
-         *          TODO: the base port class already has a write spinlock, so all we need to do is to set: m_use_write_spinlock to true */
+        // --- Socket handle ---
+        /** @brief Native socket handle stored as uintptr_t. Accessed under the base port m_spinlock. */
+        uintptr_t m_socket;
 
         // --- User-parameter pointers (set in constructor, read-only thereafter) ---
         configuration_parameter_string*  m_interface             = nullptr; ///< Optional local interface IP.

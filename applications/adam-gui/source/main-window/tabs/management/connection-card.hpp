@@ -26,6 +26,28 @@ namespace adam::gui
         bool& show_inspector
     );
 
+    void draw_connection_name_and_color
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        adam::connection_view* conn,
+        adam::string_hash hash,
+        bool is_drag_preview,
+        float name_field_width
+    );
+
+    void draw_connection_action_buttons
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        adam::connection_view* conn,
+        adam::string_hash hash,
+        bool is_drag_preview,
+        bool is_unavailable,
+        float add_button_width,
+        bool commander_active
+    );
+
     void draw_connection_card_header
     (
         gui_controller& ctrl,

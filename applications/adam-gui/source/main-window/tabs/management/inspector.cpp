@@ -14,11 +14,62 @@
 #include <algorithm>
 #include <vector>
 #include <map>
-#include <cmath>
-#include <mutex>
+#include <cmath> // For std::min, std::max
+#include <mutex> // For std::lock_guard
+#include <string> // For std::string
+#include <unordered_set> // For std::unordered_set
 
 namespace adam::gui
 {
+    // Helper to draw a single row in the inspector frames table
+    static void draw_inspector_table_row(
+        const adam::gui::inspected_buffer& ib,
+        int actual_index,
+        const std::vector<uint8_t>& data_pool,
+        std::set<size_t>& expanded_nodes
+    )
+    {
+        ImGui::TableNextRow();
+
+        ImGui::TableSetColumnIndex(0);
+        // Use ImGuiTreeNodeFlags_DefaultOpen if it's already expanded
+        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | (expanded_nodes.count(actual_index) ? ImGuiTreeNodeFlags_DefaultOpen : 0), "");
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("%d", actual_index);
+
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
+
+        ImGui::TableSetColumnIndex(3);
+        ImGui::Text("%zu B", static_cast<size_t>(ib.size));
+
+        ImGui::TableSetColumnIndex(4);
+        if (g_mono_font) ImGui::PushFont(g_mono_font);
+
+        char preview_hex[64];
+        char preview_ascii[32];
+        size_t preview_len = std::min((size_t)ib.size, (size_t)16);
+        fill_hex_preview(data_pool.data() + ib.offset, preview_len, 16, preview_hex, sizeof(preview_hex), preview_ascii, sizeof(preview_ascii));
+
+        ImGui::TextUnformatted(preview_hex);
+        
+        ImGui::TableSetColumnIndex(5);
+        ImGui::TextUnformatted(preview_ascii);
+        
+        if (g_mono_font) ImGui::PopFont();
+
+        if (node_open)
+        {
+            expanded_nodes.insert(actual_index);
+            ImGui::TreePop();
+        }
+        else
+        {
+            expanded_nodes.erase(actual_index);
+        }
+    }
+
     static void draw_inspector_hex_dump
     (
         const uint8_t* data,
@@ -220,6 +271,7 @@ namespace adam::gui
 
     static void draw_inspector_frames_table
     (
+        gui_controller& ctrl,
         const char* name,
         adam::string_hash hash,
         std::map<adam::string_hash, adam::gui::inspection_port_data>& data_map,
@@ -258,7 +310,7 @@ namespace adam::gui
             ImGui::TableHeadersRow();
             ImGui::EndTable();
         }
-
+        
         float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
         ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
 
@@ -274,9 +326,7 @@ namespace adam::gui
         bool auto_scroll = port_data.was_at_bottom;
 
         bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
-            
-        int current_pushed_id = -1;
-
+        
         if (table_begun)
         {
             setup_inner_columns();
@@ -284,162 +334,49 @@ namespace adam::gui
 
         float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
 
-        std::vector<size_t> expanded_list(expanded_nodes.begin(), expanded_nodes.end());
-        while (!expanded_list.empty() && expanded_list.back() >= buffers.size()) {
-            expanded_nodes.erase(expanded_list.back());
-            expanded_list.pop_back();
+        // Remove any expanded nodes that are no longer valid (e.g., buffer was cleared)
+        std::erase_if(expanded_nodes, [&](int idx) { return idx >= buffers.size(); });
+
+        ImGuiListClipper clipper;
+        clipper.Begin(static_cast<int>(buffers.size()), row_height);
+        while (clipper.Step())
+        {
+            for (int row_idx = clipper.DisplayStart; row_idx < clipper.DisplayEnd; ++row_idx)
+            {
+                const auto& ib = buffers[row_idx];
+                draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
+            }
         }
 
-        int current_idx = 0;
-        int expanded_list_idx = 0;
+        // Draw expanded hex dumps outside the table to avoid clipping issues
+        // Iterate over a copy of expanded_nodes to avoid iterator invalidation if nodes are removed
+        std::vector<int> current_expanded_nodes(expanded_nodes.begin(), expanded_nodes.end());
+        std::sort(current_expanded_nodes.begin(), current_expanded_nodes.end());
 
-        while (current_idx < (int)buffers.size())
+        for (size_t idx : current_expanded_nodes)
         {
-            int chunk_end = (expanded_list_idx < (int)expanded_list.size()) ? static_cast<int>(expanded_list[expanded_list_idx]) : (int)buffers.size();
-
-            int unexpanded_count = chunk_end - current_idx;
-            if (unexpanded_count > 0 && table_begun)
+            if (idx < buffers.size()) // Ensure index is still valid
             {
-                ImGuiListClipper clipper;
-                clipper.Begin(unexpanded_count, row_height);
-                while (clipper.Step())
-                {
-                    for (int j = clipper.DisplayStart; j < clipper.DisplayEnd; ++j)
-                    {
-                        int actual_index = current_idx + j;
-                        const auto& ib = buffers[actual_index];
-
-                        ImGui::TableNextRow();
-
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::SetNextItemOpen(expanded_nodes.count(actual_index) > 0);
-                        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow, "");
-
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%d", actual_index);
-
-                        ImGui::TableSetColumnIndex(2);
-                        ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
-
-                        ImGui::TableSetColumnIndex(3);
-                        ImGui::Text("%zu B", static_cast<size_t>(ib.size));
-
-                        ImGui::TableSetColumnIndex(4);
-                        if (g_mono_font) ImGui::PushFont(g_mono_font);
-
-                        char preview_hex[64];
-                        char preview_ascii[32];
-                        size_t preview_len = std::min((size_t)ib.size, (size_t)16);
-                        fill_hex_preview(data_pool.data() + ib.offset, preview_len, 16, preview_hex, sizeof(preview_hex), preview_ascii, sizeof(preview_ascii));
-
-                        ImGui::TextUnformatted(preview_hex);
-                        
-                        ImGui::TableSetColumnIndex(5);
-                        ImGui::TextUnformatted(preview_ascii);
-                        
-                        if (g_mono_font) ImGui::PopFont();
-
-                        if (node_open)
-                        {
-                            expanded_nodes.insert(actual_index);
-                            ImGui::TreePop();
-                        }
-                    }
-                }
-            }
-
-            if (chunk_end < (int)buffers.size())
-            {
-                int actual_index = chunk_end;
-                const auto& ib = buffers[actual_index];
+                const auto& ib = buffers[idx];
+                // End the current table before drawing the hex dump
+                if (table_begun) { ImGui::EndTable(); table_begun = false; }
                 
-                if (table_begun)
-                {
-                    ImGui::TableNextRow();
+                ImGui::PushID(static_cast<int>(idx)); // Push ID for the hex dump child window
+                draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, static_cast<int>(idx), inspector_height, dpi_scale, lang);
+                ImGui::PopID();
 
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::SetNextItemOpen(expanded_nodes.count(actual_index) > 0);
-                    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen, "");
-
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%d", actual_index);
-
-                    ImGui::TableSetColumnIndex(2);
-                    ImGui::TextUnformatted(adam::get_log_time_string(ib.timestamp).c_str());
-
-                    ImGui::TableSetColumnIndex(3);
-                    ImGui::Text("%zu B", static_cast<size_t>(ib.size));
-
-                    ImGui::TableSetColumnIndex(4);
-                    if (g_mono_font) ImGui::PushFont(g_mono_font);
-
-                    char preview_hex[64];
-                    char preview_ascii[32];
-                    size_t preview_len = std::min((size_t)ib.size, (size_t)16);
-                    fill_hex_preview(data_pool.data() + ib.offset, preview_len, 16, preview_hex, sizeof(preview_hex), preview_ascii, sizeof(preview_ascii));
-
-                    ImGui::TextUnformatted(preview_hex);
-                    
-                    ImGui::TableSetColumnIndex(5);
-                    ImGui::TextUnformatted(preview_ascii);
-                    
-                    if (g_mono_font) ImGui::PopFont();
-
-                    if (!node_open)
-                    {
-                        expanded_nodes.erase(actual_index);
-                    }
-                    else
-                    {
-                        ImGui::TreePop();
-                    }
-
-                    ImGui::EndTable();
-                }
-
-                if (current_pushed_id != -1)
-                {
-                    ImGui::PopID();
-                    current_pushed_id = -1;
-                }
-
-                if (expanded_nodes.count(actual_index) > 0)
-                {
-                    draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, actual_index, inspector_height, dpi_scale, lang);
-                }
-
-                current_pushed_id = actual_index;
-                ImGui::PushID(current_pushed_id);
-                if (actual_index < (int)buffers.size() - 1)
+                // Restart the table for subsequent rows if needed
+                if (idx < buffers.size() - 1)
                 {
                     table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
-                    if (table_begun)
-                    {
-                        setup_inner_columns();
-                    }
+                    if (table_begun) { setup_inner_columns(); }
                 }
-                else
-                {
-                    table_begun = false;
-                }
-
-                expanded_list_idx++;
-                current_idx = chunk_end + 1;
-            }
-            else
-            {
-                current_idx = chunk_end;
             }
         }
 
         if (table_begun)
         {
             ImGui::EndTable();
-        }
-        
-        if (current_pushed_id != -1)
-        {
-            ImGui::PopID();
         }
 
         if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
@@ -828,7 +765,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, inspector_height, dpi_scale, lang, 0x1111111111111111ULL);
+                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL);
                         conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                         if (conn_table_open) setup_columns();
                     }
@@ -965,7 +902,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, inspector_height, dpi_scale, lang, 0x2222222222222222ULL);
+                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL);
                         if (!is_last_connection)
                         {
                             conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
@@ -1158,7 +1095,7 @@ namespace adam::gui
                 {
                     if (table_open) ImGui::EndTable();
                     
-                    draw_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, inspector_height, dpi_scale, lang, 0x3333333333333333ULL);
+                    draw_inspector_frames_table(ctrl, p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL);
 
                     if (!is_last_port)
                     {

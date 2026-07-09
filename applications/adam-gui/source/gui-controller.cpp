@@ -68,10 +68,16 @@ namespace adam::gui
         return m_commander_active.load(std::memory_order_relaxed);
     }
 
-    const std::vector<log_entry>& gui_controller::get_log_history() const
+    std::vector<log_entry> gui_controller::get_log_history() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         return m_log_history;
+    }
+
+    bool gui_controller::is_log_history_empty() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_log_history.empty();
     }
     
     void gui_controller::clear_log_history()
@@ -179,13 +185,25 @@ namespace adam::gui
             bool any_logs = false;
             if (log_sink_active)
             {
-                // Pop logs with a 50ms timeout to avoid tight CPU looping and allow thread exit
-                while (m_running.load(std::memory_order_relaxed) && m_log_sink.queue().pop(incoming_log, 50))
+                std::vector<log_entry> local_logs;
+                if (m_running.load(std::memory_order_relaxed) && m_log_sink.queue().pop(incoming_log, 50))
+                {
+                    local_logs.push_back({ incoming_log.get_timestamp(), incoming_log.get_level(), std::string(incoming_log.get_text()) });
+                    
+                    while (m_running.load(std::memory_order_relaxed) && m_log_sink.queue().pop(incoming_log, 0))
+                    {
+                        local_logs.push_back({ incoming_log.get_timestamp(), incoming_log.get_level(), std::string(incoming_log.get_text()) });
+                    }
+                }
+
+                if (!local_logs.empty())
                 {
                     std::lock_guard<std::mutex> lock(m_mutex);
-                    m_log_history.push_back({ incoming_log.get_timestamp(), incoming_log.get_level(), std::string(incoming_log.get_text()) });
+                    m_log_history.insert(m_log_history.end(), local_logs.begin(), local_logs.end());
                     if (m_log_history.size() > m_max_log_history)
-                        m_log_history.erase(m_log_history.begin());
+                    {
+                        m_log_history.erase(m_log_history.begin(), m_log_history.begin() + (m_log_history.size() - m_max_log_history));
+                    }
                     any_logs = true;
                 }
             }

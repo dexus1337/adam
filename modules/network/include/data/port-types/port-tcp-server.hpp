@@ -107,10 +107,13 @@ namespace adam::modules::network
         /** @brief The listener socket accepting new connections. Stored as uintptr_t so
          *         it is compatible with atomic operations. Only accessed from start()/stop()
          *         and the worker thread - no spinlock required for m_listener itself. */
-        uintptr_t                     m_listener;
+        uintptr_t                       m_listener;
 
         /** @brief List of all currently connected client socket handles. */
-        std::vector<uintptr_t>        m_clients;
+        vector_double_buffer<uintptr_t> m_clients;
+
+        /** @brief Spinlock protecting the statistics block. */
+        mutable std::atomic_flag        m_stats_lock = ATOMIC_FLAG_INIT;
 
         // --- Private helpers ---
         void add_client_to_stats(socket_t client_sock, const sockaddr_storage& client_addr);

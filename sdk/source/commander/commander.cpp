@@ -109,6 +109,17 @@ namespace adam
 
     bool commander::destroy() 
     {
+        if (m_is_destroying.exchange(true, std::memory_order_acquire))
+        {
+            if (std::this_thread::get_id() == m_event_thread.get_id())
+                return true;
+
+            while (m_is_destroying.load(std::memory_order_acquire))
+                std::this_thread::yield();
+
+            return true;
+        }
+
         bool m_cmd_active = m_queue_command.is_active();
         bool m_evt_active = m_queue_event.is_active();
 
@@ -168,6 +179,7 @@ namespace adam
         res &= m_queue_event.destroy();
         res &= m_queue_command.destroy();
 
+        m_is_destroying.store(false, std::memory_order_release);
         return res;
     }
 

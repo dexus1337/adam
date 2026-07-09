@@ -8,9 +8,6 @@
 
 namespace adam::modules::network
 {
-    // =========================================================================
-    // Static user-parameter definition
-    // =========================================================================
 
     const configuration_parameter_list& port_udp_unicast::get_user_parameters()
     {
@@ -52,10 +49,6 @@ namespace adam::modules::network
         return params;
     }
 
-    // =========================================================================
-    // Constructor / Destructor
-    // =========================================================================
-
     port_udp_unicast::port_udp_unicast(const string_hashed& item_name)
         : port_udp_base(item_name)
     {
@@ -76,10 +69,6 @@ namespace adam::modules::network
     {
         stop();
     }
-
-    // =========================================================================
-    // start() - create and bind the UDP socket
-    // =========================================================================
 
     bool port_udp_unicast::start()
     {
@@ -136,10 +125,6 @@ namespace adam::modules::network
 
         return port::start();
     }
-
-    // =========================================================================
-    // write() - send a datagram to the configured remote address
-    // =========================================================================
 
     bool port_udp_unicast::write(buffer* buff)
     {

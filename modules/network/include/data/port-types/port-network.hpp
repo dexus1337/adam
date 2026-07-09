@@ -92,8 +92,8 @@ namespace adam::modules::network
 
     struct adapter_info
     {
-        std::string friendly_name;
-        std::string adapter_name;
+        adam::string_hashed friendly_name;
+        adam::string_hashed adapter_name;
         std::vector<std::string> ipv4_addresses;
         std::vector<std::string> ipv4_broadcasts;
         std::vector<std::string> ipv6_addresses;
@@ -106,7 +106,7 @@ namespace adam::modules::network
         explicit port_network(const string_hashed& item_name, uint32_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
         virtual ~port_network() = default;
 
-        std::string get_active_interface() const;
+        adam::string_hashed get_active_interface() const;
         const std::string& get_active_ip() const { return m_active_ip; }
         int get_active_port() const { return m_active_port; }
 
@@ -169,8 +169,8 @@ namespace adam::modules::network
         bool send_all(socket_t sock, const char* data, size_t size);
         bool send_all_nonblocking(socket_t sock, const char* data, size_t size);
 
-        std::string m_active_ip;
-        std::string m_active_interface;
-        int         m_active_port = 0;
+        std::string         m_active_ip;
+        adam::string_hashed m_active_interface;
+        int                 m_active_port = 0;
     };
 }

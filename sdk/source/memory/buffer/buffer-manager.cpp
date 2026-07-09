@@ -43,7 +43,7 @@ namespace adam
         // When a thread dies, dump all its hoarded buffers back into the global pool
         for (uint8_t i = 0; i < buffer_manager::num_capacity_classes; ++i)
         {
-            while (!free_lists[i].empty())
+            while (!free_lists[i].empty()) 
             {
                 manager.return_batch(i, free_lists[i]);
             }
@@ -118,61 +118,40 @@ namespace adam
 
     void buffer_manager::return_buffer(buffer* buf)
     {
-        uint32_t current = buf->m_header->ref_count.load(std::memory_order_relaxed);
-        while (true)
+        if (buf->m_is_resolved)
         {
-            if (buf->m_is_resolved)
+            // For resolved (surrogate) buffers, a simple decrement is sufficient.
+            // If this was the last reference, the surrogate object is returned to its own pool.
+            if (buf->m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
             {
-                if (current == 0)
-                {
-                    destroy_resolved_buffer(buf);
-                    return;
-                }
-                
-                uint32_t next = current - 1;
-                if (buf->m_header->ref_count.compare_exchange_weak(current, next, std::memory_order_acq_rel, std::memory_order_acquire))
-                {
-                    if (next == 0)
-                    {
-                        destroy_resolved_buffer(buf);
-                    }
-                    return;
-                }
+                destroy_resolved_buffer(buf);
             }
-            else
+            return;
+        }
+
+        // For regular buffers, check the reference count.
+        uint32_t current = buf->m_header->ref_count.load(std::memory_order_relaxed);
+
+        // If count is 1, this is the last reference. We can try to recycle it.
+        // If it's 0, it means it was already freed (e.g. by a scavenger thread).
+        // If it's buffer_free_state, it's already in a thread-local cache. Do nothing.
+        if (current <= 1)
+        { 
+            // Attempt to transition from 1 (or 0) to the 'free' state.
+            // This single atomic operation ensures that only one thread can successfully recycle this buffer.
+            if (buf->m_header->ref_count.compare_exchange_strong(current, buffer_free_state, std::memory_order_acq_rel, std::memory_order_relaxed))
             {
-                if (current == buffer_free_state)
-                {
-                    return;
-                }
-                
-                uint32_t next;
-                bool recycle = false;
-                if (current == 0 || current == 1)
-                {
-                    next = buffer_free_state;
-                    recycle = true;
-                }
-                else
-                {
-                    next = current - 1;
-                }
-                
-                if (buf->m_header->ref_count.compare_exchange_weak(current, next, std::memory_order_acq_rel, std::memory_order_acquire))
-                {
-                    if (recycle)
-                    {
-                        uint8_t capacity_class = get_capacity_class(buf->get_capacity());
-                        auto& local_list = t_cache.free_lists[capacity_class];
+                uint8_t capacity_class = get_capacity_class(buf->get_capacity());
+                auto& local_list = t_cache.free_lists[capacity_class];
+                local_list.push_back(buf);
 
-                        local_list.push_back(buf);
-
-                        if (local_list.size() >= max_thread_cache_size)
-                            return_batch(capacity_class, local_list); // Hits the spinlock
-                    }
-                    return;
-                }
+                if (local_list.size() >= max_thread_cache_size) 
+                    return_batch(capacity_class, local_list); // Hits the spinlock
             }
+        }
+        else // Otherwise, just decrement the reference count.
+        {
+            buf->m_header->ref_count.fetch_sub(1, std::memory_order_release);
         }
     }
 
@@ -196,7 +175,7 @@ namespace adam
         if (!target_mem)
         {
             std::unique_lock<std::shared_mutex> unique_lock(m_memory_mutex);
-            // Double check inside the lock
+            // Double-check inside the lock
             auto it = m_memory_blocks.find(map_key);
             if (it != m_memory_blocks.end())
             {
@@ -207,7 +186,7 @@ namespace adam
                 adam::string_hashed mem_name(memory_name_prefix + std::to_string(handle.thread_id) + "_" + std::to_string(handle.memory_index));
                 auto new_mem = std::make_unique<memory>(mem_name);
                 
-                if (!new_mem->open())
+                if (!new_mem->open()) 
                     return nullptr;
                     
                 target_mem = new_mem.get();
@@ -222,12 +201,12 @@ namespace adam
             if (m_resolved_free_list.empty())
             {
                 ADAM_CONSTEXPR size_t chunk_size = 1024;
-                
+
                 // Allocate raw memory to avoid the constructor call overhead
                 auto raw_block = std::unique_ptr<uint8_t[]>(new uint8_t[chunk_size * sizeof(buffer)]);
                 buffer* new_block = reinterpret_cast<buffer*>(raw_block.get());
                 
-                for (size_t i = 0; i < chunk_size; ++i)
+                for (size_t i = 0; i < chunk_size; ++i) 
                     m_resolved_free_list.push_back(&new_block[i]);
                     
                 m_resolved_blocks.push_back(std::move(raw_block));
@@ -280,7 +259,7 @@ namespace adam
         uint64_t chunks             = memory_size / actual_chunk_size;
         
         auto new_mem = std::make_unique<memory>(mem_name);
-        if (!new_mem->create(memory_size))
+        if (!new_mem->create(memory_size)) 
             return false;
         
         // Allocate raw memory to avoid the 1-million-iteration constructor call overhead entirely
@@ -344,14 +323,14 @@ namespace adam
             for (uint64_t i = 0; i < chunks; ++i)
             {
                 buffer* buf = &block[i];
-                
+
                 // If ref_count is exactly 0, it means all remote and local processes have released it!
                 // Fast relaxed load to avoid dirtying the cache line if the buffer is still in use
                 if (buf->m_header->ref_count.load(std::memory_order_relaxed) != 0)
                     continue;
 
                 uint32_t expected = 0;
-                if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire))
+                if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire)) 
                     recovered.push_back(buf);
             }
         }
@@ -391,7 +370,7 @@ namespace adam
             // for buffers that remote processes have released!
             if (!scavenge_pool_blocks(capacity_class))
             {
-                if (!allocate_pool_block(capacity_class))
+                if (!allocate_pool_block(capacity_class)) 
                     return; 
             }
         }

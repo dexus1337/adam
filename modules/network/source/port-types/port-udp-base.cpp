@@ -7,9 +7,6 @@
 
 namespace adam::modules::network
 {
-    // =========================================================================
-    // stop()
-    // =========================================================================
 
     bool port_udp_base::stop()
     {
@@ -26,10 +23,6 @@ namespace adam::modules::network
 
         return port::stop();
     }
-
-    // =========================================================================
-    // read()
-    // =========================================================================
 
     bool port_udp_base::read(buffer*& buff)
     {
@@ -99,10 +92,6 @@ namespace adam::modules::network
         return false;
     }
 
-    // =========================================================================
-    // init_base_params()
-    // =========================================================================
-
     void port_udp_base::init_base_params(bool has_ip_version)
     {
         auto up = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
@@ -111,10 +100,6 @@ namespace adam::modules::network
         if (has_ip_version)
             m_ip_version  = up->get<adam::configuration_parameter_string>("ip_version"_ct);
     }
-
-    // =========================================================================
-    // add_ip_version_param()
-    // =========================================================================
 
     void port_udp_base::add_ip_version_param(adam::configuration_parameter_list_sorted* up)
     {

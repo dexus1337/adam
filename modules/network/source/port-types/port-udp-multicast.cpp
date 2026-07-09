@@ -9,9 +9,6 @@
 
 namespace adam::modules::network
 {
-    // =========================================================================
-    // Static user-parameter definition
-    // =========================================================================
 
     const configuration_parameter_list& port_udp_multicast::get_user_parameters()
     {
@@ -65,10 +62,6 @@ namespace adam::modules::network
         return params;
     }
 
-    // =========================================================================
-    // Constructor / Destructor
-    // =========================================================================
-
     port_udp_multicast::port_udp_multicast(const string_hashed& item_name)
         : port_udp_base(item_name)
     {
@@ -91,10 +84,6 @@ namespace adam::modules::network
     {
         stop();
     }
-
-    // =========================================================================
-    // start() - create socket, join multicast group, bind
-    // =========================================================================
 
     bool port_udp_multicast::start()
     {
@@ -267,10 +256,6 @@ namespace adam::modules::network
 
         return port::start();
     }
-
-    // =========================================================================
-    // write() - send a datagram to the multicast group
-    // =========================================================================
 
     bool port_udp_multicast::write(buffer* buff)
     {

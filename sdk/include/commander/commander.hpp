@@ -260,5 +260,7 @@ namespace adam
         
         std::vector<command>  m_command_buffer;  /**< Reusable buffer for building commands */
         std::vector<response> m_response_buffer; /**< Reusable buffer for receiving responses */
+        
+        std::atomic<bool>     m_is_destroying{false}; /**< Flag to prevent concurrent destruction */
     };
 }

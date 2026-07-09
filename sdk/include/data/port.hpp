@@ -23,8 +23,11 @@
 #include <thread>
 #include <atomic>
 #include <unordered_map>
-#include <mutex>
-#include <shared_mutex>
+#include <utility>
+#include <mutex> // For std::lock_guard, std::unique_lock
+#include <shared_mutex> // For std::shared_mutex
+#include <vector> // For std::vector
+#include <algorithm> // For std::find_if
 
 namespace adam 
 {
@@ -187,7 +190,11 @@ namespace adam
         vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors;       /**< Zero or many data inspectors. All incoming data will be forwarded to them */
 
         map_double_buffer<string_hash, const data_format*>      m_formats;          /**< Database of unique data formats active on this port. */
+        #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
+        std::vector<std::pair<string_hash, buffer*>>            m_parse_cache;      /**< Cache of parsed data formats active on this port. */
+        #else
         std::unordered_map<string_hash, buffer*>                m_parse_cache;      /**< Cache of parsed data formats active on this port. */
+        #endif
 
         buffer*                                                 m_state_buffer;     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
 

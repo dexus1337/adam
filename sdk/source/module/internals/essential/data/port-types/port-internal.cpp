@@ -21,8 +21,7 @@ namespace adam
     {
         bool result = true;
 
-        if (get_state_buffer_data()->cur_state != state_running)
-            return false;
+        if (!is_running()) return false;
 
         switch (dir)
         {

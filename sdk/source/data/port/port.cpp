@@ -14,13 +14,13 @@ namespace adam
 {
     const configuration_parameter_list& port::get_default_parameters()
     {
-        static adam::configuration_parameter_list_sorted user_params = []() 
+        static adam::configuration_parameter_list_sorted user_params = []()
         {
             adam::configuration_parameter_list_sorted p;
             return p;
         }();
 
-        static adam::configuration_parameter_list params = []() 
+        static adam::configuration_parameter_list params = []()
         {
             adam::configuration_parameter_list p;
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>(user_params);
@@ -39,10 +39,12 @@ namespace adam
     {
         stop();
         
-        m_inspectors.iterate([&](const auto& active_inspectors) 
+        m_inspectors.iterate([&](const auto& active_inspectors)
         {
-            for (const auto& data_inspector : active_inspectors) 
+            for (const auto& data_inspector : active_inspectors)
+            {
                 data_inspector->destroy();
+            }
         });
 
         m_state_buffer->release();
@@ -96,46 +98,62 @@ namespace adam
             case data_direction_in:
             {
                 // Populate map for active formats, if anything changed
-                bool formats_updated = m_formats.is_dirty() || m_parse_cache.empty() != active_formats.empty();
                 auto& active_formats = m_formats.get_active();
-                if (formats_updated)
+                bool formats_updated = m_formats.is_dirty() || m_parse_cache.empty() != active_formats.empty();
+                if (formats_updated) 
                 {
                     m_parse_cache.clear();
+                    m_parse_cache.reserve(active_formats.size());
                     for (auto& [hash, format] : active_formats)
                     {
-                        m_parse_cache[hash] = nullptr;
+                        #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
+                        m_parse_cache.emplace_back(hash, nullptr);
+                        #else
+                        m_parse_cache.emplace(hash, nullptr);
+                        #endif
                     }
                 }
 
                 // Parse data for each datatype
                 for (auto& [hash, format] : active_formats)
                 {
-                    if (format->get_parser())
-                        format->get_parser()->parse(buf, m_parse_cache[hash]);
+                    if (auto* parser = format->get_parser()) 
+                    {
+                        #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
+                        auto it = std::find_if(m_parse_cache.begin(), m_parse_cache.end(), [hash](const auto& entry) { return entry.first == hash; });
+                        #else
+                        auto it = m_parse_cache.find(hash);
+                        #endif
+                        if (it != m_parse_cache.end()) parser->parse(buf, it->second);
+                    }
                 }
 
                 // Send data to connections
-                m_in_connections.iterate([&](const auto& connections) 
+                m_in_connections.iterate([&](const auto& connections)
                 {
-                    for (const auto& conn : connections) 
+                    for (const auto& conn : connections)
                     {
                         if (!conn->is_valid_chain()) continue;
 
                         adam::buffer* internal_data = nullptr;
-                        
-                        auto it = m_parse_cache.find(conn->get_input_format()->get_name().get_hash());
-                        if (it != m_parse_cache.end())
-                            internal_data = it->second;
+                        const string_hash format_hash = conn->get_input_format()->get_name().get_hash();
+                        #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
+                        auto it = std::find_if(m_parse_cache.cbegin(), m_parse_cache.cend(), [format_hash](const auto& entry) { return entry.first == format_hash; });
+                        if (it != m_parse_cache.cend()) internal_data = it->second;
+                        #else
+                        auto it = m_parse_cache.find(format_hash);
+                        if (it != m_parse_cache.end()) internal_data = it->second;
+                        #endif
 
                         result &= conn->handle_data(internal_data ? internal_data : buf);
                     }
                 });
 
                 // Release internal format data
-                for (auto& [hash, format] : active_formats)
+                for (auto& [h, b] : m_parse_cache)
                 {
-                    if (format->get_parser() && m_parse_cache[hash])
-                        m_parse_cache[hash]->release();
+                    if (b) 
+                    { b->release(); }
                 }
 
                 break;
@@ -143,7 +161,7 @@ namespace adam
             case data_direction_out:
             {
                 if (m_use_spinlock_for_write)
-                {
+                { 
                     spinlock::guard lock(m_spinlock);
                     result &= write(buf);
                 }
@@ -170,10 +188,16 @@ namespace adam
             {
                 m_thread.join();
             }
+
             m_thread = std::thread(&port::worker, this);
+            
+            set_state(state_started);
+        }
+        else
+        {
+            set_state(state_running);
         }
 
-        set_state(state_started);
         return true;
     }
 
@@ -194,12 +218,14 @@ namespace adam
         }
 
         set_state(state_stopped);
+
         return true;
     }
 
     void port::mark_start_failed()
     {
         set_state(state_error);
+
         m_started->set_value(false);
     }
 
@@ -254,12 +280,14 @@ namespace adam
     {
         std::unordered_map<string_hash, const data_format*> new_formats;
 
-        m_in_connections.iterate([&](const auto& conns)
+        m_in_connections.iterate([&](const auto& conns) 
         {
             for (auto* conn : conns)
             {
-                if (!conn->is_valid_chain()) 
+                if (!conn->is_valid_chain())
+                {
                     continue;
+                }
 
                 const data_format* fmt = conn->get_input_format();
                 if (fmt)

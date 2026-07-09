@@ -30,9 +30,6 @@
 
 namespace adam::modules::network
 {
-    // =========================================================================
-    // Bilingual Log-String Tables
-    // =========================================================================
 
     std::string_view port_network::get_error_log_text(socket_error_t err, adam::language lang)
     {
@@ -169,10 +166,6 @@ namespace adam::modules::network
         return lang == adam::language_german ? "Unbekanntes Netzwerkereignis." : "Unknown network event.";
     }
 
-    // =========================================================================
-    // Constructor / Destructor
-    // =========================================================================
-
     port_network::port_network(const string_hashed& item_name, uint32_t state_buffer_size)
         : port_in_out(item_name, state_buffer_size)
         , m_active_ip()
@@ -181,7 +174,7 @@ namespace adam::modules::network
         get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
     }
 
-    std::string port_network::get_active_interface() const
+    adam::string_hashed port_network::get_active_interface() const
     {
         if (!m_active_interface.empty())
         {
@@ -266,10 +259,6 @@ namespace adam::modules::network
         }
     }
 
-    // =========================================================================
-    // Logging Wrappers
-    // =========================================================================
-
     void port_network::log_network_message(log::level lvl, log_event ev, std::string_view prefix, const std::string& extra)
     {
         if (auto* ctrl = get_controller())
@@ -348,10 +337,6 @@ namespace adam::modules::network
             log_network_message(lvl, ev, prefix, std::format("{}", get_error_log_text(err, lang)));
         }
     }
-
-    // =========================================================================
-    // OS Error translation static helpers
-    // =========================================================================
 
     int port_network::get_last_error()
     {
@@ -448,10 +433,6 @@ namespace adam::modules::network
         #endif
     }
 
-    // =========================================================================
-    // Address Resolution
-    // =========================================================================
-
     bool port_network::resolve_address(const adam::string_hashed& host, int port,
                                         const adam::string_hashed& ip_version,
                                         sockaddr_storage& out_addr, int& out_addr_len, int sock_type)
@@ -496,10 +477,6 @@ namespace adam::modules::network
         ::setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY,
                      reinterpret_cast<const char*>(&ipv6_only), sizeof(ipv6_only));
     }
-
-    // =========================================================================
-    // Interface Enumeration & Routing
-    // =========================================================================
 
     std::vector<adapter_info>& port_network::get_adapter_cache()
     {
@@ -562,15 +539,15 @@ namespace adam::modules::network
                     adapter_info info;
                     if (p_curr_addresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
                     {
-                        info.friendly_name = "localhost";
+                        info.friendly_name = adam::string_hashed("localhost");
                     }
                     else if (p_curr_addresses->FriendlyName)
                     {
-                        info.friendly_name = pwchar_to_utf8(p_curr_addresses->FriendlyName);
+                        info.friendly_name = adam::string_hashed(pwchar_to_utf8(p_curr_addresses->FriendlyName));
                     }
                     if (p_curr_addresses->AdapterName)
                     {
-                        info.adapter_name = p_curr_addresses->AdapterName;
+                        info.adapter_name = adam::string_hashed(p_curr_addresses->AdapterName);
                     }
                     info.index = p_curr_addresses->Ipv6IfIndex ? p_curr_addresses->Ipv6IfIndex : p_curr_addresses->IfIndex;
 
@@ -645,8 +622,8 @@ namespace adam::modules::network
                 }
 
                 auto& info = map[name];
-                info.friendly_name = (name == "lo") ? "localhost" : name;
-                info.adapter_name = name;
+                info.friendly_name = (name == "lo") ? adam::string_hashed("localhost") : adam::string_hashed(name);
+                info.adapter_name = adam::string_hashed(name);
                 info.index = ::if_nametoindex(ifa->ifa_name);
 
                 char addr_str[INET6_ADDRSTRLEN]{};
@@ -916,8 +893,7 @@ namespace adam::modules::network
             presets.emplace(hashed_name, std::make_unique<configuration_parameter_string>(hashed_name, hashed_name));
         }
 
-        return std::make_unique<adam::configuration_parameter_string>(
-            "interface"_ct, "auto"_ct, std::move(presets));
+        return std::make_unique<adam::configuration_parameter_string>("interface"_ct, "auto"_ct, std::move(presets));
     }
 
     std::unique_ptr<adam::configuration_parameter_string> port_network::create_ip_regex_parameter()
@@ -925,10 +901,6 @@ namespace adam::modules::network
         return std::make_unique<adam::configuration_parameter_string>(
             "regex"_ct, "^$|^auto$|^[a-zA-Z0-9.:-]+$"_ct);
     }
-
-    // =========================================================================
-    // Consolidated Address Bind
-    // =========================================================================
 
     bool port_network::resolve_bind_address(const adam::string_hashed& interface_val,
                                             const adam::string_hashed& remote_ip,
@@ -946,10 +918,6 @@ namespace adam::modules::network
         }
         return resolve_address(adam::string_hashed(resolved_ip.c_str()), local_port, ip_version, out_addr, out_addr_len, sock_type);
     }
-
-    // =========================================================================
-    // Robust Send Helpers
-    // =========================================================================
 
     bool port_network::send_all(socket_t sock, const char* data, size_t size)
     {

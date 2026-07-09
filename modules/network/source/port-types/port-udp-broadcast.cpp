@@ -8,9 +8,6 @@
 
 namespace adam::modules::network
 {
-    // =========================================================================
-    // Static user-parameter definition
-    // =========================================================================
 
     const configuration_parameter_list& port_udp_broadcast::get_user_parameters()
     {
@@ -51,10 +48,6 @@ namespace adam::modules::network
         return params;
     }
 
-    // =========================================================================
-    // Constructor / Destructor
-    // =========================================================================
-
     port_udp_broadcast::port_udp_broadcast(const string_hashed& item_name)
         : port_udp_base(item_name)
     {
@@ -75,10 +68,6 @@ namespace adam::modules::network
     {
         stop();
     }
-
-    // =========================================================================
-    // start() - create socket, enable SO_BROADCAST, bind
-    // =========================================================================
 
     bool port_udp_broadcast::start()
     {
@@ -198,10 +187,6 @@ namespace adam::modules::network
 
         return port::start();
     }
-
-    // =========================================================================
-    // write() - send a broadcast datagram
-    // =========================================================================
 
     bool port_udp_broadcast::write(buffer* buff)
     {

@@ -9,9 +9,6 @@
 
 namespace adam::modules::network
 {
-    // =========================================================================
-    // Static user-parameter definition
-    // =========================================================================
 
     const configuration_parameter_list& port_tcp_client::get_user_parameters()
     {
@@ -72,10 +69,6 @@ namespace adam::modules::network
         return params;
     }
 
-    // =========================================================================
-    // Constructor / Destructor
-    // =========================================================================
-
     port_tcp_client::port_tcp_client(const string_hashed& item_name)
         : port_network(item_name)
         , m_socket(static_cast<uintptr_t>(invalid_socket_val))
@@ -93,6 +86,8 @@ namespace adam::modules::network
         m_reconnect_interval_ms = up->get<adam::configuration_parameter_integer>("reconnect_interval_ms"_ct);
         m_tcp_nodelay           = up->get<adam::configuration_parameter_boolean>("tcp_nodelay"_ct);
         m_ip_version            = up->get<adam::configuration_parameter_string>("ip_version"_ct);
+
+        m_use_spinlock_for_write = true;
     }
 
     port_tcp_client::~port_tcp_client()
@@ -100,45 +95,52 @@ namespace adam::modules::network
         stop();
     }
 
-    // =========================================================================
-    // start()
-    // =========================================================================
-
     bool port_tcp_client::start()
     {
         set_state(state_starting);
         return port::start();
     }
 
-    // =========================================================================
-    // stop()
-    // =========================================================================
-
     bool port_tcp_client::stop()
     {
         set_state(state_stopping);
+        m_active_ip.clear();
 
         socket_t sock = static_cast<socket_t>(invalid_socket_val);
         {
-            adam::spinlock::guard lock(m_write_mutex);
+            spinlock::guard lock(m_spinlock);
             sock     = static_cast<socket_t>(m_socket);
             m_socket = static_cast<uintptr_t>(invalid_socket_val);
         }
 
-        if (sock != invalid_socket_val)
-        {
-            close_socket(sock);
-            log_network_message(log::info, log_event::tcp_client_stopped, "TCP-Client");
-        }
+        if (sock == invalid_socket_val) return port::stop();
 
-        m_active_ip.clear();
+        close_socket(sock);
+        log_network_message(log::info, log_event::tcp_client_stopped, "TCP-Client");
 
         return port::stop();
     }
 
-    // =========================================================================
-    // connect() - called by read() when the socket is invalid
-    // =========================================================================
+    void port_tcp_client::reset_socket_with_log(adam::log::level lvl, bool should_log)
+    {
+        socket_t sock = static_cast<socket_t>(invalid_socket_val);
+        {
+            spinlock::guard lock(m_spinlock);
+            sock     = static_cast<socket_t>(m_socket);
+            m_socket = static_cast<uintptr_t>(invalid_socket_val);
+        }
+
+        m_active_ip.clear();
+
+        if (sock == invalid_socket_val) return;
+
+        close_socket(sock);
+
+        if (should_log && is_running())
+        {
+            log_network_message(lvl, log_event::tcp_client_disconnected, "TCP-Client");
+        }
+    }
 
     bool port_tcp_client::connect()
     {
@@ -225,7 +227,7 @@ namespace adam::modules::network
         if (conn_res != socket_error_val)
         {
             {
-                adam::spinlock::guard lock(m_write_mutex);
+                spinlock::guard lock(m_spinlock);
                 m_socket = static_cast<uintptr_t>(sock);
             }
             log_network_message
@@ -323,7 +325,7 @@ namespace adam::modules::network
         }
 
         {
-            adam::spinlock::guard lock(m_write_mutex);
+            spinlock::guard lock(m_spinlock);
             m_socket = static_cast<uintptr_t>(sock);
         }
 
@@ -338,10 +340,6 @@ namespace adam::modules::network
         return true;
     }
 
-    // =========================================================================
-    // read()
-    // =========================================================================
-
     bool port_tcp_client::read(buffer*& buff)
     {
         while (is_running())
@@ -353,14 +351,12 @@ namespace adam::modules::network
                 set_state(state_starting);
 
                 auto start_time = std::chrono::steady_clock::now();
-                bool connected  = connect();
-                auto end_time   = std::chrono::steady_clock::now();
-
-                if (connected)
+                if (connect())
                 {
                     set_state(state_running);
                     continue;
                 }
+                auto end_time   = std::chrono::steady_clock::now();
 
                 int64_t interval = m_reconnect_interval_ms->get_value();
                 auto    elapsed  = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
@@ -390,71 +386,41 @@ namespace adam::modules::network
                 int err = get_last_error();
                 if (is_blocking_error(err)) continue;
 
-                socket_t s_to_close = invalid_socket_val;
-                {
-                    adam::spinlock::guard lock(m_write_mutex);
-                    s_to_close = static_cast<socket_t>(m_socket);
-                    m_socket   = static_cast<uintptr_t>(invalid_socket_val);
-                }
-                if (s_to_close != invalid_socket_val) close_socket(s_to_close);
-                m_active_ip.clear();
+                reset_socket_with_log();
                 return false;
             }
 
-            if (rv > 0)
+            if (rv == 0) continue;
+
+            uint8_t temp_buf[4096];
+            #if defined(ADAM_PLATFORM_WINDOWS)
+            int chunk = ::recv(sock, reinterpret_cast<char*>(temp_buf), sizeof(temp_buf), 0);
+            #else
+            int chunk = ::recv(sock, temp_buf, sizeof(temp_buf), 0);
+            #endif
+
+            if (chunk < 0)
             {
-                uint8_t temp_buf[4096];
-                #if defined(ADAM_PLATFORM_WINDOWS)
-                int chunk = ::recv(sock, reinterpret_cast<char*>(temp_buf), sizeof(temp_buf), 0);
-                #else
-                int chunk = ::recv(sock, temp_buf, sizeof(temp_buf), 0);
-                #endif
+                int err = get_last_error();
+                if (is_blocking_error(err)) continue;
 
-                if (chunk < 0)
-                {
-                    int err = get_last_error();
-                    if (is_blocking_error(err)) continue;
-
-                    socket_t s_to_close = invalid_socket_val;
-                    {
-                        adam::spinlock::guard lock(m_write_mutex);
-                        s_to_close = static_cast<socket_t>(m_socket);
-                        m_socket   = static_cast<uintptr_t>(invalid_socket_val);
-                    }
-                    if (s_to_close != invalid_socket_val) close_socket(s_to_close);
-                    m_active_ip.clear();
-                    if (is_running())
-                    {
-                        log_network_message(log::warning, log_event::tcp_client_disconnected, "TCP-Client");
-                    }
-                    return false;
-                }
-
-                if (chunk == 0)
-                {
-                    socket_t s_to_close = invalid_socket_val;
-                    {
-                        adam::spinlock::guard lock(m_write_mutex);
-                        s_to_close = static_cast<socket_t>(m_socket);
-                        m_socket   = static_cast<uintptr_t>(invalid_socket_val);
-                    }
-                    if (s_to_close != invalid_socket_val) close_socket(s_to_close);
-                    m_active_ip.clear();
-                    if (is_running())
-                    {
-                        log_network_message(log::info, log_event::tcp_client_disconnected, "TCP-Client");
-                    }
-                    return false;
-                }
-
-                buff = buffer_manager::get().request_buffer(chunk);
-                if (!buff) return false;
-
-                std::memcpy(buff->data_as<uint8_t>(), temp_buf, chunk);
-                buff->set_size(chunk);
-                buff->set_timestamp();
-                return true;
+                reset_socket_with_log(log::warning, true);
+                return false;
             }
+
+            if (chunk == 0)
+            {
+                reset_socket_with_log(log::info, true);
+                return false;
+            }
+
+            buff = buffer_manager::get().request_buffer(chunk);
+            if (!buff) return false;
+
+            std::memcpy(buff->data_as<uint8_t>(), temp_buf, chunk);
+            buff->set_size(chunk);
+            buff->set_timestamp();
+            return true;
         }
 
         return false;
@@ -462,7 +428,9 @@ namespace adam::modules::network
 
     bool port_tcp_client::write(buffer* buff)
     {
-        if (!buff || buff->get_size() == 0 || get_state() != state_running) return false;
+        if (!buff) return false;
+        if (buff->get_size() == 0) return false;
+        if (get_state() != state_running) return false;
 
         if (!send_all(static_cast<socket_t>(m_socket), buff->get_data_as<char>(), buff->get_size()))
         {

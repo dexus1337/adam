@@ -3,6 +3,8 @@
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "configuration/parameters/configuration-parameter-boolean.hpp"
+#include "data/parser.hpp"
+#include "data/connection.hpp"
 
 #include <thread>
 #include <chrono>
@@ -130,4 +132,130 @@ TEST_F(port_test, inactive_drops_data)
     EXPECT_EQ(stats->total_bytes_handled, 0u);
     
     buf->release();
+}
+
+class bench_parser : public adam::parser
+{
+public:
+    bool parse(adam::buffer* buf, adam::buffer*& internal_data) override
+    {
+        internal_data = buf;
+        if (internal_data)
+            internal_data->add_ref();
+        return true;
+    }
+};
+
+TEST_F(port_test, benchmark_handle_data)
+{
+    test_port p("bench_port"_ct);
+    p.set_threaded(false);
+    p.start();
+
+    test_port out_port1("out_port1"_ct);
+    test_port out_port2("out_port2"_ct);
+
+    bench_parser parser1;
+    bench_parser parser2;
+    adam::data_format format1("format1", &parser1);
+    adam::data_format format2("format2", &parser2);
+
+    adam::connection conn1("conn1"_ct);
+    conn1.ports_input().push_back(&p);
+    conn1.ports_output().push_back(&out_port1);
+    conn1.set_input_format(&format1);
+    conn1.set_output_format(&format1);
+    p.add_as_connection_input(&conn1);
+
+    adam::connection conn2("conn2"_ct);
+    conn2.ports_input().push_back(&p);
+    conn2.ports_output().push_back(&out_port2);
+    conn2.set_input_format(&format2);
+    conn2.set_output_format(&format2);
+    p.add_as_connection_input(&conn2);
+
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(64);
+    buf->set_size(10);
+
+    const int iterations = 1000000;
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < iterations; ++i)
+    {
+        p.handle_data(buf, adam::data_direction_in);
+    }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "Benchmark (handle_data): " << iterations << " iterations took "
+              << duration << " microseconds (" << (static_cast<double>(duration) / iterations) * 1000.0
+              << " ns per iteration)" << std::endl;
+    std::cout << "----------------------------------------" << std::endl;
+
+    buf->release();
+    p.stop();
+}
+
+TEST_F(port_test, benchmark_handle_data_three_formats)
+{
+    test_port p("bench_port_3"_ct);
+    p.set_threaded(false);
+    p.start();
+
+    test_port out_port1("out_port1"_ct);
+    test_port out_port2("out_port2"_ct);
+    test_port out_port3("out_port3"_ct);
+
+    bench_parser parser1;
+    bench_parser parser2;
+    bench_parser parser3;
+    adam::data_format format1("format1", &parser1);
+    adam::data_format format2("format2", &parser2);
+    adam::data_format format3("format3", &parser3);
+
+    adam::connection conn1("conn1"_ct);
+    conn1.ports_input().push_back(&p);
+    conn1.ports_output().push_back(&out_port1);
+    conn1.set_input_format(&format1);
+    conn1.set_output_format(&format1);
+    p.add_as_connection_input(&conn1);
+
+    adam::connection conn2("conn2"_ct);
+    conn2.ports_input().push_back(&p);
+    conn2.ports_output().push_back(&out_port2);
+    conn2.set_input_format(&format2);
+    conn2.set_output_format(&format2);
+    p.add_as_connection_input(&conn2);
+
+    adam::connection conn3("conn3"_ct);
+    conn3.ports_input().push_back(&p);
+    conn3.ports_output().push_back(&out_port3);
+    conn3.set_input_format(&format3);
+    conn3.set_output_format(&format3);
+    p.add_as_connection_input(&conn3);
+
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(64);
+    buf->set_size(10);
+
+    const int iterations = 1000000;
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < iterations; ++i)
+    {
+        p.handle_data(buf, adam::data_direction_in);
+    }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "Benchmark (handle_data - 3 formats): " << iterations << " iterations took "
+              << duration << " microseconds (" << (static_cast<double>(duration) / iterations) * 1000.0
+              << " ns per iteration)" << std::endl;
+    std::cout << "----------------------------------------" << std::endl;
+
+    buf->release();
+    p.stop();
 }

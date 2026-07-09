@@ -12,9 +12,6 @@
 
 namespace adam::modules::network
 {
-    // =========================================================================
-    // Static user-parameter definition
-    // =========================================================================
 
     const configuration_parameter_list& port_tcp_server::get_user_parameters()
     {
@@ -56,15 +53,10 @@ namespace adam::modules::network
         return params;
     }
 
-    // =========================================================================
-    // Constructor / Destructor
-    // =========================================================================
-
     port_tcp_server::port_tcp_server(const string_hashed& item_name)
         : port_network(item_name, (sizeof(state_buffer_data) + sizeof(tcp_server_stats) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t))
         , m_listener(static_cast<uintptr_t>(invalid_socket_val))
         , m_clients()
-        , m_clients_mutex()
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
@@ -82,10 +74,6 @@ namespace adam::modules::network
     {
         stop();
     }
-
-    // =========================================================================
-    // start() — create listener socket, bind, listen, start worker thread
-    // =========================================================================
 
     bool port_tcp_server::start()
     {
@@ -162,28 +150,22 @@ namespace adam::modules::network
         return port::start();
     }
 
-    // =========================================================================
-    // stop() — close listener and all client sockets
-    // =========================================================================
-
     bool port_tcp_server::stop()
     {
         set_state(state_stopping);
+        m_active_ip.clear();
+
         socket_t listener_sock = static_cast<socket_t>(m_listener);
-        if (listener_sock == invalid_socket_val)
-        {
-            return port::stop();
-        }
+        if (listener_sock == invalid_socket_val) return port::stop();
 
         m_listener = static_cast<uintptr_t>(invalid_socket_val);
         close_socket(listener_sock);
 
         std::vector<uintptr_t> clients_to_close;
-        {
-            adam::spinlock::guard lock(m_clients_mutex);
-            clients_to_close = m_clients;
-            m_clients.clear();
-        }
+        m_clients.iterate([&](const auto& active_clients) {
+            clients_to_close = active_clients;
+        });
+        m_clients.clear();
 
         for (auto c : clients_to_close)
         {
@@ -191,19 +173,12 @@ namespace adam::modules::network
             close_socket(cs);
         }
 
-        // Clear statistics
         std::memset(&get_state_buffer_data()->user_data<tcp_server_stats>(), 0, sizeof(tcp_server_stats));
 
         log_network_message(log::info, log_event::tcp_server_stopped, "TCP-Server");
 
-        m_active_ip.clear();
-
         return port::stop();
     }
-
-    // =========================================================================
-    // read() — accept new clients and receive data from existing ones
-    // =========================================================================
 
     bool port_tcp_server::read(buffer*& buff)
     {
@@ -217,19 +192,17 @@ namespace adam::modules::network
             FD_SET(listener_sock, &read_fds);
             int max_fd = static_cast<int>(listener_sock);
 
-            std::vector<uintptr_t> clients_copy;
-            {
-                adam::spinlock::guard lock(m_clients_mutex);
-                clients_copy = m_clients;
-            }
-
-            for (auto c : clients_copy)
-            {
-                socket_t cs = static_cast<socket_t>(c);
-                FD_SET(cs, &read_fds);
-                if (static_cast<int>(cs) > max_fd)
-                    max_fd = static_cast<int>(cs);
-            }
+            m_clients.iterate([&](const auto& active_clients) {
+                for (auto c : active_clients)
+                {
+                    socket_t cs = static_cast<socket_t>(c);
+                    FD_SET(cs, &read_fds);
+                    if (static_cast<int>(cs) > max_fd)
+                    {
+                        max_fd = static_cast<int>(cs);
+                    }
+                }
+            });
 
             timeval tv{ 0, 100000 };
             int rv = ::select(max_fd + 1, &read_fds, nullptr, nullptr, &tv);
@@ -241,10 +214,7 @@ namespace adam::modules::network
                 return false;
             }
 
-            if (rv == 0)
-            {
-                continue;
-            }
+            if (rv == 0) continue;
 
             // --- 1. Check for new incoming connections ---
             if (FD_ISSET(listener_sock, &read_fds))
@@ -287,104 +257,86 @@ namespace adam::modules::network
             }
 
             // --- 2. Check for readable data on existing client sockets ---
-            for (auto c : clients_copy)
+            bool read_success = false;
+            socket_t client_to_remove = invalid_socket_val;
+
+            m_clients.iterate([&](const auto& active_clients) {
+                for (auto c : active_clients)
+                {
+                    socket_t cs = static_cast<socket_t>(c);
+                    if (!FD_ISSET(cs, &read_fds)) continue;
+
+                    uint8_t temp_buf[4096];
+                    #if defined(ADAM_PLATFORM_WINDOWS)
+                    int chunk = ::recv(cs, reinterpret_cast<char*>(temp_buf), sizeof(temp_buf), 0);
+                    #else
+                    int chunk = ::recv(cs, temp_buf, sizeof(temp_buf), 0);
+                    #endif
+
+                    if (chunk > 0)
+                    {
+                        buff = buffer_manager::get().request_buffer(chunk);
+                        if (buff)
+                        {
+                            std::memcpy(buff->data_as<uint8_t>(), temp_buf, chunk);
+                            buff->set_size(chunk);
+                            buff->set_timestamp();
+                            read_success = true;
+                        }
+                    }
+                    else
+                    {
+                        client_to_remove = cs;
+                    }
+                    break;
+                }
+            });
+
+            if (read_success) return true;
+
+            if (client_to_remove != invalid_socket_val)
             {
-                socket_t cs = static_cast<socket_t>(c);
-                if (!FD_ISSET(cs, &read_fds)) continue;
-
-                uint8_t temp_buf[4096];
-                #if defined(ADAM_PLATFORM_WINDOWS)
-                int chunk = ::recv(cs, reinterpret_cast<char*>(temp_buf), sizeof(temp_buf), 0);
-                #else
-                int chunk = ::recv(cs, temp_buf, sizeof(temp_buf), 0);
-                #endif
-
-                if (chunk > 0)
-                {
-                    buff = buffer_manager::get().request_buffer(chunk);
-                    if (buff)
-                    {
-                        std::memcpy(buff->data_as<uint8_t>(), temp_buf, chunk);
-                        buff->set_size(chunk);
-                        buff->set_timestamp();
-                        return true;
-                    }
-                }
-                else
-                {
-                    {
-                        adam::spinlock::guard lock(m_clients_mutex);
-                        auto it = std::find(m_clients.begin(), m_clients.end(), c);
-                        if (it != m_clients.end())
-                            m_clients.erase(it);
-
-                        remove_client_from_stats(cs);
-                    }
-                    close_socket(cs);
-                }
+                m_clients.remove(static_cast<uintptr_t>(client_to_remove));
+                remove_client_from_stats(client_to_remove);
+                close_socket(client_to_remove);
             }
         }
 
         return false;
     }
 
-    // =========================================================================
-    // write() — broadcast to all connected clients
-    // =========================================================================
-
     bool port_tcp_server::write(buffer* buff)
     {
-        if (!buff || buff->get_size() == 0) return false;
-
-        std::vector<uintptr_t> clients_copy;
-        {
-            adam::spinlock::guard lock(m_clients_mutex);
-            clients_copy = m_clients;
-        }
-
-        if (clients_copy.empty()) return true;
+        if (!buff) return false;
+        if (buff->get_size() == 0) return false;
+        if (m_clients.empty()) return true;
 
         const char* data = buff->data_as<const char>();
         size_t      size = buff->get_size();
 
         std::vector<uintptr_t> failed_clients;
-        for (auto c : clients_copy)
-        {
-            socket_t cs = static_cast<socket_t>(c);
-            if (!send_all_nonblocking(cs, data, size))
-            {
-                failed_clients.push_back(c);
-            }
-        }
 
-        if (!failed_clients.empty())
-        {
+        m_clients.iterate([&](const auto& active_clients) {
+            for (auto c : active_clients)
             {
-                adam::spinlock::guard lock(m_clients_mutex);
-                for (auto fc : failed_clients)
+                socket_t cs = static_cast<socket_t>(c);
+                if (!send_all_nonblocking(cs, data, size))
                 {
-                    auto it = std::find(m_clients.begin(), m_clients.end(), fc);
-                    if (it != m_clients.end())
-                        m_clients.erase(it);
-
-                    socket_t fcs = static_cast<socket_t>(fc);
-                    remove_client_from_stats(fcs);
+                    failed_clients.push_back(c);
                 }
             }
+        });
 
-            for (auto fc : failed_clients)
-            {
-                socket_t fcs = static_cast<socket_t>(fc);
-                close_socket(fcs);
-            }
+        for (auto fc : failed_clients)
+        {
+            m_clients.remove(fc);
+            socket_t fcs = static_cast<socket_t>(fc);
+            remove_client_from_stats(fcs);
+            close_socket(fcs);
         }
 
         return true;
     }
-
-    // =========================================================================
-    // Client Tracking & Statistics Helpers (No Duplication)
-    // =========================================================================
 
     void port_tcp_server::add_client_to_stats(socket_t client_sock, const sockaddr_storage& client_addr)
     {
@@ -403,10 +355,10 @@ namespace adam::modules::network
             client_port = ntohs(sa->sin6_port);
         }
 
-        {
-            adam::spinlock::guard lock(m_clients_mutex);
-            m_clients.push_back(static_cast<uintptr_t>(client_sock));
+        m_clients.push_back(static_cast<uintptr_t>(client_sock));
 
+        {
+            adam::spinlock::guard lock(m_stats_lock);
             tcp_server_stats& stats = get_state_buffer_data()->user_data<tcp_server_stats>();
             for (auto& c_info : stats.clients)
             {
@@ -435,21 +387,23 @@ namespace adam::modules::network
         #else
         socklen_t peer_len = sizeof(peer_addr);
         #endif
-        if (::getpeername(client_sock, reinterpret_cast<sockaddr*>(&peer_addr), &peer_len) == 0)
-        {
-            if (peer_addr.ss_family == AF_INET)
-            {
-                auto* sa = reinterpret_cast<sockaddr_in*>(&peer_addr);
-                ::inet_ntop(AF_INET, &sa->sin_addr, client_ip_str, sizeof(client_ip_str));
-                client_port = ntohs(sa->sin_port);
-            }
-            else if (peer_addr.ss_family == AF_INET6)
-            {
-                auto* sa = reinterpret_cast<sockaddr_in6*>(&peer_addr);
-                ::inet_ntop(AF_INET6, &sa->sin6_addr, client_ip_str, sizeof(client_ip_str));
-                client_port = ntohs(sa->sin6_port);
-            }
+        if (::getpeername(client_sock, reinterpret_cast<sockaddr*>(&peer_addr), &peer_len) != 0) return;
 
+        if (peer_addr.ss_family == AF_INET)
+        {
+            auto* sa = reinterpret_cast<sockaddr_in*>(&peer_addr);
+            ::inet_ntop(AF_INET, &sa->sin_addr, client_ip_str, sizeof(client_ip_str));
+            client_port = ntohs(sa->sin_port);
+        }
+        else if (peer_addr.ss_family == AF_INET6)
+        {
+            auto* sa = reinterpret_cast<sockaddr_in6*>(&peer_addr);
+            ::inet_ntop(AF_INET6, &sa->sin6_addr, client_ip_str, sizeof(client_ip_str));
+            client_port = ntohs(sa->sin6_port);
+        }
+
+        {
+            adam::spinlock::guard lock(m_stats_lock);
             tcp_server_stats& stats = get_state_buffer_data()->user_data<tcp_server_stats>();
             for (auto& c_info : stats.clients)
             {

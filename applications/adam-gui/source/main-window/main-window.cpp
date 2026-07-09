@@ -264,7 +264,7 @@ namespace adam::gui
         else if (!m_modules_was_empty && modules_empty)
             m_modules_was_empty = true;
             
-        bool log_empty = m_ctrl.get_log_history().empty();
+        bool log_empty = m_ctrl.is_log_history_empty();
         if (m_log_was_empty && !log_empty)
         {
             m_log_table_id++;

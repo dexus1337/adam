@@ -13,10 +13,210 @@
 #include <algorithm>
 #include <vector>
 #include <map>
+#include <string>
 #include <array>
 
 namespace adam::gui
 {
+    // Generalized helper for drawing existing items table content
+    template<typename T>
+    static void draw_existing_items_table_content(
+        gui_controller& ctrl,
+        adam::language lang,
+        const char* title,
+        const std::map<std::string, std::vector<T>>& grouped_data,
+        float width,
+        float height,
+        const std::vector<adam::string_hash>* used_items_ptr,
+        bool is_port_type // true for ports, false for processors
+    )
+    {
+        ImGui::TextUnformatted(title);
+        ImGui::Separator();
+
+        if (ImGui::BeginTable(title, is_port_type ? 4 : 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(width, height)))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn(is_port_type ? get_gui_string(gui_string_id::lbl_port_type, lang) : get_gui_string(gui_string_id::lbl_processor_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
+            if (is_port_type) ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_direction, lang), ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, is_port_type ? 0.6f : 0.6f);
+            ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableHeadersRow();
+
+            for (const auto& [mod_name, items] : grouped_data)
+            {
+                ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
+
+                for (const auto& pdi : items)
+                {
+                    adam::string_hash item_hash = is_port_type ? pdi.port_hash : pdi.proc_hash;
+                    bool is_used = used_items_ptr && std::find(used_items_ptr->begin(), used_items_ptr->end(), item_hash) != used_items_ptr->end();
+
+                    ImGui::TableNextRow();
+                    
+                    if (is_used || pdi.is_unavailable)
+                    {
+                        ImGui::BeginDisabled();
+                    }
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Indent();
+                    ImGui::TextUnformatted(pdi.type_name.c_str());
+                    ImGui::Unindent();
+
+                    if (is_port_type)
+                    {
+                        ImGui::TableSetColumnIndex(1);
+                        draw_direction_badge(pdi.direction, is_used, lang);
+                    }
+
+                    ImGui::TableSetColumnIndex(is_port_type ? 2 : 1);
+                    ImGui::TextUnformatted(is_port_type ? pdi.port_name.c_str() : pdi.proc_name.c_str());
+
+                    ImGui::TableSetColumnIndex(is_port_type ? 3 : 2);
+                    ImGui::PushID((const void*)(intptr_t)item_hash);
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_add_path, lang)))
+                    {
+                        adam::string_hash conn_hash = g_target_connection.get_hash();
+                        if (is_port_type)
+                        {
+                            adam::port::direction dir = g_target_direction;
+                            ctrl.enqueue_commander_action([&ctrl, conn_hash, item_hash, dir]() { ctrl.commander().request_connection_port_add(conn_hash, item_hash, dir == adam::port::direction_in); });
+                        }
+                        else
+                        {
+                            ctrl.enqueue_commander_action([&ctrl, conn_hash, item_hash]() { ctrl.commander().request_connection_processor_add(conn_hash, item_hash); });
+                        }
+                    }
+                    if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    {
+                        ImGui::SetTooltip(get_gui_string(gui_string_id::tt_module_missing, lang), pdi.module_name.c_str());
+                    }
+                    ImGui::PopID();
+                    
+                    if (is_used || pdi.is_unavailable)
+                    {
+                        ImGui::EndDisabled();
+                    }
+                }
+            }
+        }
+        ImGui::EndTable();
+    }
+
+    // Generalized helper for drawing new items table content
+    template<typename T>
+    static void draw_new_items_table_content(
+        gui_controller& ctrl,
+        adam::language lang,
+        const char* title,
+        const std::map<std::string, std::vector<T>>& grouped_data,
+        float width,
+        float height,
+        std::map<adam::string_hash, std::array<char, adam::max_name_length>>& new_item_names,
+        bool is_port_type // true for ports, false for processors
+    )
+    {
+        ImGui::TextUnformatted(title);
+        ImGui::Separator();
+
+        if (ImGui::BeginTable(title, is_port_type ? 4 : 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(width, height)))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn(is_port_type ? get_gui_string(gui_string_id::lbl_port_type, lang) : get_gui_string(gui_string_id::lbl_processor_type, lang), ImGuiTableColumnFlags_WidthStretch, 0.4f);
+            if (is_port_type) ImGui::TableSetupColumn(get_gui_string(gui_string_id::lbl_port_direction, lang), ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_name, lang), ImGuiTableColumnFlags_WidthStretch, is_port_type ? 0.6f : 0.6f);
+            ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableHeadersRow();
+
+            for (const auto& [mod_name, items] : grouped_data)
+            {
+                ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
+
+                for (const auto& pdi : items)
+                {
+                    adam::string_hash type_hash = is_port_type ? pdi.port_hash : pdi.proc_hash;
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Indent();
+                    ImGui::TextUnformatted(pdi.type_name.c_str());
+                    ImGui::Unindent();
+
+                    if (is_port_type)
+                    {
+                        ImGui::TableSetColumnIndex(1);
+                        draw_direction_badge(pdi.direction, false, lang);
+                    }
+
+                    ImGui::TableSetColumnIndex(is_port_type ? 2 : 1);
+                    ImGui::PushID((const void*)(intptr_t)type_hash);
+                    auto& name_buffer = new_item_names[type_hash];
+                    ImGui::SetNextItemWidth(-1.0f);
+                    ImGui::InputText("##NewName", name_buffer.data(), name_buffer.size());
+
+                    ImGui::TableSetColumnIndex(is_port_type ? 3 : 2);
+                    bool has_name = name_buffer[0] != '\0';
+                    
+                    if (has_name)
+                    {
+                        adam::string_hash proposed_hash = adam::string_hashed(name_buffer.data()).get_hash();
+                        if (is_port_type)
+                        {
+                            if (ctrl.commander().registry().get_ports().find(proposed_hash) != ctrl.commander().registry().get_ports().end())
+                            {
+                                has_name = false;
+                            }
+                        }
+                        else
+                        {
+                            if (ctrl.commander().registry().get_processors().find(proposed_hash) != ctrl.commander().registry().get_processors().end())
+                            {
+                                has_name = false;
+                            }
+                        }
+                    }
+                    
+                    if (!has_name)
+                    {
+                        ImGui::BeginDisabled();
+                    }
+                    
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang)))
+                    {
+                        adam::string_hashed new_name(name_buffer.data());
+                        adam::string_hash mod_hash = pdi.module_hash;
+                        adam::string_hash conn_hash = g_target_connection.get_hash();
+                        adam::string_hash new_item_hash = adam::string_hashed(name_buffer.data()).get_hash();
+                        
+                        if (is_port_type)
+                        {
+                            adam::port::direction dir = g_target_direction;
+                            ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_item_hash, dir]() { ctrl.commander().request_port_create(new_name, type_hash, mod_hash); ctrl.commander().request_connection_port_add(conn_hash, new_item_hash, dir == adam::port::direction_in); });
+                        }
+                        else
+                        {
+                            ctrl.enqueue_commander_action([&ctrl, new_name, type_hash, mod_hash, conn_hash, new_item_hash]() { ctrl.commander().request_processor_create(new_name, type_hash, mod_hash); ctrl.commander().request_connection_processor_add(conn_hash, new_item_hash); });
+                        }
+
+                        name_buffer[0] = '\0';
+                    }
+                    
+                    if (!has_name)
+                    {
+                        ImGui::EndDisabled();
+                    }
+                    ImGui::PopID();
+                }
+            }
+        }
+        ImGui::EndTable();
+    }
+
     void draw_delete_connection_modal(gui_controller& ctrl, adam::language lang)
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
@@ -276,7 +476,7 @@ namespace adam::gui
         if (ImGui::BeginChild("ExistingPortsTableChild", ImVec2(half_w, child_h), true))
         {
             ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_existing_ports, lang));
-            ImGui::Separator();
+            ImGui::Separator(); // Separator after title
 
             if (ImGui::BeginTable("ExistingPortsTable", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
             {
@@ -288,7 +488,7 @@ namespace adam::gui
                 ImGui::TableHeadersRow();
 
                 for (const auto& [mod_name, ports] : existing_grouped)
-                {
+                { // Group by module name
                     ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
@@ -298,7 +498,7 @@ namespace adam::gui
                         bool is_used = used_ports_ptr && std::find(used_ports_ptr->begin(), used_ports_ptr->end(), pdi.port_hash) != used_ports_ptr->end();
 
                         ImGui::TableNextRow();
-                        
+                        // Disable if already used or unavailable
                         if (is_used || pdi.is_unavailable)
                         {
                             ImGui::BeginDisabled();
@@ -308,10 +508,10 @@ namespace adam::gui
                         ImGui::Indent();
                         ImGui::TextUnformatted(pdi.type_name.c_str());
                         ImGui::Unindent();
-
+                        // Port direction badge
                         ImGui::TableSetColumnIndex(1);
                         draw_direction_badge(pdi.direction, is_used, lang);
-
+                        // Port name
                         ImGui::TableSetColumnIndex(2);
                         ImGui::TextUnformatted(pdi.port_name.c_str());
 
@@ -322,7 +522,7 @@ namespace adam::gui
                             adam::string_hash conn_hash = g_target_connection.get_hash();
                             adam::string_hash port_hash = pdi.port_hash;
                             adam::port::direction dir = g_target_direction;
-                            
+                            // Enqueue action to add port to connection
                             ctrl.enqueue_commander_action([&ctrl, conn_hash, port_hash, dir]() { ctrl.commander().request_connection_port_add(conn_hash, port_hash, dir == adam::port::direction_in); });
                         }
                         if (pdi.is_unavailable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -348,7 +548,7 @@ namespace adam::gui
         if (ImGui::BeginChild("NewPortsTableChild", ImVec2(half_w, child_h), true))
         {
             ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_new_ports, lang));
-            ImGui::Separator();
+            ImGui::Separator(); // Separator after title
 
             if (ImGui::BeginTable("NewPortsTable", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
             {
@@ -360,7 +560,7 @@ namespace adam::gui
                 ImGui::TableHeadersRow();
 
                 for (const auto& [mod_name, ports] : new_grouped)
-                {
+                { // Group by module name
                     ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextColored(get_gui_color(gui_color_id::log_info), "[%s]", mod_name.c_str());
@@ -369,19 +569,19 @@ namespace adam::gui
                     {
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::Indent();
+                        ImGui::Indent(); // Indent for type name
                         ImGui::TextUnformatted(pdi.type_name.c_str());
                         ImGui::Unindent();
-
+                        // Port direction badge
                         ImGui::TableSetColumnIndex(1);
                         draw_direction_badge(pdi.direction, false, lang);
-
+                        // Input field for new port name
                         ImGui::TableSetColumnIndex(2);
                         ImGui::PushID((const void*)(intptr_t)pdi.port_hash);
                         auto& name_buffer = new_port_names[pdi.port_hash];
                         ImGui::SetNextItemWidth(-1.0f);
                         ImGui::InputText("##NewName", name_buffer.data(), name_buffer.size());
-
+                        // Create button
                         ImGui::TableSetColumnIndex(3);
                         bool has_name = name_buffer[0] != '\0';
                         
@@ -402,7 +602,7 @@ namespace adam::gui
                         if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang)))
                         {
                             adam::string_hashed new_name(name_buffer.data());
-                            adam::string_hash type_hash = pdi.port_hash;
+                            adam::string_hash type_hash = pdi.port_hash; // This is the hash of the port *type* (e.g., "serial"_ct)
                             adam::string_hash mod_hash = pdi.module_hash;
                             adam::string_hash conn_hash = g_target_connection.get_hash();
                             adam::string_hash new_port_hash = adam::string_hashed(name_buffer.data()).get_hash();
@@ -738,10 +938,10 @@ namespace adam::gui
         if (ImGui::BeginChild("FiltersChild", ImVec2(0.0f, half_h), true, ImGuiWindowFlags_NoScrollbar))
         {
             float avail_w = ImGui::GetContentRegionAvail().x;
-            float col_w = (avail_w - spacing * 2.0f - 12.0f * dpi_scale) * 0.5f;
+            float col_w = (avail_w - spacing * 2.0f - 12.0f * dpi_scale) * 0.5f; // Calculate column width
             float title_h = ImGui::GetTextLineHeightWithSpacing();
             float table_h = ImGui::GetContentRegionAvail().y - title_h - ImGui::GetStyle().ItemSpacing.y * 2.0f - 16.0f * dpi_scale;
-
+            
             // Left: Existing Filters
             ImGui::BeginGroup();
             draw_existing_table_content(get_gui_string(gui_string_id::lbl_existing_filters, lang), existing_filters, col_w, table_h);
@@ -768,7 +968,7 @@ namespace adam::gui
         if (ImGui::BeginChild("ConvertersChild", ImVec2(0.0f, half_h), true, ImGuiWindowFlags_NoScrollbar))
         {
             float avail_w = ImGui::GetContentRegionAvail().x;
-            float col_w = (avail_w - spacing * 2.0f - 12.0f * dpi_scale) * 0.5f;
+            float col_w = (avail_w - spacing * 2.0f - 12.0f * dpi_scale) * 0.5f; // Calculate column width
             float title_h = ImGui::GetTextLineHeightWithSpacing();
             float table_h = ImGui::GetContentRegionAvail().y - title_h - ImGui::GetStyle().ItemSpacing.y * 2.0f - 16.0f * dpi_scale;
 
