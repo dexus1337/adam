@@ -99,7 +99,7 @@ namespace adam::modules::network
 
         /**
          * @brief Resolves the remote address, creates a TCP socket, and connects.
-         *        Called by read() whenever m_socket is INVALID_SOCKET_VAL.
+         *        Called by read() whenever m_socket is invalid_socket_val.
          * @return True if the connection was established successfully.
          */
         bool connect();

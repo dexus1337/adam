@@ -62,7 +62,7 @@ namespace adam::modules::network
 
     port_tcp_server::port_tcp_server(const string_hashed& item_name)
         : port_network(item_name, (sizeof(state_buffer_data) + sizeof(tcp_server_stats) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t))
-        , m_listener(static_cast<uintptr_t>(INVALID_SOCKET_VAL))
+        , m_listener(static_cast<uintptr_t>(invalid_socket_val))
         , m_clients()
         , m_clients_mutex()
     {
@@ -106,7 +106,7 @@ namespace adam::modules::network
 
         // --- Create the TCP listener socket ---
         socket_t sock = ::socket(local_addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
-        if (sock == INVALID_SOCKET_VAL)
+        if (sock == invalid_socket_val)
         {
             log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "TCP-Server");
             return false;
@@ -121,7 +121,7 @@ namespace adam::modules::network
         apply_dual_stack_if_auto(sock, local_addr.ss_family, m_ip_version->get_value());
 
         // --- Bind ---
-        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
+        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == socket_error_val)
         {
             log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "TCP-Server");
             close_and_clear_socket(sock);
@@ -131,7 +131,7 @@ namespace adam::modules::network
         resolve_active_ip(sock);
 
         // --- Listen ---
-        if (::listen(sock, SOMAXCONN) == SOCKET_ERROR_VAL)
+        if (::listen(sock, SOMAXCONN) == socket_error_val)
         {
             log_network_socket_error(log::error, log_event::socket_listen_failed, resolve_socket_error(get_last_error()), "TCP-Server");
             close_and_clear_socket(sock);
@@ -165,12 +165,12 @@ namespace adam::modules::network
     {
         set_state(state_stopping);
         socket_t listener_sock = static_cast<socket_t>(m_listener);
-        if (listener_sock == INVALID_SOCKET_VAL)
+        if (listener_sock == invalid_socket_val)
         {
             return port::stop();
         }
 
-        m_listener = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+        m_listener = static_cast<uintptr_t>(invalid_socket_val);
         close_socket(listener_sock);
 
         std::vector<uintptr_t> clients_to_close;
@@ -205,7 +205,7 @@ namespace adam::modules::network
         while (is_running())
         {
             socket_t listener_sock = static_cast<socket_t>(m_listener);
-            if (listener_sock == INVALID_SOCKET_VAL) return false;
+            if (listener_sock == invalid_socket_val) return false;
 
             fd_set read_fds;
             FD_ZERO(&read_fds);
@@ -254,7 +254,7 @@ namespace adam::modules::network
                                                 reinterpret_cast<sockaddr*>(&client_addr),
                                                 &client_len);
 
-                if (client_sock != INVALID_SOCKET_VAL)
+                if (client_sock != invalid_socket_val)
                 {
                     set_nonblocking(client_sock, true);
 
@@ -274,7 +274,7 @@ namespace adam::modules::network
                 else
                 {
                     int err = get_last_error();
-                    if (is_running() && static_cast<socket_t>(m_listener) != INVALID_SOCKET_VAL && !is_blocking_error(err))
+                    if (is_running() && static_cast<socket_t>(m_listener) != invalid_socket_val && !is_blocking_error(err))
                     {
                         log_network_socket_error(log::warning, log_event::tcp_server_accept_failed, resolve_socket_error(err), "TCP-Server");
                     }

@@ -104,7 +104,7 @@ namespace adam::modules::network
 
         // --- Create IPv4 UDP socket ---
         socket_t sock = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-        if (sock == INVALID_SOCKET_VAL)
+        if (sock == invalid_socket_val)
         {
             log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
             return false;
@@ -118,7 +118,7 @@ namespace adam::modules::network
         #endif
         if (::setsockopt(sock, SOL_SOCKET, SO_BROADCAST,
                          reinterpret_cast<const char*>(&broadcast_val),
-                         sizeof(broadcast_val)) == SOCKET_ERROR_VAL)
+                         sizeof(broadcast_val)) == socket_error_val)
         {
             log_network_socket_error(log::error, log_event::socket_option_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
             close_and_clear_socket(sock);
@@ -131,7 +131,7 @@ namespace adam::modules::network
                      reinterpret_cast<const char*>(&reuse), sizeof(reuse));
 
         // --- Bind ---
-        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
+        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == socket_error_val)
         {
             log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "UDP-Broadcast");
             close_and_clear_socket(sock);
@@ -208,7 +208,7 @@ namespace adam::modules::network
         if (!buff || buff->get_size() == 0) return false;
 
         socket_t sock = static_cast<socket_t>(m_socket);
-        if (sock == INVALID_SOCKET_VAL) return false;
+        if (sock == invalid_socket_val) return false;
 
         // Broadcast is always IPv4 - use the ipv4 hash constant.
         static const adam::string_hashed ipv4_ver("ipv4"_ct);

@@ -102,7 +102,7 @@ namespace adam::modules::network
 
         // --- Create the UDP socket ---
         socket_t sock = ::socket(local_addr.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-        if (sock == INVALID_SOCKET_VAL)
+        if (sock == invalid_socket_val)
         {
             log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "UDP-Unicast");
             return false;
@@ -112,7 +112,7 @@ namespace adam::modules::network
         apply_dual_stack_if_auto(sock, local_addr.ss_family, m_ip_version->get_value());
 
         // --- Bind ---
-        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
+        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == socket_error_val)
         {
             log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "UDP-Unicast");
             close_and_clear_socket(sock);
@@ -146,7 +146,7 @@ namespace adam::modules::network
         if (!buff || buff->get_size() == 0) return false;
 
         socket_t sock = static_cast<socket_t>(m_socket);
-        if (sock == INVALID_SOCKET_VAL) return false;
+        if (sock == invalid_socket_val) return false;
 
         // --- Resolve the destination address at send-time ---
         sockaddr_storage dest_addr{};

@@ -78,7 +78,7 @@ namespace adam::modules::network
 
     port_tcp_client::port_tcp_client(const string_hashed& item_name)
         : port_network(item_name)
-        , m_socket(static_cast<uintptr_t>(INVALID_SOCKET_VAL))
+        , m_socket(static_cast<uintptr_t>(invalid_socket_val))
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
@@ -118,14 +118,14 @@ namespace adam::modules::network
     {
         set_state(state_stopping);
 
-        socket_t sock = static_cast<socket_t>(INVALID_SOCKET_VAL);
+        socket_t sock = static_cast<socket_t>(invalid_socket_val);
         {
             adam::spinlock::guard lock(m_write_mutex);
             sock     = static_cast<socket_t>(m_socket);
-            m_socket = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+            m_socket = static_cast<uintptr_t>(invalid_socket_val);
         }
 
-        if (sock != INVALID_SOCKET_VAL)
+        if (sock != invalid_socket_val)
         {
             close_socket(sock);
             log_network_message(log::info, log_event::tcp_client_stopped, "TCP-Client");
@@ -156,7 +156,7 @@ namespace adam::modules::network
 
         // --- Create the TCP socket ---
         socket_t sock = ::socket(dest_addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
-        if (sock == INVALID_SOCKET_VAL)
+        if (sock == invalid_socket_val)
         {
             log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "TCP-Client");
             set_state(state_error);
@@ -202,7 +202,7 @@ namespace adam::modules::network
             return false;
         }
 
-        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
+        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == socket_error_val)
         {
             log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "TCP-Client");
             close_and_clear_socket(sock);
@@ -222,7 +222,7 @@ namespace adam::modules::network
         }
 
         int conn_res = ::connect(sock, reinterpret_cast<sockaddr*>(&dest_addr), dest_addr_len);
-        if (conn_res != SOCKET_ERROR_VAL)
+        if (conn_res != socket_error_val)
         {
             {
                 adam::spinlock::guard lock(m_write_mutex);
@@ -288,7 +288,7 @@ namespace adam::modules::network
             #if defined(ADAM_PLATFORM_WINDOWS)
             int err_code = WSAETIMEDOUT;
             #else
-            err_code = ETIMEDOUT;
+            int err_code = ETIMEDOUT;
             #endif
             log_network_socket_error(log::warning, log_event::socket_connect_failed, resolve_socket_error(err_code), "TCP-Client");
             close_and_clear_socket(sock);
@@ -348,7 +348,7 @@ namespace adam::modules::network
         {
             socket_t sock = static_cast<socket_t>(m_socket);
 
-            if (sock == INVALID_SOCKET_VAL)
+            if (sock == invalid_socket_val)
             {
                 set_state(state_starting);
 
@@ -390,13 +390,13 @@ namespace adam::modules::network
                 int err = get_last_error();
                 if (is_blocking_error(err)) continue;
 
-                socket_t s_to_close = INVALID_SOCKET_VAL;
+                socket_t s_to_close = invalid_socket_val;
                 {
                     adam::spinlock::guard lock(m_write_mutex);
                     s_to_close = static_cast<socket_t>(m_socket);
-                    m_socket   = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+                    m_socket   = static_cast<uintptr_t>(invalid_socket_val);
                 }
-                if (s_to_close != INVALID_SOCKET_VAL) close_socket(s_to_close);
+                if (s_to_close != invalid_socket_val) close_socket(s_to_close);
                 m_active_ip.clear();
                 return false;
             }
@@ -415,13 +415,13 @@ namespace adam::modules::network
                     int err = get_last_error();
                     if (is_blocking_error(err)) continue;
 
-                    socket_t s_to_close = INVALID_SOCKET_VAL;
+                    socket_t s_to_close = invalid_socket_val;
                     {
                         adam::spinlock::guard lock(m_write_mutex);
                         s_to_close = static_cast<socket_t>(m_socket);
-                        m_socket   = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+                        m_socket   = static_cast<uintptr_t>(invalid_socket_val);
                     }
-                    if (s_to_close != INVALID_SOCKET_VAL) close_socket(s_to_close);
+                    if (s_to_close != invalid_socket_val) close_socket(s_to_close);
                     m_active_ip.clear();
                     if (is_running())
                     {
@@ -432,13 +432,13 @@ namespace adam::modules::network
 
                 if (chunk == 0)
                 {
-                    socket_t s_to_close = INVALID_SOCKET_VAL;
+                    socket_t s_to_close = invalid_socket_val;
                     {
                         adam::spinlock::guard lock(m_write_mutex);
                         s_to_close = static_cast<socket_t>(m_socket);
-                        m_socket   = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+                        m_socket   = static_cast<uintptr_t>(invalid_socket_val);
                     }
-                    if (s_to_close != INVALID_SOCKET_VAL) close_socket(s_to_close);
+                    if (s_to_close != invalid_socket_val) close_socket(s_to_close);
                     m_active_ip.clear();
                     if (is_running())
                     {
@@ -468,12 +468,12 @@ namespace adam::modules::network
     {
         if (!buff || buff->get_size() == 0) return false;
 
-        socket_t sock = static_cast<socket_t>(INVALID_SOCKET_VAL);
+        socket_t sock = static_cast<socket_t>(invalid_socket_val);
         {
             adam::spinlock::guard lock(m_write_mutex);
             sock = static_cast<socket_t>(m_socket);
         }
-        if (sock == INVALID_SOCKET_VAL) return false;
+        if (sock == invalid_socket_val) return false;
 
         const char* data = buff->data_as<const char>();
         size_t      size = buff->get_size();

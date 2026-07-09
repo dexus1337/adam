@@ -15,10 +15,10 @@ namespace adam::modules::network
     {
         set_state(state_stopping);
         socket_t sock = static_cast<socket_t>(m_socket);
-        if (sock != INVALID_SOCKET_VAL)
+        if (sock != invalid_socket_val)
         {
             close_socket(sock);
-            m_socket = static_cast<uintptr_t>(INVALID_SOCKET_VAL);
+            m_socket = static_cast<uintptr_t>(invalid_socket_val);
             log_network_message(log::info, log_event::udp_socket_closed, "");
         }
 
@@ -34,7 +34,7 @@ namespace adam::modules::network
     bool port_udp_base::read(buffer*& buff)
     {
         socket_t sock = static_cast<socket_t>(m_socket);
-        if (sock == INVALID_SOCKET_VAL) return false;
+        if (sock == invalid_socket_val) return false;
 
         uint8_t temp_buf[65536];
         int     bytes_read = 0;
@@ -42,7 +42,7 @@ namespace adam::modules::network
         while (is_running())
         {
             sock = static_cast<socket_t>(m_socket);
-            if (sock == INVALID_SOCKET_VAL) return false;
+            if (sock == invalid_socket_val) return false;
 
             fd_set read_fds;
             FD_ZERO(&read_fds);

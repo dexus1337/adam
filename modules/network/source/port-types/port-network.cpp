@@ -195,7 +195,7 @@ namespace adam::modules::network
     void port_network::resolve_active_ip(uintptr_t socket_handle)
     {
         socket_t sock = static_cast<socket_t>(socket_handle);
-        if (sock == INVALID_SOCKET_VAL)
+        if (sock == invalid_socket_val)
         {
             m_active_ip.clear();
             m_active_interface.clear();
@@ -364,21 +364,21 @@ namespace adam::modules::network
 
     void port_network::close_socket(socket_t& s)
     {
-        if (s != INVALID_SOCKET_VAL)
+        if (s != invalid_socket_val)
         {
             #if defined(ADAM_PLATFORM_WINDOWS)
             ::closesocket(s);
             #else
             ::close(s);
             #endif
-            s = INVALID_SOCKET_VAL;
+            s = invalid_socket_val;
         }
     }
 
     void port_network::close_and_clear_socket(socket_t& s)
     {
         close_socket(s);
-        resolve_active_ip(INVALID_SOCKET_VAL);
+        resolve_active_ip(invalid_socket_val);
     }
 
     bool port_network::set_nonblocking(socket_t s, bool non_blocking)
@@ -726,12 +726,12 @@ namespace adam::modules::network
         }
 
         socket_t temp_sock = ::socket(dest_addr.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-        if (temp_sock == INVALID_SOCKET_VAL)
+        if (temp_sock == invalid_socket_val)
         {
             return "";
         }
 
-        if (::connect(temp_sock, reinterpret_cast<sockaddr*>(&dest_addr), dest_addr_len) == SOCKET_ERROR_VAL)
+        if (::connect(temp_sock, reinterpret_cast<sockaddr*>(&dest_addr), dest_addr_len) == socket_error_val)
         {
             close_socket(temp_sock);
             return "";
@@ -744,7 +744,7 @@ namespace adam::modules::network
         socklen_t local_addr_len = sizeof(local_addr);
         #endif
 
-        if (::getsockname(temp_sock, reinterpret_cast<sockaddr*>(&local_addr), &local_addr_len) == SOCKET_ERROR_VAL)
+        if (::getsockname(temp_sock, reinterpret_cast<sockaddr*>(&local_addr), &local_addr_len) == socket_error_val)
         {
             close_socket(temp_sock);
             return "";
@@ -956,7 +956,7 @@ namespace adam::modules::network
         size_t total_sent = 0;
         while (total_sent < size && is_running())
         {
-            if (sock == INVALID_SOCKET_VAL) return false;
+            if (sock == invalid_socket_val) return false;
 
             #if defined(ADAM_PLATFORM_WINDOWS)
             int sent = ::send(sock, data + total_sent, static_cast<int>(size - total_sent), 0);
@@ -1002,7 +1002,7 @@ namespace adam::modules::network
         int retries = 0;
         while (total_sent < size)
         {
-            if (sock == INVALID_SOCKET_VAL) return false;
+            if (sock == invalid_socket_val) return false;
 
             #if defined(ADAM_PLATFORM_WINDOWS)
             int sent = ::send(sock, data + total_sent, static_cast<int>(size - total_sent), 0);

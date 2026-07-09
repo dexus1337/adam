@@ -38,6 +38,7 @@ namespace cmdr_test
 
         bool handle_data(adam::buffer*& buf) override
         {
+            (void)buf;
             return true;
         }
     };

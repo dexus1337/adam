@@ -40,7 +40,7 @@ namespace adam::modules::network
          */
         explicit port_udp_base(const string_hashed& item_name)
             : port_network(item_name)
-            , m_socket(static_cast<uintptr_t>(INVALID_SOCKET_VAL))
+            , m_socket(static_cast<uintptr_t>(invalid_socket_val))
         {
         }
 

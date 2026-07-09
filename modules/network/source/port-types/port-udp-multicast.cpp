@@ -133,7 +133,7 @@ namespace adam::modules::network
 
         // --- Create the UDP socket ---
         socket_t sock = ::socket(local_addr.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-        if (sock == INVALID_SOCKET_VAL)
+        if (sock == invalid_socket_val)
         {
             log_network_socket_error(log::error, log_event::socket_creation_failed, resolve_socket_error(get_last_error()), "UDP-Multicast");
             return false;
@@ -145,7 +145,7 @@ namespace adam::modules::network
                      reinterpret_cast<const char*>(&reuse), sizeof(reuse));
 
         // --- Bind ---
-        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == SOCKET_ERROR_VAL)
+        if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == socket_error_val)
         {
             log_network_socket_error(log::error, log_event::socket_bind_failed, resolve_socket_error(get_last_error()), "UDP-Multicast");
             close_and_clear_socket(sock);
@@ -169,7 +169,7 @@ namespace adam::modules::network
             ::inet_pton(AF_INET, resolved_ip.c_str(), &mreq.imr_interface);
 
             if (::setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-                             reinterpret_cast<const char*>(&mreq), sizeof(mreq)) == SOCKET_ERROR_VAL)
+                             reinterpret_cast<const char*>(&mreq), sizeof(mreq)) == socket_error_val)
             {
                 log_network_socket_error(log::error, log_event::multicast_join_failed, resolve_socket_error(get_last_error()), "UDP-Multicast");
                 close_and_clear_socket(sock);
@@ -217,7 +217,7 @@ namespace adam::modules::network
                                                          m_ip_version->get_value());
 
             if (::setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                             reinterpret_cast<const char*>(&mreq6), sizeof(mreq6)) == SOCKET_ERROR_VAL)
+                             reinterpret_cast<const char*>(&mreq6), sizeof(mreq6)) == socket_error_val)
             {
                 log_network_socket_error(log::error, log_event::multicast_join_failed, resolve_socket_error(get_last_error()), "UDP-Multicast");
                 close_and_clear_socket(sock);
@@ -277,7 +277,7 @@ namespace adam::modules::network
         if (!buff || buff->get_size() == 0) return false;
 
         socket_t sock = static_cast<socket_t>(m_socket);
-        if (sock == INVALID_SOCKET_VAL) return false;
+        if (sock == invalid_socket_val) return false;
 
         // --- Resolve the multicast group address at send-time ---
         sockaddr_storage dest_addr{};

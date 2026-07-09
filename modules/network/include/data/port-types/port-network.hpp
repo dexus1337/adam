@@ -25,15 +25,16 @@
     #include <winsock2.h>
     #include <ws2tcpip.h>
     using socket_t = SOCKET;
-    #define INVALID_SOCKET_VAL INVALID_SOCKET
-    #define SOCKET_ERROR_VAL   SOCKET_ERROR
+    #define invalid_socket_val INVALID_SOCKET
+    #define socket_error_val   SOCKET_ERROR
 #else
     #include <sys/socket.h>
     #include <netinet/in.h>
+    #include <netinet/tcp.h>
     #include <arpa/inet.h>
     using socket_t = int;
-    #define INVALID_SOCKET_VAL (-1)
-    #define SOCKET_ERROR_VAL   (-1)
+    #define invalid_socket_val (-1)
+    #define socket_error_val   (-1)
 #endif
 
 namespace adam::modules::network
