@@ -92,7 +92,23 @@ namespace adam::cli
         desc_conn_rm_proc,
         usage_conn_rm_proc,
         desc_conn_reorder_proc,
-        usage_conn_reorder_proc
+        usage_conn_reorder_proc,
+        desc_cfg_list,
+        desc_cfg_scan,
+        desc_cfg_save,
+        usage_cfg_save,
+        desc_cfg_load,
+        usage_cfg_load,
+        desc_cfg_export,
+        usage_cfg_export,
+        desc_cfg_delete,
+        usage_cfg_delete,
+        desc_cfg_path_add,
+        usage_cfg_path_add,
+        desc_cfg_path_rm,
+        usage_cfg_path_rm,
+        desc_cfg_path_list,
+        desc_mod_path_list
     };
 
     const char* get_cli_string(cmd_string_id id, adam::language lang);

@@ -95,7 +95,23 @@ namespace adam::cli
             { cmd_string_id::desc_conn_rm_proc,           { "Removes a processor from a connection", "Entfernt einen Prozessor aus einer Verbindung" } },
             { cmd_string_id::usage_conn_rm_proc,          { "Usage: conn_rm_proc <conn_name> <proc_name>", "Verwendung: conn_rm_proc <conn_name> <proc_name>" } },
             { cmd_string_id::desc_conn_reorder_proc,      { "Reorders a processor in a connection", "Ändert die Reihenfolge eines Prozessors in einer Verbindung" } },
-            { cmd_string_id::usage_conn_reorder_proc,     { "Usage: conn_reorder_proc <conn_name> <proc_name> <new_index>", "Verwendung: conn_reorder_proc <conn_name> <proc_name> <new_index>" } }
+            { cmd_string_id::usage_conn_reorder_proc,     { "Usage: conn_reorder_proc <conn_name> <proc_name> <new_index>", "Verwendung: conn_reorder_proc <conn_name> <proc_name> <new_index>" } },
+            { cmd_string_id::desc_cfg_list,               { "Lists all configurations", "Listet alle Konfigurationen auf" } },
+            { cmd_string_id::desc_cfg_scan,               { "Scans for configurations", "Sucht nach Konfigurationen" } },
+            { cmd_string_id::desc_cfg_save,               { "Saves current state as a new configuration", "Speichert den aktuellen Zustand als neue Konfiguration" } },
+            { cmd_string_id::usage_cfg_save,              { "Usage: cfg_save <name> [description]", "Verwendung: cfg_save <name> [description]" } },
+            { cmd_string_id::desc_cfg_load,               { "Loads a configuration", "Lädt eine Konfiguration" } },
+            { cmd_string_id::usage_cfg_load,              { "Usage: cfg_load <path_idx> <filename>", "Verwendung: cfg_load <path_idx> <filename>" } },
+            { cmd_string_id::desc_cfg_export,             { "Exports current state to a configuration file", "Exportiert den aktuellen Zustand in eine Konfigurationsdatei" } },
+            { cmd_string_id::usage_cfg_export,            { "Usage: cfg_export <path_idx> <filename> <name> [description]", "Verwendung: cfg_export <path_idx> <filename> <name> [description]" } },
+            { cmd_string_id::desc_cfg_delete,             { "Deletes a configuration", "Löscht eine Konfiguration" } },
+            { cmd_string_id::usage_cfg_delete,            { "Usage: cfg_delete <path_idx> <filename>", "Verwendung: cfg_delete <path_idx> <filename>" } },
+            { cmd_string_id::desc_cfg_path_add,           { "Adds a config search path", "Fügt einen Konfigurations-Suchpfad hinzu" } },
+            { cmd_string_id::usage_cfg_path_add,          { "Usage: cfg_path_add <path>", "Verwendung: cfg_path_add <path>" } },
+            { cmd_string_id::desc_cfg_path_rm,            { "Removes a config search path by index", "Entfernt einen Konfigurations-Suchpfad nach Index" } },
+            { cmd_string_id::usage_cfg_path_rm,           { "Usage: cfg_path_rm <index>", "Verwendung: cfg_path_rm <index>" } },
+            { cmd_string_id::desc_cfg_path_list,          { "Lists config search paths", "Listet Konfigurations-Suchpfade auf" } },
+            { cmd_string_id::desc_mod_path_list,          { "Lists module search paths", "Listet Modul-Suchpfade auf" } }
         };
 
         auto it = translations.find(id);

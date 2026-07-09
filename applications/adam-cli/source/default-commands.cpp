@@ -114,6 +114,21 @@ namespace adam::cli
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_mod_path_add, c.get_language()), std::cout); }
         });
 
+        db.register_command("mod_path_list", cmd_string_id::desc_mod_path_list, [](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
+        {
+            auto paths = c.get_modules().get_paths();
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (paths.empty())
+            {
+                std::cout << "No module paths found.\n";
+                return;
+            }
+            std::cout << "Module Paths:\n";
+            for (size_t i = 0; i < paths.size(); ++i)
+                std::cout << "  [" << i << "] " << paths[i].c_str() << "\n";
+            std::cout << std::endl;
+        });
+
         db.register_command("mod_path_rm", cmd_string_id::desc_mod_path_rm, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
             if (params.size() == 1) 
@@ -687,6 +702,163 @@ namespace adam::cli
                 catch (...) { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_conn_reorder_proc, c.get_language()), std::cout); }
             }
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_conn_reorder_proc, c.get_language()), std::cout); }
+        });
+
+        db.register_command("cfg_scan", cmd_string_id::desc_cfg_scan, [](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
+        {
+            adam::response_status status = c.request_config_scan();
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (status == adam::response_status::success)
+                std::cout << "Configuration scan successful.\n";
+            else
+                adam::stream_log(adam::log::error, "Configuration scan failed.", std::cout);
+        });
+
+        db.register_command("cfg_path_add", cmd_string_id::desc_cfg_path_add, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() == 1) c.request_config_path_add(adam::string_hashed(params[0].c_str()));
+            else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_cfg_path_add, c.get_language()), std::cout); }
+        });
+
+        db.register_command("cfg_path_rm", cmd_string_id::desc_cfg_path_rm, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() == 1) 
+            {
+                try { c.request_config_path_remove(std::stoul(params[0])); }
+                catch (...) { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_cfg_path_rm, c.get_language()), std::cout); }
+            }
+            else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_cfg_path_rm, c.get_language()), std::cout); }
+        });
+
+        db.register_command("cfg_path_list", cmd_string_id::desc_cfg_path_list, [](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
+        {
+            auto paths = c.configs().get_paths();
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (paths.empty())
+            {
+                std::cout << "No configuration paths found.\n";
+                return;
+            }
+            std::cout << "Configuration Paths:\n";
+            for (size_t i = 0; i < paths.size(); ++i)
+                std::cout << "  [" << i << "] " << paths[i].c_str() << "\n";
+            std::cout << std::endl;
+        });
+
+        db.register_command("cfg_list", cmd_string_id::desc_cfg_list, [](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
+        {
+            auto configs = c.configs().get_available();
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (configs.empty())
+            {
+                std::cout << "No configurations found.\n";
+                return;
+            }
+            std::cout << std::left << std::setw(9) << "PathIdx" 
+                      << std::setw(25) << "Filename" 
+                      << std::setw(20) << "Name" 
+                      << std::setw(8) << "Ports" 
+                      << std::setw(8) << "Procs" 
+                      << std::setw(8) << "Conns" 
+                      << "Description\n";
+            std::cout << std::string(100, '-') << "\n";
+            for (const auto& [hash, cfg] : configs)
+            {
+                std::cout << std::left << std::setw(9) << cfg.path_idx 
+                          << std::setw(25) << cfg.filename 
+                          << std::setw(20) << cfg.name.c_str() 
+                          << std::setw(8) << cfg.port_count 
+                          << std::setw(8) << cfg.processor_count 
+                          << std::setw(8) << cfg.connection_count 
+                          << cfg.description.c_str() << "\n";
+            }
+        });
+
+        db.register_command("cfg_save", cmd_string_id::desc_cfg_save, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            std::string name = params.size() > 0 ? params[0] : c.configs().get_name();
+            std::string desc = params.size() > 1 ? params[1] : c.configs().get_description();
+            
+            if (name.empty())
+            {
+                std::lock_guard<std::mutex> lock(console_mutex);
+                adam::stream_log(adam::log::warning, adam::cli::get_cli_string(adam::cli::cmd_string_id::usage_cfg_save, c.get_language()), std::cout);
+                return;
+            }
+            
+            adam::response_status status = c.request_config_save(name, desc);
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (status == adam::response_status::success)
+                std::cout << "Configuration saved successfully.\n";
+            else
+                adam::stream_log(adam::log::error, "Failed to save configuration.", std::cout);
+        });
+
+        db.register_command("cfg_load", cmd_string_id::desc_cfg_load, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() < 2)
+            {
+                std::lock_guard<std::mutex> lock(console_mutex);
+                adam::stream_log(adam::log::warning, adam::cli::get_cli_string(adam::cli::cmd_string_id::usage_cfg_load, c.get_language()), std::cout);
+                return;
+            }
+            uint32_t path_idx = 0;
+            try { path_idx = std::stoul(params[0]); } catch (...) { 
+                std::lock_guard<std::mutex> lock(console_mutex);
+                adam::stream_log(adam::log::error, "Invalid path index.", std::cout);
+                return; 
+            }
+            adam::response_status status = c.request_config_import(path_idx, string_hashed(params[1].c_str()));
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (status == adam::response_status::success)
+                std::cout << "Configuration loaded successfully.\n";
+            else
+                adam::stream_log(adam::log::error, "Failed to load configuration.", std::cout);
+        });
+
+        db.register_command("cfg_export", cmd_string_id::desc_cfg_export, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() < 3)
+            {
+                std::lock_guard<std::mutex> lock(console_mutex);
+                adam::stream_log(adam::log::warning, adam::cli::get_cli_string(adam::cli::cmd_string_id::usage_cfg_export, c.get_language()), std::cout);
+                return;
+            }
+            uint32_t path_idx = 0;
+            try { path_idx = std::stoul(params[0]); } catch (...) { 
+                std::lock_guard<std::mutex> lock(console_mutex);
+                adam::stream_log(adam::log::error, "Invalid path index.", std::cout);
+                return; 
+            }
+            std::string desc = params.size() > 3 ? params[3] : "";
+            adam::response_status status = c.request_config_export(path_idx, string_hashed(params[1].c_str()), params[2], desc);
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (status == adam::response_status::success)
+                std::cout << "Configuration exported successfully.\n";
+            else
+                adam::stream_log(adam::log::error, "Failed to export configuration.", std::cout);
+        });
+
+        db.register_command("cfg_delete", cmd_string_id::desc_cfg_delete, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() < 2)
+            {
+                std::lock_guard<std::mutex> lock(console_mutex);
+                adam::stream_log(adam::log::warning, adam::cli::get_cli_string(adam::cli::cmd_string_id::usage_cfg_delete, c.get_language()), std::cout);
+                return;
+            }
+            uint32_t path_idx = 0;
+            try { path_idx = std::stoul(params[0]); } catch (...) { 
+                std::lock_guard<std::mutex> lock(console_mutex);
+                adam::stream_log(adam::log::error, "Invalid path index.", std::cout);
+                return; 
+            }
+            adam::response_status status = c.request_config_delete(path_idx, string_hashed(params[1].c_str()));
+            std::lock_guard<std::mutex> lock(console_mutex);
+            if (status == adam::response_status::success)
+                std::cout << "Configuration deleted successfully.\n";
+            else
+                adam::stream_log(adam::log::error, "Failed to delete configuration.", std::cout);
         });
         
         auto clear_func = [](const std::vector<std::string>&, adam::commander&, std::mutex& console_mutex) 
