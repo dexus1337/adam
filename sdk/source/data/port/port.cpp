@@ -98,8 +98,9 @@ namespace adam
             case data_direction_in:
             {
                 // Populate map for active formats, if anything changed
+                bool formats_updated = m_formats.is_dirty();
                 auto& active_formats = m_formats.get_active();
-                bool formats_updated = m_formats.is_dirty() || m_parse_cache.empty() != active_formats.empty();
+                formats_updated = formats_updated || m_parse_cache.empty() != active_formats.empty();
                 if (formats_updated) 
                 {
                     m_parse_cache.clear();

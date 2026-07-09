@@ -106,6 +106,9 @@ namespace adam
 
     controller::~controller() 
     {
+        if (t_current_context == &m_internal_context)
+            t_current_context = nullptr;
+        
         destroy();
     }
 
@@ -118,7 +121,10 @@ namespace adam
 
     void controller::set_command_ctx(command_context* ctx)
     {
-        t_current_context = ctx;
+        if (ctx == &m_internal_context)
+            t_current_context = nullptr;
+        else
+            t_current_context = ctx;
     }
 
     bool controller::run(bool async)

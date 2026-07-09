@@ -11,14 +11,14 @@ if(NOT imgui_dir)
 endif()
 
 
-find_package(SDL2 REQUIRED)
+find_package(SDL3 REQUIRED)
 find_package(OpenGL REQUIRED)
 
 
-# Grab the core ImGui files and the SDL2/OpenGL3 backends
+# Grab the core ImGui files and the SDL3/OpenGL3 backends
 file(GLOB imgui_sources
     "${imgui_dir}/*.cpp"
-    "${imgui_dir}/backends/imgui_impl_sdl2.cpp"
+    "${imgui_dir}/backends/imgui_impl_sdl3.cpp"
     "${imgui_dir}/backends/imgui_impl_opengl3.cpp"
 )
 
@@ -39,13 +39,12 @@ add_executable(adam-gui
 target_include_directories(adam-gui PRIVATE
     "${imgui_dir}"
     "${imgui_dir}/backends"
-    ${SDL2_INCLUDE_DIRS}
     "../../modules/recrep/include"
 )
 
 target_link_libraries(adam-gui PRIVATE
     adam-sdk
-    ${SDL2_LIBRARIES}
+    SDL3::SDL3
     OpenGL::GL
 )
 

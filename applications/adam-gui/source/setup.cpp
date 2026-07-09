@@ -1,9 +1,9 @@
 #include "setup.hpp"
 
-#include <SDL_opengl.h>
+#include <SDL3/SDL_opengl.h>
 #include "main-window/main-window.hpp"
 #include <imgui.h>
-#include <imgui_impl_sdl2.h>
+#include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
 #include <filesystem>
 #include <cstdlib>
@@ -21,48 +21,10 @@ namespace adam::gui
 
     void update_dpi_scale(SDL_Window* window)
     {
-        (void)window;
-        float new_dpi_scale = 1.0f;
-
-        #if defined(ADAM_PLATFORM_WINDOWS)
-        // Calculate DPI scale on Windows (using standard 96 DPI as base)
-        float ddpi = 96.0f, hdpi = 96.0f, vdpi = 96.0f;
-        int display_index = SDL_GetWindowDisplayIndex(window);
-        if (display_index >= 0)
-        {
-            if(SDL_GetDisplayDPI(display_index, &ddpi, &hdpi, &vdpi) == 0 )
-                new_dpi_scale = ddpi / 96.0f;
-        }
-        #elif defined(ADAM_PLATFORM_LINUX)
-        // On Linux, X11 fractional scaling heavily inflates the resolution (e.g., 6144x3456),
-        // so physical DPI from SDL_GetDisplayDPI is incorrect. We must read the logical DPI.
-        static float cached_linux_dpi = 0.0f;
-        if (cached_linux_dpi == 0.0f)
-        {
-            cached_linux_dpi = 96.0f;
-            
-            FILE* f = popen("xrdb -query 2>/dev/null | grep Xft.dpi", "r");
-            if (f) 
-            {
-                char buf[256];
-                while (fgets(buf, sizeof(buf), f)) 
-                {
-                    const char* colon = std::strchr(buf, ':');
-                    if (colon)
-                    {
-                        float parsed_dpi = std::strtof(colon + 1, nullptr);
-                        if (parsed_dpi > 0.0f)
-                        {
-                            cached_linux_dpi = parsed_dpi;
-                            break;
-                        }
-                    }
-                }
-                pclose(f);
-            }
-        }
-        new_dpi_scale = cached_linux_dpi / 96.0f;
-        #endif
+        if (!window) return;
+        
+        float new_dpi_scale = SDL_GetWindowDisplayScale(window);
+        if (new_dpi_scale <= 0.0f) new_dpi_scale = 1.0f;
 
         if (new_dpi_scale == g_current_dpi_scale) 
             return; // No DPI change across monitors, skip rebuilding
@@ -103,12 +65,7 @@ namespace adam::gui
 
     bool initialize(SDL_Window*& window, SDL_GLContext& gl_context, const char*& glsl_version)
     {
-        // Tell Windows we handle DPI ourselves to prevent blurry upscaling
-        #if defined(ADAM_PLATFORM_WINDOWS)
-        SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
-        #endif
-
-        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
+        if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
             return false;
 
         #if defined(ADAM_PLATFORM_LINUX) || defined(ADAM_PLATFORM_WINDOWS)
@@ -131,8 +88,8 @@ namespace adam::gui
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         
-        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-        window = SDL_CreateWindow("ADAM GUI", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, static_cast<int>(window_min_size[0]), static_cast<int>(window_min_size[1]), window_flags);
+        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        window = SDL_CreateWindow("ADAM GUI", static_cast<int>(window_min_size[0]), static_cast<int>(window_min_size[1]), window_flags);
         if (!window) return false;
 
         gl_context = SDL_GL_CreateContext(window);
@@ -207,7 +164,7 @@ namespace adam::gui
 
         io.FontDefault = default_font;
 
-        ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
+        ImGui_ImplSDL3_InitForOpenGL(window, gl_context);
         ImGui_ImplOpenGL3_Init(glsl_version);
 
         return true;
@@ -216,10 +173,10 @@ namespace adam::gui
     void shutdown(SDL_Window* window, SDL_GLContext gl_context)
     {
         ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplSDL2_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
         ImGui::DestroyContext();
 
-        SDL_GL_DeleteContext(gl_context);
+        SDL_GL_DestroyContext(gl_context);
         SDL_DestroyWindow(window);
         SDL_Quit();
     }

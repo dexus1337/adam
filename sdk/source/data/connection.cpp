@@ -261,6 +261,8 @@ namespace adam
             }
         });
 
+        m_started->set_value(false);
+        
         return result;
     }
 }

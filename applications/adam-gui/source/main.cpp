@@ -2,10 +2,10 @@
 #include "main-window/main-window.hpp"
 #include "gui-controller.hpp"
 
-#include <SDL.h>
-#include <SDL_opengl.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_opengl.h>
 #include <imgui.h>
-#include <imgui_impl_sdl2.h>
+#include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
 #include <thread>
 #include <chrono>
@@ -32,8 +32,8 @@ int main(int, char**)
     gui_ctrl.set_redraw_callback([]() 
     {
         SDL_Event event;
-        SDL_zero(event);
-        event.type = SDL_USEREVENT;
+        SDL_zerop(&event);
+        event.type = SDL_EVENT_USER;
         SDL_PushEvent(&event);
     });
 
@@ -56,18 +56,12 @@ int main(int, char**)
 
         auto process_events = [&]()
         { 
-            ImGui_ImplSDL2_ProcessEvent(&event);
-            if (event.type == SDL_QUIT)
+            ImGui_ImplSDL3_ProcessEvent(&event);
+            if (event.type == SDL_EVENT_QUIT)
                 done = true;
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(window))
                 done = true;
-            if (event.type == SDL_WINDOWEVENT && 
-            (
-                #if SDL_VERSION_ATLEAST(2, 0, 18)
-                event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED ||
-                #endif
-                event.window.event == SDL_WINDOWEVENT_MOVED
-            ))
+            if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
             {
                 adam::gui::update_dpi_scale(window);
             }
@@ -115,7 +109,7 @@ int main(int, char**)
 
         // Render ImGui Frame
         ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
         ui_window.draw();

@@ -34,6 +34,7 @@ protected:
     protected:
         void worker() override
         {
+            set_state(state_running);
             while (is_running())
             {
                 worker_loops++;
@@ -188,12 +189,9 @@ TEST_F(port_test, benchmark_handle_data)
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
-    std::cout << "----------------------------------------" << std::endl;
-    std::cout << "Benchmark (handle_data): " << iterations << " iterations took "
-              << duration << " microseconds (" << (static_cast<double>(duration) / iterations) * 1000.0
-              << " ns per iteration)" << std::endl;
-    std::cout << "----------------------------------------" << std::endl;
-
+    std::cout << "[          ] Benchmark (handle_data): " << iterations << " iterations." << std::endl;
+    std::cout << "[          ] Total duration: " << duration << " us" << std::endl;
+    std::cout << "[          ] Average time per iteration: " << (static_cast<double>(duration) / iterations) * 1000.0 << " ns" << std::endl;
     buf->release();
     p.stop();
 }
@@ -250,12 +248,9 @@ TEST_F(port_test, benchmark_handle_data_three_formats)
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
-    std::cout << "----------------------------------------" << std::endl;
-    std::cout << "Benchmark (handle_data - 3 formats): " << iterations << " iterations took "
-              << duration << " microseconds (" << (static_cast<double>(duration) / iterations) * 1000.0
-              << " ns per iteration)" << std::endl;
-    std::cout << "----------------------------------------" << std::endl;
-
+    std::cout << "[          ] Benchmark (handle_data - 3 formats): " << iterations << " iterations." << std::endl;
+    std::cout << "[          ] Total duration: " << duration << " us" << std::endl;
+    std::cout << "[          ] Average time per iteration: " << (static_cast<double>(duration) / iterations) * 1000.0 << " ns" << std::endl;
     buf->release();
     p.stop();
 }

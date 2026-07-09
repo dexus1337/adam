@@ -3,7 +3,7 @@
 
 
 #include <imgui.h>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <unordered_map>
 #include <array>
 #include <algorithm>

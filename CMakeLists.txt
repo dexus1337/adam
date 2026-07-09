@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(adam VERSION 1.0.0 LANGUAGES CXX)
+project(adam VERSION 1.0.0 LANGUAGES C CXX)
 
 # Global C++ Standard
 set(CMAKE_CXX_STANDARD 23)
