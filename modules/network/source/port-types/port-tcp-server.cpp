@@ -151,8 +151,13 @@ namespace adam::modules::network
         // Initialize statistics block to zero
         std::memset(&get_state_buffer_data()->user_data<tcp_server_stats>(), 0, sizeof(tcp_server_stats));
 
-        log_network_message(log::info, log_event::tcp_server_started, "TCP-Server",
-                            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_active_port));
+        log_network_message
+        (
+            log::info, 
+            log_event::tcp_server_started, 
+            "TCP-Server",
+            std::format("{} ({}) Port {}", get_active_interface().c_str(), get_active_ip().c_str(), m_active_port)
+        );
 
         return port::start();
     }

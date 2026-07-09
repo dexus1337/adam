@@ -46,10 +46,6 @@ namespace adam::modules::network
 
         virtual ~port_udp_base() = default;
 
-        // -----------------------------------------------------------------
-        // Shared stop() - closes the UDP socket and logs the event.
-        // -----------------------------------------------------------------
-
         /**
          * @brief Closes the UDP socket (if open) and calls port::stop().
          *
@@ -60,10 +56,6 @@ namespace adam::modules::network
          * @return True if the base port::stop() succeeded.
          */
         virtual bool stop() override;
-
-        // -----------------------------------------------------------------
-        // Shared read() - select + recvfrom loop, identical for all UDP types.
-        // -----------------------------------------------------------------
 
         /**
          * @brief Waits for incoming UDP data and returns it in a newly allocated buffer.
@@ -82,13 +74,9 @@ namespace adam::modules::network
         uintptr_t m_socket; ///< Native socket handle stored as uintptr_t for atomic compatibility.
 
         // User-parameter pointers - populated by init_base_params().
-        configuration_parameter_string*  m_interface = nullptr; ///< Local interface IP to bind to.
-        configuration_parameter_integer* m_interface_port      = nullptr; ///< Local port to bind to.
-        configuration_parameter_string*  m_ip_version      = nullptr; ///< "ipv4", "ipv6", or "auto".
-
-        // -----------------------------------------------------------------
-        // Helpers for subclass constructors
-        // -----------------------------------------------------------------
+        configuration_parameter_string*  m_interface        = nullptr; ///< Local interface IP to bind to.
+        configuration_parameter_integer* m_interface_port   = nullptr; ///< Local port to bind to.
+        configuration_parameter_string*  m_ip_version       = nullptr; ///< "ipv4", "ipv6", or "auto".
 
         /**
          * @brief Populates m_interface, m_interface_port, and m_ip_version from

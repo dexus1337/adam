@@ -50,11 +50,7 @@ namespace adam::modules::network
         virtual ~port_udp_unicast();
 
         /** @copydoc port_udp_base::get_type_name */
-        virtual const string_hashed_ct& get_type_name() const override
-        {
-            static string_hashed_ct name = type_name();
-            return name;
-        }
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
 
         /**
          * @brief Creates and binds the UDP socket to the configured local address/port.

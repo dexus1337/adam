@@ -64,11 +64,7 @@ namespace adam::modules::network
         virtual ~port_tcp_server();
 
         /** @brief Returns the type-name for this port instance. */
-        virtual const string_hashed_ct& get_type_name() const override
-        {
-            static string_hashed_ct name = type_name();
-            return name;
-        }
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
 
         /**
          * @brief Creates and binds the listener socket, then starts the worker thread.
@@ -116,20 +112,15 @@ namespace adam::modules::network
         /** @brief List of all currently connected client socket handles. */
         std::vector<uintptr_t>        m_clients;
 
-        /** @brief Spinlock protecting m_clients between the worker thread (read/accept)
-         *         and any caller thread invoking write() or stop().
-         *         Held for nanoseconds only - never while doing I/O. */
-        std::atomic_flag              m_clients_mutex = ATOMIC_FLAG_INIT;
-
         // --- Private helpers ---
         void add_client_to_stats(socket_t client_sock, const sockaddr_storage& client_addr);
         void remove_client_from_stats(socket_t client_sock);
 
         // --- User-parameter pointers (set in constructor, read-only thereafter) ---
-        configuration_parameter_string*  m_interface = nullptr; ///< Local interface IP.
+        configuration_parameter_string*  m_interface      = nullptr; ///< Local interface IP.
         configuration_parameter_integer* m_interface_port = nullptr; ///< Local listen port.
-        configuration_parameter_boolean* m_tcp_nodelay     = nullptr; ///< TCP_NODELAY on accepted sockets.
-        configuration_parameter_string*  m_ip_version      = nullptr; ///< "auto", "ipv4", "ipv6".
+        configuration_parameter_boolean* m_tcp_nodelay    = nullptr; ///< TCP_NODELAY on accepted sockets.
+        configuration_parameter_string*  m_ip_version     = nullptr; ///< "auto", "ipv4", "ipv6".
     };
 
 } // namespace adam::modules::network

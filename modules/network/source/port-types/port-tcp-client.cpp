@@ -460,25 +460,11 @@ namespace adam::modules::network
         return false;
     }
 
-    // =========================================================================
-    // write()
-    // =========================================================================
-
     bool port_tcp_client::write(buffer* buff)
     {
-        if (!buff || buff->get_size() == 0) return false;
+        if (!buff || buff->get_size() == 0 || get_state() != state_running) return false;
 
-        socket_t sock = static_cast<socket_t>(invalid_socket_val);
-        {
-            adam::spinlock::guard lock(m_write_mutex);
-            sock = static_cast<socket_t>(m_socket);
-        }
-        if (sock == invalid_socket_val) return false;
-
-        const char* data = buff->data_as<const char>();
-        size_t      size = buff->get_size();
-
-        if (!send_all(sock, data, size))
+        if (!send_all(static_cast<socket_t>(m_socket), buff->get_data_as<char>(), buff->get_size()))
         {
             log_network_socket_error(log::warning, log_event::tcp_client_send_failed, resolve_socket_error(get_last_error()), "TCP-Client");
             return false;

@@ -193,7 +193,7 @@ namespace adam
 
         configuration_parameter_boolean*                        m_started;          /**< Cached pointer to the started parameter as it will be frequently accessed. */
 
-        bool                                                    m_use_spinlock;     /**< If true, a spinlock will be used to protect the write method access. */
-        std::atomic_flag                                        m_spinlock = ATOMIC_FLAG_INIT; /**< Spinlock used for write synchronization. */
+        bool                                                    m_use_spinlock_for_write;       /**< If true, a spinlock will be used to protect the write method access. */
+        std::atomic_flag                                        m_spinlock = ATOMIC_FLAG_INIT;  /**< Spinlock for I/O synchronization. */
     };
 }

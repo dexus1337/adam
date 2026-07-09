@@ -96,9 +96,9 @@ namespace adam
             case data_direction_in:
             {
                 // Populate map for active formats, if anything changed
-                bool formats_updated = m_formats.is_dirty();
+                bool formats_updated = m_formats.is_dirty() || m_parse_cache.empty() != active_formats.empty();
                 auto& active_formats = m_formats.get_active();
-                if (formats_updated || m_parse_cache.empty() != active_formats.empty())
+                if (formats_updated)
                 {
                     m_parse_cache.clear();
                     for (auto& [hash, format] : active_formats)
@@ -142,7 +142,7 @@ namespace adam
             }
             case data_direction_out:
             {
-                if (m_use_spinlock)
+                if (m_use_spinlock_for_write)
                 {
                     spinlock::guard lock(m_spinlock);
                     result &= write(buf);
@@ -211,7 +211,7 @@ namespace adam
         m_out_connections(),
         m_inspectors(),
         m_started(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("started"_ct))),
-        m_use_spinlock(false)
+        m_use_spinlock_for_write(false)
     {
         m_state_buffer = buffer_manager::get().request_buffer(state_buffer_size);
         

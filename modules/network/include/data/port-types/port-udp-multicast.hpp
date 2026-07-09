@@ -53,11 +53,7 @@ namespace adam::modules::network
         virtual ~port_udp_multicast();
 
         /** @copydoc port_udp_base::get_type_name */
-        virtual const string_hashed_ct& get_type_name() const override
-        {
-            static string_hashed_ct name = type_name();
-            return name;
-        }
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
 
         /**
          * @brief Creates the UDP socket, joins the configured multicast group, sets

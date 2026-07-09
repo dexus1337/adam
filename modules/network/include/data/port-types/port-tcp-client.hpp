@@ -12,6 +12,11 @@
  *
  *          Outgoing writes (write()) are fully independent of the read loop and protected
  *          by a dedicated spinlock covering only the socket-handle read.
+ * 
+ *          We need to fully rework the tcp client and server. I want you to use the vector_double_buffer to host the client sockets.
+ *          For the tcp client we can use the spinlock defined in port base class. We need to set m_use_spinlock_for_write like we do in the recording port
+ * 
+ *          This should make the code muss less lines and more structured and overviewable. Remember to use guard clauses whereever possible
  *
  * @version 2.0
  * @date    04.07.2026
@@ -27,12 +32,12 @@ namespace adam::modules::network
      * @brief TCP Client Port - connects to a remote TCP server and exchanges data bidirectionally.
      *
      *        User parameters (configured via the "user_parameters" list):
-     *          - interface            (string)  - Local interface to bind before connecting (default "auto").
-     *          - remote_ip            (string)  - Remote server IP or hostname (default "127.0.0.1").
-     *          - remote_port          (integer) - Remote server port (default 0).
+     *          - interface             (string)  - Local interface to bind before connecting (default "auto").
+     *          - remote_ip             (string)  - Remote server IP or hostname (default "127.0.0.1").
+     *          - remote_port           (integer) - Remote server port (default 0).
      *          - reconnect_interval_ms (integer) - Milliseconds between reconnect attempts (0 = disabled, default 2000).
-     *          - tcp_nodelay          (boolean) - Disable Nagle's algorithm for lower latency (default true).
-     *          - ip_version           (string)  - "auto", "ipv4", or "ipv6".
+     *          - tcp_nodelay           (boolean) - Disable Nagle's algorithm for lower latency (default true).
+     *          - ip_version            (string)  - "auto", "ipv4", or "ipv6".
      */
     class ADAM_NETWORK_API port_tcp_client : public port_network
     {
@@ -53,11 +58,7 @@ namespace adam::modules::network
         virtual ~port_tcp_client();
 
         /** @brief Returns the type-name for this port instance. */
-        virtual const string_hashed_ct& get_type_name() const override
-        {
-            static string_hashed_ct name = type_name();
-            return name;
-        }
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
 
         /**
          * @brief Starts the background worker thread that manages connect and read.
@@ -107,20 +108,20 @@ namespace adam::modules::network
         // --- Socket handle ---
         /** @brief Native socket handle stored as uintptr_t. Accessed from both the worker
          *         thread (read/connect) and the caller thread (write/stop) under m_write_mutex. */
-        uintptr_t                m_socket;
+        uintptr_t m_socket;
 
         /** @brief Spinlock protecting reads and writes of m_socket between the worker thread
-         *         and any caller invoking write() or stop(). Held for nanoseconds only. */
-        std::atomic_flag         m_write_mutex = ATOMIC_FLAG_INIT;
+         *         and any caller invoking write() or stop(). Held for nanoseconds only. 
+         *          TODO: the base port class already has a write spinlock, so all we need to do is to set: m_use_write_spinlock to true */
 
         // --- User-parameter pointers (set in constructor, read-only thereafter) ---
-        configuration_parameter_string*  m_interface            = nullptr; ///< Optional local interface IP.
-        configuration_parameter_integer* m_interface_port       = nullptr; ///< Optional local interface port.
-        configuration_parameter_string*  m_remote_ip            = nullptr; ///< Remote server address.
-        configuration_parameter_integer* m_remote_port          = nullptr; ///< Remote server port.
+        configuration_parameter_string*  m_interface             = nullptr; ///< Optional local interface IP.
+        configuration_parameter_integer* m_interface_port        = nullptr; ///< Optional local interface port.
+        configuration_parameter_string*  m_remote_ip             = nullptr; ///< Remote server address.
+        configuration_parameter_integer* m_remote_port           = nullptr; ///< Remote server port.
         configuration_parameter_integer* m_reconnect_interval_ms = nullptr; ///< Reconnect retry delay in ms.
-        configuration_parameter_boolean* m_tcp_nodelay          = nullptr; ///< TCP_NODELAY flag.
-        configuration_parameter_string*  m_ip_version           = nullptr; ///< "auto", "ipv4", "ipv6".
+        configuration_parameter_boolean* m_tcp_nodelay           = nullptr; ///< TCP_NODELAY flag.
+        configuration_parameter_string*  m_ip_version            = nullptr; ///< "auto", "ipv4", "ipv6".
     };
 
 } // namespace adam::modules::network

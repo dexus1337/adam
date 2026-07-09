@@ -93,7 +93,7 @@ namespace adam::modules::recrep
 
         add_parameters(port_output_recording::get_user_parameters());
 
-        port_output::m_use_spinlock = true; // Need to lock write method, as writing asynchronously on a single file stream is not thread safe.
+        port_output::m_use_spinlock_for_write = true; // Need to lock write method, as writing asynchronously on a single file stream is not thread safe.
     }
 
     port_output_recording::~port_output_recording() 
@@ -131,7 +131,7 @@ namespace adam::modules::recrep
 
     void port_output_recording::close_current_file(bool acquire_spinlock)
     {
-        bool do_lock = acquire_spinlock && m_use_spinlock;
+        bool do_lock = acquire_spinlock && m_use_spinlock_for_write;
         if (do_lock)
         {
             spinlock::acquire(m_spinlock);
