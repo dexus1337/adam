@@ -308,8 +308,6 @@ namespace adam::gui
         bool commander_active
     )
     {
-        if (is_drag_preview) return;
-
         ImGui::SameLine();
         if (!is_unavailable)
         {
@@ -410,11 +408,95 @@ namespace adam::gui
         float pad_x = ImGui::GetStyle().WindowPadding.x;
         float spacing_x = ImGui::GetStyle().ItemSpacing.x;
 
+        auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
+        bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
+
+        // --- Row 1 Layout ---
+        ImGui::AlignTextToFramePadding();
+
+        // Left column: Add Input button "+", Input Format combo, and Inspect checkbox
+        float btn_w = ImGui::GetFrameHeight();
+        float cb_size = ImGui::GetFrameHeight();
+        float inspect_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::lbl_inspect, lang)).x + cb_size + ImGui::GetStyle().ItemInnerSpacing.x;
+        float combo_w = port_w - btn_w - inspect_w - spacing_x * 2.0f; // Calculate combo width
+        ImGui::SetCursorPosX(pad_x);
+        ImGui::BeginGroup();
+        if (ImGui::Button("+##add_input", ImVec2(btn_w, 0)))
+        {
+            g_target_connection = conn->name;
+            g_target_direction = adam::port::direction_in;
+            g_request_port_popup = true;
+        }
+
+        ImGui::SameLine(); // After '+' button
+        draw_format_selection_combo(ctrl, lang, hash, conn->input_format, conn->input_format_module, available_formats, true, input_missing, combo_w);
+
+        ImGui::SameLine(); // After combo
+        draw_inspect_checkbox(ctrl, lang, hash, true);
+        ImGui::EndGroup();
+        
+        // Middle column: Centered connection controls (color, name, start, stop, delete, add processor)
+        float name_field_width = port_w; // Name field takes up the same width as a port node
+        float color_w = ImGui::GetFrameHeight();
+        float btn_start_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_start, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_stop_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_stop, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_delete_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_delete, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_add_port_w = ImGui::GetFrameHeight(); // Width of the '+' button
+
+        float total_controls_w = color_w + spacing_x + name_field_width;
+        if (!is_unavailable)
+        {
+            total_controls_w += spacing_x + btn_start_w + spacing_x + btn_stop_w;
+        }
+        else
+        {
+            total_controls_w += spacing_x + ImGui::CalcTextSize(get_gui_string(gui_string_id::stat_unavailable, lang)).x;
+        }
+        total_controls_w += spacing_x + btn_delete_w; // Delete button
+        total_controls_w += spacing_x + btn_add_port_w; // Add Processor button
+
+        float start_mid_x = pad_x + (avail_x - total_controls_w) * 0.5f;
+        float min_start_x = pad_x + port_w + spacing_x;
+        if (start_mid_x < min_start_x) start_mid_x = min_start_x;
+
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(start_mid_x);
+        ImGui::BeginGroup(); // Group for middle column elements
+        draw_connection_name_and_color(ctrl, lang, conn, hash, is_drag_preview, name_field_width);
+        draw_connection_action_buttons(ctrl, lang, conn, hash, is_drag_preview, is_unavailable, btn_w, commander_active);
+        ImGui::EndGroup(); // End group for middle column elements
+
+        // Right column: Inspect checkbox, Output Format Combo, and Add Output button "+"
+        ImGui::SameLine(pad_x + avail_x - port_w);
+        ImGui::BeginGroup();
+
+        draw_inspect_checkbox(ctrl, lang, hash, false);
+
+        ImGui::SameLine(); // After checkbox
+        draw_format_selection_combo(ctrl, lang, hash, conn->output_format, conn->output_format_module, available_formats, false, output_missing, combo_w);
+
+        ImGui::SameLine(); // After combo
+        if (ImGui::Button("+##add_output", ImVec2(btn_w, 0)))
+        {
+            g_target_connection = conn->name;
+            g_target_direction = adam::port::direction_out;
+            g_request_port_popup = true;
+        }
+        ImGui::EndGroup();
         if (sort_mode == 6 && !is_drag_preview)
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered)); // Pushed 2nd
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+            if (is_light_theme)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f, 0.90f, 0.90f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.80f, 0.80f, 0.80f, 1.0f));
+            }
+            else
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+            }
             ImGui::Button("##drag_handle", ImVec2(-1.0f, 4.0f * dpi_scale));
             ImGui::PopStyleColor(3);
             if (ImGui::IsItemActivated())
@@ -434,107 +516,12 @@ namespace adam::gui
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
             }
         }
-
-        // --- Row 1 Layout ---
-        ImGui::AlignTextToFramePadding();
-
-        // Left column: Add Input button "+", Input Format combo, and Inspect checkbox
-        float btn_w = ImGui::GetFrameHeight();
-        float cb_size = ImGui::GetFrameHeight();
-        float inspect_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::lbl_inspect, lang)).x + cb_size + ImGui::GetStyle().ItemInnerSpacing.x;
-        float combo_w = port_w - btn_w - inspect_w - spacing_x * 2.0f; // Calculate combo width
-        ImGui::SetCursorPosX(pad_x);
-        ImGui::BeginGroup();
-        if (!is_drag_preview)
-        {
-            if (ImGui::Button("+##add_input", ImVec2(btn_w, 0)) && !is_drag_preview)
-            {
-                g_target_connection = conn->name;
-                g_target_direction = adam::port::direction_in;
-                g_request_port_popup = true;
-            }
-
-            ImGui::SameLine(); // After '+' button
-            draw_format_selection_combo(ctrl, lang, hash, conn->input_format, conn->input_format_module, available_formats, true, input_missing, combo_w);
-
-            ImGui::SameLine(); // After combo
-            draw_inspect_checkbox(ctrl, lang, hash, true);
-        }
         else
         {
-            ImGui::Dummy(ImVec2(port_w, ImGui::GetFrameHeight()));
+            if (is_light_theme) ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            ImGui::Separator();
+            if (is_light_theme) ImGui::PopStyleColor();
         }
-        ImGui::EndGroup();
-        
-        // Middle column: Centered connection controls (color, name, start, stop, delete, add processor)
-        float name_field_width = port_w; // Name field takes up the same width as a port node
-        float color_w = ImGui::GetFrameHeight();
-        float btn_start_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_start, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-        float btn_stop_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_stop, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-        float btn_delete_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_delete, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-        float btn_add_port_w = ImGui::GetFrameHeight(); // Width of the '+' button
-
-        float total_controls_w = 0.0f;
-        if (!is_drag_preview)
-        {
-            total_controls_w += color_w + spacing_x;
-            total_controls_w += name_field_width;
-            if (!is_unavailable)
-            {
-                total_controls_w += spacing_x + btn_start_w + spacing_x + btn_stop_w;
-            }
-            else
-            {
-                total_controls_w += spacing_x + ImGui::CalcTextSize(get_gui_string(gui_string_id::stat_unavailable, lang)).x;
-            }
-            total_controls_w += spacing_x + btn_delete_w; // Delete button
-            total_controls_w += spacing_x + btn_add_port_w; // Add Processor button
-        }
-        else
-        {
-            total_controls_w = ImGui::CalcTextSize(conn->name.c_str()).x;
-        }
-
-        float start_mid_x = pad_x + (avail_x - total_controls_w) * 0.5f;
-        if (!is_drag_preview)
-        {
-            float min_start_x = pad_x + port_w + spacing_x;
-            if (start_mid_x < min_start_x) start_mid_x = min_start_x;
-        }
-
-        ImGui::SameLine();
-        ImGui::SetCursorPosX(start_mid_x);
-        ImGui::BeginGroup(); // Group for middle column elements
-        draw_connection_name_and_color(ctrl, lang, conn, hash, is_drag_preview, name_field_width);
-        draw_connection_action_buttons(ctrl, lang, conn, hash, is_drag_preview, is_unavailable, btn_w, commander_active);
-        ImGui::EndGroup(); // End group for middle column elements
-
-        // Right column: Inspect checkbox, Output Format Combo, and Add Output button "+"
-        if (!is_drag_preview)
-        {
-            ImGui::SameLine(pad_x + avail_x - port_w);
-            ImGui::BeginGroup();
-
-            draw_inspect_checkbox(ctrl, lang, hash, false);
-
-            ImGui::SameLine(); // After checkbox
-            draw_format_selection_combo(ctrl, lang, hash, conn->output_format, conn->output_format_module, available_formats, false, output_missing, combo_w);
-
-            ImGui::SameLine(); // After combo
-            if (ImGui::Button("+##add_output", ImVec2(btn_w, 0)))
-            {
-                g_target_connection = conn->name;
-                g_target_direction = adam::port::direction_out;
-                g_request_port_popup = true;
-            }
-            ImGui::EndGroup();
-        }
-        else
-        {
-            ImGui::SameLine(pad_x + avail_x - port_w);
-            ImGui::Dummy(ImVec2(port_w, ImGui::GetFrameHeight()));
-        }
-        ImGui::Separator();
     }
 
     void draw_connection_lines
@@ -704,7 +691,8 @@ namespace adam::gui
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
             
-        ImVec4 bg = is_drag_preview ? ImVec4(0.2f, 0.2f, 0.2f, 0.9f) : ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+        ImVec4 bg = is_drag_preview ? get_gui_color(gui_color_id::node_connection_card_bg_drag_preview) : 
+                    (is_light_theme ? get_gui_color(gui_color_id::node_connection_card_bg_light) : get_gui_color(gui_color_id::node_connection_card_bg));
             
         if (conn->color != 0)
         {
@@ -728,17 +716,18 @@ namespace adam::gui
             
         float base_height = ImGui::GetStyle().WindowPadding.y * 2.0f;
         
-        // 1. Top drag handle / separator spacing
+        // 1. Row 1 (Combos/Buttons/Controls)
+        base_height += ImGui::GetFrameHeight();
+        
+        // 2. Separator or Drag Bar between header and columns
         if (sort_mode == 6 && !is_drag_preview)
         {
             base_height += 4.0f * dpi_scale + ImGui::GetStyle().ItemSpacing.y;
         }
-        
-        // 2. Row 1 (Combos/Buttons/Controls)
-        base_height += ImGui::GetFrameHeight();
-        
-        // 3. Separator between header and columns
-        base_height += ImGui::GetStyle().ItemSpacing.y + 1.0f;
+        else
+        {
+            base_height += ImGui::GetStyle().ItemSpacing.y + 1.0f;
+        }
 
         int total_stages = 2 + static_cast<int>(conn->processors.size()); // Input stage, Processor stages, Output stage
 
@@ -1182,7 +1171,14 @@ namespace adam::gui
                 
                 if (mouse_pos.y >= min.y && mouse_pos.y <= max.y)
                 {
-                    g_active_drag_target_index = i;
+                    if (hash != g_active_drag_hash)
+                    {
+                        float mid_y = min.y + (max.y - min.y) * 0.5f;
+                        if (i > g_active_drag_target_index && mouse_pos.y > mid_y)
+                            g_active_drag_target_index = i;
+                        else if (i < g_active_drag_target_index && mouse_pos.y < mid_y)
+                            g_active_drag_target_index = i;
+                    }
                 }
             }
         }

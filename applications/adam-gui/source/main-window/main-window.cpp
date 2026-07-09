@@ -74,47 +74,47 @@ namespace adam::gui
             else
             {
                 ImGui::StyleColorsLight();
-                colors[ImGuiCol_Text]                   = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
-                colors[ImGuiCol_TextDisabled]           = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
-                colors[ImGuiCol_WindowBg]               = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
-                colors[ImGuiCol_ChildBg]                = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
-                colors[ImGuiCol_PopupBg]                = ImVec4(1.00f, 1.00f, 1.00f, 0.98f);
-                colors[ImGuiCol_Border]                 = ImVec4(0.82f, 0.82f, 0.82f, 1.00f);
+                colors[ImGuiCol_Text]                   = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
+                colors[ImGuiCol_TextDisabled]           = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+                colors[ImGuiCol_WindowBg]               = ImVec4(0.96f, 0.96f, 0.96f, 1.00f);
+                colors[ImGuiCol_ChildBg]                = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
+                colors[ImGuiCol_PopupBg]                = ImVec4(0.96f, 0.96f, 0.96f, 0.98f);
+                colors[ImGuiCol_Border]                 = ImVec4(0.78f, 0.78f, 0.78f, 1.00f);
                 colors[ImGuiCol_BorderShadow]           = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
                 colors[ImGuiCol_FrameBg]                = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
                 colors[ImGuiCol_FrameBgHovered]         = ImVec4(0.96f, 0.96f, 0.96f, 1.00f);
-                colors[ImGuiCol_FrameBgActive]          = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
-                colors[ImGuiCol_TitleBg]                = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-                colors[ImGuiCol_TitleBgActive]          = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-                colors[ImGuiCol_TitleBgCollapsed]       = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+                colors[ImGuiCol_FrameBgActive]          = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+                colors[ImGuiCol_TitleBg]                = ImVec4(0.88f, 0.88f, 0.88f, 1.00f);
+                colors[ImGuiCol_TitleBgActive]          = ImVec4(0.88f, 0.88f, 0.88f, 1.00f);
+                colors[ImGuiCol_TitleBgCollapsed]       = ImVec4(0.88f, 0.88f, 0.88f, 1.00f);
                 colors[ImGuiCol_MenuBarBg]              = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-                colors[ImGuiCol_ScrollbarBg]            = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
-                colors[ImGuiCol_ScrollbarGrab]          = ImVec4(0.75f, 0.75f, 0.75f, 1.00f);
-                colors[ImGuiCol_ScrollbarGrabHovered]   = ImVec4(0.65f, 0.65f, 0.65f, 1.00f);
-                colors[ImGuiCol_ScrollbarGrabActive]    = ImVec4(0.55f, 0.55f, 0.55f, 1.00f);
+                colors[ImGuiCol_ScrollbarBg]            = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
+                colors[ImGuiCol_ScrollbarGrab]          = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+                colors[ImGuiCol_ScrollbarGrabHovered]   = ImVec4(0.96f, 0.96f, 0.96f, 1.00f);
+                colors[ImGuiCol_ScrollbarGrabActive]    = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
                 colors[ImGuiCol_CheckMark]              = ImVec4(0.00f, 0.48f, 1.00f, 1.00f);
                 colors[ImGuiCol_SliderGrab]             = ImVec4(0.00f, 0.48f, 1.00f, 1.00f);
                 colors[ImGuiCol_SliderGrabActive]       = ImVec4(0.00f, 0.35f, 0.85f, 1.00f);
                 colors[ImGuiCol_Button]                 = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-                colors[ImGuiCol_ButtonHovered]          = ImVec4(0.96f, 0.96f, 0.96f, 1.00f);
-                colors[ImGuiCol_ButtonActive]           = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
+                colors[ImGuiCol_ButtonHovered]          = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+                colors[ImGuiCol_ButtonActive]           = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
                 colors[ImGuiCol_Header]                 = ImVec4(0.00f, 0.48f, 1.00f, 0.20f);
                 colors[ImGuiCol_HeaderHovered]          = ImVec4(0.00f, 0.48f, 1.00f, 0.40f);
                 colors[ImGuiCol_HeaderActive]           = ImVec4(0.00f, 0.48f, 1.00f, 0.60f);
-                colors[ImGuiCol_Separator]              = ImVec4(0.82f, 0.82f, 0.82f, 1.00f);
+                colors[ImGuiCol_Separator]              = ImVec4(0.78f, 0.78f, 0.78f, 1.00f);
                 colors[ImGuiCol_SeparatorHovered]       = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
                 colors[ImGuiCol_SeparatorActive]        = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
                 colors[ImGuiCol_ResizeGrip]             = ImVec4(0.00f, 0.48f, 1.00f, 0.25f);
                 colors[ImGuiCol_ResizeGripHovered]      = ImVec4(0.00f, 0.48f, 1.00f, 0.50f);
                 colors[ImGuiCol_ResizeGripActive]       = ImVec4(0.00f, 0.48f, 1.00f, 0.75f);
-                colors[ImGuiCol_Tab]                    = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-                colors[ImGuiCol_TabHovered]             = ImVec4(0.96f, 0.96f, 0.96f, 1.00f);
-                colors[ImGuiCol_TabActive]              = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-                colors[ImGuiCol_TabUnfocused]           = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
-                colors[ImGuiCol_TabUnfocusedActive]     = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-                colors[ImGuiCol_TableHeaderBg]          = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-                colors[ImGuiCol_TableBorderStrong]      = ImVec4(0.80f, 0.80f, 0.80f, 1.00f);
-                colors[ImGuiCol_TableBorderLight]       = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
+                colors[ImGuiCol_Tab]                    = ImVec4(0.88f, 0.88f, 0.88f, 1.00f);
+                colors[ImGuiCol_TabHovered]             = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
+                colors[ImGuiCol_TabActive]              = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
+                colors[ImGuiCol_TabUnfocused]           = ImVec4(0.88f, 0.88f, 0.88f, 1.00f);
+                colors[ImGuiCol_TabUnfocusedActive]     = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
+                colors[ImGuiCol_TableHeaderBg]          = ImVec4(0.88f, 0.88f, 0.88f, 1.00f);
+                colors[ImGuiCol_TableBorderStrong]      = ImVec4(0.75f, 0.75f, 0.75f, 1.00f);
+                colors[ImGuiCol_TableBorderLight]       = ImVec4(0.80f, 0.80f, 0.80f, 1.00f);
                 colors[ImGuiCol_TableRowBg]             = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
                 colors[ImGuiCol_TableRowBgAlt]          = ImVec4(0.00f, 0.00f, 0.00f, 0.02f);
             }
@@ -135,9 +135,12 @@ namespace adam::gui
             ImColor(0xA6, 0x76, 0x26, 0xDC), // #A67626 node_processor
             ImColor(0xA6, 0x26, 0x26, 0xDC), // #A62626 node_output
             ImColor(0xC8, 0xC8, 0xC8, 0xFF), // #C8C8C8 node_connection_line
-            ImColor(0xC0, 0xC0, 0xC0, 0xFF), // #C0C0C0 node_connection_line_light
+            ImColor(0xFF, 0xFF, 0xFF, 0xFF), // #FFFFFF node_connection_line_light (bright white)
             ImColor(0x46, 0x46, 0x46, 0x50), // #464646 node_connection_line_invalid
-            ImColor(0xE0, 0xE0, 0xE0, 0x64), // #E0E0E0 node_connection_line_invalid_light
+            ImColor(0xFF, 0xFF, 0xFF, 0x50), // #FFFFFF node_connection_line_invalid_light
+            ImColor(0x33, 0x33, 0x33, 0xFF), // #333333 node_connection_card_bg
+            ImColor(0xAD, 0xAD, 0xAD, 0xFF), // #adadadff node_connection_card_bg_light
+            ImColor(0x33, 0x33, 0x33, 0xE6), // #333333 node_connection_card_bg_drag_preview
             ImColor(0x28, 0xBC, 0x28, 0xFF)  // #28bc28 node_pin_active (Darker green, 100% Alpha)
         };
         return colors[static_cast<size_t>(id)];
@@ -214,7 +217,7 @@ namespace adam::gui
             int x, y, w, h;
             SDL_GetWindowPosition(m_window, &x, &y);
             SDL_GetWindowSize(m_window, &w, &h);
-            Uint32 flags = SDL_GetWindowFlags(m_window);
+            SDL_WindowFlags flags = SDL_GetWindowFlags(m_window);
 
             auto& params = m_ctrl.get_parameters();
             static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->set_value(static_cast<int64_t>(x));

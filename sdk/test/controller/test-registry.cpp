@@ -164,8 +164,8 @@ namespace adam::test
 class registry_test : public ::testing::Test
 {
 protected:
-    const std::string test_filepath = "test_adam_registry.bin";
-    const std::string adam_config_filepath = "adam-config.bin";
+    const std::string test_filepath = "test_adam_registry.adamcfg";
+    const std::string adam_config_filepath = "adam-config.adamcfg";
 
     void SetUp() override
     {
@@ -263,10 +263,10 @@ TEST_F(registry_test, invalid_file_io)
     adam::registry& reg = ctrl.get_registry();
     
     // Saving to an invalid path should fail gracefully
-    EXPECT_FALSE(reg.save("/invalid_path_1337/registry.bin"));
-    
-    // Loading a non-existent file should fail gracefully
-    EXPECT_FALSE(reg.load("non_existent_registry.bin"));
+    EXPECT_FALSE(reg.save("/invalid_path_1337/registry.adamcfg"));
+    EXPECT_FALSE(reg.load(""));
+    EXPECT_FALSE(reg.load("///"));
+    EXPECT_FALSE(reg.load("non_existent_registry.adamcfg"));
     
     // Create a corrupted/invalid binary file
     {

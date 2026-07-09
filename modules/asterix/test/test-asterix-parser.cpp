@@ -363,7 +363,7 @@ TEST_F(parser_test, parse_compound)
     EXPECT_EQ(record->item_count, uap->get_highest_frn() + uap->get_spec(24)->sub_uap->get_highest_frn());
     EXPECT_EQ(record->fspec_size, 4);
     EXPECT_EQ(record->raw_length, 15 - 3);
-    EXPECT_EQ(record->raw_offset, 3);
+    EXPECT_EQ(record->raw_offset, 3u);
 
     for (uint8_t i = 1; i <= uap->get_highest_frn(); i++)
     {

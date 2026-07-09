@@ -246,7 +246,7 @@ namespace adam
         }
         m_queues_event.clear();
 
-        m_registry.save("adam-config.bin");
+        m_registry.save("adam-config.adamcfg");
 
         m_registry.stop_items();
         

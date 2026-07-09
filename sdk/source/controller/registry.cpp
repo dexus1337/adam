@@ -44,7 +44,7 @@ namespace adam
             p.add(std::move(module_paths));
 
             auto config_paths = std::make_unique<configuration_parameter_list>("config_paths"_ct);
-            config_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./configs/"_ct));
+            config_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./"_ct));
             p.add(std::move(config_paths));
 
             p.add(std::move(std::make_unique<configuration_parameter_list>("ports"_ct)));
@@ -69,7 +69,7 @@ namespace adam
 
         register_internal_module(&internal_module_essential);
 
-        if (!load("adam-config.bin"))
+        if (!load("adam-config.adamcfg"))
             m_modules.scan_for_modules();
     }
 
@@ -879,6 +879,32 @@ namespace adam
  
         // 1. Restore general settings
         copy_parameters(&m_parameters, static_cast<configuration_parameter_list*>(root_list->get("general"_ct)));
+ 
+        if (auto* mod_paths = get_parameter<configuration_parameter_list>("module_paths"_ct))
+        {
+            if (auto* param_0 = mod_paths->get("0"_ct))
+            {
+                if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param_0))
+                    str_param->set_value("./modules/");
+            }
+            else
+            {
+                mod_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
+            }
+        }
+        
+        if (auto* cfg_paths = get_parameter<configuration_parameter_list>("config_paths"_ct))
+        {
+            if (auto* param_0 = cfg_paths->get("0"_ct))
+            {
+                if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param_0))
+                    str_param->set_value("./");
+            }
+            else
+            {
+                cfg_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./"_ct));
+            }
+        }
  
         m_modules.clear_and_unload_all();
         m_modules.scan_for_modules();

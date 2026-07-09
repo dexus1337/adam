@@ -83,6 +83,7 @@ namespace adam
         /** @brief Requests to save the config. */
         response_status request_config_export(uint32_t path_idx, const string_hashed& filename, const std::string& name, const std::string& description);
         response_status request_config_save(const std::string& name, const std::string& description);
+        response_status request_config_delete(uint32_t path_idx, const string_hashed& filename);
 
         /** @brief Requests to load a config. */
         response_status request_config_import(uint32_t path_idx, const string_hashed& filename);

@@ -661,14 +661,35 @@ namespace adam
         {
             auto params = cmds->get_data_as<messages::config_save_data>();
 
-            if (ctx.reg.configs().save_config(0xFFFFFFFF, "adam-config.bin", params->name, params->description))
+            if (ctx.reg.configs().save_config(0xFFFFFFFF, "adam-config.adamcfg", params->name, params->description))
             {
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.tid, "adam-config.bin");
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.tid, "adam-config.adamcfg");
                 ctx.set_single_response_status(response_status::success);
             }
             else
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.tid, "adam-config.bin");
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.tid, "adam-config.adamcfg");
+                ctx.set_single_response_status(response_status::failed);
+            }
+        });
+
+        register_handler(command_type::config_delete, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::config_delete_data>();
+
+            // Do not allow deleting the default adam config
+            if (std::string(params->filename) == "adam-config.adamcfg")
+            {
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            if (ctx.reg.configs().delete_config(params->path_idx, params->filename))
+            {
+                ctx.set_single_response_status(response_status::success);
+            }
+            else
+            {
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -723,7 +744,7 @@ namespace adam
             evt_data->edited                    = current_time;
             evt_data->input_format              = new_conn->get_input_format()->get_name().get_hash();
             evt_data->output_format             = new_conn->get_output_format()->get_name().get_hash();
-            evt_data->sorting_index             = dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("sorting_index"_ct))->get_value();
+            evt_data->sorting_index             = static_cast<uint32_t>(dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("sorting_index"_ct))->get_value());
             evt_data->input_format_module       = dynamic_cast<configuration_parameter_string*>(new_conn->get_parameters().get("input_format_module"_ct))->get_value().get_hash();
             evt_data->output_format_module      = dynamic_cast<configuration_parameter_string*>(new_conn->get_parameters().get("output_format_module"_ct))->get_value().get_hash();
 

@@ -50,6 +50,7 @@ namespace adam
 
         bool load_config(uint32_t path_idx, const std::string& filename);
         bool save_config(uint32_t path_idx, const std::string& filename, const std::string& name, const std::string& description);
+        bool delete_config(uint32_t path_idx, const std::string& filename);
 
         std::string get_config_name() const { return m_config_name; }
         std::string get_config_description() const { return m_config_description; }

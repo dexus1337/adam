@@ -475,6 +475,15 @@ namespace adam
         return send_command(cmd);
     }
 
+    response_status commander::request_config_delete(uint32_t path_idx, const string_hashed& filename)
+    {
+        command cmd(command_type::config_delete);
+        auto* data = cmd.data_as<messages::config_delete_data>();
+        data->setup(path_idx, filename.c_str());
+
+        return send_command(cmd);
+    }
+
     response_status commander::request_config_save(const std::string& name, const std::string& description)
     {
         command cmd(command_type::config_save);

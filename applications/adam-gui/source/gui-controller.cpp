@@ -37,12 +37,12 @@ namespace adam::gui
         : configuration_item("gui.controller", get_default_parameters()),
           m_running(false), m_commander_active(false)
     {
-        load("adam-gui-config.bin");
+        load("adam-gui-config.adamguicfg");
     }
 
     gui_controller::~gui_controller()
     {
-        save("adam-gui-config.bin");
+        save("adam-gui-config.adamguicfg");
         stop();
     }
 

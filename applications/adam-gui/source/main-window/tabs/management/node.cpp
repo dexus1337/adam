@@ -1293,7 +1293,7 @@ namespace adam::gui
         if (is_expanded && !is_drag_preview)
         {
             ImColor captured_color = color;
-            uint64_t unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
+            unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
             float this_expanded_h = get_expanded_node_height(unique_node_id, dpi_scale);
             
             float exp_w = (type == node_type_processor) ? port_w : current_node_w;

@@ -277,6 +277,20 @@ namespace adam
         };
         static_assert(sizeof(config_path_remove_data) <= command::get_max_data_length(), "config_path_remove_data exceeds maximum command data size");
 
+        struct config_delete_data
+        {
+            uint32_t path_idx;
+            char filename[max_name_length];
+
+            void setup(uint32_t p_idx, const char* f)
+            {
+                path_idx = p_idx;
+                std::strncpy(filename, f, sizeof(filename) - 1);
+                filename[sizeof(filename) - 1] = '\0';
+            }
+        };
+        static_assert(sizeof(config_delete_data) <= command::get_max_data_length(), "config_delete_data exceeds maximum command data size");
+
         struct config_export_data
         {
             uint32_t path_idx;

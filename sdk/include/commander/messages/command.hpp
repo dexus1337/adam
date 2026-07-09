@@ -79,6 +79,7 @@ namespace adam
         config_export,
         config_import,
         config_save,
+        config_delete,
     };
 
     /**

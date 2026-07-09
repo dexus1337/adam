@@ -22,11 +22,11 @@ namespace adam::gui
         bool commander_active = ctrl.is_commander_active();
         
         static bool open_save_popup                         = false;
-        static char save_filename[adam::max_name_length]    = "adam-config.bin";
+        static char save_filename[adam::max_name_length]    = "adam-config.adamcfg";
         static char save_name[adam::max_name_length]        = "default";
         static char save_desc[adam::max_description_length] = "";
         static uint32_t save_path_idx                       = 0;
-        static char export_popup_filename[adam::max_name_length] = "adam-config.bin";
+        static char export_popup_filename[adam::max_name_length] = "adam-config.adamcfg";
 
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
@@ -44,11 +44,75 @@ namespace adam::gui
         float panel_height = ImGui::GetContentRegionAvail().y * 0.333f;
         if (panel_height < 220.0f * dpi_scale) panel_height = 220.0f * dpi_scale;
         
-        float half_w = (content_w - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+        float separator_pad = ImGui::GetStyle().ItemSpacing.x;
+        float half_w = (content_w - separator_pad * 2.0f - 1.0f) * 0.5f;
         float btn_h = ImGui::GetFrameHeight() * 1.5f;
 
-        // --- LEFT PANEL (Paths) ---
-        ImGui::BeginChild("##LeftPathPanel", ImVec2(half_w, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        // --- LEFT PANEL (Export Metadata) ---
+        ImGui::BeginChild("##LeftMetadataPanel", ImVec2(half_w, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_config_settings, lang));
+        ImGui::Separator();
+        
+        if (!commander_active) ImGui::BeginDisabled();
+        
+        float label_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::lbl_config_description, lang)).x + 10.0f * dpi_scale;
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_config_name, lang));
+        ImGui::SameLine(label_w);
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputText("##save_name", save_name, sizeof(save_name));
+
+        ImGui::Spacing();
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_config_description, lang));
+        ImGui::SameLine(label_w);
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputText("##save_desc", save_desc, sizeof(save_desc));
+        
+        if (!commander_active) ImGui::EndDisabled();
+        
+        // Save and Export buttons at the bottom of the left child window
+        float avail_y = ImGui::GetContentRegionAvail().y;
+        if (avail_y > btn_h)
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + avail_y - btn_h);
+        
+        if (!commander_active) ImGui::BeginDisabled();
+        
+        float left_btn_w = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+        
+        if (ImGui::Button(get_gui_string(gui_string_id::btn_save, lang), ImVec2(left_btn_w, btn_h)))
+        {
+            ctrl.enqueue_commander_action([&ctrl, name = std::string(save_name), desc = std::string(save_desc)]() 
+            {
+                ctrl.commander().request_config_save(name, desc);
+            });
+        }
+        ImGui::SameLine();
+
+        if (ImGui::Button(get_gui_string(gui_string_id::btn_export, lang), ImVec2(-1.0f, btn_h)))
+        {
+            std::strncpy(export_popup_filename, save_filename, sizeof(export_popup_filename));
+            export_popup_filename[sizeof(export_popup_filename) - 1] = '\0';
+            open_save_popup = true;
+        }
+        
+        if (!commander_active) ImGui::EndDisabled();
+        
+        ImGui::EndChild();
+        
+        ImGui::SameLine(0, separator_pad);
+        
+        // --- SEPARATOR ---
+        ImVec2 p_min = ImGui::GetCursorScreenPos();
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(p_min.x, p_min.y), ImVec2(p_min.x, p_min.y + panel_height), ImGui::GetColorU32(ImGuiCol_Separator));
+        ImGui::Dummy(ImVec2(1.0f, 0.0f));
+        ImGui::SameLine(0, separator_pad);
+
+        // --- RIGHT PANEL (Paths) ---
+        ImGui::BeginChild("##RightPathPanel", ImVec2(half_w, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_configuration_paths, lang));
         ImGui::Separator();
@@ -126,8 +190,10 @@ namespace adam::gui
         
         ImGui::Spacing();
         
-        float bottom_section_y = ImGui::GetCursorPosY();
-
+        float right_avail_y = ImGui::GetContentRegionAvail().y;
+        if (right_avail_y > btn_h)
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + right_avail_y - btn_h);
+        
         if (!commander_active) ImGui::BeginDisabled();
         if (ImGui::Button(get_gui_string(gui_string_id::btn_scan_configs, lang), ImVec2(-1.0f, btn_h)))
         {
@@ -136,63 +202,6 @@ namespace adam::gui
                 ctrl.commander().request_config_scan();
             });
         }
-        if (!commander_active) ImGui::EndDisabled();
-        
-        ImGui::EndChild();
-        
-        ImGui::SameLine();
-        
-        // --- RIGHT PANEL (Export Metadata) ---
-        ImGui::BeginChild("##RightMetadataPanel", ImVec2(half_w, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        
-        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_config_settings, lang));
-        ImGui::Separator();
-        
-        if (!commander_active) ImGui::BeginDisabled();
-        
-        float label_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::lbl_config_description, lang)).x + 10.0f * dpi_scale;
-        
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_config_name, lang));
-        ImGui::SameLine(label_w);
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputText("##save_name", save_name, sizeof(save_name));
-
-        ImGui::Spacing();
-
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_config_description, lang));
-        ImGui::SameLine(label_w);
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputText("##save_desc", save_desc, sizeof(save_desc));
-        
-        if (!commander_active) ImGui::EndDisabled();
-        
-        // Save and Export buttons at the bottom of the right child window
-        ImGui::SetCursorPosY(panel_height - btn_h - ImGui::GetStyle().WindowPadding.y);
-        
-        if (!commander_active) ImGui::BeginDisabled();
-        
-        float right_btn_w = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-        
-        ImGui::SetCursorPosY(bottom_section_y);
-        
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_save, lang), ImVec2(right_btn_w, btn_h)))
-        {
-            ctrl.enqueue_commander_action([&ctrl, name = std::string(save_name), desc = std::string(save_desc)]() 
-            {
-                ctrl.commander().request_config_save(name, desc);
-            });
-        }
-        ImGui::SameLine();
-
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_export, lang), ImVec2(-1.0f, btn_h)))
-        {
-            std::strncpy(export_popup_filename, save_filename, sizeof(export_popup_filename));
-            export_popup_filename[sizeof(export_popup_filename) - 1] = '\0';
-            open_save_popup = true;
-        }
-        
         if (!commander_active) ImGui::EndDisabled();
         
         ImGui::EndChild();
@@ -207,19 +216,24 @@ namespace adam::gui
         bool do_load = false;
         uint32_t load_path_idx = 0;
         std::string load_filename;
+        static bool do_delete = false;
+        static uint32_t delete_path_idx = 0;
+        static std::string delete_filename;
         std::string export_filename;
         std::string export_name;
         std::string export_description;
 
-        if (ImGui::BeginTable("ConfigsTable", 8, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, 0)))
+        if (ImGui::BeginTable("ConfigsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, 0)))
         {
             float width_name     = 150.0f * dpi_scale;
             float width_filename = 300.0f * dpi_scale;
             float width_created  = 130.0f * dpi_scale;
             float width_modified = 130.0f * dpi_scale;
             float width_counts   = 240.0f * dpi_scale;
-            float width_import   = 100.0f * dpi_scale;
-            float width_export   = 100.0f * dpi_scale;
+            float width_import   = std::max(ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_load_config, adam::language_english)).x, ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_load_config, adam::language_german)).x) + ImGui::GetStyle().FramePadding.x * 4.0f;
+            float width_export   = std::max(ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_export_config, adam::language_english)).x, ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_export_config, adam::language_german)).x) + ImGui::GetStyle().FramePadding.x * 4.0f;
+            float width_delete   = std::max(ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_delete_config, adam::language_english)).x, ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_delete_config, adam::language_german)).x) + ImGui::GetStyle().FramePadding.x * 4.0f;
+            float width_actions  = width_import + width_export + width_delete + ImGui::GetStyle().ItemSpacing.x * 2.0f;
 
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_config_name, lang), ImGuiTableColumnFlags_WidthFixed, width_name);
@@ -228,8 +242,7 @@ namespace adam::gui
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_created, lang), ImGuiTableColumnFlags_WidthFixed, width_created);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_modified, lang), ImGuiTableColumnFlags_WidthFixed, width_modified);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_counts, lang), ImGuiTableColumnFlags_WidthFixed, width_counts);
-            ImGui::TableSetupColumn("##ImportColumn", ImGuiTableColumnFlags_WidthFixed, width_import);
-            ImGui::TableSetupColumn("##ExportColumn", ImGuiTableColumnFlags_WidthFixed, width_export);
+            ImGui::TableSetupColumn("##Actions", ImGuiTableColumnFlags_WidthFixed, width_actions);
             ImGui::TableHeadersRow();
 
             if (commander_active)
@@ -285,7 +298,7 @@ namespace adam::gui
                     ImGui::PushID(idx++);
 
                     ImGui::TableSetColumnIndex(6);
-                    if (ImGui::Button(get_gui_string(gui_string_id::btn_load_config, lang), ImVec2(-1.0f, 0.0f)))
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_load_config, lang), ImVec2(width_import, 0.0f)))
                     {
                         do_load = true;
                         load_path_idx = cfg.path_idx;
@@ -302,8 +315,8 @@ namespace adam::gui
                     if (ImGui::IsItemHovered())
                         ImGui::SetTooltip("%s", get_gui_string(gui_string_id::btn_load_config, lang));
 
-                    ImGui::TableSetColumnIndex(7);
-                    if (ImGui::Button(get_gui_string(gui_string_id::btn_export_config, lang), ImVec2(-1.0f, 0.0f)))
+                    ImGui::SameLine();
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_export_config, lang), ImVec2(width_export, 0.0f)))
                     {
                         std::strncpy(save_filename, cfg.filename.c_str(), sizeof(save_filename));
                         save_filename[sizeof(save_filename) - 1] = '\0';
@@ -317,6 +330,17 @@ namespace adam::gui
                     if (ImGui::IsItemHovered())
                         ImGui::SetTooltip("%s", filepath.c_str());
 
+                    ImGui::SameLine();
+                    bool is_default = (cfg.filename == "adam-config.adamcfg");
+                    if (is_default) ImGui::BeginDisabled();
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_delete_config, lang), ImVec2(width_delete, 0.0f)))
+                    {
+                        delete_path_idx = cfg.path_idx;
+                        delete_filename = cfg.filename;
+                        do_delete = true;
+                    }
+                    if (is_default) ImGui::EndDisabled();
+
                     ImGui::PopID();
                 }
             }
@@ -329,6 +353,35 @@ namespace adam::gui
             {
                 ctrl.commander().request_config_import(load_path_idx, adam::string_hashed(load_filename.c_str()));
             });
+        }
+
+        // Delete Config Popup Dialog
+        if (do_delete)
+        {
+            ImGui::OpenPopup(get_gui_string(gui_string_id::btn_delete_config, lang));
+            do_delete = false;
+        }
+
+        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::btn_delete_config, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted(get_gui_string(gui_string_id::dlg_delete_config_confirm, lang));
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (ImGui::Button("OK", ImVec2(120 * dpi_scale, 0)))
+            {
+                ctrl.enqueue_commander_action([&ctrl]() 
+                {
+                    ctrl.commander().request_config_delete(delete_path_idx, adam::string_hashed(delete_filename.c_str()));
+                    ctrl.commander().request_config_scan();
+                });
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120 * dpi_scale, 0))) { ImGui::CloseCurrentPopup(); }
+            ImGui::EndPopup();
         }
 
         // Save Config Popup Dialog

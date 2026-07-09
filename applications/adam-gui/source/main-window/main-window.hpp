@@ -30,6 +30,9 @@ namespace adam::gui
         node_connection_line_light,
         node_connection_line_invalid,
         node_connection_line_invalid_light,
+        node_connection_card_bg,
+        node_connection_card_bg_light,
+        node_connection_card_bg_drag_preview,
         node_pin_active,
         count
     };

@@ -335,7 +335,7 @@ namespace adam::gui
         float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
 
         // Remove any expanded nodes that are no longer valid (e.g., buffer was cleared)
-        std::erase_if(expanded_nodes, [&](int idx) { return idx >= buffers.size(); });
+        std::erase_if(expanded_nodes, [&](size_t idx) { return idx >= buffers.size(); });
 
         ImGuiListClipper clipper;
         clipper.Begin(static_cast<int>(buffers.size()), row_height);
@@ -345,31 +345,17 @@ namespace adam::gui
             {
                 const auto& ib = buffers[row_idx];
                 draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
-            }
-        }
-
-        // Draw expanded hex dumps outside the table to avoid clipping issues
-        // Iterate over a copy of expanded_nodes to avoid iterator invalidation if nodes are removed
-        std::vector<int> current_expanded_nodes(expanded_nodes.begin(), expanded_nodes.end());
-        std::sort(current_expanded_nodes.begin(), current_expanded_nodes.end());
-
-        for (size_t idx : current_expanded_nodes)
-        {
-            if (idx < buffers.size()) // Ensure index is still valid
-            {
-                const auto& ib = buffers[idx];
-                // End the current table before drawing the hex dump
-                if (table_begun) { ImGui::EndTable(); table_begun = false; }
                 
-                ImGui::PushID(static_cast<int>(idx)); // Push ID for the hex dump child window
-                draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, static_cast<int>(idx), inspector_height, dpi_scale, lang);
-                ImGui::PopID();
-
-                // Restart the table for subsequent rows if needed
-                if (idx < buffers.size() - 1)
+                if (expanded_nodes.count(row_idx))
                 {
+                    if (table_begun) { ImGui::EndTable(); table_begun = false; }
+                    
+                    ImGui::PushID(row_idx);
+                    draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, inspector_height, dpi_scale, lang);
+                    ImGui::PopID();
+                    
                     table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
-                    if (table_begun) { setup_inner_columns(); }
+                    if (table_begun) setup_inner_columns();
                 }
             }
         }

@@ -32,33 +32,29 @@ namespace adam
 
     bool registry_configuration_manager::add_config_path(const string_hashed& path, uint32_t* index)
     {
-        auto& reg = const_cast<registry&>(m_controller.get_registry());
-        auto* list = reg.get_parameter<configuration_parameter_list>("config_paths"_ct);
+        auto* list = const_cast<configuration_parameter_list*>(get_config_paths());
         if (!list) return false;
+        
         uint32_t max_idx = 0;
         for (const auto& [name, param] : list->get_children())
         {
             if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param.get()))
-            {
                 if (str_param->get_value() == path) return false;
-            }
+            
             uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
             if (idx >= max_idx) max_idx = idx + 1;
         }
             
         uint32_t target_idx = max_idx;
         if (index && *index > 0 && *index < max_idx)
-        {
             target_idx = *index;
-        }
+
         if (index)
-        {
             *index = target_idx;
-        }
+
         for (uint32_t i = max_idx; i > target_idx; --i)
-        {
             list->rename_child(string_hashed(std::to_string(i - 1)), string_hashed(std::to_string(i)));
-        }
+        
         auto new_param = std::make_unique<configuration_parameter_string>(string_hashed(std::to_string(target_idx)));
         new_param->set_value(path);
         list->add(std::move(new_param));
@@ -67,21 +63,22 @@ namespace adam
 
     bool registry_configuration_manager::remove_config_path(uint32_t index)
     {
-        auto& reg = const_cast<registry&>(m_controller.get_registry());
-        auto* list = reg.get_parameter<configuration_parameter_list>("config_paths"_ct);
+        auto* list = const_cast<configuration_parameter_list*>(get_config_paths());
         if (!list) return false;
+
         uint32_t max_idx = 0;
         for (const auto& [name, param] : list->get_children())
         {
             uint32_t idx = std::strtoul(name.c_str(), nullptr, 10);
             if (idx >= max_idx) max_idx = idx + 1;
         }
+        
         if (index == 0 || index >= max_idx) return false;
+        
         list->remove(string_hashed(std::to_string(index)));
         for (uint32_t i = index + 1; i < max_idx; ++i)
-        {
             list->rename_child(string_hashed(std::to_string(i)), string_hashed(std::to_string(i - 1)));
-        }
+        
         return true;
     }
 
@@ -108,7 +105,7 @@ namespace adam
                     for (const auto& entry : std::filesystem::directory_iterator(directory.c_str())) 
                     {
                         if (!entry.is_regular_file()) continue;
-                        if (entry.path().extension() != ".bin") continue;
+                        if (entry.path().extension() != ".adamcfg") continue;
 
                         std::ifstream ifs(entry.path(), std::ios::binary);
                         if (!ifs) continue;
@@ -179,11 +176,7 @@ namespace adam
 
     bool registry_configuration_manager::load_config(uint32_t path_idx, const std::string& filename)
     {
-        auto* config_paths = get_config_paths();
-        if (!config_paths) return false;
-        auto* param = config_paths->get(string_hashed(std::to_string(path_idx)));
-        if (!param) return false;
-        auto* str_param = dynamic_cast<configuration_parameter_string*>(param);
+        auto* str_param = dynamic_cast<configuration_parameter_string*>(get_config_paths()->get(string_hashed(std::to_string(path_idx))));
         if (!str_param) return false;
 
         std::filesystem::path full_path = std::filesystem::path(str_param->get_value().c_str()) / filename;
@@ -197,18 +190,25 @@ namespace adam
         m_config_modified = static_cast<uint64_t>(std::time(nullptr));
 
         if (path_idx == 0xFFFFFFFF)
-        {
             return m_controller.get_registry().save(string_hashed(filename));
-        }
 
-        auto* config_paths = get_config_paths();
-        if (!config_paths) return false;
-        auto* param = config_paths->get(string_hashed(std::to_string(path_idx)));
-        if (!param) return false;
-        auto* str_param = dynamic_cast<configuration_parameter_string*>(param);
+        auto* str_param = dynamic_cast<configuration_parameter_string*>(get_config_paths()->get(string_hashed(std::to_string(path_idx))));
         if (!str_param) return false;
 
         std::filesystem::path full_path = std::filesystem::path(str_param->get_value().c_str()) / filename;
         return m_controller.get_registry().save(string_hashed(full_path.string()));
+    }
+
+    bool registry_configuration_manager::delete_config(uint32_t path_idx, const std::string& filename)
+    {
+        auto* str_param = dynamic_cast<configuration_parameter_string*>(get_config_paths()->get(string_hashed(std::to_string(path_idx))));
+        if (!str_param) return false;
+
+        std::filesystem::path full_path = std::filesystem::path(str_param->get_value().c_str()) / filename;
+        
+        std::error_code ec;
+        if (!std::filesystem::exists(full_path, ec)) return false;
+
+        return std::filesystem::remove(full_path, ec);
     }
 }
