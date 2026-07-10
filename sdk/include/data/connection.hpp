@@ -124,7 +124,7 @@ namespace adam
         void set_output_format(const data_format* fmt);
 
         /** @brief Data input routine. Data arrives here, gets passed through processors and then to output ports */
-        bool handle_data(buffer* buf);
+        bool handle_data(buffer*& buf);
 
         /** @brief Returns true if the connection has a valid data chain. */
         bool check_valid_chain();
@@ -140,22 +140,22 @@ namespace adam
 
     protected:
 
-        vector_double_buffer<port*>                             m_ports_input;          /**< Zero or many input ports. */
-        vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors_input;     /**< Zero or many data inspectors. All incoming data will be forwarded to them */
-        vector_double_buffer<processor*>                        m_processors;           /**< Zero or many processors. */
-        vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors_output;    /**< Zero or many data inspectors. All data passing through the processors will be forwarded to them */
-        vector_double_buffer<port*>                             m_ports_output;         /**< Zero or many output ports. */
+        vector_double_buffer<port*>                             m_ports_input;              /**< Zero or many input ports. */
+        vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors_input;         /**< Zero or many data inspectors. All incoming data will be forwarded to them */
+        vector_double_buffer<processor*>                        m_processors;               /**< Zero or many processors. */
+        vector_double_buffer<std::shared_ptr<data_inspector>>   m_inspectors_output;        /**< Zero or many data inspectors. All data passing through the processors will be forwarded to them */
+        vector_double_buffer<port*>                             m_ports_output;             /**< Zero or many output ports. */
 
-        std::vector<string_hashed>              m_unavailable_inputs;       /**< Zero or many unavailable input ports. */
-        std::vector<string_hashed>              m_unavailable_processors;   /**< Zero or many unavailable processors. */
-        std::vector<string_hashed>              m_unavailable_outputs;      /**< Zero or many unavailable output ports. */
+        std::vector<string_hashed>                              m_unavailable_inputs;       /**< Zero or many unavailable input ports. */
+        std::vector<string_hashed>                              m_unavailable_processors;   /**< Zero or many unavailable processors. */
+        std::vector<string_hashed>                              m_unavailable_outputs;      /**< Zero or many unavailable output ports. */
 
-        const data_format*                      m_input_format;         /**< Format expected from all input ports (defaults to transparent). */
-        const data_format*                      m_output_format;        /**< Format expected for all output ports (defaults to transparent). */
+        const data_format*                                      m_input_format;             /**< Format expected from all input ports (defaults to transparent). */
+        const data_format*                                      m_output_format;            /**< Format expected for all output ports (defaults to transparent). */
 
-        bool                                    m_b_valid_data_chain;   /**< Last calculated validation state of the data chain. */
+        bool                                                    m_b_valid_data_chain;       /**< Last calculated validation state of the data chain. */
         
-        configuration_parameter_boolean*        m_started;              /**< Cached pointer to the started parameter as it will be frequently accessed. */
+        configuration_parameter_boolean*                        m_started;                  /**< Cached pointer to the started parameter as it will be frequently accessed. */
 
     };
 }

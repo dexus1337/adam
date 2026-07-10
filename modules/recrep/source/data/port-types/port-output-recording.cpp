@@ -65,14 +65,12 @@ namespace adam::modules::recrep
             up->add(std::move(chunk_mode_param));
 
             auto chunk_size_param = std::make_unique<adam::configuration_parameter_integer>("chunk_size"_ct, 5);
-            chunk_size_param->set_mode(configuration_parameter_integer::value_mode_range);
             chunk_size_param->set_range(1, 100000);
             chunk_size_param->set_description(language_english, "The size of each chunk in megabytes. Only used when chunk mode is size"_ct);
             chunk_size_param->set_description(language_german, "Die Größe jeder Datei in Megabyte. Nur verwendet wenn der Chunk Modus nach Größe (size) ist."_ct);
             up->add(std::move(chunk_size_param));
 
             auto chunk_duration_param = std::make_unique<adam::configuration_parameter_integer>("chunk_duration"_ct, 300);
-            chunk_duration_param->set_mode(configuration_parameter_integer::value_mode_range);
             chunk_duration_param->set_range(1, 3600);
             chunk_duration_param->set_description(language_english, "The duration of each chunk in seconds. Only used when chunk mode is time."_ct);
             chunk_duration_param->set_description(language_german, "Die Dauer jeder Datei in Sekunden. Nur verwendet wenn der Chunk Modus nach Zeit (time) ist."_ct);
@@ -195,7 +193,7 @@ namespace adam::modules::recrep
         m_file_stream.open(final_path, std::ios::binary | std::ios::out | std::ios::trunc);
         if (!m_file_stream.is_open())
         {
-            get_controller()->log(adam::log::error, get_log_event_text(file_open_failed, lang));
+            get_controller()->log(adam::log::error, std::format("Port ({}) [recording]: {}", get_name().c_str(), get_log_event_text(file_open_failed, lang)));
             return false;
         }
 
@@ -358,7 +356,7 @@ namespace adam::modules::recrep
         {
             {
                 log_event::file_open_failed,
-                { "Recording: Failed to open output file.", "Aufnahme: Fehler beim Öffnen der Ausgabedatei." }
+                { "Failed to open output file.", "Fehler beim Öffnen der Ausgabedatei." }
             }
         };
 

@@ -27,6 +27,7 @@ namespace adam::modules::network
             auto local_port = std::make_unique<adam::configuration_parameter_integer>("interface_port"_ct, 0);
             local_port->set_description(language_english, "Local port to bind to (usually the same as multicast_port)."_ct);
             local_port->set_description(language_german,  "Lokaler Port zur Bindung (normalerweise identisch mit multicast_port)."_ct);
+            local_port->set_range(0, 65535);
             up->add(std::move(local_port));
 
             // --- multicast_ip ---
@@ -39,6 +40,7 @@ namespace adam::modules::network
             auto multicast_port = std::make_unique<adam::configuration_parameter_integer>("multicast_port"_ct, 0);
             multicast_port->set_description(language_english, "Destination multicast port for outgoing datagrams."_ct);
             multicast_port->set_description(language_german,  "Ziel-Multicast-Port für ausgehende Datagramme."_ct);
+            multicast_port->set_range(0, 65535);
             up->add(std::move(multicast_port));
 
             // --- ttl ---

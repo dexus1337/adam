@@ -17,7 +17,7 @@
 
 namespace adam 
 {
-    commander::commander() 
+    commander::commander(const string_hashed_ct& client_name) 
      :  m_queue_command(),
         m_queue_event(),
         m_dispatcher(),
@@ -25,7 +25,9 @@ namespace adam
         m_lang(),
         m_inspectors(),
         m_registry_view(),
-        m_module_view()
+        m_module_view(),
+        m_config_view(),
+        m_client_name(client_name)
     {
         m_command_buffer.reserve(queue_command_size);
         m_response_buffer.reserve(queue_command_size);
@@ -54,7 +56,7 @@ namespace adam
         if (!m_queue_command.create(queue_command_size))
             return false;
 
-        controller::status resp = controller::request_master_queue(controller::request_command);
+        controller::status resp = controller::request_master_queue(controller::request_command, m_client_name);
 
         if (resp != controller::status_success)
         {
@@ -76,7 +78,7 @@ namespace adam
             return false;
         }
 
-        resp = controller::request_master_queue(controller::request_event);
+        resp = controller::request_master_queue(controller::request_event, m_client_name);
 
         if (resp != controller::status_success)
         {
@@ -120,8 +122,8 @@ namespace adam
             return true;
         }
 
-        bool m_cmd_active = m_queue_command.is_active();
-        bool m_evt_active = m_queue_event.is_active();
+        bool was_event_active = m_queue_event.is_active();
+        bool was_command_active = m_queue_command.is_active();
 
         disable();
 
@@ -135,19 +137,21 @@ namespace adam
 
         bool res = true;
         
-        if (m_evt_active)
+        if (was_event_active)
         {
-            auto ctrl_resp = controller::request_master_queue(controller::request_event_destroy);
+            auto ctrl_resp = controller::request_master_queue(controller::request_event_destroy, m_client_name);
             res &= (ctrl_resp == controller::status_success);
+            m_queue_event.destroy();
 
             if (ctrl_resp != controller::status_success)
                 adam::stream_log(log::error, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);
         }
 
-        if (m_cmd_active)
+        if (was_command_active)
         {
-            auto ctrl_resp = controller::request_master_queue(controller::request_command_destroy);
+            auto ctrl_resp = controller::request_master_queue(controller::request_command_destroy, m_client_name);
             res &= (ctrl_resp == controller::status_success);
+            m_queue_command.destroy();
 
             if (ctrl_resp != controller::status_success)
                 adam::stream_log(log::error, language_strings::controller_status_text(ctrl_resp, get_language()), m_log_outstream);

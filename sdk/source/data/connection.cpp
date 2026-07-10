@@ -81,7 +81,7 @@ namespace adam
         });
     }
 
-    bool connection::handle_data(buffer* buf)
+    bool connection::handle_data(buffer*& buf)
     {
         bool result = true;
 

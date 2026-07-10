@@ -237,7 +237,12 @@ namespace adam::gui
         ImGui::Separator();
         ImGui::Spacing();
 
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_ok, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
+        int btn = draw_modal_buttons({
+            { get_gui_string(gui_string_id::btn_ok, lang) },
+            { get_gui_string(gui_string_id::btn_cancel, lang) }
+        });
+
+        if (btn == 0)
         {
             if (g_connection_to_delete.get_hash() != 0)
             {
@@ -247,11 +252,68 @@ namespace adam::gui
             }
             ImGui::CloseCurrentPopup();
         }
-        ImGui::SetItemDefaultFocus();
-        ImGui::SameLine();
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
+        else if (btn == 1)
         {
             g_connection_to_delete = adam::string_hashed("");
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    void draw_delete_port_modal(gui_controller& ctrl, adam::language lang)
+    {
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+        if (g_request_delete_port_popup)
+        {
+            ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_delete_port, lang));
+            g_request_delete_port_popup = false;
+        }
+
+        if (!ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_delete_port, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            return;
+        }
+
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::msg_delete_port_confirm, lang));
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        int btn = draw_modal_buttons({
+            { get_gui_string(gui_string_id::btn_delete, lang) },
+            { get_gui_string(gui_string_id::btn_remove, lang) },
+            { get_gui_string(gui_string_id::btn_cancel, lang) }
+        });
+
+        if (btn == 0)
+        {
+            if (g_port_to_delete_hash != 0)
+            {
+                adam::string_hash h = g_port_to_delete_hash;
+                ctrl.enqueue_commander_action([&ctrl, h]() { ctrl.commander().request_port_destroy(h); });
+                g_port_to_delete_hash = 0;
+                g_port_to_delete_conn_hash = 0;
+            }
+            ImGui::CloseCurrentPopup();
+        }
+        else if (btn == 1)
+        {
+            if (g_port_to_delete_hash != 0 && g_port_to_delete_conn_hash != 0)
+            {
+                adam::string_hash c_h = g_port_to_delete_conn_hash;
+                adam::string_hash p_h = g_port_to_delete_hash;
+                bool is_input = g_port_to_delete_is_input;
+                ctrl.enqueue_commander_action([&ctrl, c_h, p_h, is_input]() { ctrl.commander().request_connection_port_remove(c_h, p_h, is_input); });
+            }
+            g_port_to_delete_hash = 0;
+            g_port_to_delete_conn_hash = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        else if (btn == 2)
+        {
+            g_port_to_delete_hash = 0;
+            g_port_to_delete_conn_hash = 0;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -280,8 +342,12 @@ namespace adam::gui
             }
         }
 
-        if (!can_create) ImGui::BeginDisabled();
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_create, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
+        int btn = draw_modal_buttons({
+            { get_gui_string(gui_string_id::btn_create, lang), !can_create },
+            { get_gui_string(gui_string_id::btn_cancel, lang) }
+        });
+
+        if (btn == 0)
         {
             if (conn_name[0] != '\0')
             {
@@ -291,12 +357,10 @@ namespace adam::gui
                 ImGui::CloseCurrentPopup();
             }
         }
-        if (!can_create) ImGui::EndDisabled();
-        
-        ImGui::SetItemDefaultFocus();
-        ImGui::SameLine();
-        if (ImGui::Button(get_gui_string(gui_string_id::btn_cancel, lang), ImVec2(120.0f * dpi_scale, 0.0f)))
+        else if (btn == 1)
+        {
             ImGui::CloseCurrentPopup();
+        }
         
         ImGui::EndPopup();
     }
@@ -728,6 +792,7 @@ namespace adam::gui
                         pdi.module_name = type_it->second.module_name;
                         pdi.module_hash = type_it->second.module_hash;
                         pdi.type_name = type_it->second.type_name;
+                        pdi.is_filter = type_it->second.is_filter;
                     }
                     else
                     {

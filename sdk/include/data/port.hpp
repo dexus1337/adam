@@ -156,7 +156,7 @@ namespace adam
         virtual void reset_state_buffer();
 
         /** @brief Data management routine */
-        virtual bool handle_data(buffer* buf, data_direction dir);
+        virtual bool handle_data(buffer*& buf, data_direction dir);
 
         /** @brief Starts the port. */
         virtual bool start();

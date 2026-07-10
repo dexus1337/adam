@@ -264,8 +264,6 @@ namespace adam::modules::network
         if (auto* ctrl = get_controller())
         {
             language lang = ctrl->get_language();
-            std::string prefix_str = prefix.empty() ? "" : std::format("{}: ", prefix);
-            std::string extra_str = extra.empty() ? "" : std::format(" {}", extra);
             
             std::string context;
             if (lvl == log::error || lvl == log::warning)
@@ -315,17 +313,20 @@ namespace adam::modules::network
                 }
             }
 
-            std::string_view event_text = get_event_log_text(ev, lang);
+            std::string type_name = prefix.empty() ? "network" : std::string(prefix);
+            std::transform(type_name.begin(), type_name.end(), type_name.begin(), ::tolower);
+            
+            std::string event_text_str(get_event_log_text(ev, lang));
             if (ev == log_event::socket_connect_failed && !extra.empty())
             {
-                event_text = "";
-                if (!extra_str.empty() && extra_str[0] == ' ')
-                {
-                    extra_str = extra_str.substr(1);
-                }
+                event_text_str = "";
             }
+            
+            std::string extra_str = extra.empty() ? "" : std::format(" {}", extra);
+            if (event_text_str.empty() && !extra_str.empty() && extra_str[0] == ' ') extra_str = extra_str.substr(1);
 
-            ctrl->log(lvl, std::format("[{}] {}{}{}{}", get_name().c_str(), prefix_str, event_text, extra_str, context));
+            std::string msg = std::format("Port ({}) [{}]: {}{}{}", get_name().c_str(), type_name, event_text_str, extra_str, context);
+            ctrl->log(lvl, msg);
         }
     }
 
@@ -334,7 +335,9 @@ namespace adam::modules::network
         if (auto* ctrl = get_controller())
         {
             language lang = ctrl->get_language();
-            log_network_message(lvl, ev, prefix, std::format("{}", get_error_log_text(err, lang)));
+            int os_err = get_last_error();
+            std::string extra = std::format("{} ({})", get_error_log_text(err, lang), os_err);
+            log_network_message(lvl, ev, prefix, extra);
         }
     }
 

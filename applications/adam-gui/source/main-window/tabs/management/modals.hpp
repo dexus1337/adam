@@ -15,6 +15,7 @@ namespace adam::gui
     class gui_controller;
 
     void draw_delete_connection_modal(gui_controller& ctrl, adam::language lang);
+    void draw_delete_port_modal(gui_controller& ctrl, adam::language lang);
     void draw_create_connection_modal(gui_controller& ctrl, adam::language lang);
     void draw_add_create_port_modal(gui_controller& ctrl, adam::language lang);
     void draw_add_create_processor_modal(gui_controller& ctrl, adam::language lang);

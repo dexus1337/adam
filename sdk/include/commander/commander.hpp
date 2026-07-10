@@ -46,7 +46,7 @@ namespace adam
         static ADAM_CONSTEXPR uint32_t queue_event_size     = 0x1000;
 
         /** @brief Constructs a new commander object.*/
-        commander();
+        commander(const string_hashed_ct& client_name = string_hashed_ct(""));
 
         /** @brief Destroys the commander object and cleans up resources.*/
         ~commander();
@@ -263,5 +263,7 @@ namespace adam
         std::vector<response> m_response_buffer; /**< Reusable buffer for receiving responses */
         
         std::atomic<bool>     m_is_destroying{false}; /**< Flag to prevent concurrent destruction */
+        
+        string_hashed_ct      m_client_name;
     };
 }

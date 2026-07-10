@@ -191,7 +191,7 @@ namespace adam::modules::serial
             DWORD err = ::GetLastError();
             language lang = get_controller()->get_language();
             std::string_view err_txt = get_error_log_text(resolve_serial_error(err), lang);
-            std::string err_desc = std::format("{} (Error code: {})", err_txt, err);
+            std::string err_desc = std::format("{} ({})", err_txt, err);
             log_event_msg(log::error, log_event::open_failed, path, err_desc);
             return false;
         }
@@ -255,7 +255,7 @@ namespace adam::modules::serial
             int err = errno;
             language lang = get_controller()->get_language();
             std::string_view err_txt = get_error_log_text(resolve_serial_error(err), lang);
-            std::string err_desc = std::format("{} (Error code: {})", err_txt, err);
+            std::string err_desc = std::format("{} ({})", err_txt, err);
             log_event_msg(log::error, log_event::open_failed, path, err_desc);
             return false;
         }
@@ -591,7 +591,7 @@ namespace adam::modules::serial
             msg = std::string(fmt);
         }
 
-        ctrl->log(adam::log(lvl, std::format("[{}] {}", get_name().c_str(), msg)));
+        ctrl->log(adam::log(lvl, std::format("Port ({}) [serial]: {}", get_name().c_str(), msg)));
     }
 
     std::string_view port_serial::get_log_event_text(log_event ev, language lang)
@@ -601,26 +601,26 @@ namespace adam::modules::serial
         static const std::unordered_map<log_event, arr> table =
         {
             { log_event::path_empty,
-              { "Serial Port: Device path is empty.",
-                "Serieller Port: Gerätepfad ist leer." }},
+              { "Device path is empty.",
+                "Gerätepfad ist leer." }},
             { log_event::open_failed,
-              { "Serial Port: Failed to open device '{}'. Error: {}",
-                "Serieller Port: Fehler beim Öffnen des Geräts '{}'. Fehler: {}" }},
+              { "Open device \"{}\" failed: {}",
+                "Öffnen des Geräts \"{}\" fehlgeschlagen: {}" }},
             { log_event::open_success,
-              { "Serial Port: Device '{}' opened successfully (Baud: {}).",
-                "Serieller Port: Gerät '{}' erfolgreich geöffnet (Baud: {})." }},
+              { "Device \"{}\" opened successfully (Baud: {}).",
+                "Gerät \"{}\" erfolgreich geöffnet (Baud: {})." }},
             { log_event::close_success,
-              { "Serial Port: Device closed.",
-                "Serieller Port: Gerät geschlossen." }},
+              { "Device closed.",
+                "Gerät geschlossen." }},
             { log_event::read_failed,
-              { "Serial Port: Read failed. Error: {} (Error code: {})",
-                "Serieller Port: Lesefehler. Fehler: {} (Fehlercode: {})" }},
+              { "Read failed: {} ({})",
+                "Lesefehler: {} ({})" }},
             { log_event::write_failed,
-              { "Serial Port: Write failed. Error code: {}",
-                "Serieller Port: Schreibfehler. Fehlercode: {}" }},
+              { "Write failed ({})",
+                "Schreibfehler ({})" }},
             { log_event::device_removed,
-              { "Serial Port: Device was disconnected or removed. Error code: {} ({})",
-                "Serieller Port: Gerät wurde getrennt oder entfernt. Fehlercode: {} ({})" }}
+              { "Device was disconnected or removed. ({} ({}))",
+                "Gerät wurde getrennt oder entfernt. ({} ({}))" }}
         };
 
         auto it = table.find(ev);
@@ -671,29 +671,29 @@ namespace adam::modules::serial
               { "Success.",
                 "Erfolgreich." }},
             { serial_error_t::error_file_not_found,
-              { "Device or path not found.",
-                "Gerät oder Pfad nicht gefunden." }},
+              { "Not found.",
+                "Nicht gefunden." }},
             { serial_error_t::error_access_denied,
-              { "Access denied (port may be in use).",
-                "Zugriff verweigert (Port wird möglicherweise bereits verwendet)." }},
+              { "Access denied.",
+                "Zugriff verweigert." }},
             { serial_error_t::error_invalid_handle,
-              { "Invalid handle or bad file descriptor.",
-                "Ungültiges Handle oder fehlerhafter Dateideskriptor." }},
+              { "Invalid handle.",
+                "Ungültiges Handle." }},
             { serial_error_t::error_bad_command,
-              { "Device does not recognize the command (device might have been unplugged).",
-                "Gerät erkennt den Befehl nicht (Gerät wurde möglicherweise getrennt)." }},
+              { "Device does not recognize the command.",
+                "Gerät erkennt den Befehl nicht." }},
             { serial_error_t::error_gen_failure,
-              { "A device attached to the system is not functioning.",
-                "Ein an das System angeschlossenes Gerät funktioniert nicht." }},
+              { "Device is not functioning.",
+                "Gerät funktioniert nicht." }},
             { serial_error_t::error_operation_aborted,
-              { "I/O operation aborted.",
-                "E/A-Vorgang abgebrochen." }},
+              { "Operation aborted.",
+                "Vorgang abgebrochen." }},
             { serial_error_t::error_device_removed,
               { "Device was removed.",
                 "Gerät wurde entfernt." }},
             { serial_error_t::error_device_not_connected,
-              { "Device is not connected.",
-                "Gerät ist nicht verbunden." }},
+              { "Device not connected.",
+                "Gerät nicht verbunden." }},
             { serial_error_t::error_io,
               { "I/O error.",
                 "E/A-Fehler." }},
@@ -701,8 +701,8 @@ namespace adam::modules::serial
               { "No such device.",
                 "Gerät existiert nicht." }},
             { serial_error_t::error_not_a_tty,
-              { "Not a typewriter/serial terminal.",
-                "Kein serielles Terminal (TTY)." }},
+              { "Not a serial terminal.",
+                "Kein serielles Terminal." }},
             { serial_error_t::error_unknown,
               { "Unknown serial error.",
                 "Unbekannter serieller Fehler." }}

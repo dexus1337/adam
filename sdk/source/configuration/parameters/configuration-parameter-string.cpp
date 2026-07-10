@@ -74,11 +74,13 @@ namespace adam
 
     void configuration_parameter_string::add_preset(std::unique_ptr<configuration_parameter_string> preset)
     {
+        m_mode = value_mode_preset;
         m_presets.emplace(preset->get_value(), std::move(preset));
     }
 
     void configuration_parameter_string::set_regex(std::unique_ptr<configuration_parameter_string> regex_param)
     {
+        m_mode = value_mode_regex;
         m_regex = std::move(regex_param);
     }
 }

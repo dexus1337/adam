@@ -66,12 +66,14 @@ namespace adam
 
     void configuration_parameter_double::set_range(double min_value, double max_value)
     {
+        m_mode = value_mode_range;
         m_min_value = min_value;
         m_max_value = max_value;
     }
 
     void configuration_parameter_double::add_preset(double preset)
     {
+        m_mode = value_mode_preset;
         m_presets.push_back(preset);
     }
 }

@@ -413,51 +413,165 @@ namespace adam::cli
         {
             if (params.size() == 3) 
             {
+                adam::string_hash conn_hash = adam::string_hashed(params[0].c_str()).get_hash();
+                adam::string_hash port_hash = adam::string_hashed(params[1].c_str()).get_hash();
                 bool is_input = (params[2] == "in");
-                c.request_connection_port_remove(adam::string_hashed(params[0].c_str()).get_hash(), adam::string_hashed(params[1].c_str()).get_hash(), is_input);
+                
+                bool isolated = true;
+                for (const auto& [ch, conn] : c.get_registry().get_connections())
+                {
+                    if (ch != conn_hash)
+                    {
+                        if (std::find(conn->inputs.begin(), conn->inputs.end(), port_hash) != conn->inputs.end() ||
+                            std::find(conn->outputs.begin(), conn->outputs.end(), port_hash) != conn->outputs.end())
+                        {
+                            isolated = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isolated)
+                {
+                    std::cout << "\r\033[2KThis port is not used in any other connection. What would you like to do?\n"
+                              << " - [D/d] Delete Port: Completely destroys the port and removes it from the system.\n"
+                              << " - [R/r] Remove Port: Removes it from this connection, but keeps it available for future use.\n"
+                              << " - [C/c] Cancel\n"
+                              << "Selection [D/r/c]: ";
+                    std::string answer;
+                    std::getline(std::cin, answer);
+                    if (answer.empty() || answer == "d" || answer == "D")
+                    {
+                        c.request_port_destroy(port_hash);
+                        return;
+                    }
+                    else if (answer == "c" || answer == "C")
+                    {
+                        return;
+                    }
+                }
+                c.request_connection_port_remove(conn_hash, port_hash, is_input);
             } 
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_conn_rm_port, c.get_language()), std::cout); }
         });
 
-        db.register_command("conn_list", cmd_string_id::desc_conn_list, [](const std::vector<std::string>&, adam::commander& c, std::mutex& console_mutex) 
+        db.register_command("conn_list", cmd_string_id::desc_conn_list, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
             std::lock_guard<std::mutex> lock(console_mutex);
-            std::cout << "\r\033[2K\nConnections:\n";
-            bool first = true;
+            if (c.get_registry().get_connections().empty())
+            {
+                std::cout << "\r\033[2K\nNo connections found.\n\n";
+                return;
+            }
+
+            if (!params.empty())
+            {
+                auto conn_hash = adam::string_hashed(params[0].c_str()).get_hash();
+                auto it = c.get_registry().get_connections().find(conn_hash);
+                if (it != c.get_registry().get_connections().end())
+                {
+                    const auto& conn = it->second;
+                    std::cout << "\r\033[2K\nConnection: " << conn->name.c_str() << "\n";
+                    std::cout << "Status: " << (conn->started ? "Running" : "Stopped") << "\n\n";
+                    
+                    std::vector<std::string> in_names, pr_names, out_names;
+                    
+                    for (auto ph : conn->inputs)
+                    {
+                        auto pit = c.get_registry().get_ports().find(ph);
+                        if (pit != c.get_registry().get_ports().end()) in_names.push_back(pit->second->name.c_str());
+                        else in_names.push_back("<unknown:" + std::to_string(ph) + ">");
+                    }
+                    if (in_names.empty()) in_names.push_back("<none>");
+
+                    for (auto prh : conn->processors)
+                    {
+                        auto pit = c.get_registry().get_processors().find(prh);
+                        if (pit != c.get_registry().get_processors().end()) pr_names.push_back(pit->second->name.c_str());
+                        else pr_names.push_back("<unknown:" + std::to_string(prh) + ">");
+                    }
+                    if (pr_names.empty()) pr_names.push_back("<none>");
+
+                    for (auto ph : conn->outputs)
+                    {
+                        auto pit = c.get_registry().get_ports().find(ph);
+                        if (pit != c.get_registry().get_ports().end()) out_names.push_back(pit->second->name.c_str());
+                        else out_names.push_back("<unknown:" + std::to_string(ph) + ">");
+                    }
+                    if (out_names.empty()) out_names.push_back("<none>");
+
+                    size_t max_rows = std::max({in_names.size(), pr_names.size(), out_names.size()});
+
+                    std::cout << "\033[94m" << std::left << std::setw(30) << "Inputs:" << "\033[0m"
+                              << "\033[96m" << std::setw(30) << "Processors:" << "\033[0m"
+                              << "\033[91m" << "Outputs:" << "\033[0m\n";
+                    std::cout << std::string(90, '-') << "\n";
+
+                    for (size_t i = 0; i < max_rows; ++i)
+                    {
+                        std::cout << "\033[94m" << std::left << std::setw(30) << (i < in_names.size() ? "- " + in_names[i] : "") << "\033[0m";
+                        std::cout << "\033[96m" << std::left << std::setw(30) << (i < pr_names.size() ? "- " + pr_names[i] : "") << "\033[0m";
+                        std::cout << "\033[91m" << (i < out_names.size() ? "- " + out_names[i] : "") << "\033[0m\n";
+                    }
+                    std::cout << "\n";
+                }
+                else
+                {
+                    std::cout << "\r\033[2K\nConnection '" << params[0] << "' not found.\n\n";
+                }
+                return;
+            }
+
+            std::cout << "\r\033[2K\n";
+            std::cout << std::left << std::setw(20) << "Name" 
+                      << std::setw(10) << "Status" 
+                      << std::setw(30) << "Inputs" 
+                      << std::setw(30) << "Processors" 
+                      << "Outputs\n";
+            std::cout << std::string(110, '-') << "\n";
+
             for (const auto& [hash, conn] : c.get_registry().get_connections()) 
             {
-                if (!first) std::cout << "\n";
-                first = false;
-                std::cout << "  " << conn->name.c_str() << " (Started: " << (conn->started ? "Yes" : "No") << ")\n";
-                std::cout << "    \033[94mInputs:\033[0m\n";
-                if (conn->inputs.empty()) std::cout << "      <none>\n";
+                std::string inputs_str;
                 for (auto ph : conn->inputs)
                 {
                     auto it = c.get_registry().get_ports().find(ph);
-                    if (it != c.get_registry().get_ports().end()) std::cout << "      \033[94m" << it->second->name.c_str() << "\033[0m\n";
-                    else std::cout << "      \033[94m<unknown:" << ph << ">\033[0m\n";
+                    if (!inputs_str.empty()) inputs_str += ", ";
+                    if (it != c.get_registry().get_ports().end()) inputs_str += it->second->name.c_str();
+                    else inputs_str += "<unknown:" + std::to_string(ph) + ">";
                 }
-                std::cout << "    \033[96mProcessors:\033[0m\n";
-                if (conn->processors.empty()) std::cout << "      <none>\n";
+                if (inputs_str.empty()) inputs_str = "-";
+                if (inputs_str.length() > 28) inputs_str = inputs_str.substr(0, 25) + "...";
+
+                std::string procs_str;
                 for (auto prh : conn->processors)
                 {
                     auto it = c.get_registry().get_processors().find(prh);
-                    if (it != c.get_registry().get_processors().end())
-                    {
-                        std::cout << "      \033[96m" << it->second->name.c_str() << "\033[0m";
-                        if (it->second->is_filter) std::cout << " [\033[92mFilter\033[0m]\n";
-                        else std::cout << " [\033[95mConverter\033[0m]\n";
-                    }
-                    else std::cout << "      \033[96m<unknown:" << prh << ">\033[0m\n";
+                    if (!procs_str.empty()) procs_str += ", ";
+                    if (it != c.get_registry().get_processors().end()) procs_str += it->second->name.c_str();
+                    else procs_str += "<unknown:" + std::to_string(prh) + ">";
                 }
-                std::cout << "    \033[91mOutputs:\033[0m\n";
-                if (conn->outputs.empty()) std::cout << "      <none>\n";
+                if (procs_str.empty()) procs_str = "-";
+                if (procs_str.length() > 28) procs_str = procs_str.substr(0, 25) + "...";
+
+                std::string outputs_str;
                 for (auto ph : conn->outputs)
                 {
                     auto it = c.get_registry().get_ports().find(ph);
-                    if (it != c.get_registry().get_ports().end()) std::cout << "      \033[91m" << it->second->name.c_str() << "\033[0m\n";
-                    else std::cout << "      \033[91m<unknown:" << ph << ">\033[0m\n";
+                    if (!outputs_str.empty()) outputs_str += ", ";
+                    if (it != c.get_registry().get_ports().end()) outputs_str += it->second->name.c_str();
+                    else outputs_str += "<unknown:" + std::to_string(ph) + ">";
                 }
+                if (outputs_str.empty()) outputs_str = "-";
+                if (outputs_str.length() > 28) outputs_str = outputs_str.substr(0, 25) + "...";
+
+                std::string status_str = conn->started ? "Running" : "Stopped";
+
+                std::cout << std::left << std::setw(20) << conn->name.c_str() 
+                          << std::setw(10) << status_str 
+                          << std::setw(30) << inputs_str 
+                          << std::setw(30) << procs_str 
+                          << outputs_str << "\n";
             }
             std::cout << std::endl;
         });

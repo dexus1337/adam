@@ -6,6 +6,9 @@
 #include "data/port-types/port-tcp-client.hpp"
 #include "data/port-types/port-tcp-server.hpp"
 
+#include "data/filters/filter-network-stack-remover.hpp"
+#include "data/filters/filter-network-stack-generator.hpp"
+
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <winsock2.h>
 #endif
@@ -19,6 +22,9 @@ namespace adam::modules::network
     static default_factory<port, port_udp_broadcast> global_port_udp_broadcast_factory;
     static default_factory<port, port_tcp_client>    global_port_tcp_client_factory;
     static default_factory<port, port_tcp_server>    global_port_tcp_server_factory;
+
+    static default_factory<processor, adam::network::filter_network_stack_remover> global_filter_network_stack_remover_factory;
+    static default_factory<processor, adam::network::filter_network_stack_generator> global_filter_network_stack_generator_factory;
 
     module_network::module_network() : module("network", version)
     {
@@ -62,6 +68,18 @@ namespace adam::modules::network
         (
             port_tcp_server::type_name(), 
             registry::factory_data_port(&global_port_tcp_server_factory, &port_tcp_server::get_user_parameters(), port_tcp_server::direction)
+        );
+
+        m_processor_factories.emplace
+        (
+            adam::network::filter_network_stack_remover::type_name(), 
+            registry::factory_data_processor(&global_filter_network_stack_remover_factory, &adam::network::filter_network_stack_remover::get_user_parameters())
+        );
+
+        m_processor_factories.emplace
+        (
+            adam::network::filter_network_stack_generator::type_name(), 
+            registry::factory_data_processor(&global_filter_network_stack_generator_factory, &adam::network::filter_network_stack_generator::get_user_parameters())
         );
     }
 

@@ -56,6 +56,7 @@ namespace adam::gui
         bool commander_active   = ctrl.is_commander_active();
 
         draw_delete_connection_modal(ctrl, lang);
+        draw_delete_port_modal(ctrl, lang);
         draw_create_connection_modal(ctrl, lang);
         draw_add_create_port_modal(ctrl, lang);
         draw_add_create_processor_modal(ctrl, lang);

@@ -51,8 +51,8 @@ namespace adam
         {
             default:                  level_str = "unkwn"; r = 1.0f; g = 1.0f; b = 1.0f; break;
             case log::level::trace:   level_str = "trace"; r = 0.0f; g = 1.0f; b = 1.0f; break; // Cyan
-            case log::level::info:    level_str = "info";  r = 0.0f; g = 1.0f; b = 0.0f; break; // Green
-            case log::level::warning: level_str = "warn";  r = 1.0f; g = 1.0f; b = 0.0f; break; // Yellow
+            case log::level::info:    level_str = "info "; r = 0.0f; g = 1.0f; b = 0.0f; break; // Green
+            case log::level::warning: level_str = "warn "; r = 1.0f; g = 1.0f; b = 0.0f; break; // Yellow
             case log::level::error:   level_str = "error"; r = 1.0f; g = 0.0f; b = 0.0f; break; // Red
             case log::level::fatal:   level_str = "fatal"; r = 1.0f; g = 0.0f; b = 0.0f; break; // Bold Red
         }
@@ -76,9 +76,9 @@ namespace adam
             case log::level::fatal:     color_code = "\033[1;31m"; break; // Bold Red
         }
 
-        // 5. The "Beautified" Output
         auto str = std::format
-        (   "{} {}[{}]\033[0m {}\n",
+        (
+            "{} {}[{}]\033[0m {}\n",
             get_log_time_string(cr_log.get_timestamp()),
             color_code,
             level_str,

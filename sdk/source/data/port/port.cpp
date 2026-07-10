@@ -75,7 +75,7 @@ namespace adam
         stat_data->total_bytes_discarded    = 0;
     }
 
-    bool port::handle_data(buffer* buf, data_direction dir)
+    bool port::handle_data(buffer*& buf, data_direction dir)
     {
         bool result = true;
 

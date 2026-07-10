@@ -771,4 +771,32 @@ namespace adam::gui
         ImGui::End();
     }
 
+    int draw_modal_buttons(const std::vector<modal_button>& buttons)
+    {
+        int clicked_index = -1;
+        if (buttons.empty()) return clicked_index;
+
+        float available_width = ImGui::GetContentRegionAvail().x;
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
+        float button_width = (available_width - (buttons.size() - 1) * spacing) / static_cast<float>(buttons.size());
+
+        for (size_t i = 0; i < buttons.size(); ++i)
+        {
+            if (i > 0)
+                ImGui::SameLine();
+            
+            if (buttons[i].disabled)
+                ImGui::BeginDisabled();
+                
+            if (ImGui::Button(buttons[i].label, ImVec2(button_width, 0.0f)))
+            {
+                clicked_index = static_cast<int>(i);
+            }
+            
+            if (buttons[i].disabled)
+                ImGui::EndDisabled();
+        }
+        return clicked_index;
+    }
+
 }

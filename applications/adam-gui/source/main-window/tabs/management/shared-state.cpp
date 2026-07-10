@@ -18,6 +18,10 @@ namespace adam::gui
     // Define shared globals
     adam::string_hashed g_connection_to_delete("");
     bool g_request_delete_popup = false;
+    adam::string_hash g_port_to_delete_hash = 0;
+    adam::string_hash g_port_to_delete_conn_hash = 0;
+    bool g_port_to_delete_is_input = false;
+    bool g_request_delete_port_popup = false;
     ImVec2 g_connection_drag_offset(0, 0);
 
     adam::string_hashed g_target_connection("");

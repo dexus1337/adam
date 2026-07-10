@@ -39,6 +39,12 @@ namespace adam::gui
 
     const ImVec4& get_gui_color(gui_color_id id);
 
+    struct modal_button
+    {
+        const char* label;
+        bool disabled = false;
+    };
+    int draw_modal_buttons(const std::vector<modal_button>& buttons);
 
     struct inspected_buffer
     {

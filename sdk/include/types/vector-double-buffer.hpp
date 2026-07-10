@@ -147,6 +147,20 @@ namespace adam
             return m_active.empty();
         }
 
+        /**
+         * @brief Checks if an element exists in the buffer (thread-safe, synchronizes if dirty).
+         * @param element The element to check for.
+         * @return True if the element is found in the current active buffer.
+         */
+        bool contains(const T& element) const
+        {
+            bool found = false;
+            iterate([&](const auto& active) {
+                found = std::find(active.begin(), active.end(), element) != active.end();
+            });
+            return found;
+        }
+
     private:
         mutable std::vector<T> m_active;   /**< The read-only buffer used during iteration. */
         mutable std::vector<T> m_pending;  /**< The write buffer for modifications. */

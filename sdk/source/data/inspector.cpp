@@ -42,7 +42,7 @@ namespace adam
     }
 
     /** @brief Data management routine */
-    bool data_inspector::handle_data(buffer* buf)
+    bool data_inspector::handle_data(buffer*& buf)
     {
         buf->add_ref();
         

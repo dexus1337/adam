@@ -495,7 +495,7 @@ namespace adam
         register_handler(command_type::set_language, [](const command* cmds, size_t, command_context& ctx) 
         {
             ctx.ctrl.set_language(*cmds->get_data_as<language>());
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::language_changed, ctx.ctrl.get_language()));
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::language_changed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid);
 
             event evt(event_type::language_changed);
             *evt.data_as<language>() = ctx.ctrl.get_language();
@@ -512,7 +512,7 @@ namespace adam
 
             if (!ctx.reg.add_module_path(path, &idx))
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_add_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_add_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, path.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -522,7 +522,7 @@ namespace adam
             evt_data->setup(params->path, idx);
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_added, ctx.ctrl.get_language()), ctx.tid, path.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_added, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, path.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -532,7 +532,7 @@ namespace adam
 
             if (!ctx.reg.remove_module_path(params->idx))
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, params->idx);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_remove_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->idx);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -542,13 +542,13 @@ namespace adam
             evt_data->idx = params->idx;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_removed, ctx.ctrl.get_language()), ctx.tid, params->idx);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_path_removed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->idx);
             ctx.set_single_response_status(response_status::success);
         });
 
         register_handler(command_type::module_scan, [](const command*, size_t, command_context& ctx) 
         {
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_scan_requested, ctx.ctrl.get_language()), ctx.tid);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::module_scan_requested, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid);
             
             ctx.reg.modules().scan_for_modules();
             ctx.set_single_response_status(response_status::success);
@@ -584,7 +584,7 @@ namespace adam
 
             if (!ctx.reg.configs().add_config_path(path, &idx))
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_add_failed, ctx.ctrl.get_language()), ctx.tid, path.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_add_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, path.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -594,7 +594,7 @@ namespace adam
             evt_data->setup(path.c_str(), idx);
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_added, ctx.ctrl.get_language()), ctx.tid, path.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_added, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, path.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -604,7 +604,7 @@ namespace adam
 
             if (!ctx.reg.configs().remove_config_path(params->idx))
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_remove_failed, ctx.ctrl.get_language()), ctx.tid, params->idx);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_remove_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->idx);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -614,13 +614,13 @@ namespace adam
             evt_data->idx = params->idx;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_removed, ctx.ctrl.get_language()), ctx.tid, params->idx);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_path_removed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->idx);
             ctx.set_single_response_status(response_status::success);
         });
 
         register_handler(command_type::config_scan, [](const command*, size_t, command_context& ctx) 
         {
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_scan_requested, ctx.ctrl.get_language()), ctx.tid);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_scan_requested, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid);
             
             auto configs = ctx.reg.configs().scan_for_configs();
             for (const auto& cfg : configs)
@@ -639,7 +639,7 @@ namespace adam
 
             if (ctx.reg.configs().save_config(params->path_idx, params->filename, params->name, params->description))
             {
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->filename);
                 ctx.set_single_response_status(response_status::success);
                 
                 event evt(event_type::config_available);
@@ -652,7 +652,7 @@ namespace adam
             }
             else
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->filename);
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -663,12 +663,12 @@ namespace adam
 
             if (ctx.reg.configs().save_config(0xFFFFFFFF, "adam-config.adamcfg", params->name, params->description))
             {
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.tid, "adam-config.adamcfg");
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_exported, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, "adam-config.adamcfg");
                 ctx.set_single_response_status(response_status::success);
             }
             else
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.tid, "adam-config.adamcfg");
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_export_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, "adam-config.adamcfg");
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -705,12 +705,12 @@ namespace adam
                 // command processing thread. Blocking here prevents destroy() from joining
                 // this thread, which means m_registry.save("adam-config.bin") is never reached.
                 std::thread([&reg = ctx.reg]() { reg.resume_active_items(); }).detach();
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_imported, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_imported, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->filename);
                 ctx.set_single_response_status(response_status::success);
             }
             else
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_import_failed, ctx.ctrl.get_language()), ctx.tid, params->filename);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::config_import_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, params->filename);
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -727,7 +727,7 @@ namespace adam
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -751,7 +751,7 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             auto name_view = name.c_str();
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_created, ctx.ctrl.get_language()), ctx.tid, name_view);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_created, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -776,7 +776,7 @@ namespace adam
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroy_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -785,7 +785,7 @@ namespace adam
             evt.data_as<messages::connection_destroy_data>()->connection = params->connection;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_destroyed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_str);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -797,7 +797,7 @@ namespace adam
             if (it == ctx.reg.connections().end() || !it->second->start())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_start_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_start_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -806,7 +806,7 @@ namespace adam
             evt.data_as<messages::connection_action_data>()->connection = params->connection;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_started, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -818,7 +818,7 @@ namespace adam
             if (it == ctx.reg.connections().end() || !it->second->stop())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stop_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stop_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -827,7 +827,7 @@ namespace adam
             evt.data_as<messages::connection_action_data>()->connection = params->connection;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -847,7 +847,7 @@ namespace adam
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_rename_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_rename_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -866,7 +866,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_renamed, ctx.ctrl.get_language()), ctx.tid, old_conn_str.c_str(), new_name.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_renamed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, old_conn_str.c_str(), new_name.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -891,7 +891,7 @@ namespace adam
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_add_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_add_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -914,7 +914,7 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             auto log_evt = params->is_input ? controller_cmd_dispatcher::log_event::connection_input_port_added : controller_cmd_dispatcher::log_event::connection_output_port_added;
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(log_evt, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(log_evt, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_str.c_str(), conn_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -939,7 +939,7 @@ namespace adam
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_remove_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, conn_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_port_remove_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -957,19 +957,37 @@ namespace adam
             ctx.ctrl.broadcast_event(evt);
 
             auto log_evt = params->is_input ? controller_cmd_dispatcher::log_event::connection_input_port_removed : controller_cmd_dispatcher::log_event::connection_output_port_removed;
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(log_evt, ctx.ctrl.get_language()), ctx.tid, port_str.c_str(), conn_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(log_evt, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_str.c_str(), conn_str.c_str());
             
             if (it_port != ctx.reg.ports().end())
             {
                 it_port->second->get_in_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
                 it_port->second->get_out_connections().iterate([](const auto&){}); // Force active array update on the double-buffer to guarantee accurate size tracking
-                if (it_port->second->get_in_connections().empty() && it_port->second->get_out_connections().empty())
+                if (it_port->second->is_started())
                 {
-                    ctx.reg.destroy_port(params->port);
-                    event evt_del(event_type::port_destroyed);
-                    evt_del.data_as<messages::port_destroy_data>()->port = params->port;
-                    ctx.ctrl.broadcast_event(evt_del);
-                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
+                    bool any_other_started = false;
+                    for (const auto& [hash, conn] : ctx.reg.connections())
+                    {
+                        if (conn->is_started())
+                        {
+                            if (conn->ports_input().contains(it_port->second.get()) || conn->ports_output().contains(it_port->second.get()))
+                            {
+                                any_other_started = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!any_other_started)
+                    {
+                        if (it_port->second->stop())
+                        {
+                            event evt_stop(event_type::port_stopped);
+                            evt_stop.data_as<port::status_event_info>()->port_hash = params->port;
+                            ctx.ctrl.broadcast_event(evt_stop);
+                            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_str.c_str());
+                        }
+                    }
                 }
             }
 
@@ -997,7 +1015,7 @@ namespace adam
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_add_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, conn_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_add_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1014,7 +1032,7 @@ namespace adam
                 evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_added, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str(), conn_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_added, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_str.c_str(), conn_str.c_str());
 
             ctx.set_single_response_status(response_status::success);
         });
@@ -1040,7 +1058,7 @@ namespace adam
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_remove_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, conn_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_remove_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1057,7 +1075,7 @@ namespace adam
                 evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_removed, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str(), conn_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_removed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_str.c_str(), conn_str.c_str());
 
             if (it_proc != ctx.reg.processors().end())
             {
@@ -1068,7 +1086,7 @@ namespace adam
                     event evt_del(event_type::processor_destroyed);
                     evt_del.data_as<messages::processor_action_data>()->processor = params->processor;
                     ctx.ctrl.broadcast_event(evt_del);
-                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroyed, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str());
+                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroyed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_str.c_str());
                 }
             }
 
@@ -1096,7 +1114,7 @@ namespace adam
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_reorder_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, conn_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_reorder_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash, conn_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1113,7 +1131,7 @@ namespace adam
                 evt_data->valid_chain = false;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_reordered, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str(), conn_str.c_str(), params->new_index);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_processor_reordered, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_str.c_str(), conn_str.c_str(), params->new_index);
 
             ctx.set_single_response_status(response_status::success);
         });
@@ -1127,7 +1145,7 @@ namespace adam
             if (it == ctx.reg.connections().end())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_change_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1147,7 +1165,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_sorting_index_changed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_str.c_str(), params->value);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1160,7 +1178,7 @@ namespace adam
             if (it == ctx.reg.connections().end())
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_change_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1180,7 +1198,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_changed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str(), params->value);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_color_changed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_str.c_str(), params->value);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1208,7 +1226,7 @@ namespace adam
             if (!conn && !unavail_conn)
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_change_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1239,7 +1257,7 @@ namespace adam
                     event evt_stop(event_type::connection_stopped);
                     evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
                     ctx.ctrl.broadcast_event(evt_stop);
-                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
+                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn->get_name().c_str());
                 }
                 valid_chain = conn->is_valid_chain();
             }
@@ -1252,7 +1270,7 @@ namespace adam
             evt_data->valid_chain           = valid_chain;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
 
             if (unavail_conn)
@@ -1285,7 +1303,7 @@ namespace adam
             if (!conn && !unavail_conn)
             {
                 uint64_t conn_hash = static_cast<uint64_t>(params->connection);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_change_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1316,7 +1334,7 @@ namespace adam
                     event evt_stop(event_type::connection_stopped);
                     evt_stop.data_as<messages::connection_action_data>()->connection = params->connection;
                     ctx.ctrl.broadcast_event(evt_stop);
-                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.tid, conn->get_name().c_str());
+                    ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_stopped, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn->get_name().c_str());
                 }
                 valid_chain = conn->is_valid_chain();
             }
@@ -1329,7 +1347,7 @@ namespace adam
             evt_data->valid_chain           = valid_chain;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
 
             if (unavail_conn)
@@ -1346,7 +1364,7 @@ namespace adam
             if (conn == ctx.reg.connections().end())
             {
                 std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash_str.c_str());
                 ctx.set_single_response_status(response_status::unknown);
                 return;
             }
@@ -1356,7 +1374,7 @@ namespace adam
 
             if (!new_inspector->open(conn_name.get_hash() ^ ("input"_ct).get_hash(), ctx.tid))
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_name.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1364,7 +1382,7 @@ namespace adam
             conn->second->inspectors_input().push_back(new_inspector);
             ctx.thread_connection_input_inspectors.emplace(params->connection, new_inspector);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_created, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_name.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1376,7 +1394,7 @@ namespace adam
             if (it == ctx.thread_connection_input_inspectors.end())
             {
                 std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_str.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1389,7 +1407,7 @@ namespace adam
 
             ctx.thread_connection_input_inspectors.erase(it);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_inspector_destroyed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1401,7 +1419,7 @@ namespace adam
             if (conn == ctx.reg.connections().end())
             {
                 std::string conn_hash_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_hash_str.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash_str.c_str());
                 ctx.set_single_response_status(response_status::unknown);
                 return;
             }
@@ -1411,7 +1429,7 @@ namespace adam
 
             if (!new_inspector->open(conn_name.get_hash() ^ ("output"_ct).get_hash(), ctx.tid))
             {
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_name.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1419,7 +1437,7 @@ namespace adam
             conn->second->inspectors_output().push_back(new_inspector);
             ctx.thread_connection_output_inspectors.emplace(params->connection, new_inspector);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_created, ctx.ctrl.get_language()), ctx.tid, conn_name.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_created, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_name.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1431,7 +1449,7 @@ namespace adam
             if (it == ctx.thread_connection_output_inspectors.end())
             {
                 std::string conn_str = std::to_string(static_cast<uint64_t>(params->connection));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroy_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_str.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1444,7 +1462,7 @@ namespace adam
 
             ctx.thread_connection_output_inspectors.erase(it);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, conn_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_inspector_destroyed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1458,7 +1476,7 @@ namespace adam
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(registry::status_error_port_already_exists, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1470,7 +1488,7 @@ namespace adam
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1508,7 +1526,7 @@ namespace adam
                 ctx.ctrl.broadcast_event(ev);
 
             auto name_view = name.c_str();
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.tid, name_view, new_port->get_type_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_created, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view, new_port->get_type_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1528,7 +1546,7 @@ namespace adam
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroy_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroy_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1537,7 +1555,7 @@ namespace adam
             evt.data_as<messages::port_destroy_data>()->port = params->port;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_destroyed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1557,7 +1575,7 @@ namespace adam
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_rename_failed, ctx.ctrl.get_language()), ctx.tid, port_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_rename_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1587,7 +1605,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.tid, old_port_str.c_str(), new_name.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_renamed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, old_port_str.c_str(), new_name.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1599,7 +1617,7 @@ namespace adam
             if (it == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1609,7 +1627,7 @@ namespace adam
             if (!user_params)
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1618,7 +1636,7 @@ namespace adam
             if (!param)
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1676,13 +1694,13 @@ namespace adam
                 std::memcpy(evt_data->data, params->data, sizeof(evt_data->data));
                 ctx.ctrl.broadcast_event(evt);
                 
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_updated, ctx.ctrl.get_language()), ctx.tid, port->get_name().c_str());
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_updated, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port->get_name().c_str());
                 ctx.set_single_response_status(response_status::success);
             }
             else
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -1698,12 +1716,12 @@ namespace adam
                 {
                     it->second->mark_start_failed();
 
-                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
                 }
                 else
                 {
                     auto hash_str = std::format("{:x}", static_cast<uint64_t>(params->port));
-                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.tid, hash_str.c_str());
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_start_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, hash_str.c_str());
                 }
                 ctx.set_single_response_status(response_status::failed);
                 return;
@@ -1713,7 +1731,7 @@ namespace adam
             evt.data_as<port::status_event_info>()->port_hash = params->port;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_started, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1726,12 +1744,12 @@ namespace adam
             {
                 if (it != ctx.reg.ports().end())
                 {
-                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
                 }
                 else
                 {
                     auto hash_str = std::format("{:x}", static_cast<uint64_t>(params->port));
-                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.tid, hash_str.c_str());
+                    ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stop_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, hash_str.c_str());
                 }
                 ctx.set_single_response_status(response_status::failed);
                 return;
@@ -1741,7 +1759,7 @@ namespace adam
             evt.data_as<port::status_event_info>()->port_hash = params->port;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_stopped, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1753,7 +1771,7 @@ namespace adam
             if (it == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.tid, port_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_inject_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1786,7 +1804,7 @@ namespace adam
 
             buf->set_size(off);
             it->second->handle_data(buf, params->direction);
-            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_injected, ctx.ctrl.get_language()), ctx.tid, it->second->get_name().c_str()));
+            debug_statement(ctx.ctrl.log(log::trace, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_data_injected, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str()));
             ctx.set_single_response_status(response_status::success);
 
             buf->release();
@@ -1800,7 +1818,7 @@ namespace adam
             if (port == ctx.reg.ports().end())
             {
                 uint64_t port_hash = static_cast<uint64_t>(params->port);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_port_unknown, ctx.ctrl.get_language()), ctx.tid, port_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_port_unknown, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_hash);
                 ctx.set_single_response_status(response_status::unknown);
                 return;
             }
@@ -1811,7 +1829,7 @@ namespace adam
             if (!new_inspector->open(port_name.get_hash(), ctx.tid))
             {
                 auto name_view = port_name.c_str();
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.ctrl.get_language()), ctx.tid, name_view);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_create_failed_open, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1820,7 +1838,7 @@ namespace adam
             ctx.thread_inspectors.emplace(params->port, new_inspector);
 
             auto name_view = port_name.c_str();
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.ctrl.get_language()), ctx.tid, name_view);
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_created, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view);
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1832,7 +1850,7 @@ namespace adam
             if (it == ctx.thread_inspectors.end())
             {
                 std::string port_str = std::to_string(static_cast<uint64_t>(params->port));
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroy_failed_not_found, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_str.c_str());
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1845,7 +1863,7 @@ namespace adam
 
             ctx.thread_inspectors.erase(it);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.tid, port_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::inspector_destroyed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, port_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1861,7 +1879,7 @@ namespace adam
             {
                 auto name_view = name.c_str();
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_create_failed, ctx.ctrl.get_language()), ctx.tid, name_view, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_create_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name_view, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1895,7 +1913,7 @@ namespace adam
 
             ctx.ctrl.broadcast_event(evt);
             
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_created, ctx.ctrl.get_language()), ctx.tid, name.c_str(), new_processor->get_type_name().c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_created, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, name.c_str(), new_processor->get_type_name().c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1913,7 +1931,7 @@ namespace adam
             {
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroy_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroy_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1922,7 +1940,7 @@ namespace adam
             evt.data_as<messages::processor_action_data>()->processor = params->processor;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroyed, ctx.ctrl.get_language()), ctx.tid, processor_str.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_destroyed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_str.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -1934,7 +1952,7 @@ namespace adam
             if (it == ctx.reg.processors().end())
             {
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1944,7 +1962,7 @@ namespace adam
             if (!user_params)
             {
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -1953,7 +1971,7 @@ namespace adam
             if (!param)
             {
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -2011,13 +2029,13 @@ namespace adam
                 std::memcpy(evt_data->data, params->data, sizeof(evt_data->data));
                 ctx.ctrl.broadcast_event(evt);
                 
-                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_updated, ctx.ctrl.get_language()), ctx.tid, processor->get_name().c_str());
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_updated, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor->get_name().c_str());
                 ctx.set_single_response_status(response_status::success);
             }
             else
             {
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash);
                 ctx.set_single_response_status(response_status::failed);
             }
         });
@@ -2038,7 +2056,7 @@ namespace adam
             {
                 uint64_t processor_hash = static_cast<uint64_t>(params->processor);
                 auto status_text = registry::get_status_text(res, ctx.ctrl.get_language());
-                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_rename_failed, ctx.ctrl.get_language()), ctx.tid, processor_hash, status_text);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_rename_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, processor_hash, status_text);
                 ctx.set_single_response_status(response_status::failed);
                 return;
             }
@@ -2078,7 +2096,7 @@ namespace adam
             evt_data->edited = current_time;
             ctx.ctrl.broadcast_event(evt);
 
-            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_renamed, ctx.ctrl.get_language()), ctx.tid, old_processor_str.c_str(), new_name.c_str());
+            ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::processor_renamed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, old_processor_str.c_str(), new_name.c_str());
             ctx.set_single_response_status(response_status::success);
         });
 
@@ -2090,327 +2108,327 @@ namespace adam
         {
             { 
                 log_event::language_changed,
-                { "Language changed to: English.", "Sprache geändert zu: Deutsch." }
+                { "{} ({:d}) changed language to: English.", "{} ({:d}) hat die Sprache geändert zu: Deutsch." }
             },
             {
                 log_event::inspector_created,
-                { "Thread {:d} successfully created inspector for port \"{}\".", "Thread {:d} hat erfolgreich einen Inspektor für Port \"{}\" erstellt." }
+                { "{} ({:d}) successfully created inspector for port \"{}\".", "{} ({:d}) hat erfolgreich einen Inspektor für Port \"{}\" erstellt." }
             },
             {
                 log_event::inspector_destroyed,
-                { "Thread {:d} successfully destroyed inspector for port \"{}\".", "Thread {:d} hat erfolgreich den Inspektor für Port \"{}\" entfernt." }
+                { "{} ({:d}) successfully destroyed inspector for port \"{}\".", "{} ({:d}) hat erfolgreich den Inspektor für Port \"{}\" entfernt." }
             },
             {
                 log_event::inspector_create_failed_port_unknown,
-                { "Thread {:d} failed to create inspector: Unknown port hash {:x}.", "Thread {:d} konnte Inspektor nicht erstellen: Unbekannter Port-Hash {:x}." }
+                { "{} ({:d}) failed to create inspector: Unknown port hash {:x}.", "{} ({:d}) konnte Inspektor nicht erstellen: Unbekannter Port-Hash {:x}." }
             },
             {
                 log_event::inspector_create_failed_open,
-                { "Thread {:d} failed to create inspector: Could not open queue for port \"{}\".", "Thread {:d} konnte Inspektor nicht erstellen: Warteschlange für Port \"{}\" konnte nicht geöffnet werden." }
+                { "{} ({:d}) failed to create inspector: Could not open queue for port \"{}\".", "{} ({:d}) konnte Inspektor nicht erstellen: Warteschlange für Port \"{}\" konnte nicht geöffnet werden." }
             },
             {
                 log_event::inspector_destroy_failed_port_unknown,
-                { "Thread {:d} failed to destroy inspector: Unknown port hash {:x}.", "Thread {:d} konnte Inspektor nicht entfernen: Unbekannter Port-Hash {:x}." }
+                { "{} ({:d}) failed to destroy inspector: Unknown port hash {:x}.", "{} ({:d}) konnte Inspektor nicht entfernen: Unbekannter Port-Hash {:x}." }
             },
             {
                 log_event::inspector_destroy_failed_not_found,
-                { "Thread {:d} failed to destroy inspector: Inspector not found for port \"{}\".", "Thread {:d} konnte Inspektor nicht entfernen: Kein Inspektor für Port \"{}\" gefunden." }
+                { "{} ({:d}) failed to destroy inspector: Inspector not found for port \"{}\".", "{} ({:d}) konnte Inspektor nicht entfernen: Kein Inspektor für Port \"{}\" gefunden." }
             },
             {
                 log_event::module_path_added,
-                { "Thread {:d} successfully added module path \"{}\".", "Thread {:d} hat Modulpfad \"{}\" erfolgreich hinzugefügt." }
+                { "{} ({:d}) successfully added module path \"{}\".", "{} ({:d}) hat Modulpfad \"{}\" erfolgreich hinzugefügt." }
             },
             {
                 log_event::module_path_add_failed,
-                { "Thread {:d} failed to add module path \"{}\".", "Thread {:d} konnte Modulpfad \"{}\" nicht hinzufügen." }
+                { "{} ({:d}) failed to add module path \"{}\".", "{} ({:d}) konnte Modulpfad \"{}\" nicht hinzufügen." }
             },
             {
                 log_event::module_path_removed,
-                { "Thread {:d} successfully removed module path {:d}.", "Thread {:d} hat Modulpfad {:d} erfolgreich entfernt." }
+                { "{} ({:d}) successfully removed module path {:d}.", "{} ({:d}) hat Modulpfad {:d} erfolgreich entfernt." }
             },
             {
                 log_event::module_path_remove_failed,
-                { "Thread {:d} failed to remove module path {:d}.", "Thread {:d} konnte Modulpfad {:d} nicht entfernen." }
+                { "{} ({:d}) failed to remove module path {:d}.", "{} ({:d}) konnte Modulpfad {:d} nicht entfernen." }
             },
             {
                 log_event::module_scan_requested,
-                { "Thread {:d} requested a module scan.", "Thread {:d} hat eine Modulsuche angefordert." }
+                { "{} ({:d}) requested a module scan.", "{} ({:d}) hat eine Modulsuche angefordert." }
             },
             {
                 log_event::port_created,
-                { "Thread {:d} successfully created port \"{}\" of type \"{}\".", "Thread {:d} hat Port \"{}\" vom Typ \"{}\" erfolgreich erstellt." }
+                { "{} ({:d}) successfully created port \"{}\" of type \"{}\".", "{} ({:d}) hat Port \"{}\" vom Typ \"{}\" erfolgreich erstellt." }
             },
             {
                 log_event::port_create_failed,
-                { "Thread {:d} failed to create port \"{}\": {}", "Thread {:d} konnte Port \"{}\" nicht erstellen: {}" }
+                { "{} ({:d}) failed to create port \"{}\": {}", "{} ({:d}) konnte Port \"{}\" nicht erstellen: {}" }
             },
             {
                 log_event::port_destroyed,
-                { "Thread {:d} successfully destroyed port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich entfernt." }
+                { "{} ({:d}) successfully destroyed port \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich entfernt." }
             },
             {
                 log_event::port_destroy_failed,
-                { "Thread {:d} failed to destroy port {:d}: {}", "Thread {:d} konnte Port {:d} nicht entfernen: {}" }
+                { "{} ({:d}) failed to destroy port {:d}: {}", "{} ({:d}) konnte Port {:d} nicht entfernen: {}" }
             },
             {
                 log_event::port_renamed,
-                { "Thread {:d} successfully renamed port \"{}\" to \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich zu \"{}\" umbenannt." }
+                { "{} ({:d}) successfully renamed port \"{}\" to \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich zu \"{}\" umbenannt." }
             },
             {
                 log_event::port_rename_failed,
-                { "Thread {:d} failed to rename port {:d}: {}", "Thread {:d} konnte Port {:d} nicht umbenennen: {}" }
+                { "{} ({:d}) failed to rename port {:d}: {}", "{} ({:d}) konnte Port {:d} nicht umbenennen: {}" }
             },
             {
                 log_event::port_parameter_updated,
-                { "Thread {:d} successfully updated parameter on port \"{}\".", "Thread {:d} hat erfolgreich einen Parameter an Port \"{}\" aktualisiert." }
+                { "{} ({:d}) successfully updated parameter on port \"{}\".", "{} ({:d}) hat erfolgreich einen Parameter an Port \"{}\" aktualisiert." }
             },
             {
                 log_event::port_parameter_update_failed,
-                { "Thread {:d} failed to update parameter on port {:d}.", "Thread {:d} konnte Parameter an Port {:d} nicht aktualisieren." }
+                { "{} ({:d}) failed to update parameter on port {:d}.", "{} ({:d}) konnte Parameter an Port {:d} nicht aktualisieren." }
             },
             {
                 log_event::processor_parameter_updated,
-                { "Thread {:d} successfully updated parameter on processor \"{}\".", "Thread {:d} hat erfolgreich einen Parameter an Prozessor \"{}\" aktualisiert." }
+                { "{} ({:d}) successfully updated parameter on processor \"{}\".", "{} ({:d}) hat erfolgreich einen Parameter an Prozessor \"{}\" aktualisiert." }
             },
             {
                 log_event::processor_parameter_update_failed,
-                { "Thread {:d} failed to update parameter on processor {:d}.", "Thread {:d} konnte Parameter an Prozessor {:d} nicht aktualisieren." }
+                { "{} ({:d}) failed to update parameter on processor {:d}.", "{} ({:d}) konnte Parameter an Prozessor {:d} nicht aktualisieren." }
             },
             {
                 log_event::processor_created,
-                { "Thread {:d} successfully created processor \"{}\" of type \"{}\".", "Thread {:d} hat Prozessor \"{}\" vom Typ \"{}\" erfolgreich erstellt." }
+                { "{} ({:d}) successfully created processor \"{}\" of type \"{}\".", "{} ({:d}) hat Prozessor \"{}\" vom Typ \"{}\" erfolgreich erstellt." }
             },
             {
                 log_event::processor_create_failed,
-                { "Thread {:d} failed to create processor \"{}\": {}", "Thread {:d} konnte Prozessor \"{}\" nicht erstellen: {}" }
+                { "{} ({:d}) failed to create processor \"{}\": {}", "{} ({:d}) konnte Prozessor \"{}\" nicht erstellen: {}" }
             },
             {
                 log_event::processor_destroyed,
-                { "Thread {:d} successfully destroyed processor \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich entfernt." }
+                { "{} ({:d}) successfully destroyed processor \"{}\".", "{} ({:d}) hat Prozessor \"{}\" erfolgreich entfernt." }
             },
             {
                 log_event::processor_destroy_failed,
-                { "Thread {:d} failed to destroy processor {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht entfernen: {}" }
+                { "{} ({:d}) failed to destroy processor {:d}: {}", "{} ({:d}) konnte Prozessor {:d} nicht entfernen: {}" }
             },
             {
                 log_event::processor_renamed,
-                { "Thread {:d} successfully renamed processor \"{}\" to \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich zu \"{}\" umbenannt." }
+                { "{} ({:d}) successfully renamed processor \"{}\" to \"{}\".", "{} ({:d}) hat Prozessor \"{}\" erfolgreich zu \"{}\" umbenannt." }
             },
             {
                 log_event::processor_rename_failed,
-                { "Thread {:d} failed to rename processor {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht umbenennen: {}" }
+                { "{} ({:d}) failed to rename processor {:d}: {}", "{} ({:d}) konnte Prozessor {:d} nicht umbenennen: {}" }
             },
             {
                 log_event::connection_input_data_format_changed,
-                { "Thread {:d} successfully changed input data format of connection \"{}\".", "Thread {:d} hat das Eingangsdatenformat von Verbindung \"{}\" erfolgreich geändert." }
+                { "{} ({:d}) successfully changed input data format of connection \"{}\".", "{} ({:d}) hat das Eingangsdatenformat von Verbindung \"{}\" erfolgreich geändert." }
             },
             {
                 log_event::connection_input_data_format_change_failed,
-                { "Thread {:d} failed to change input data format of connection {:d}.", "Thread {:d} konnte das Eingangsdatenformat von Verbindung {:d} nicht ändern." }
+                { "{} ({:d}) failed to change input data format of connection {:d}.", "{} ({:d}) konnte das Eingangsdatenformat von Verbindung {:d} nicht ändern." }
             },
             {
                 log_event::connection_output_data_format_changed,
-                { "Thread {:d} successfully changed output data format of connection \"{}\".", "Thread {:d} hat das Ausgangsdatenformat von Verbindung \"{}\" erfolgreich geändert." }
+                { "{} ({:d}) successfully changed output data format of connection \"{}\".", "{} ({:d}) hat das Ausgangsdatenformat von Verbindung \"{}\" erfolgreich geändert." }
             },
             {
                 log_event::connection_output_data_format_change_failed,
-                { "Thread {:d} failed to change output data format of connection {:d}.", "Thread {:d} konnte das Ausgangsdatenformat von Verbindung {:d} nicht ändern." }
+                { "{} ({:d}) failed to change output data format of connection {:d}.", "{} ({:d}) konnte das Ausgangsdatenformat von Verbindung {:d} nicht ändern." }
             },
             {
                 log_event::connection_created,
-                { "Thread {:d} successfully created connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich erstellt." }
+                { "{} ({:d}) successfully created connection \"{}\".", "{} ({:d}) hat Verbindung \"{}\" erfolgreich erstellt." }
             },
             {
                 log_event::connection_create_failed,
-                { "Thread {:d} failed to create connection \"{}\": {}", "Thread {:d} konnte Verbindung \"{}\" nicht erstellen: {}" }
+                { "{} ({:d}) failed to create connection \"{}\": {}", "{} ({:d}) konnte Verbindung \"{}\" nicht erstellen: {}" }
             },
             {
                 log_event::connection_destroyed,
-                { "Thread {:d} successfully destroyed connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich entfernt." }
+                { "{} ({:d}) successfully destroyed connection \"{}\".", "{} ({:d}) hat Verbindung \"{}\" erfolgreich entfernt." }
             },
             {
                 log_event::connection_destroy_failed,
-                { "Thread {:d} failed to destroy connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht entfernen: {}" }
+                { "{} ({:d}) failed to destroy connection {:d}: {}", "{} ({:d}) konnte Verbindung {:d} nicht entfernen: {}" }
             },
             {
                 log_event::port_started,
-                { "Thread {:d} successfully started port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich gestartet." }
+                { "{} ({:d}) successfully started port \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich gestartet." }
             },
             {
                 log_event::port_start_failed,
-                { "Thread {:d} failed to start port \"{}\".", "Thread {:d} konnte Port \"{}\" nicht starten." }
+                { "{} ({:d}) failed to start port \"{}\".", "{} ({:d}) konnte Port \"{}\" nicht starten." }
             },
             {
                 log_event::port_stopped,
-                { "Thread {:d} successfully stopped port \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich gestoppt." }
+                { "{} ({:d}) successfully stopped port \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich gestoppt." }
             },
             {
                 log_event::port_stop_failed,
-                { "Thread {:d} failed to stop port \"{}\".", "Thread {:d} konnte Port \"{}\" nicht stoppen." }
+                { "{} ({:d}) failed to stop port \"{}\".", "{} ({:d}) konnte Port \"{}\" nicht stoppen." }
             },
             {
                 log_event::connection_started,
-                { "Thread {:d} successfully started connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich gestartet." }
+                { "{} ({:d}) successfully started connection \"{}\".", "{} ({:d}) hat Verbindung \"{}\" erfolgreich gestartet." }
             },
             {
                 log_event::connection_start_failed,
-                { "Thread {:d} failed to start connection {:d}.", "Thread {:d} konnte Verbindung {:d} nicht starten." }
+                { "{} ({:d}) failed to start connection {:d}.", "{} ({:d}) konnte Verbindung {:d} nicht starten." }
             },
             {
                 log_event::connection_stopped,
-                { "Thread {:d} successfully stopped connection \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich gestoppt." }
+                { "{} ({:d}) successfully stopped connection \"{}\".", "{} ({:d}) hat Verbindung \"{}\" erfolgreich gestoppt." }
             },
             {
                 log_event::connection_stop_failed,
-                { "Thread {:d} failed to stop connection {:d}.", "Thread {:d} konnte Verbindung {:d} nicht stoppen." }
+                { "{} ({:d}) failed to stop connection {:d}.", "{} ({:d}) konnte Verbindung {:d} nicht stoppen." }
             },
             {
                 log_event::connection_renamed,
-                { "Thread {:d} successfully renamed connection \"{}\" to \"{}\".", "Thread {:d} hat Verbindung \"{}\" erfolgreich zu \"{}\" umbenannt." }
+                { "{} ({:d}) successfully renamed connection \"{}\" to \"{}\".", "{} ({:d}) hat Verbindung \"{}\" erfolgreich zu \"{}\" umbenannt." }
             },
             {
                 log_event::connection_rename_failed,
-                { "Thread {:d} failed to rename connection {:d}: {}", "Thread {:d} konnte Verbindung {:d} nicht umbenennen: {}" }
+                { "{} ({:d}) failed to rename connection {:d}: {}", "{} ({:d}) konnte Verbindung {:d} nicht umbenennen: {}" }
             },
             {
                 log_event::connection_input_port_added,
-                { "Thread {:d} successfully added port \"{}\" as input to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Eingang zur Verbindung \"{}\" hinzugefügt." }
+                { "{} ({:d}) successfully added port \"{}\" as input to connection \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich als Eingang zur Verbindung \"{}\" hinzugefügt." }
             },
             {
                 log_event::connection_output_port_added,
-                { "Thread {:d} successfully added port \"{}\" as output to connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Ausgang zur Verbindung \"{}\" hinzugefügt." }
+                { "{} ({:d}) successfully added port \"{}\" as output to connection \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich als Ausgang zur Verbindung \"{}\" hinzugefügt." }
             },
             {
                 log_event::connection_port_add_failed,
-                { "Thread {:d} failed to add port {:d} to connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
+                { "{} ({:d}) failed to add port {:d} to connection {:d}: {}", "{} ({:d}) konnte Port {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
             },
             {
                 log_event::connection_input_port_removed,
-                { "Thread {:d} successfully removed port \"{}\" as input from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Eingang von Verbindung \"{}\" entfernt." }
+                { "{} ({:d}) successfully removed port \"{}\" as input from connection \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich als Eingang von Verbindung \"{}\" entfernt." }
             },
             {
                 log_event::connection_output_port_removed,
-                { "Thread {:d} successfully removed port \"{}\" as output from connection \"{}\".", "Thread {:d} hat Port \"{}\" erfolgreich als Ausgang von Verbindung \"{}\" entfernt." }
+                { "{} ({:d}) successfully removed port \"{}\" as output from connection \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich als Ausgang von Verbindung \"{}\" entfernt." }
             },
             {
                 log_event::connection_port_remove_failed,
-                { "Thread {:d} failed to remove port {:d} from connection {:d}: {}", "Thread {:d} konnte Port {:d} nicht von Verbindung {:d} entfernen: {}" }
+                { "{} ({:d}) failed to remove port {:d} from connection {:d}: {}", "{} ({:d}) konnte Port {:d} nicht von Verbindung {:d} entfernen: {}" }
             },
             {
                 log_event::connection_processor_added,
-                { "Thread {:d} successfully added processor \"{}\" to connection \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich zur Verbindung \"{}\" hinzugefügt." }
+                { "{} ({:d}) successfully added processor \"{}\" to connection \"{}\".", "{} ({:d}) hat Prozessor \"{}\" erfolgreich zur Verbindung \"{}\" hinzugefügt." }
             },
             {
                 log_event::connection_processor_add_failed,
-                { "Thread {:d} failed to add processor {:d} to connection {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
+                { "{} ({:d}) failed to add processor {:d} to connection {:d}: {}", "{} ({:d}) konnte Prozessor {:d} nicht zur Verbindung {:d} hinzufügen: {}" }
             },
             {
                 log_event::connection_processor_removed,
-                { "Thread {:d} successfully removed processor \"{}\" from connection \"{}\".", "Thread {:d} hat Prozessor \"{}\" erfolgreich von Verbindung \"{}\" entfernt." }
+                { "{} ({:d}) successfully removed processor \"{}\" from connection \"{}\".", "{} ({:d}) hat Prozessor \"{}\" erfolgreich von Verbindung \"{}\" entfernt." }
             },
             {
                 log_event::connection_processor_remove_failed,
-                { "Thread {:d} failed to remove processor {:d} from connection {:d}: {}", "Thread {:d} konnte Prozessor {:d} nicht von Verbindung {:d} entfernen: {}" }
+                { "{} ({:d}) failed to remove processor {:d} from connection {:d}: {}", "{} ({:d}) konnte Prozessor {:d} nicht von Verbindung {:d} entfernen: {}" }
             },
             {
                 log_event::connection_processor_reordered,
-                { "Thread {:d} successfully reordered processor \"{}\" in connection \"{}\" to index {:d}.", "Thread {:d} hat Prozessor \"{}\" in Verbindung \"{}\" erfolgreich auf Index {:d} verschoben." }
+                { "{} ({:d}) successfully reordered processor \"{}\" in connection \"{}\" to index {:d}.", "{} ({:d}) hat Prozessor \"{}\" in Verbindung \"{}\" erfolgreich auf Index {:d} verschoben." }
             },
             {
                 log_event::connection_processor_reorder_failed,
-                { "Thread {:d} failed to reorder processor {:d} in connection {:d}: {}", "Thread {:d} konnte Prozessor {:d} in Verbindung {:d} nicht auf den gewünschten Index verschieben: {}" }
+                { "{} ({:d}) failed to reorder processor {:d} in connection {:d}: {}", "{} ({:d}) konnte Prozessor {:d} in Verbindung {:d} nicht auf den gewünschten Index verschieben: {}" }
             },
             {
                 log_event::connection_input_inspector_created,
-                { "Thread {:d} successfully created input inspector for connection \"{}\".", "Thread {:d} hat erfolgreich einen Eingangs-Inspektor für Verbindung \"{}\" erstellt." }
+                { "{} ({:d}) successfully created input inspector for connection \"{}\".", "{} ({:d}) hat erfolgreich einen Eingangs-Inspektor für Verbindung \"{}\" erstellt." }
             },
             {
                 log_event::connection_input_inspector_create_failed,
-                { "Thread {:d} failed to create input inspector for connection \"{}\".", "Thread {:d} konnte Eingangs-Inspektor für Verbindung \"{}\" nicht erstellen." }
+                { "{} ({:d}) failed to create input inspector for connection \"{}\".", "{} ({:d}) konnte Eingangs-Inspektor für Verbindung \"{}\" nicht erstellen." }
             },
             {
                 log_event::connection_input_inspector_destroyed,
-                { "Thread {:d} successfully destroyed input inspector for connection \"{}\".", "Thread {:d} hat erfolgreich den Eingangs-Inspektor für Verbindung \"{}\" entfernt." }
+                { "{} ({:d}) successfully destroyed input inspector for connection \"{}\".", "{} ({:d}) hat erfolgreich den Eingangs-Inspektor für Verbindung \"{}\" entfernt." }
             },
             {
                 log_event::connection_input_inspector_destroy_failed,
-                { "Thread {:d} failed to destroy input inspector for connection \"{}\".", "Thread {:d} konnte Eingangs-Inspektor für Verbindung \"{}\" nicht entfernen." }
+                { "{} ({:d}) failed to destroy input inspector for connection \"{}\".", "{} ({:d}) konnte Eingangs-Inspektor für Verbindung \"{}\" nicht entfernen." }
             },
             {
                 log_event::connection_output_inspector_created,
-                { "Thread {:d} successfully created output inspector for connection \"{}\".", "Thread {:d} hat erfolgreich einen Ausgangs-Inspektor für Verbindung \"{}\" erstellt." }
+                { "{} ({:d}) successfully created output inspector for connection \"{}\".", "{} ({:d}) hat erfolgreich einen Ausgangs-Inspektor für Verbindung \"{}\" erstellt." }
             },
             {
                 log_event::connection_output_inspector_create_failed,
-                { "Thread {:d} failed to create output inspector for connection \"{}\".", "Thread {:d} konnte Ausgangs-Inspektor für Verbindung \"{}\" nicht erstellen." }
+                { "{} ({:d}) failed to create output inspector for connection \"{}\".", "{} ({:d}) konnte Ausgangs-Inspektor für Verbindung \"{}\" nicht erstellen." }
             },
             {
                 log_event::connection_output_inspector_destroyed,
-                { "Thread {:d} successfully destroyed output inspector for connection \"{}\".", "Thread {:d} hat erfolgreich den Ausgangs-Inspektor für Verbindung \"{}\" entfernt." }
+                { "{} ({:d}) successfully destroyed output inspector for connection \"{}\".", "{} ({:d}) hat erfolgreich den Ausgangs-Inspektor für Verbindung \"{}\" entfernt." }
             },
             {
                 log_event::connection_output_inspector_destroy_failed,
-                { "Thread {:d} failed to destroy output inspector for connection \"{}\".", "Thread {:d} konnte Ausgangs-Inspektor für Verbindung \"{}\" nicht entfernen." }
+                { "{} ({:d}) failed to destroy output inspector for connection \"{}\".", "{} ({:d}) konnte Ausgangs-Inspektor für Verbindung \"{}\" nicht entfernen." }
             },
             {
                 log_event::connection_sorting_index_changed,
-                { "Thread {:d} successfully changed sorting index of connection \"{}\" to {:d}.", "Thread {:d} hat den Sortierindex von Verbindung \"{}\" erfolgreich auf {:d} geändert." }
+                { "{} ({:d}) successfully changed sorting index of connection \"{}\" to {:d}.", "{} ({:d}) hat den Sortierindex von Verbindung \"{}\" erfolgreich auf {:d} geändert." }
             },
             {
                 log_event::connection_sorting_index_change_failed,
-                { "Thread {:d} failed to change sorting index of connection {:d}.", "Thread {:d} konnte den Sortierindex von Verbindung {:d} nicht ändern." }
+                { "{} ({:d}) failed to change sorting index of connection {:d}.", "{} ({:d}) konnte den Sortierindex von Verbindung {:d} nicht ändern." }
             },
             {
                 log_event::connection_color_changed,
-                { "Thread {:d} successfully changed color of connection \"{}\" to #{:06x}.", "Thread {:d} hat die Farbe von Verbindung \"{}\" erfolgreich auf #{:06x} geändert." }
+                { "{} ({:d}) successfully changed color of connection \"{}\" to #{:06x}.", "{} ({:d}) hat die Farbe von Verbindung \"{}\" erfolgreich auf #{:06x} geändert." }
             },
             {
                 log_event::connection_color_change_failed,
-                { "Thread {:d} failed to change color of connection {:d}.", "Thread {:d} konnte die Farbe von Verbindung {:d} nicht ändern." }
+                { "{} ({:d}) failed to change color of connection {:d}.", "{} ({:d}) konnte die Farbe von Verbindung {:d} nicht ändern." }
             },
             {
                 log_event::port_data_injected,
-                { "Thread {:d} successfully injected data into port \"{}\".", "Thread {:d} hat erfolgreich Daten in Port \"{}\" injiziert." }
+                { "{} ({:d}) successfully injected data into port \"{}\".", "{} ({:d}) hat erfolgreich Daten in Port \"{}\" injiziert." }
             },
             {
                 log_event::port_data_inject_failed,
-                { "Thread {:d} failed to inject data into port \"{}\".", "Thread {:d} konnte keine Daten in Port \"{}\" injizieren." }
+                { "{} ({:d}) failed to inject data into port \"{}\".", "{} ({:d}) konnte keine Daten in Port \"{}\" injizieren." }
             },
             {
                 log_event::config_path_added,
-                { "Thread {:d} successfully added config path \"{}\".", "Thread {:d} hat Konfigurationspfad \"{}\" erfolgreich hinzugefügt." }
+                { "{} ({:d}) successfully added config path \"{}\".", "{} ({:d}) hat Konfigurationspfad \"{}\" erfolgreich hinzugefügt." }
             },
             {
                 log_event::config_path_add_failed,
-                { "Thread {:d} failed to add config path \"{}\".", "Thread {:d} konnte Konfigurationspfad \"{}\" nicht hinzufügen." }
+                { "{} ({:d}) failed to add config path \"{}\".", "{} ({:d}) konnte Konfigurationspfad \"{}\" nicht hinzufügen." }
             },
             {
                 log_event::config_path_removed,
-                { "Thread {:d} successfully removed config path at index {:d}.", "Thread {:d} hat Konfigurationspfad bei Index {:d} erfolgreich entfernt." }
+                { "{} ({:d}) successfully removed config path at index {:d}.", "{} ({:d}) hat Konfigurationspfad bei Index {:d} erfolgreich entfernt." }
             },
             {
                 log_event::config_path_remove_failed,
-                { "Thread {:d} failed to remove config path at index {:d}.", "Thread {:d} konnte Konfigurationspfad bei Index {:d} nicht entfernen." }
+                { "{} ({:d}) failed to remove config path at index {:d}.", "{} ({:d}) konnte Konfigurationspfad bei Index {:d} nicht entfernen." }
             },
             {
                 log_event::config_scan_requested,
-                { "Thread {:d} requested config scan.", "Thread {:d} hat Konfigurations-Scan angefordert." }
+                { "{} ({:d}) requested config scan.", "{} ({:d}) hat Konfigurations-Scan angefordert." }
             },
             {
                 log_event::config_exported,
-                { "Thread {:d} successfully saved configuration: \"{}\".", "Thread {:d} hat Konfiguration erfolgreich gespeichert: \"{}\"." }
+                { "{} ({:d}) successfully saved configuration: \"{}\".", "{} ({:d}) hat Konfiguration erfolgreich gespeichert: \"{}\"." }
             },
             {
                 log_event::config_export_failed,
-                { "Thread {:d} failed to save configuration: \"{}\".", "Thread {:d} konnte Konfiguration nicht speichern: \"{}\"." }
+                { "{} ({:d}) failed to save configuration: \"{}\".", "{} ({:d}) konnte Konfiguration nicht speichern: \"{}\"." }
             },
             {
                 log_event::config_imported,
-                { "Thread {:d} successfully loaded configuration: \"{}\".", "Thread {:d} hat Konfiguration erfolgreich geladen: \"{}\"." }
+                { "{} ({:d}) successfully loaded configuration: \"{}\".", "{} ({:d}) hat Konfiguration erfolgreich geladen: \"{}\"." }
             },
             {
                 log_event::config_import_failed,
-                { "Thread {:d} failed to load configuration: \"{}\".", "Thread {:d} konnte Konfiguration nicht laden: \"{}\"." }
+                { "{} ({:d}) failed to load configuration: \"{}\".", "{} ({:d}) konnte Konfiguration nicht laden: \"{}\"." }
             }
         };
 

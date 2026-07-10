@@ -1102,10 +1102,35 @@ namespace adam::gui
         {
             if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_port, lang), ImVec2(info.current_node_w - exp_pad * 2.0f, 0)))
             {
-                ctrl.enqueue_commander_action([&ctrl, conn_hash = info.hash, port_hash = info.port_hash, is_input = (info.type == node_type_input)]() 
-                { 
-                    ctrl.commander().request_connection_port_remove(conn_hash, port_hash, is_input); 
-                });
+                // Check if port is in any other connection
+                bool isolated = true;
+                for (const auto& [ch, c] : ctrl.commander().registry().get_connections())
+                {
+                    if (ch != info.hash)
+                    {
+                        if (std::find(c->inputs.begin(), c->inputs.end(), info.port_hash) != c->inputs.end() ||
+                            std::find(c->outputs.begin(), c->outputs.end(), info.port_hash) != c->outputs.end())
+                        {
+                            isolated = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (isolated)
+                {
+                    g_port_to_delete_hash = info.port_hash;
+                    g_port_to_delete_conn_hash = info.hash;
+                    g_port_to_delete_is_input = (info.type == node_type_input);
+                    g_request_delete_port_popup = true;
+                }
+                else
+                {
+                    ctrl.enqueue_commander_action([&ctrl, conn_hash = info.hash, port_hash = info.port_hash, is_input = (info.type == node_type_input)]() 
+                    { 
+                        ctrl.commander().request_connection_port_remove(conn_hash, port_hash, is_input); 
+                    });
+                }
             }
         }
         else

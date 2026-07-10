@@ -17,7 +17,7 @@ namespace adam
 
     port_internal::~port_internal() {}
     
-    bool port_internal::handle_data(buffer* buf, data_direction dir)
+    bool port_internal::handle_data(buffer*& buf, data_direction dir)
     {
         bool result = true;
 

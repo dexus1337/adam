@@ -62,12 +62,14 @@ namespace adam
 
     void configuration_parameter_integer::set_range(int64_t min_value, int64_t max_value)
     {
+        m_mode = value_mode_range;
         m_min_value = min_value;
         m_max_value = max_value;
     }
 
     void configuration_parameter_integer::add_preset(int64_t preset)
     {
+        m_mode = value_mode_preset;
         m_presets.insert(preset);
     }
 }

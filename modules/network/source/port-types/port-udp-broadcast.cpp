@@ -26,6 +26,7 @@ namespace adam::modules::network
             auto local_port = std::make_unique<adam::configuration_parameter_integer>("interface_port"_ct, 0);
             local_port->set_description(language_english, "Local port to bind to (0 = any)."_ct);
             local_port->set_description(language_german,  "Lokaler Port zur Bindung (0 = beliebig)."_ct);
+            local_port->set_range(0, 65535);
             up->add(std::move(local_port));
 
             // --- broadcast_ip ---
@@ -38,6 +39,7 @@ namespace adam::modules::network
             auto remote_port = std::make_unique<adam::configuration_parameter_integer>("remote_port"_ct, 0);
             remote_port->set_description(language_english, "Destination port for outgoing broadcast datagrams."_ct);
             remote_port->set_description(language_german,  "Zielport für ausgehende Broadcast-Datagramme."_ct);
+            remote_port->set_range(0, 65535);
             up->add(std::move(remote_port));
 
             // Note: No ip_version parameter - UDP broadcast is IPv4-only.

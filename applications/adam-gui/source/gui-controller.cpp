@@ -34,8 +34,10 @@ namespace adam::gui
     }
 
     gui_controller::gui_controller() 
-        : configuration_item("gui.controller", get_default_parameters()),
-          m_running(false), m_commander_active(false)
+     :  configuration_item("gui.controller", get_default_parameters()),
+        m_commander("GUI"_ct),
+        m_running(false), 
+        m_commander_active(false)
     {
         load("adam-gui-config.adamguicfg");
     }

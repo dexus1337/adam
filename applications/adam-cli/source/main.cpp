@@ -18,7 +18,7 @@
 
 struct app_context
 {
-    adam::commander cmd;
+    adam::commander cmd = adam::commander("CLI");
     adam::logger lg;
     adam::logger_sink lgsnk;
     adam::cli::command_database db;
@@ -278,7 +278,7 @@ int main()
                         for (const auto& [hash, p] : ctx.cmd.get_registry().get_ports())
                             candidates.push_back(std::string(p->name.c_str()));
                     }
-                    else if (cmd.find("conn_") == 0 && cmd != "conn_create" && cmd != "conn_list")
+                    else if (cmd.find("conn_") == 0 && cmd != "conn_create")
                     {
                         for (const auto& [hash, p] : ctx.cmd.get_registry().get_connections())
                             candidates.push_back(std::string(p->name.c_str()));

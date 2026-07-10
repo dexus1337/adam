@@ -55,7 +55,6 @@ namespace adam::modules::recrep
             up->add(std::move(path_param));
 
             auto speed_param = std::make_unique<adam::configuration_parameter_double>("speed"_ct, 1.0);
-            speed_param->set_mode(configuration_parameter_double::value_mode_range);
             speed_param->set_range(0.0, 100.0);
             speed_param->set_description(language_english, "The replay speed relative to the original recording. 0.0 will send the packets instantly."_ct);
             speed_param->set_description(language_german, "Die Wiedergabegeschwindigkeit relativ zur ursprünglichen Aufnahme. 0.0 sendet die Pakete sofort."_ct);
@@ -238,17 +237,17 @@ namespace adam::modules::recrep
 
                 if (m_file_stream.gcount() != sizeof(fh))
                 {
-                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(file_too_small, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, std::format("Port ({}) [replay]: {}", get_name().c_str(), get_log_event_text(file_too_small, lang)));
                     return false;
                 }
                 if (fh.magic != pcap::file_header::magic_number)
                 {
-                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, std::format("Port ({}) [replay]: {}", get_name().c_str(), get_log_event_text(invalid_magic_number, lang)));
                     return false;
                 }
                 if (fh.ver_maj != pcap::version_major || fh.ver_min != pcap::version_minor)
                 {
-                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(unsupported_version, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, std::format("Port ({}) [replay]: {}", get_name().c_str(), get_log_event_text(unsupported_version, lang)));
                     return false;
                 }
 
@@ -293,17 +292,17 @@ namespace adam::modules::recrep
 
                 if (m_file_stream.gcount() != sizeof(fh))
                 {
-                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(file_too_small, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, std::format("Port ({}) [replay]: {}", get_name().c_str(), get_log_event_text(file_too_small, lang)));
                     return false;
                 }
                 if (fh.magic != rff::file_header::magic_number)
                 {
-                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(invalid_magic_number, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, std::format("Port ({}) [replay]: {}", get_name().c_str(), get_log_event_text(invalid_magic_number, lang)));
                     return false;
                 }
                 if (fh.version.major != '1')
                 {
-                    if (log_errors) get_controller()->log(adam::log::error, get_log_event_text(unsupported_version, lang));
+                    if (log_errors) get_controller()->log(adam::log::error, std::format("Port ({}) [replay]: {}", get_name().c_str(), get_log_event_text(unsupported_version, lang)));
                     return false;
                 }
 
@@ -547,15 +546,15 @@ namespace adam::modules::recrep
         {
             {
                 log_event::file_too_small,
-                { "Replay: Failed to read file header. File is too small.", "Replay: Fehler beim Lesen des Datei-Headers. Datei ist zu klein." }
+                { "Failed to read file header. File is too small.", "Fehler beim Lesen des Datei-Headers. Datei ist zu klein." }
             },
             {
                 log_event::invalid_magic_number,
-                { "Replay: Invalid magic number in file.", "Replay: Ungültige magische Zahl in der Datei." }
+                { "Invalid magic number in file.", "Ungültige magische Zahl in der Datei." }
             },
             {
                 log_event::unsupported_version,
-                { "Replay: Unsupported version.", "Replay: Nicht unterstützte Version." }
+                { "Unsupported version.", "Nicht unterstützte Version." }
             }
         };
 

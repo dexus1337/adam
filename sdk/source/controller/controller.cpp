@@ -286,7 +286,19 @@ namespace adam
         }
     }
 
-    controller::status controller::request_master_queue(master_queue_request mqr)
+    const char* controller::get_client_name(os::thread_id tid) const
+    {
+        static const char* unknown = "unknown";
+
+        auto it = m_client_names.find(tid);
+        if (it != m_client_names.end())
+        {
+            return it->second.c_str();
+        }
+        return unknown;
+    }
+
+    controller::status controller::request_master_queue(master_queue_request mqr, const string_hashed_ct& client_name)
     {
         status resp     = status_unavailable;
         master_queue mq = master_queue(string_hashed(master_queue_name));
@@ -299,6 +311,8 @@ namespace adam
         data.tid    = os::get_current_thread_id();
         data.queue  = mqr;
         data.code   = calculate_secret(data.tid);
+        std::strncpy(data.client_name, client_name.c_str(), client_name.get_length());
+        data.client_name[client_name.get_length()] = '\0';
 
         if (!mq.post_request(data, resp, 300))
             resp = status_failed;
@@ -384,7 +398,7 @@ namespace adam
         {
             delete new_queue;
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_open, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_open, get_language()), get_client_name(tid), tid);
 
             m_master_queue.response_queue().push(status_unavailable);
 
@@ -403,7 +417,7 @@ namespace adam
 
             delete new_queue;
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_insert, get_language()), get_client_name(tid), tid);
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -426,7 +440,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_does_not_exist, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_does_not_exist, get_language()), get_client_name(tid), tid);
 
             return false;
         }
@@ -437,7 +451,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_failed_destroy);
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_destroy, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_destroy, get_language()), get_client_name(tid), tid);
 
             return false;
         }
@@ -462,7 +476,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_does_not_exist, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_does_not_exist, get_language()), get_client_name(tid), tid);
 
             return false;
         }
@@ -489,13 +503,16 @@ namespace adam
 
             if (!m_master_queue.request_queue().pop(req, 100)) // check every 100ms
                 continue;
+                
+            if (req.client_name[0] != '\0')
+                m_client_names[req.tid] = string_hashed(&req.client_name[0]);
 
             // check secret to only allow (basic) authenticated users
             if (req.tid != reverse_secret(req.code))
             {
                 m_master_queue.response_queue().push(status_unauthorized);
 
-                this->log(log::error, get_log_event_text(log_event::thread_auth_failed, get_language()), req.tid);
+                this->log(log::error, get_log_event_text(log_event::thread_auth_failed, get_language()), get_client_name(req.tid), req.tid);
 
                 continue;
             }
@@ -565,11 +582,25 @@ namespace adam
 
             if (req.queue % 2)
             {
-                this->log(log::info, get_log_event_text(log_event::slave_queue_created, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language()));
+                this->log(log::info, get_log_event_text(log_event::slave_queue_created, get_language()), get_client_name(req.tid), req.tid, language_strings::slave_queue_name(req.queue, get_language()));
             }
             else
             {
-                this->log(log::info, get_log_event_text(log_event::slave_queue_destroyed, get_language()), req.tid, language_strings::slave_queue_name(req.queue, get_language()));
+                this->log(log::info, get_log_event_text(log_event::slave_queue_destroyed, get_language()), get_client_name(req.tid), req.tid, language_strings::slave_queue_name(req.queue, get_language()));
+                
+                bool has_other_queues = false;
+
+                if (m_queues_command.count(req.tid))
+                    has_other_queues = true;
+                else if (m_queues_event.count(req.tid))
+                    has_other_queues = true;
+                else if (m_queues_log.count(req.tid))
+                    has_other_queues = true;
+                else if (m_queues_log_sink.count(req.tid))
+                    has_other_queues = true;
+
+                if (!has_other_queues)
+                    m_client_names.erase(req.tid);
             }
 
             m_master_queue.response_queue().push(status_success);
@@ -651,55 +682,55 @@ namespace adam
         {
             { 
                 log_event::thread_auth_failed,
-                { "Thread {:d} did not authenticate correctly.",    "Thread {:d} hat sich nicht korrekt authentifiziert." }
+                { "{} ({:d}) did not authenticate correctly.",    "{} ({:d}) hat sich nicht korrekt authentifiziert." }
             },
             { 
                 log_event::slave_queue_created,
-                { "Thread {:d} did successfully create queue of type \"{}\".",    "Thread {:d} hat eine Warteschlange vom Typ \"{}\" erfolgreich erstellt." }
+                { "{} ({:d}) did successfully create queue of type \"{}\".",    "{} ({:d}) hat eine Warteschlange vom Typ \"{}\" erfolgreich erstellt." }
             },
             { 
                 log_event::slave_queue_destroyed,
-                { "Thread {:d} did successfully destroy queue of type \"{}\".",   "Thread {:d} hat eine Warteschlange vom Typ \"{}\" erfolgreich entfernt." }
+                { "{} ({:d}) did successfully destroy queue of type \"{}\".",   "{} ({:d}) hat eine Warteschlange vom Typ \"{}\" erfolgreich entfernt." }
             },
             {
                 log_event::slave_queue_already_exists,
-                { "Client {:d} tried to create a queue that already exists.",   "Client {:d} hat versucht, eine Warteschlange zu erstellen, die bereits existiert." }
+                { "{} ({:d}) tried to create a queue that already exists.",   "{} ({:d}) hat versucht, eine Warteschlange zu erstellen, die bereits existiert." }
             },
             {
                 log_event::slave_queue_failed_to_open,
-                { "Queue for client {:d} failed to open.",                      "Warteschlange für Client {:d} konnte nicht geöffnet werden." }
+                { "Queue for {} ({:d}) failed to open.",                      "Warteschlange für {} ({:d}) konnte nicht geöffnet werden." }
             },
             {
                 log_event::slave_queue_failed_to_insert,
-                { "Queue for client {:d} failed to insert to database.",        "Warteschlange für Client {:d} konnte nicht in die Datenbank eingefügt werden." }
+                { "Queue for {} ({:d}) failed to insert to database.",        "Warteschlange für {} ({:d}) konnte nicht in die Datenbank eingefügt werden." }
             },
             {
                 log_event::slave_queue_worker_already_exists,
-                { "Client {:d} tried to create a queue + worker that already exists.", "Client {:d} hat versucht, eine Warteschlange + Worker zu erstellen, die bereits existieren." }
+                { "{} ({:d}) tried to create a queue + worker that already exists.", "{} ({:d}) hat versucht, eine Warteschlange + Worker zu erstellen, die bereits existieren." }
             },
             {
                 log_event::slave_queue_worker_failed_to_open,
-                { "Queue + worker for client {:d} failed to open.",             "Warteschlange + Worker für Client {:d} konnten nicht geöffnet werden." }
+                { "Queue + Worker for {} ({:d}) failed to open.",             "Warteschlange + Worker für {} ({:d}) konnte nicht geöffnet werden." }
             },
             {
                 log_event::slave_queue_worker_failed_to_insert,
-                { "Queue + worker for client {:d} failed to insert to database.", "Warteschlange + Worker für Client {:d} konnten nicht in die Datenbank eingefügt werden." }
+                { "Queue + Worker for {} ({:d}) failed to insert to database.", "Warteschlange + Worker für {} ({:d}) konnte nicht in die Datenbank eingefügt werden." }
             },
             {
                 log_event::slave_queue_does_not_exist,
-                { "Client {:d} tried to destroy a queue that doesnt exists.",   "Client {:d} hat versucht, eine Warteschlange zu entfernen, die nicht existiert." }
+                { "{} ({:d}) tried to destroy a queue that does not exist.",    "{} ({:d}) hat versucht, eine Warteschlange zu entfernen, die nicht existiert." }
             },
             {
                 log_event::slave_queue_failed_to_destroy,
-                { "Failed to destroy queue of client {:d}.",                    "Fehler beim Entfernen der Warteschlange von Client {:d}." }
+                { "Queue for {} ({:d}) failed to destroy.",                   "Warteschlange für {} ({:d}) konnte nicht entfernt werden." }
             },
             {
                 log_event::slave_queue_worker_does_not_exist,
-                { "Client {:d} tried to destroy a queue + worker that doesnt exists.", "Client {:d} hat versucht, eine Warteschlange + Worker zu entfernen, die nicht existieren." }
+                { "{} ({:d}) tried to destroy a queue + worker that does not exist.", "{} ({:d}) hat versucht, eine Warteschlange + Worker zu entfernen, die nicht existieren." }
             },
             {
                 log_event::slave_queue_worker_failed_to_destroy,
-                { "Failed to destroy queue + worker of client {:d}. Ignoring.", "Fehler beim Entfernen der Warteschlange + Worker von Client {:d}. Wird ignoriert." }
+                { "Queue + Worker for {} ({:d}) failed to destroy. Ignoring.", "Fehler beim Entfernen der Warteschlange + Worker von [{} ({:d})]. Wird ignoriert." }
             },
             {
                 log_event::controller_shutting_down,

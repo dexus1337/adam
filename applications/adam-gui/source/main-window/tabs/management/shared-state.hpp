@@ -93,6 +93,10 @@ namespace adam::gui
     // Shared State Globals
     extern adam::string_hashed g_connection_to_delete;
     extern bool g_request_delete_popup;
+    extern adam::string_hash g_port_to_delete_hash;
+    extern adam::string_hash g_port_to_delete_conn_hash;
+    extern bool g_port_to_delete_is_input;
+    extern bool g_request_delete_port_popup;
     extern ImVec2 g_connection_drag_offset;
 
     extern adam::string_hashed g_target_connection;

@@ -369,7 +369,12 @@ namespace adam::gui
             ImGui::Separator();
             ImGui::Spacing();
 
-            if (ImGui::Button("OK", ImVec2(120 * dpi_scale, 0)))
+            int btn = draw_modal_buttons({
+                { "OK" },
+                { "Cancel" }
+            });
+
+            if (btn == 0)
             {
                 ctrl.enqueue_commander_action([&ctrl]() 
                 {
@@ -378,9 +383,10 @@ namespace adam::gui
                 });
                 ImGui::CloseCurrentPopup();
             }
-            ImGui::SetItemDefaultFocus();
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120 * dpi_scale, 0))) { ImGui::CloseCurrentPopup(); }
+            else if (btn == 1)
+            {
+                ImGui::CloseCurrentPopup();
+            }
             ImGui::EndPopup();
         }
 
@@ -449,7 +455,12 @@ namespace adam::gui
             ImGui::Separator();
             ImGui::Spacing();
 
-            if (ImGui::Button("OK", ImVec2(120, 0)))
+            int btn = draw_modal_buttons({
+                { "OK" },
+                { "Cancel" }
+            });
+
+            if (btn == 0)
             {
                 ctrl.enqueue_commander_action([&ctrl, path_idx = save_path_idx, filename = std::string(export_popup_filename), name = std::string(save_name), desc = std::string(save_desc)]() 
                 {
@@ -457,9 +468,7 @@ namespace adam::gui
                 });
                 ImGui::CloseCurrentPopup();
             }
-            ImGui::SetItemDefaultFocus();
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            else if (btn == 1)
             {
                 ImGui::CloseCurrentPopup();
             }

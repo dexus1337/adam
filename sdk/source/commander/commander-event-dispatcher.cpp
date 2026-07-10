@@ -426,6 +426,7 @@ namespace adam
             auto view = std::make_unique<processor_view>();
             view->name = string_hashed(info->name);
             view->is_unavailable = info->is_unavailable;
+            view->is_filter = (info->input_datatype == info->output_datatype);
             if (!view->is_unavailable)
                 view->state_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
 
@@ -488,6 +489,7 @@ namespace adam
                 auto view = std::make_unique<processor_view>();
                 view->name = string_hashed(info->name);
                 view->is_unavailable = false;
+                view->is_filter = (info->input_datatype == info->output_datatype);
                 view->state_buffer = buffer_manager::get().resolve_handle(info->state_buffer_handle);
                 
                 {

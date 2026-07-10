@@ -41,7 +41,7 @@ namespace adam
         bool open(string_hash port_hash, os::thread_id tid);
 
         /** @brief Data management routine */
-        bool handle_data(buffer* buf);
+        bool handle_data(buffer*& buf);
         
         /** @brief Starts a background thread that continuously pops buffer handles and resolves them. */
         bool start_inspecting(std::function<void(buffer*)> callback);

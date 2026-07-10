@@ -30,6 +30,7 @@ namespace adam::modules::network
             auto local_port = std::make_unique<adam::configuration_parameter_integer>("interface_port"_ct, 0);
             local_port->set_description(language_english, "Local port to bind and listen on."_ct);
             local_port->set_description(language_german,  "Lokaler Port zum Binden und Lauschen."_ct);
+            local_port->set_range(0, 65535);
             up->add(std::move(local_port));
 
             // --- tcp_nodelay ---
