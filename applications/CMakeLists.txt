@@ -1,3 +1,5 @@
 add_subdirectory(adam)
 add_subdirectory(adam-cli)
-add_subdirectory(adam-gui)
+if( NOT DEFINED ADAM_NO_GUI )
+    add_subdirectory(adam-gui)
+endif()

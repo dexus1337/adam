@@ -1,7 +1,9 @@
 ﻿# CMakeLists.txt for the recrep module
 
+if(NOT DEFINED ADAM_NO_TESTS)
 include(../../cmake/gtest.cmake)
 enable_testing()
+endif()
 
 
 set(CMAKE_CXX_STANDARD 23)
@@ -41,6 +43,7 @@ set_target_properties(adam-module-recrep PROPERTIES
 )
 
 
+if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
 add_executable(adam-module-recrep-test ${test_source_files})
 
@@ -64,3 +67,4 @@ setup_gtest(adam-module-recrep-test)
 # Discover tests for the VS Code Test Explorer
 include(GoogleTest)
 gtest_discover_tests(adam-module-recrep-test)
+endif()

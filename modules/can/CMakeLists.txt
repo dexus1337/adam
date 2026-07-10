@@ -1,7 +1,9 @@
 ﻿# CMakeLists.txt for the can module
 
+if(NOT DEFINED ADAM_NO_TESTS)
 include(../../cmake/gtest.cmake)
 enable_testing()
+endif()
 
 
 set(CMAKE_CXX_STANDARD 23)
@@ -40,6 +42,7 @@ set_target_properties(adam-module-can PROPERTIES
 )
 
 
+if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
 add_executable(adam-module-can-test ${module_source_files} ${test_source_files})
 
@@ -61,3 +64,4 @@ set_target_properties(adam-module-can-test PROPERTIES
 )
 
 setup_gtest(adam-module-can-test)
+endif()

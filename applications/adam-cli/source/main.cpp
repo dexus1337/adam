@@ -288,7 +288,37 @@ int main()
                         for (const auto& [hash, p] : ctx.cmd.get_registry().get_processors())
                             candidates.push_back(std::string(p->name.c_str()));
                     }
+                    else if (cmd == "port_create" || cmd == "mod_load" || cmd == "mod_unload")
+                    {
+                        std::unordered_map<std::string, bool> unique_mods;
+                        for (const auto& [hash, info] : ctx.cmd.get_modules().get_loaded())
+                            unique_mods[std::string(hash.c_str())] = true;
+                        for (const auto& [hash, info] : ctx.cmd.get_modules().get_internal())
+                            unique_mods[std::string(hash.c_str())] = true;
+                        for (const auto& [hash, info] : ctx.cmd.get_modules().get_available())
+                            unique_mods[std::string(hash.c_str())] = true;
+                        for (const auto& [name, v] : unique_mods) candidates.push_back(name);
+                    }
+                    else if (cmd == "cfg_load" || cmd == "cfg_save" || cmd == "cfg_export" || cmd == "cfg_delete")
+                    {
+                        for (const auto& [hash, info] : ctx.cmd.get_configs().get_available())
+                            candidates.push_back(std::string(hash.c_str()));
+                    }
                     
+                    if (!candidates.empty()) handle_matches(candidates, arg, base);
+                }
+                else if (tokens[0] == "port_create" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string mod_name = tokens[1];
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    std::vector<std::string> candidates;
+                    
+                    auto it = ctx.cmd.get_modules().database().find(adam::string_hashed(mod_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_modules().database().end())
+                    {
+                        for (const auto& p : it->second.ports)
+                            candidates.push_back(std::string(p.name.c_str()));
+                    }
                     if (!candidates.empty()) handle_matches(candidates, arg, base);
                 }
                 else if (tokens[0] == "port_set_param" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))

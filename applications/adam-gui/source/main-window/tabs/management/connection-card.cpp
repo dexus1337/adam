@@ -188,7 +188,6 @@ namespace adam::gui
     void draw_connection_name_and_color
     (
         gui_controller& ctrl,
-        adam::language lang,
         adam::connection_view* conn,
         adam::string_hash hash,
         bool is_drag_preview,
@@ -302,10 +301,8 @@ namespace adam::gui
         adam::language lang,
         adam::connection_view* conn,
         adam::string_hash hash,
-        bool is_drag_preview,
         bool is_unavailable,
-        float add_button_width,
-        bool commander_active
+        float add_button_width
     )
     {
         ImGui::SameLine();
@@ -403,7 +400,6 @@ namespace adam::gui
         bool output_missing
     )
     {
-        bool commander_active = ctrl.is_commander_active();
         float avail_x = ImGui::GetContentRegionAvail().x;
         float pad_x = ImGui::GetStyle().WindowPadding.x;
         float spacing_x = ImGui::GetStyle().ItemSpacing.x;
@@ -462,8 +458,8 @@ namespace adam::gui
         ImGui::SameLine();
         ImGui::SetCursorPosX(start_mid_x);
         ImGui::BeginGroup(); // Group for middle column elements
-        draw_connection_name_and_color(ctrl, lang, conn, hash, is_drag_preview, name_field_width);
-        draw_connection_action_buttons(ctrl, lang, conn, hash, is_drag_preview, is_unavailable, btn_w, commander_active);
+        draw_connection_name_and_color(ctrl, conn, hash, is_drag_preview, name_field_width);
+        draw_connection_action_buttons(ctrl, lang, conn, hash, is_unavailable, btn_w);
         ImGui::EndGroup(); // End group for middle column elements
 
         // Right column: Inspect checkbox, Output Format Combo, and Add Output button "+"
@@ -518,9 +514,13 @@ namespace adam::gui
         }
         else
         {
-            if (is_light_theme) ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-            ImGui::Separator();
-            if (is_light_theme) ImGui::PopStyleColor();
+            bool is_empty = conn->inputs.empty() && conn->outputs.empty() && conn->processors.empty();
+            if (!is_empty)
+            {
+                if (is_light_theme) ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                ImGui::Separator();
+                if (is_light_theme) ImGui::PopStyleColor();
+            }
         }
     }
 
@@ -726,7 +726,11 @@ namespace adam::gui
         }
         else
         {
-            base_height += ImGui::GetStyle().ItemSpacing.y + 1.0f;
+            bool is_empty = conn->inputs.empty() && conn->outputs.empty() && conn->processors.empty();
+            if (!is_empty)
+            {
+                base_height += ImGui::GetStyle().ItemSpacing.y + 1.0f;
+            }
         }
 
         int total_stages = 2 + static_cast<int>(conn->processors.size()); // Input stage, Processor stages, Output stage

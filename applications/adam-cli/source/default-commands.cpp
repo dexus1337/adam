@@ -142,10 +142,9 @@ namespace adam::cli
         // PORTS
         db.register_command("port_create", cmd_string_id::desc_port_create, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
-            if (params.size() >= 2 && params.size() <= 3) 
+            if (params.size() == 3) 
             {
-                adam::string_hash mod_hash = (params.size() == 3) ? adam::string_hashed(params[2].c_str()).get_hash() : 0;
-                c.request_port_create(adam::string_hashed(params[0].c_str()), adam::string_hashed(params[1].c_str()).get_hash(), mod_hash);
+                c.request_port_create(adam::string_hashed(params[2].c_str()), adam::string_hashed(params[1].c_str()).get_hash(), adam::string_hashed(params[0].c_str()).get_hash());
             } 
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_port_create, c.get_language()), std::cout); }
         });

@@ -54,22 +54,6 @@
                 "rhs": "Linux"
             },
             "cacheVariables": {
-                "CMAKE_BUILD_RPATH": "./",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX"
-            }
-        },
-        {
-            "name": "linux-pi-base",
-            "hidden": true,
-            "cacheVariables": {
-                "CMAKE_BUILD_RPATH": "./",
-                "CMAKE_SYSROOT": "/home/pc/pi-sysroot",
-                "CMAKE_C_COMPILER": "aarch64-linux-gnu-gcc",
-                "CMAKE_CXX_COMPILER": "aarch64-linux-gnu-g++",
-                "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM": "NEVER",
-                "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
-                "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": "ONLY",
-                "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
                 "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX"
             }
         },
@@ -203,70 +187,6 @@
                 "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -march=armv8-a -O3",
                 "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
             }
-        },
-        {
-            "name": "linux-pi64-debug",
-            "displayName": "linux-pi64-debug",
-            "inherits": "linux-pi-base",
-            "cacheVariables": { 
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX" 
-            }
-        },
-        {
-            "name": "linux-pi64-release",
-            "displayName": "linux-pi64-release",
-            "inherits": "linux-pi-base",
-            "cacheVariables": { 
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -O3",
-                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
-            }
-        },
-        {
-            "name": "linux-pi64-rwdi",
-            "displayName": "linux-pi64-rwdi",
-            "inherits": "linux-pi-base",
-            "cacheVariables": { 
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -O3",
-                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON"
-            }
-        },
-        {
-            "name": "linux-pi64-nogui-debug",
-            "displayName": "linux-pi64-nogui-debug",
-            "inherits": "linux-pi-base",
-            "cacheVariables": { 
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX",
-                "ADAM_NO_GUI": "ON",
-                "ADAM_NO_TESTS": "ON"
-            }
-        },
-        {
-            "name": "linux-pi64-nogui-release",
-            "displayName": "linux-pi64-nogui-release",
-            "inherits": "linux-pi-base",
-            "cacheVariables": { 
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -O3",
-                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
-                "ADAM_NO_GUI": "ON",
-                "ADAM_NO_TESTS": "ON"
-            }
-        },
-        {
-            "name": "linux-pi64-nogui-rwdi",
-            "displayName": "linux-pi64-nogui-rwdi",
-            "inherits": "linux-pi-base",
-            "cacheVariables": { 
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -O3",
-                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
-                "ADAM_NO_GUI": "ON",
-                "ADAM_NO_TESTS": "ON"
-            }
         }
     ],
     "buildPresets": [
@@ -284,13 +204,7 @@
         { "name": "linux-x64-rwdi", "displayName": "linux-x64-rwdi", "configurePreset": "linux-x64-rwdi" },
         { "name": "linux-arm64-debug", "displayName": "linux-arm64-debug", "configurePreset": "linux-arm64-debug" },
         { "name": "linux-arm64-release", "displayName": "linux-arm64-release", "configurePreset": "linux-arm64-release" },
-        { "name": "linux-arm64-rwdi", "displayName": "linux-arm64-rwdi", "configurePreset": "linux-arm64-rwdi" },
-        { "name": "linux-pi64-debug", "displayName": "linux-pi64-debug", "configurePreset": "linux-pi64-debug" },
-        { "name": "linux-pi64-release", "displayName": "linux-pi64-release", "configurePreset": "linux-pi64-release" },
-        { "name": "linux-pi64-rwdi", "displayName": "linux-pi64-rwdi", "configurePreset": "linux-pi64-rwdi" },
-        { "name": "linux-pi64-nogui-debug", "displayName": "linux-pi64-nogui-debug", "configurePreset": "linux-pi64-nogui-debug" },
-        { "name": "linux-pi64-nogui-release", "displayName": "linux-pi64-nogui-release", "configurePreset": "linux-pi64-nogui-release" },
-        { "name": "linux-pi64-nogui-rwdi", "displayName": "linux-pi64-nogui-rwdi", "configurePreset": "linux-pi64-nogui-rwdi" }
+        { "name": "linux-arm64-rwdi", "displayName": "linux-arm64-rwdi", "configurePreset": "linux-arm64-rwdi" }
     ],
     "testPresets": [
         {
