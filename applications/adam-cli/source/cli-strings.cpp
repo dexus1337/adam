@@ -34,7 +34,7 @@ namespace adam::cli
             { cmd_string_id::usage_mod_unload,            { "Usage: mod_unload <name>", "Verwendung: mod_unload <name>" } },
             { cmd_string_id::desc_mod_list,               { "Lists all modules", "Listet alle Module auf" } },
             { cmd_string_id::desc_port_create,            { "Creates a new port", "Erstellt einen neuen Port" } },
-            { cmd_string_id::usage_port_create,           { "Usage: port_create <name> <type> [module]", "Verwendung: port_create <name> <type> [module]" } },
+            { cmd_string_id::usage_port_create,           { "Usage: port_create <module> <type> <name>", "Verwendung: port_create <module> <type> <name>" } },
             { cmd_string_id::desc_port_destroy,           { "Destroys a port by name", "Zerstört einen Port nach Namen" } },
             { cmd_string_id::usage_port_destroy,          { "Usage: port_destroy <name>", "Verwendung: port_destroy <name>" } },
             { cmd_string_id::desc_port_start,             { "Starts a port by name", "Startet einen Port nach Namen" } },

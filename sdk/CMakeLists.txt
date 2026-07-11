@@ -1,7 +1,9 @@
 # CMakeLists.txt for the SDK
 
+if(NOT DEFINED ADAM_NO_TESTS)
 include(../cmake/gtest.cmake)
 enable_testing()
+endif()
 
 
 set(CMAKE_CXX_STANDARD 23)
@@ -35,6 +37,7 @@ set_target_properties(adam-sdk PROPERTIES
 )
 
 
+if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
 add_executable(adam-sdk-test ${test_source_files} ${sdk_source_files})
 
@@ -52,3 +55,4 @@ set_target_properties(adam-sdk-test PROPERTIES
 )
 
 setup_gtest(adam-sdk-test)
+endif()

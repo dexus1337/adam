@@ -23,6 +23,8 @@ set_target_properties(adam PROPERTIES
 )
 
 
+if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
 add_executable(adam-test ${adam_app_test_source_files})
 target_link_libraries(adam-test PRIVATE adam-sdk)  # Link against the SDK library
+endif()

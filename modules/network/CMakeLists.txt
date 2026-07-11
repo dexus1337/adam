@@ -1,7 +1,9 @@
 # CMakeLists.txt for the network module
 
+if(NOT DEFINED ADAM_NO_TESTS)
 include(../../cmake/gtest.cmake)
 enable_testing()
+endif()
 
 
 set(CMAKE_CXX_STANDARD 23)
@@ -43,6 +45,7 @@ set_target_properties(adam-module-network PROPERTIES
 )
 
 
+if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
 add_executable(adam-module-network-test ${module_source_files} ${test_source_files})
 
@@ -74,3 +77,4 @@ add_custom_command(TARGET adam-module-network-test POST_BUILD
 )
 
 setup_gtest(adam-module-network-test)
+endif()

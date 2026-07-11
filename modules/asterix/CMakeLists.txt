@@ -1,7 +1,9 @@
 # CMakeLists.txt for the asterix module
 
+if(NOT DEFINED ADAM_NO_TESTS)
 include(../../cmake/gtest.cmake)
 enable_testing()
+endif()
 
 
 set(CMAKE_CXX_STANDARD 23)
@@ -40,6 +42,7 @@ set_target_properties(adam-module-asterix PROPERTIES
 )
 
 
+if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
 add_executable(adam-module-asterix-test ${module_source_files} ${test_source_files})
 
@@ -68,3 +71,4 @@ add_custom_command(TARGET adam-module-asterix-test POST_BUILD
 )
 
 setup_gtest(adam-module-asterix-test)
+endif()
