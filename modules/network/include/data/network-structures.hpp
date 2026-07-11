@@ -19,7 +19,7 @@ namespace adam::network
 
     struct ip_header
     {
-        inline uint8_t version() const {  return (*reinterpret_cast<const uint8_t*>(this)) >> 4; }
+        inline uint8_t version() const {  return (*reinterpret_cast<const uint8_t*>(this)); }
 
         inline ipv4_header* as_ipv4() { return reinterpret_cast<ipv4_header*>(this); }
         inline ipv6_header* as_ipv6() { return reinterpret_cast<ipv6_header*>(this); }

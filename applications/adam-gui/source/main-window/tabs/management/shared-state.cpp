@@ -9,6 +9,7 @@
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
 #include "controller/controller.hpp"
+#include "data/analyzer.hpp"
 #include <mutex>
 #include <chrono>
 #include <cctype>
@@ -247,9 +248,9 @@ namespace adam::gui
         };
     }
 
-    std::function<void(adam::buffer*)> make_inspector_connection_input_buffer_callback(adam::string_hash conn_hash)
+    std::function<void(adam::buffer*)> make_inspector_connection_input_buffer_callback(adam::string_hash conn_hash, const adam::analyzer* data_analyzer)
     {
-        return [conn_hash](adam::buffer* buf)
+        return [conn_hash, data_analyzer](adam::buffer* buf)
         {
             if (!buf) return;
             
@@ -270,13 +271,23 @@ namespace adam::gui
                 port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
             }
             
+            std::vector<std::vector<std::string>> parsed_rows;
+            if (data_analyzer)
+            {
+                if (port_data.analyzer_columns.empty())
+                {
+                    port_data.analyzer_columns = data_analyzer->get_columns();
+                }
+                data_analyzer->analyze(buf, parsed_rows);
+            }
+            port_data.parsed_data.push_back(std::move(parsed_rows));
             port_data.buffers.push_back(ib);
         };
     }
 
-    std::function<void(adam::buffer*)> make_inspector_connection_output_buffer_callback(adam::string_hash conn_hash)
+    std::function<void(adam::buffer*)> make_inspector_connection_output_buffer_callback(adam::string_hash conn_hash, const adam::analyzer* data_analyzer)
     {
-        return [conn_hash](adam::buffer* buf)
+        return [conn_hash, data_analyzer](adam::buffer* buf)
         {
             if (!buf) return;
             
@@ -297,7 +308,113 @@ namespace adam::gui
                 port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
             }
             
+            std::vector<std::vector<std::string>> parsed_rows;
+            if (data_analyzer)
+            {
+                if (port_data.analyzer_columns.empty())
+                {
+                    port_data.analyzer_columns = data_analyzer->get_columns();
+                }
+                data_analyzer->analyze(buf, parsed_rows);
+            }
+            port_data.parsed_data.push_back(std::move(parsed_rows));
             port_data.buffers.push_back(ib);
         };
+    }
+
+    void toggle_connection_inspector(gui_controller& ctrl, adam::string_hash conn_hash, bool is_input, bool enable)
+    {
+        if (enable)
+        {
+            ctrl.enqueue_commander_action([&ctrl, conn_hash, is_input]() 
+            {
+                auto& cmdr = ctrl.commander();
+                
+                const adam::analyzer* analyzer_ptr = [&]() -> const adam::analyzer* 
+                {
+                    auto conn_it = cmdr.get_registry().get_connections().find(conn_hash);
+                    if (conn_it == cmdr.get_registry().get_connections().end()) return nullptr;
+                    
+                    adam::string_hash mod_hash = is_input ? conn_it->second->input_format_module.get_hash() : conn_it->second->output_format_module.get_hash();
+                    adam::string_hash fmt_hash = is_input ? conn_it->second->input_format.get_hash() : conn_it->second->output_format.get_hash();
+                    
+                    const auto* mod = cmdr.get_modules().get_module(mod_hash);
+                    if (!mod) return nullptr;
+                    
+                    auto fmt_it = mod->get_data_formats().find(fmt_hash);
+                    if (fmt_it == mod->get_data_formats().end()) return nullptr;
+                    
+                    return fmt_it->second->get_analyzer();
+                }();
+
+                if (is_input) 
+                {
+                    if (cmdr.get_connection_input_inspectors().find(conn_hash) == cmdr.get_connection_input_inspectors().end()) 
+                    {
+                        if (analyzer_ptr) {
+                            std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_columns = analyzer_ptr->get_columns();
+                        }
+                        adam::data_inspector* new_inspector = nullptr;
+                        cmdr.request_connection_input_inspector_create(conn_hash, make_inspector_connection_input_buffer_callback(conn_hash, analyzer_ptr), new_inspector);
+                    }
+                } 
+                else 
+                {
+                    if (cmdr.get_connection_output_inspectors().find(conn_hash) == cmdr.get_connection_output_inspectors().end()) 
+                    {
+                        if (analyzer_ptr) {
+                            std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_columns = analyzer_ptr->get_columns();
+                        }
+                        adam::data_inspector* new_inspector = nullptr;
+                        cmdr.request_connection_output_inspector_create(conn_hash, make_inspector_connection_output_buffer_callback(conn_hash, analyzer_ptr), new_inspector);
+                    }
+                }
+            });
+            
+            g_request_open_inspector = true;
+            if (is_input) 
+            {
+                g_connection_input_to_expand_in_inspector = conn_hash;
+                g_pending_inspector_connections_input.insert(conn_hash);
+            } 
+            else 
+            {
+                g_connection_output_to_expand_in_inspector = conn_hash;
+                g_pending_inspector_connections_output.insert(conn_hash);
+            }
+        }
+        else
+        {
+            if (is_input) 
+            {
+                g_expanded_inspector_connections_input.erase(conn_hash);
+                g_pending_inspector_connections_input.erase(conn_hash);
+                ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
+                {
+                    auto& cmdr = ctrl.commander();
+                    auto it = cmdr.connection_input_inspectors().find(conn_hash);
+                    if (it != cmdr.connection_input_inspectors().end()) 
+                    {
+                        cmdr.request_connection_input_inspector_destroy(it->second);
+                    }
+                });
+            } 
+            else 
+            {
+                g_expanded_inspector_connections_output.erase(conn_hash);
+                g_pending_inspector_connections_output.erase(conn_hash);
+                ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
+                {
+                    auto& cmdr = ctrl.commander();
+                    auto it = cmdr.connection_output_inspectors().find(conn_hash);
+                    if (it != cmdr.connection_output_inspectors().end()) 
+                    {
+                        cmdr.request_connection_output_inspector_destroy(it->second);
+                    }
+                });
+            }
+        }
     }
 }

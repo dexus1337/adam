@@ -18,5 +18,5 @@
 
 namespace adam::modules::can
 {
-    static const data_format data_format_can = data_format("can", nullptr, nullptr, get_adam_module());
+    static const data_format data_format_can = data_format("can", nullptr, nullptr, nullptr, get_adam_module());
 }

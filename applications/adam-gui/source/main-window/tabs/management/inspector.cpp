@@ -10,6 +10,8 @@
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
 #include "controller/controller.hpp"
+#include "module/module.hpp"
+#include "data/format.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include <algorithm>
 #include <vector>
@@ -291,91 +293,198 @@ namespace adam::gui
         
         ImGui::BeginChild("##outer_child", ImVec2(0, inspector_height), true);
 
-        auto setup_inner_columns = [&]() 
+        bool has_analyzer = !port_data.analyzer_columns.empty();
+
+        if (has_analyzer)
         {
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed, 55.0f * dpi_scale);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_timestamp, lang), ImGuiTableColumnFlags_WidthFixed, 120.0f * dpi_scale);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_hex, lang), ImGuiTableColumnFlags_WidthStretch, 0.75f);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
-        };
-
-        // Draw the static header table above the scrollable region
-        float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
-        bool header_table_begun = ImGui::BeginTable("InspectorTableHeader", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg, ImVec2(header_w, 0));
-        if (header_table_begun)
-        {
-            setup_inner_columns();
-            ImGui::TableHeadersRow();
-            ImGui::EndTable();
-        }
-        
-        float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
-        ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
-
-        bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
-                                     (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
-                                      (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) || 
-                                       ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)));
-
-        if (active_user_scrolling && ImGui::GetScrollMaxY() > 0.0f && ImGui::GetScrollY() < ImGui::GetScrollMaxY() - 5.0f * dpi_scale)
-        {
-            port_data.was_at_bottom = false;
-        }
-        bool auto_scroll = port_data.was_at_bottom;
-
-        bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
-        
-        if (table_begun)
-        {
-            setup_inner_columns();
-        }
-
-        float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
-
-        // Remove any expanded nodes that are no longer valid (e.g., buffer was cleared)
-        std::erase_if(expanded_nodes, [&](size_t idx) { return idx >= buffers.size(); });
-
-        ImGuiListClipper clipper;
-        clipper.Begin(static_cast<int>(buffers.size()), row_height);
-        while (clipper.Step())
-        {
-            for (int row_idx = clipper.DisplayStart; row_idx < clipper.DisplayEnd; ++row_idx)
+            auto setup_analyzer_columns = [&]()
             {
-                const auto& ib = buffers[row_idx];
-                draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
-                
-                if (expanded_nodes.count(row_idx))
+                for (const auto& col_name : port_data.analyzer_columns)
                 {
-                    if (table_begun) { ImGui::EndTable(); table_begun = false; }
+                    ImGui::TableSetupColumn(col_name.c_str());
+                }
+            };
+
+            float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
+            bool header_table_begun = ImGui::BeginTable("InspectorAnalyzerHeader", (int)port_data.analyzer_columns.size(), ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable, ImVec2(header_w, 0));
+            if (header_table_begun)
+            {
+                setup_analyzer_columns();
+                ImGui::TableHeadersRow();
+                ImGui::EndTable();
+            }
+
+            float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
+            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+
+            bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
+                                         (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
+                                          (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) || 
+                                           ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)));
+
+            if (active_user_scrolling && ImGui::GetScrollMaxY() > 0.0f && ImGui::GetScrollY() < ImGui::GetScrollMaxY() - 5.0f * dpi_scale)
+            {
+                port_data.was_at_bottom = false;
+            }
+            bool auto_scroll = port_data.was_at_bottom;
+
+            bool table_begun = ImGui::BeginTable("InspectorAnalyzerInner", (int)port_data.analyzer_columns.size(), ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
+            if (table_begun)
+            {
+                setup_analyzer_columns();
+
+                std::vector<std::pair<size_t, size_t>> flat_rows;
+                size_t total_rows = 0;
+                for (size_t b_idx = 0; b_idx < port_data.parsed_data.size(); ++b_idx) {
+                    if (port_data.parsed_data[b_idx].empty()) {
+                        total_rows++;
+                    } else {
+                        total_rows += port_data.parsed_data[b_idx].size();
+                    }
+                }
+                flat_rows.reserve(total_rows);
+                for (size_t b_idx = 0; b_idx < port_data.parsed_data.size(); ++b_idx) {
+                    if (port_data.parsed_data[b_idx].empty()) {
+                        flat_rows.push_back({b_idx, SIZE_MAX});
+                    } else {
+                        for (size_t r_idx = 0; r_idx < port_data.parsed_data[b_idx].size(); ++r_idx) {
+                            flat_rows.push_back({b_idx, r_idx});
+                        }
+                    }
+                }
+
+                float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
+                ImGuiListClipper clipper;
+                clipper.Begin(static_cast<int>(flat_rows.size()), row_height);
+                while (clipper.Step())
+                {
+                    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
+                    {
+                        size_t b_idx = flat_rows[i].first;
+                        size_t r_idx = flat_rows[i].second;
+                        
+                        ImGui::TableNextRow();
+                        if (r_idx == SIZE_MAX)
+                        {
+                            ImGui::TableSetColumnIndex(0);
+                            char unparsed_buf[128];
+                            snprintf(unparsed_buf, sizeof(unparsed_buf), "%s (Size: %zu)", get_gui_string(gui_string_id::lbl_no_data, lang), (size_t)port_data.buffers[b_idx].size);
+                            ImGui::TextDisabled("%s", unparsed_buf);
+                        }
+                        else
+                        {
+                            const auto& row = port_data.parsed_data[b_idx][r_idx];
+                            for (size_t c = 0; c < row.size() && c < port_data.analyzer_columns.size(); ++c)
+                            {
+                                ImGui::TableSetColumnIndex((int)c);
+                                ImGui::TextUnformatted(row[c].c_str());
+                            }
+                        }
+                    }
+                }
+                ImGui::EndTable();
+            }
+
+            if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
+            {
+                ImGui::SetScrollY(ImGui::GetScrollMaxY());
+            }
+
+            if (!auto_scroll)
+            {
+                port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
+            }
+            
+            ImGui::EndChild();
+        }
+        else
+        {
+            auto setup_inner_columns = [&]() 
+            {
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed, 55.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_timestamp, lang), ImGuiTableColumnFlags_WidthFixed, 120.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_hex, lang), ImGuiTableColumnFlags_WidthStretch, 0.75f);
+                ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
+            };
+
+            // Draw the static header table above the scrollable region
+            float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
+            bool header_table_begun = ImGui::BeginTable("InspectorTableHeader", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg, ImVec2(header_w, 0));
+            if (header_table_begun)
+            {
+                setup_inner_columns();
+                ImGui::TableHeadersRow();
+                ImGui::EndTable();
+            }
+            
+            float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
+            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+
+            bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
+                                         (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
+                                          (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) || 
+                                           ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)));
+
+            if (active_user_scrolling && ImGui::GetScrollMaxY() > 0.0f && ImGui::GetScrollY() < ImGui::GetScrollMaxY() - 5.0f * dpi_scale)
+            {
+                port_data.was_at_bottom = false;
+            }
+            bool auto_scroll = port_data.was_at_bottom;
+
+            bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
+            
+            if (table_begun)
+            {
+                setup_inner_columns();
+            }
+
+            float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
+
+            // Remove any expanded nodes that are no longer valid (e.g., buffer was cleared)
+            std::erase_if(expanded_nodes, [&](size_t idx) { return idx >= buffers.size(); });
+
+            ImGuiListClipper clipper;
+            clipper.Begin(static_cast<int>(buffers.size()), row_height);
+            while (clipper.Step())
+            {
+                for (int row_idx = clipper.DisplayStart; row_idx < clipper.DisplayEnd; ++row_idx)
+                {
+                    const auto& ib = buffers[row_idx];
+                    draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
                     
-                    ImGui::PushID(row_idx);
-                    draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, inspector_height, dpi_scale, lang);
-                    ImGui::PopID();
-                    
-                    table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
-                    if (table_begun) setup_inner_columns();
+                    if (expanded_nodes.count(row_idx))
+                    {
+                        if (table_begun) { ImGui::EndTable(); table_begun = false; }
+                        
+                        ImGui::PushID(row_idx);
+                        draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, inspector_height, dpi_scale, lang);
+                        ImGui::PopID();
+                        
+                        table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
+                        if (table_begun) setup_inner_columns();
+                    }
                 }
             }
-        }
 
-        if (table_begun)
-        {
-            ImGui::EndTable();
-        }
+            if (table_begun)
+            {
+                ImGui::EndTable();
+            }
 
-        if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
-        {
-            ImGui::SetScrollY(ImGui::GetScrollMaxY());
-        }
+            if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
+            {
+                ImGui::SetScrollY(ImGui::GetScrollMaxY());
+            }
 
-        if (!auto_scroll)
-        {
-            port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
+            if (!auto_scroll)
+            {
+                port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
+            }
+            
+            ImGui::EndChild();
         }
-        
-        ImGui::EndChild();
 
         char clear_btn_text[512];
         if (lang == adam::language_german)
@@ -695,30 +804,7 @@ namespace adam::gui
                         ImGui::PushID((const void*)(intptr_t)(conn_hash ^ 0x9991));
                         if (ImGui::Checkbox("##inspect_in", &inspect_val))
                         {
-                            if (inspect_val)
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
-                                {
-                                    auto& cmdr = ctrl.commander();
-                                    if (cmdr.get_connection_input_inspectors().find(conn_hash) == cmdr.get_connection_input_inspectors().end())
-                                    {
-                                        adam::data_inspector* new_inspector = nullptr;
-                                        cmdr.request_connection_input_inspector_create(conn_hash, make_inspector_connection_input_buffer_callback(conn_hash), new_inspector);
-                                    }
-                                });
-                            }
-                            else
-                            {
-                                g_expanded_inspector_connections_input.erase(conn_hash);
-                                g_pending_inspector_connections_input.erase(conn_hash);
-                                ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
-                                {
-                                    auto& cmdr = ctrl.commander();
-                                    auto it = cmdr.connection_input_inspectors().find(conn_hash);
-                                    if (it != cmdr.connection_input_inspectors().end())
-                                        cmdr.request_connection_input_inspector_destroy(it->second);
-                                });
-                            }
+                            toggle_connection_inspector(ctrl, conn_hash, true, inspect_val);
                         }
                         ImGui::PopID();
                         
@@ -832,30 +918,7 @@ namespace adam::gui
                         ImGui::PushID((const void*)(intptr_t)(conn_hash ^ 0x9993));
                         if (ImGui::Checkbox("##inspect_out", &inspect_val))
                         {
-                            if (inspect_val)
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
-                                {
-                                    auto& cmdr = ctrl.commander();
-                                    if (cmdr.get_connection_output_inspectors().find(conn_hash) == cmdr.get_connection_output_inspectors().end())
-                                    {
-                                        adam::data_inspector* new_inspector = nullptr;
-                                        cmdr.request_connection_output_inspector_create(conn_hash, make_inspector_connection_output_buffer_callback(conn_hash), new_inspector);
-                                    }
-                                });
-                            }
-                            else
-                            {
-                                g_expanded_inspector_connections_output.erase(conn_hash);
-                                g_pending_inspector_connections_output.erase(conn_hash);
-                                ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
-                                {
-                                    auto& cmdr = ctrl.commander();
-                                    auto it = cmdr.connection_output_inspectors().find(conn_hash);
-                                    if (it != cmdr.connection_output_inspectors().end())
-                                        cmdr.request_connection_output_inspector_destroy(it->second);
-                                });
-                            }
+                            toggle_connection_inspector(ctrl, conn_hash, false, inspect_val);
                         }
                         ImGui::PopID();
                         

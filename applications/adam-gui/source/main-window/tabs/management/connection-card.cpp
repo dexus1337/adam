@@ -116,71 +116,7 @@ namespace adam::gui
         ImGui::PushID(is_input ? "conn_input_inspect" : "conn_output_inspect");
         if (ImGui::Checkbox("##inspect_cb", &has_inspector) || toggle_inspect)
         {
-            // Logic for creating/destroying inspector and expanding in inspector tab
-            if (has_inspector) 
-            {
-                ctrl.enqueue_commander_action([&ctrl, conn_hash, is_input]() 
-                {
-                    auto& cmdr = ctrl.commander();
-                    if (is_input) 
-                    {
-                        if (cmdr.get_connection_input_inspectors().find(conn_hash) == cmdr.get_connection_input_inspectors().end()) 
-                        {
-                            adam::data_inspector* new_inspector = nullptr;
-                            cmdr.request_connection_input_inspector_create(conn_hash, make_inspector_connection_input_buffer_callback(conn_hash), new_inspector);
-                        }
-                    } 
-                    else 
-                    {
-                        if (cmdr.get_connection_output_inspectors().find(conn_hash) == cmdr.get_connection_output_inspectors().end()) 
-                        {
-                            adam::data_inspector* new_inspector = nullptr;
-                            cmdr.request_connection_output_inspector_create(conn_hash, make_inspector_connection_output_buffer_callback(conn_hash), new_inspector);
-                        }
-                    }
-                });
-                g_request_open_inspector = true;
-                if (is_input) {
-                    g_connection_input_to_expand_in_inspector = conn_hash;
-                    g_pending_inspector_connections_input.insert(conn_hash);
-                } 
-                else 
-                {
-                    g_connection_output_to_expand_in_inspector = conn_hash;
-                    g_pending_inspector_connections_output.insert(conn_hash);
-                }
-            } 
-            else 
-            {
-                if (is_input) 
-                {
-                    g_expanded_inspector_connections_input.erase(conn_hash);
-                    g_pending_inspector_connections_input.erase(conn_hash);
-                    ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
-                    {
-                        auto& cmdr = ctrl.commander();
-                        auto it = cmdr.connection_input_inspectors().find(conn_hash);
-                        if (it != cmdr.connection_input_inspectors().end()) 
-                        {
-                            cmdr.request_connection_input_inspector_destroy(it->second);
-                        }
-                    });
-                } 
-                else 
-                {
-                    g_expanded_inspector_connections_output.erase(conn_hash);
-                    g_pending_inspector_connections_output.erase(conn_hash);
-                    ctrl.enqueue_commander_action([&ctrl, conn_hash]() 
-                    {
-                        auto& cmdr = ctrl.commander();
-                        auto it = cmdr.connection_output_inspectors().find(conn_hash);
-                        if (it != cmdr.connection_output_inspectors().end()) 
-                        {
-                            cmdr.request_connection_output_inspector_destroy(it->second);
-                        }
-                    });
-                }
-            }
+            toggle_connection_inspector(ctrl, conn_hash, is_input, has_inspector);
         }
         ImGui::PopID();
     }

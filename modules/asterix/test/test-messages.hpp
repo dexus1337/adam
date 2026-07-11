@@ -251,7 +251,7 @@ inline std::vector<uint8_t> build_cat048_message()
     raw[1] = static_cast<uint8_t>(block_len >> 8);
     raw[2] = static_cast<uint8_t>(block_len & 0xFF);
 
-    /*for (int i = 0; i < raw.size(); i+= 16)
+    for (int i = 0; i < raw.size(); i+= 16)
     {
         for (int n = 0; n < 16; n++)
         {
@@ -261,7 +261,7 @@ inline std::vector<uint8_t> build_cat048_message()
         }
 
         std::cout << std::endl;
-    }*/
+    }
    
     return raw;
 }

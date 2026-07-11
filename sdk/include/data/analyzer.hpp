@@ -24,24 +24,25 @@ namespace adam
      */
     class ADAM_SDK_API analyzer 
     {
-
     public:
 
         using columns = std::vector<std::string>;
 
+        using row = std::vector<std::string>;
+
         /** @brief Destroys the analyzer object and cleans up resources. */
-        virtual ~analyzer() = default;
+        virtual ~analyzer();
 
         /** @brief Returns the column names of the data format. */
-        virtual const columns&  get_columns() const                                     = 0;
+        virtual const columns&  get_columns() const                                                 = 0;
 
-        /** @brief Analyzes the data in the buffer and returns the result as a CSV string. */
-        virtual bool            analyze(class buffer* buf, std::string& result) const   = 0;
+        /** @brief Analyzes the data in the buffer and populates the result vector with multiple rows (one string per column). */
+        virtual bool            analyze(const class buffer* buf, std::vector<row>& results) const   = 0;
 
     protected:
 
         /** @brief Constructs a new analyzer object. */
-        analyzer() = default;
+        analyzer();
 
     };
 }

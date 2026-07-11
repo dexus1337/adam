@@ -107,7 +107,7 @@ namespace adam
         });
 
         // Run data through output encoder
-        if (m_output_format->get_encoder())
+        if (buf->get_data_format() != m_output_format && m_output_format->get_encoder())
         {
             buffer* encoded_buf = nullptr;
             m_output_format->get_encoder()->encode(encoded_buf, buf);

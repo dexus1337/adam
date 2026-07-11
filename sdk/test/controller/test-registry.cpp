@@ -80,8 +80,8 @@ namespace adam::test
 
     adam::test::mock_module mock_mod("mock_mod"_ct);
 
-    adam::data_format dummy_fmt1("fmt1"_ct, nullptr, nullptr, &mock_mod);
-    adam::data_format dummy_fmt2("fmt2"_ct, nullptr, nullptr, &mock_mod);
+    adam::data_format dummy_fmt1("fmt1"_ct, nullptr, nullptr, nullptr, &mock_mod);
+    adam::data_format dummy_fmt2("fmt2"_ct, nullptr, nullptr, nullptr, &mock_mod);
 
     class mock_processor : public adam::processor
     {
@@ -1083,7 +1083,7 @@ TEST_F(registry_test, multiple_internal_modules)
     auto second_internal_module = std::make_unique<adam::test::mock_module>(mock_mod_name);
     
     // Add format and port factory to mock module
-    adam::data_format custom_format("custom_fmt"_ct, nullptr, nullptr, second_internal_module.get());
+    adam::data_format custom_format("custom_fmt"_ct, nullptr, nullptr, nullptr, second_internal_module.get());
     second_internal_module->register_data_format("custom_fmt"_ct, &custom_format);
 
     static adam::test::mock_processor_factory local_mock_proc_factory("custom_processor"_ct, mock_mod_name);

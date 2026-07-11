@@ -154,7 +154,10 @@ namespace adam
                 for (auto& [h, b] : m_parse_cache)
                 {
                     if (b) 
-                    { b->release(); }
+                    { 
+                        b->release(); 
+                        b = nullptr;
+                    }
                 }
 
                 break;
