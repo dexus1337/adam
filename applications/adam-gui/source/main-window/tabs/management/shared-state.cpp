@@ -280,6 +280,16 @@ namespace adam::gui
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }
+            size_t b_idx = port_data.parsed_data.size();
+            if (parsed_rows.empty()) 
+            {
+                port_data.parsed_flat_rows.push_back({b_idx, SIZE_MAX});
+            } 
+            else 
+            {
+                for (size_t r_idx = 0; r_idx < parsed_rows.size(); ++r_idx) 
+                    port_data.parsed_flat_rows.push_back({b_idx, r_idx});
+            }
             port_data.parsed_data.push_back(std::move(parsed_rows));
             port_data.buffers.push_back(ib);
         };
@@ -316,6 +326,14 @@ namespace adam::gui
                     port_data.analyzer_columns = data_analyzer->get_columns();
                 }
                 data_analyzer->analyze(buf, parsed_rows);
+            }
+            size_t b_idx = port_data.parsed_data.size();
+            if (parsed_rows.empty()) {
+                port_data.parsed_flat_rows.push_back({b_idx, SIZE_MAX});
+            } else {
+                for (size_t r_idx = 0; r_idx < parsed_rows.size(); ++r_idx) {
+                    port_data.parsed_flat_rows.push_back({b_idx, r_idx});
+                }
             }
             port_data.parsed_data.push_back(std::move(parsed_rows));
             port_data.buffers.push_back(ib);

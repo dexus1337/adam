@@ -59,6 +59,7 @@ namespace adam::gui
         std::vector<uint8_t> data_pool;
         
         std::vector<std::vector<std::vector<std::string>>> parsed_data;
+        std::vector<std::pair<size_t, size_t>> parsed_flat_rows;
         std::vector<std::string> analyzer_columns;
 
         std::set<size_t> expanded_nodes;

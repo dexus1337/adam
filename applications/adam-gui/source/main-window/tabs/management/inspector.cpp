@@ -333,25 +333,7 @@ namespace adam::gui
             {
                 setup_analyzer_columns();
 
-                std::vector<std::pair<size_t, size_t>> flat_rows;
-                size_t total_rows = 0;
-                for (size_t b_idx = 0; b_idx < port_data.parsed_data.size(); ++b_idx) {
-                    if (port_data.parsed_data[b_idx].empty()) {
-                        total_rows++;
-                    } else {
-                        total_rows += port_data.parsed_data[b_idx].size();
-                    }
-                }
-                flat_rows.reserve(total_rows);
-                for (size_t b_idx = 0; b_idx < port_data.parsed_data.size(); ++b_idx) {
-                    if (port_data.parsed_data[b_idx].empty()) {
-                        flat_rows.push_back({b_idx, SIZE_MAX});
-                    } else {
-                        for (size_t r_idx = 0; r_idx < port_data.parsed_data[b_idx].size(); ++r_idx) {
-                            flat_rows.push_back({b_idx, r_idx});
-                        }
-                    }
-                }
+                const auto& flat_rows = port_data.parsed_flat_rows;
 
                 float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
                 ImGuiListClipper clipper;
@@ -502,6 +484,8 @@ namespace adam::gui
             port_data.data_pool.clear();
             port_data.data_pool.shrink_to_fit();
             port_data.expanded_nodes.clear();
+            port_data.parsed_data.clear();
+            port_data.parsed_flat_rows.clear();
         }
         
         ImGui::EndChild();
