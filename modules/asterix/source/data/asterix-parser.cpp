@@ -1,6 +1,7 @@
 #include "data/asterix-parser.hpp"
 #include "data/asterix-types.hpp"
 #include "data/asterix-uap.hpp"
+#include "data/format-asterix.hpp"
 #include <adam-sdk.hpp>
 
 namespace adam::modules::asterix
@@ -636,6 +637,7 @@ namespace adam::modules::asterix
         
         internal_data->set_size(out_offset);
         internal_data->set_referenced_buffer(buf);
+        internal_data->set_data_format(&data_format_asterix);
 
         return true;
     }

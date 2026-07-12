@@ -125,7 +125,11 @@ namespace adam
                         #else
                         auto it = m_parse_cache.find(hash);
                         #endif
-                        if (it != m_parse_cache.end()) parser->parse(buf, it->second);
+                        if (it == m_parse_cache.end()) 
+                            return false;
+                        
+                        if (!parser->parse(buf, it->second))
+                            return false;
                     }
                 }
 
@@ -136,17 +140,25 @@ namespace adam
                     {
                         if (!conn->is_valid_chain()) continue;
 
-                        adam::buffer* internal_data = nullptr;
+                        adam::buffer* buff_to_send = nullptr;
                         const string_hash format_hash = conn->get_input_format()->get_name().get_hash();
-                        #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
-                        auto it = std::find_if(m_parse_cache.cbegin(), m_parse_cache.cend(), [format_hash](const auto& entry) { return entry.first == format_hash; });
-                        if (it != m_parse_cache.cend()) internal_data = it->second;
-                        #else
-                        auto it = m_parse_cache.find(format_hash);
-                        if (it != m_parse_cache.end()) internal_data = it->second;
-                        #endif
+                        
+                        if (format_hash == data_format_transparent.get_name().get_hash())
+                        {
+                            buff_to_send = buf;
+                        }
+                        else
+                        {
+                            #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
+                            auto it = std::find_if(m_parse_cache.cbegin(), m_parse_cache.cend(), [format_hash](const auto& entry) { return entry.first == format_hash; });
+                            if (it != m_parse_cache.cend()) buff_to_send = it->second;
+                            #else
+                            auto it = m_parse_cache.find(format_hash);
+                            if (it != m_parse_cache.end()) buff_to_send = it->second;
+                            #endif
+                        }
 
-                        result &= conn->handle_data(internal_data ? internal_data : buf);
+                        result &= conn->handle_data(buff_to_send);
                     }
                 });
 
@@ -155,6 +167,11 @@ namespace adam
                 {
                     if (b) 
                     { 
+                        if (b->get_referenced_buffer())
+                        {
+                            b->get_referenced_buffer()->release();
+                            b->set_referenced_buffer(nullptr);
+                        } 
                         b->release(); 
                         b = nullptr;
                     }
