@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt for the recrep module
+# CMakeLists.txt for the recrep module
 
 if(NOT DEFINED ADAM_NO_TESTS)
 include(../../cmake/gtest.cmake)
@@ -45,16 +45,19 @@ set_target_properties(adam-module-recrep PROPERTIES
 
 if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
-add_executable(adam-module-recrep-test ${test_source_files})
+add_executable(adam-module-recrep-test ${module_source_files} ${test_source_files})
 
 target_include_directories(adam-module-recrep-test 
-    PRIVATE include/    # Test doesnt need to share headers with others
-    PRIVATE source/     # Internal to this lib
+    PRIVATE include/
+    PRIVATE source/
+)
+
+target_compile_definitions(adam-module-recrep-test
+    PRIVATE ADAM_USE_SHARED_SDK
 )
 
 target_link_libraries(adam-module-recrep-test 
     PRIVATE adam-sdk
-    PRIVATE adam-module-recrep
 )
 
 # Set the output directory for the executable
@@ -62,9 +65,11 @@ set_target_properties(adam-module-recrep-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test/"
 )
 
-setup_gtest(adam-module-recrep-test)
+add_custom_command(TARGET adam-module-recrep-test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:adam-sdk>
+            $<TARGET_FILE_DIR:adam-module-recrep-test>
+)
 
-# Discover tests for the VS Code Test Explorer
-include(GoogleTest)
-gtest_discover_tests(adam-module-recrep-test)
+setup_gtest(adam-module-recrep-test)
 endif()

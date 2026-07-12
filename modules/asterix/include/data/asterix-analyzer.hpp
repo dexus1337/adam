@@ -23,13 +23,9 @@ namespace adam::modules::asterix
         asterix_analyzer();
         ~asterix_analyzer() override = default;
 
-        /** @brief Returns the column names of the data format. */
-        const columns& get_columns() const override;
-
         /** @brief Analyzes the data in the buffer and populates the result vector. */
         bool analyze(const class adam::buffer* buf, std::vector<row>& results) const override;
 
     private:
-        columns m_columns;
     };
 }

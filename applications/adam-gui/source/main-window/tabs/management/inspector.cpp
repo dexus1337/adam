@@ -79,7 +79,8 @@ namespace adam::gui
         int actual_index,
         float inspector_height,
         float dpi_scale,
-        adam::language lang
+        adam::language lang,
+        float target_width
     )
     {
         size_t display_len = size;
@@ -122,7 +123,7 @@ namespace adam::gui
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f * dpi_scale);
 
         ImGui::PushID(actual_index);
-        if (ImGui::BeginChild("##hex_container", ImVec2(-FLT_MIN, container_h), true))
+        if (ImGui::BeginChild("##hex_container", ImVec2(target_width, container_h), true))
         {
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f * dpi_scale, 2.0f * dpi_scale));
 
@@ -277,7 +278,7 @@ namespace adam::gui
         const char* name,
         adam::string_hash hash,
         std::map<adam::string_hash, adam::gui::inspection_port_data>& data_map,
-        float inspector_height,
+        float initial_height,
         float dpi_scale,
         adam::language lang,
         uint64_t id_modifier
@@ -289,16 +290,30 @@ namespace adam::gui
         const auto& data_pool = port_data.data_pool;
         auto& expanded_nodes = port_data.expanded_nodes;
 
-        ImGui::PushID((const void*)(intptr_t)(hash ^ id_modifier));
-        
-        ImGui::BeginChild("##outer_child", ImVec2(0, inspector_height), true);
+        uint64_t unique_id = hash ^ id_modifier;
+        if (g_expanded_inspector_heights.find(unique_id) == g_expanded_inspector_heights.end())
+        {
+            g_expanded_inspector_heights[unique_id] = initial_height;
+        }
+        float& current_height = g_expanded_inspector_heights[unique_id];
+
+        ImGui::PushID((const void*)(intptr_t)unique_id);
+
+        ImGui::BeginChild("##outer_child", ImVec2(0, current_height), true);
 
         bool has_analyzer = !port_data.analyzer_columns.empty();
 
         if (has_analyzer)
         {
+            bool is_expandable = port_data.analyzer_ptr && port_data.analyzer_ptr->is_row_expandable();
+            int num_cols = (int)port_data.analyzer_columns.size() + (is_expandable ? 1 : 0);
+
             auto setup_analyzer_columns = [&]()
             {
+                if (is_expandable) {
+                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_NoClip,
+                        ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+                }
                 for (const auto& col_name : port_data.analyzer_columns)
                 {
                     ImGui::TableSetupColumn(col_name.c_str());
@@ -306,7 +321,8 @@ namespace adam::gui
             };
 
             float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
-            bool header_table_begun = ImGui::BeginTable("InspectorAnalyzerHeader", (int)port_data.analyzer_columns.size(), ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable, ImVec2(header_w, 0));
+            ImGuiTableFlags header_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
+            bool header_table_begun = ImGui::BeginTable("InspectorAnalyzerHeader", num_cols, header_flags, ImVec2(header_w, 0));
             if (header_table_begun)
             {
                 setup_analyzer_columns();
@@ -316,6 +332,7 @@ namespace adam::gui
 
             float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
             ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+            float inner_avail_w = ImGui::GetContentRegionAvail().x;
 
             bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
                                          (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
@@ -328,44 +345,155 @@ namespace adam::gui
             }
             bool auto_scroll = port_data.was_at_bottom;
 
-            bool table_begun = ImGui::BeginTable("InspectorAnalyzerInner", (int)port_data.analyzer_columns.size(), ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
-            if (table_begun)
+            ImGuiTableFlags inner_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
+            bool table_open = ImGui::BeginTable("InspectorAnalyzerInner", num_cols, inner_flags);
+            if (table_open) setup_analyzer_columns();
+
+            const auto& flat_rows = port_data.parsed_flat_rows;
+            std::erase_if(port_data.expanded_nodes, [&](size_t idx) { return idx >= flat_rows.size(); });
+
+            float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
+            ImGuiListClipper clipper;
+            clipper.Begin(static_cast<int>(flat_rows.size()), row_height);
+            while (clipper.Step())
             {
-                setup_analyzer_columns();
-
-                const auto& flat_rows = port_data.parsed_flat_rows;
-
-                float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
-                ImGuiListClipper clipper;
-                clipper.Begin(static_cast<int>(flat_rows.size()), row_height);
-                while (clipper.Step())
+                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
                 {
-                    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
+                    size_t b_idx = flat_rows[i].first;
+                    size_t r_idx = flat_rows[i].second;
+
+                    if (table_open)
                     {
-                        size_t b_idx = flat_rows[i].first;
-                        size_t r_idx = flat_rows[i].second;
-                        
                         ImGui::TableNextRow();
-                        if (r_idx == SIZE_MAX)
+                        int current_col = 0;
+
+                        bool is_open = false;
+                        if (is_expandable)
                         {
                             ImGui::TableSetColumnIndex(0);
+                            ImGui::PushID(i);
+                            is_open = ImGui::TreeNodeEx("##row_node",
+                                ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow |
+                                (port_data.expanded_nodes.count(i) ? ImGuiTreeNodeFlags_DefaultOpen : 0));
+                            if (is_open)
+                            {
+                                if (!port_data.expanded_nodes.count(i)) port_data.expanded_nodes.insert(i);
+                                ImGui::TreePop();
+                            }
+                            else
+                            {
+                                port_data.expanded_nodes.erase(i);
+                            }
+                            ImGui::PopID();
+                            current_col = 1;
+                        }
+
+                        if (r_idx == SIZE_MAX)
+                        {
+                            ImGui::TableSetColumnIndex(current_col);
                             char unparsed_buf[128];
-                            snprintf(unparsed_buf, sizeof(unparsed_buf), "%s (Size: %zu)", get_gui_string(gui_string_id::lbl_no_data, lang), (size_t)port_data.buffers[b_idx].size);
+                            snprintf(unparsed_buf, sizeof(unparsed_buf), "%s (Size: %zu)",
+                                get_gui_string(gui_string_id::lbl_no_data, lang), (size_t)port_data.buffers[b_idx].size);
                             ImGui::TextDisabled("%s", unparsed_buf);
                         }
                         else
                         {
                             const auto& row = port_data.parsed_data[b_idx][r_idx];
-                            for (size_t c = 0; c < row.size() && c < port_data.analyzer_columns.size(); ++c)
+                            size_t text_idx = 0;
+                            for (size_t c = 0; c < port_data.analyzer_columns.size(); ++c)
                             {
-                                ImGui::TableSetColumnIndex((int)c);
-                                ImGui::TextUnformatted(row[c].c_str());
+                                ImGui::TableSetColumnIndex(current_col + (int)c);
+                                adam::analyzer::column_type c_type = adam::analyzer::column_text;
+                                if (c < port_data.analyzer_column_types.size())
+                                    c_type = port_data.analyzer_column_types[c];
+
+                                if (c_type == adam::analyzer::column_frame_id)
+                                {
+                                    ImGui::Text("%zu", b_idx);
+                                }
+                                else if (c_type == adam::analyzer::column_timestamp)
+                                {
+                                    ImGui::TextUnformatted(adam::get_log_time_string(port_data.buffers[b_idx].timestamp).c_str());
+                                }
+                                else
+                                {
+                                    if (text_idx < row.columns.size())
+                                        ImGui::TextUnformatted(row.columns[text_idx].c_str());
+                                    text_idx++;
+                                }
                             }
                         }
                     }
+
+                    if (is_expandable && port_data.expanded_nodes.count(i) && r_idx != SIZE_MAX)
+                    {
+                        const auto& row_obj = port_data.parsed_data[b_idx][r_idx];
+
+                        if (table_open)
+                        {
+                            ImGui::EndTable();
+                            table_open = false;
+                        }
+
+                        ImGui::PushID(i);
+                        float expand_indent = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().CellPadding.x;
+                        float sub_table_w = inner_avail_w - expand_indent * 2.0f;
+                        if (sub_table_w < 20.0f) sub_table_w = 20.0f;
+                        ImGui::Indent(expand_indent);
+
+                        if (!row_obj.expansions.empty())
+                        {
+                            for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
+                            {
+                                const auto& exp = row_obj.expansions[exp_idx];
+                                ImGui::PushID((int)exp_idx);
+                                if (exp.data_type == adam::analyzer::expanded_data::type_text)
+                                {
+                                    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + sub_table_w);
+                                    ImGui::TextWrapped("%s", exp.text_content.c_str());
+                                    ImGui::PopTextWrapPos();
+                                }
+                                else if (exp.data_type == adam::analyzer::expanded_data::type_table)
+                                {
+                                    const auto& ext_cols = port_data.analyzer_ptr->get_expandable_columns();
+                                    if (ImGui::BeginTable("##sub_table", (int)ext_cols.size(),
+                                        ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
+                                        ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
+                                        ImGuiTableFlags_SizingStretchSame,
+                                        ImVec2(sub_table_w, 0), 0.0f))
+                                    {
+                                        for (const auto& h : ext_cols) ImGui::TableSetupColumn(h.c_str());
+                                        ImGui::TableHeadersRow();
+                                        for (const auto& row_v : exp.table_rows)
+                                        {
+                                            ImGui::TableNextRow();
+                                            for (size_t c = 0; c < row_v.columns.size() && c < ext_cols.size(); ++c)
+                                            {
+                                                ImGui::TableSetColumnIndex((int)c);
+                                                ImGui::TextUnformatted(row_v.columns[c].c_str());
+                                            }
+                                        }
+                                        ImGui::EndTable();
+                                    }
+                                }
+                                ImGui::PopID();
+                            }
+                        }
+                        else
+                        {
+                            ImGui::TextDisabled("No expanded data available.");
+                        }
+
+                        ImGui::Unindent(expand_indent);
+                        ImGui::PopID();
+
+                        table_open = ImGui::BeginTable("InspectorAnalyzerInner", num_cols, inner_flags);
+                        if (table_open) setup_analyzer_columns();
+                    }
                 }
-                ImGui::EndTable();
             }
+
+            if (table_open) ImGui::EndTable();
 
             if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
             {
@@ -376,14 +504,15 @@ namespace adam::gui
             {
                 port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
             }
-            
-            ImGui::EndChild();
+
+            ImGui::EndChild(); // ##inner_child
         }
         else
         {
-            auto setup_inner_columns = [&]() 
+            auto setup_inner_columns = [&]()
             {
-                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_NoClip,
+                    ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_index, lang), ImGuiTableColumnFlags_WidthFixed, 55.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_timestamp, lang), ImGuiTableColumnFlags_WidthFixed, 120.0f * dpi_scale);
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthFixed, 75.0f * dpi_scale);
@@ -391,18 +520,19 @@ namespace adam::gui
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
             };
 
-            // Draw the static header table above the scrollable region
             float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
-            bool header_table_begun = ImGui::BeginTable("InspectorTableHeader", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg, ImVec2(header_w, 0));
+            ImGuiTableFlags header_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg;
+            bool header_table_begun = ImGui::BeginTable("InspectorTableHeader", 6, header_flags, ImVec2(header_w, 0));
             if (header_table_begun)
             {
                 setup_inner_columns();
                 ImGui::TableHeadersRow();
                 ImGui::EndTable();
             }
-            
+
             float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
             ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+            float inner_avail_w = ImGui::GetContentRegionAvail().x;
 
             bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
                                          (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
@@ -415,18 +545,13 @@ namespace adam::gui
             }
             bool auto_scroll = port_data.was_at_bottom;
 
-            bool table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
-            
-            if (table_begun)
-            {
-                setup_inner_columns();
-            }
+            ImGuiTableFlags inner_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg;
+            bool table_open = ImGui::BeginTable("InspectorTableInner", 6, inner_flags);
+            if (table_open) setup_inner_columns();
 
-            float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
-
-            // Remove any expanded nodes that are no longer valid (e.g., buffer was cleared)
             std::erase_if(expanded_nodes, [&](size_t idx) { return idx >= buffers.size(); });
 
+            float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
             ImGuiListClipper clipper;
             clipper.Begin(static_cast<int>(buffers.size()), row_height);
             while (clipper.Step())
@@ -434,26 +559,31 @@ namespace adam::gui
                 for (int row_idx = clipper.DisplayStart; row_idx < clipper.DisplayEnd; ++row_idx)
                 {
                     const auto& ib = buffers[row_idx];
-                    draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
-                    
+
+                    if (table_open)
+                    {
+                        draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
+                    }
+
                     if (expanded_nodes.count(row_idx))
                     {
-                        if (table_begun) { ImGui::EndTable(); table_begun = false; }
-                        
+                        if (table_open)
+                        {
+                            ImGui::EndTable();
+                            table_open = false;
+                        }
+
                         ImGui::PushID(row_idx);
-                        draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, inspector_height, dpi_scale, lang);
+                        draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, current_height, dpi_scale, lang, inner_avail_w);
                         ImGui::PopID();
-                        
-                        table_begun = ImGui::BeginTable("InspectorTableInner", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg);
-                        if (table_begun) setup_inner_columns();
+
+                        table_open = ImGui::BeginTable("InspectorTableInner", 6, inner_flags);
+                        if (table_open) setup_inner_columns();
                     }
                 }
             }
 
-            if (table_begun)
-            {
-                ImGui::EndTable();
-            }
+            if (table_open) ImGui::EndTable();
 
             if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
             {
@@ -464,19 +594,15 @@ namespace adam::gui
             {
                 port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
             }
-            
-            ImGui::EndChild();
+
+            ImGui::EndChild(); // ##inner_child
         }
 
         char clear_btn_text[512];
         if (lang == adam::language_german)
-        {
-            snprintf(clear_btn_text, sizeof(clear_btn_text), "Daten löschen für \"%s\"", name);
-        }
+            snprintf(clear_btn_text, sizeof(clear_btn_text), "Daten l\u00f6schen f\u00fcr \"%s\"", name);
         else
-        {
             snprintf(clear_btn_text, sizeof(clear_btn_text), "Clear Data for \"%s\"", name);
-        }
 
         if (ImGui::Button(clear_btn_text, ImVec2(-1.0f, 0.0f)))
         {
@@ -487,9 +613,26 @@ namespace adam::gui
             port_data.parsed_data.clear();
             port_data.parsed_flat_rows.clear();
         }
-        
-        ImGui::EndChild();
-        
+
+        ImGui::EndChild(); // ##outer_child
+
+        // Drag splitter to resize the inspector area
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+        ImGui::Button("##hsplitter", ImVec2(-1.0f, 4.0f * dpi_scale));
+        ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemActive())
+        {
+            current_height += ImGui::GetIO().MouseDelta.y;
+            if (current_height < 100.0f * dpi_scale) current_height = 100.0f * dpi_scale;
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+        }
+
         ImGui::Spacing();
         ImGui::PopID();
     }
@@ -520,6 +663,48 @@ namespace adam::gui
         const auto& connections = reg.get_connections();
         auto& connection_input_inspectors = ctrl.commander().get_connection_input_inspectors();
         auto& connection_output_inspectors = ctrl.commander().get_connection_output_inspectors();
+
+        // --- Performance: snapshot all per-entry preview data in a single mutex lock ---
+        struct entry_preview
+        {
+            bool      has_data   = false;
+            size_t    msg_count  = 0;
+            size_t    total_size = 0;
+            uint64_t  last_ts   = 0;
+            char      preview_hex[32] = "";
+        };
+        std::map<adam::string_hash, entry_preview> conn_input_previews;
+        std::map<adam::string_hash, entry_preview> conn_output_previews;
+        std::map<adam::string_hash, entry_preview> port_previews;
+        {
+            std::lock_guard<std::mutex> preview_lock(adam::gui::g_inspection_data.mtx);
+            auto snapshot_entry = [&](const std::map<adam::string_hash, adam::gui::inspection_port_data>& src,
+                                      std::map<adam::string_hash, entry_preview>& dst)
+            {
+                for (const auto& [h, pd] : src)
+                {
+                    entry_preview ep;
+                    ep.msg_count = pd.buffers.size();
+                    if (ep.msg_count > 0)
+                    {
+                        ep.has_data   = true;
+                        ep.total_size = pd.data_pool.size();
+                        const auto& last_b = pd.buffers.back();
+                        ep.last_ts   = last_b.timestamp;
+                        size_t preview_len = std::min((size_t)last_b.size, (size_t)8);
+                        char preview_ascii_dummy[16];
+                        fill_hex_preview(pd.data_pool.data() + last_b.offset, preview_len, 8,
+                                         ep.preview_hex, sizeof(ep.preview_hex),
+                                         preview_ascii_dummy, sizeof(preview_ascii_dummy));
+                    }
+                    dst[h] = ep;
+                }
+            };
+            snapshot_entry(adam::gui::g_inspection_data.connections_input,  conn_input_previews);
+            snapshot_entry(adam::gui::g_inspection_data.connections_output, conn_output_previews);
+            snapshot_entry(adam::gui::g_inspection_data.ports,              port_previews);
+        }
+        // ---------------------------------------------------------------------------------
 
         for (auto it = g_expanded_inspector_connections_input.begin(); it != g_expanded_inspector_connections_input.end(); )
         {
@@ -578,12 +763,8 @@ namespace adam::gui
         {
             if (g_expanded_inspector_ports.count(hash))
             {
-                bool has_data = false;
-                {
-                    std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                    auto it = adam::gui::g_inspection_data.ports.find(hash);
-                    if (it != adam::gui::g_inspection_data.ports.end() && !it->second.buffers.empty()) has_data = true;
-                }
+                // Use snapshot data — no mutex lock needed
+                bool has_data = port_previews.count(hash) && port_previews.at(hash).has_data;
                 bool has_inspector = inspectors.find(hash) != inspectors.end();
                 if (has_inspector || has_data)
                 {
@@ -604,12 +785,8 @@ namespace adam::gui
         {
             if (g_expanded_inspector_connections_input.count(hash))
             {
-                bool has_data = false;
-                {
-                    std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                    auto it = adam::gui::g_inspection_data.connections_input.find(hash);
-                    if (it != adam::gui::g_inspection_data.connections_input.end() && !it->second.buffers.empty()) has_data = true;
-                }
+                // Use snapshot data — no mutex lock needed
+                bool has_data = conn_input_previews.count(hash) && conn_input_previews.at(hash).has_data;
                 bool has_inspector = connection_input_inspectors.find(hash) != connection_input_inspectors.end();
                 if (has_inspector || has_data)
                 {
@@ -625,12 +802,8 @@ namespace adam::gui
 
             if (g_expanded_inspector_connections_output.count(hash))
             {
-                bool has_data = false;
-                {
-                    std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                    auto it = adam::gui::g_inspection_data.connections_output.find(hash);
-                    if (it != adam::gui::g_inspection_data.connections_output.end() && !it->second.buffers.empty()) has_data = true;
-                }
+                // Use snapshot data — no mutex lock needed
+                bool has_data = conn_output_previews.count(hash) && conn_output_previews.at(hash).has_data;
                 bool has_inspector = connection_output_inspectors.find(hash) != connection_output_inspectors.end();
                 if (has_inspector || has_data)
                 {
@@ -670,17 +843,10 @@ namespace adam::gui
         base_outer_h += 4.0f * dpi_scale;
 
         float sticky_button_h = ImGui::GetFrameHeight() * 1.5f + spacing_h;
-        float avail_for_inner = ImGui::GetContentRegionAvail().y - base_outer_h - sticky_button_h;
-        float min_inspector_height = 250.0f * dpi_scale;
-        float inspector_height = min_inspector_height;
-
-        if (num_expanded > 0)
+        float initial_inspector_height = ImGui::GetContentRegionAvail().y * 0.5f;
+        if (initial_inspector_height < 250.0f * dpi_scale)
         {
-            float per_node_exp_size = avail_for_inner / num_expanded;
-            if (per_node_exp_size > min_inspector_height)
-            {
-                inspector_height = per_node_exp_size;
-            }
+            initial_inspector_height = 250.0f * dpi_scale;
         }
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -716,35 +882,13 @@ namespace adam::gui
                 // Input Row
                 {
                     bool has_inspector = connection_input_inspectors.find(conn_hash) != connection_input_inspectors.end();
-                    bool has_data = false;
-                    size_t msg_count = 0;
-                    size_t total_size = 0;
-                    uint64_t last_ts = 0;
-                    char preview_hex[32] = "";
-
-                    {
-                        std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                        auto it = adam::gui::g_inspection_data.connections_input.find(conn_hash);
-                        if (it != adam::gui::g_inspection_data.connections_input.end())
-                        {
-                            const auto& port_data = it->second;
-                            const auto& buffers = port_data.buffers;
-                            msg_count = buffers.size();
-                            if (msg_count > 0)
-                            {
-                                has_data = true;
-                                total_size = port_data.data_pool.size();
-                                const auto& last_b = buffers.back();
-                                last_ts = last_b.timestamp;
-                                
-                                size_t preview_len = std::min((size_t)last_b.size, (size_t)8);
-                                char preview_hex_buf[32];
-                                char preview_ascii_dummy[16];
-                                fill_hex_preview(port_data.data_pool.data() + last_b.offset, preview_len, 8, preview_hex_buf, sizeof(preview_hex_buf), preview_ascii_dummy, sizeof(preview_ascii_dummy));
-                                snprintf(preview_hex, sizeof(preview_hex), "%s", preview_hex_buf);
-                            }
-                        }
-                    }
+                    // Use the pre-snapshotted data to avoid per-row mutex lock
+                    const auto& ep_in = conn_input_previews[conn_hash];
+                    bool has_data   = ep_in.has_data;
+                    size_t msg_count  = ep_in.msg_count;
+                    size_t total_size = ep_in.total_size;
+                    uint64_t last_ts  = ep_in.last_ts;
+                    const char* preview_hex = ep_in.preview_hex;
 
                     bool node_open = (has_inspector || has_data) && (g_expanded_inspector_connections_input.count(conn_hash) > 0);
                     char name_buf[256];
@@ -821,7 +965,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL);
+                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, initial_inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL);
                         conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                         if (conn_table_open) setup_columns();
                     }
@@ -830,35 +974,13 @@ namespace adam::gui
                 // Output Row
                 {
                     bool has_inspector = connection_output_inspectors.find(conn_hash) != connection_output_inspectors.end();
-                    bool has_data = false;
-                    size_t msg_count = 0;
-                    size_t total_size = 0;
-                    uint64_t last_ts = 0;
-                    char preview_hex[32] = "";
-
-                    {
-                        std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                        auto it = adam::gui::g_inspection_data.connections_output.find(conn_hash);
-                        if (it != adam::gui::g_inspection_data.connections_output.end())
-                        {
-                            const auto& port_data = it->second;
-                            const auto& buffers = port_data.buffers;
-                            msg_count = buffers.size();
-                            if (msg_count > 0)
-                            {
-                                has_data = true;
-                                total_size = port_data.data_pool.size();
-                                const auto& last_b = buffers.back();
-                                last_ts = last_b.timestamp;
-                                
-                                size_t preview_len = std::min((size_t)last_b.size, (size_t)8);
-                                char preview_hex_buf[32];
-                                char preview_ascii_dummy[16];
-                                fill_hex_preview(port_data.data_pool.data() + last_b.offset, preview_len, 8, preview_hex_buf, sizeof(preview_hex_buf), preview_ascii_dummy, sizeof(preview_ascii_dummy));
-                                snprintf(preview_hex, sizeof(preview_hex), "%s", preview_hex_buf);
-                            }
-                        }
-                    }
+                    // Use the pre-snapshotted data to avoid per-row mutex lock
+                    const auto& ep_out = conn_output_previews[conn_hash];
+                    bool has_data   = ep_out.has_data;
+                    size_t msg_count  = ep_out.msg_count;
+                    size_t total_size = ep_out.total_size;
+                    uint64_t last_ts  = ep_out.last_ts;
+                    const char* preview_hex = ep_out.preview_hex;
 
                     bool node_open = (has_inspector || has_data) && (g_expanded_inspector_connections_output.count(conn_hash) > 0);
                     char name_buf[256];
@@ -935,7 +1057,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL);
+                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, initial_inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL);
                         if (!is_last_connection)
                         {
                             conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
@@ -980,35 +1102,13 @@ namespace adam::gui
                 port_idx++;
                 bool is_last_port = (port_idx == total_ports);
                 bool has_inspector = inspectors.find(port_hash) != inspectors.end();
-                bool has_data = false;
-                size_t msg_count = 0;
-                size_t total_size = 0;
-                uint64_t last_ts = 0;
-                char preview_hex[32] = "";
-
-                {
-                    std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-                    auto it = adam::gui::g_inspection_data.ports.find(port_hash);
-                    if (it != adam::gui::g_inspection_data.ports.end())
-                    {
-                        const auto& port_data = it->second;
-                        const auto& buffers = port_data.buffers;
-                        msg_count = buffers.size();
-                        if (msg_count > 0)
-                        {
-                            has_data = true;
-                            total_size = port_data.data_pool.size();
-                            const auto& last_b = buffers.back();
-                            last_ts = last_b.timestamp;
-                            
-                            size_t preview_len = std::min((size_t)last_b.size, (size_t)8);
-                            char preview_hex_buf[32];
-                            char preview_ascii_dummy[16];
-                            fill_hex_preview(port_data.data_pool.data() + last_b.offset, preview_len, 8, preview_hex_buf, sizeof(preview_hex_buf), preview_ascii_dummy, sizeof(preview_ascii_dummy));
-                            snprintf(preview_hex, sizeof(preview_hex), "%s", preview_hex_buf);
-                        }
-                    }
-                }
+                // Use the pre-snapshotted data to avoid per-row mutex lock
+                const auto& ep_port = port_previews[port_hash];
+                bool has_data   = ep_port.has_data;
+                size_t msg_count  = ep_port.msg_count;
+                size_t total_size = ep_port.total_size;
+                uint64_t last_ts  = ep_port.last_ts;
+                const char* preview_hex = ep_port.preview_hex;
 
                 bool node_open = (has_inspector || has_data) && (g_expanded_inspector_ports.count(port_hash) > 0);
 
@@ -1128,7 +1228,7 @@ namespace adam::gui
                 {
                     if (table_open) ImGui::EndTable();
                     
-                    draw_inspector_frames_table(ctrl, p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL);
+                    draw_inspector_frames_table(ctrl, p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, initial_inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL);
 
                     if (!is_last_port)
                     {
@@ -1153,40 +1253,13 @@ namespace adam::gui
 
         ImGui::EndChild();
 
+        // Use snapshot data for the clear-all button state — no extra mutex lock needed
         bool has_any_buffered_data = false;
-        {
-            std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
-            for (const auto& [hash, port_data] : adam::gui::g_inspection_data.ports)
-            {
-                if (!port_data.buffers.empty())
-                {
-                    has_any_buffered_data = true;
-                    break;
-                }
-            }
-            if (!has_any_buffered_data)
-            {
-                for (const auto& [hash, port_data] : adam::gui::g_inspection_data.connections_input)
-                {
-                    if (!port_data.buffers.empty())
-                    {
-                        has_any_buffered_data = true;
-                        break;
-                    }
-                }
-            }
-            if (!has_any_buffered_data)
-            {
-                for (const auto& [hash, port_data] : adam::gui::g_inspection_data.connections_output)
-                {
-                    if (!port_data.buffers.empty())
-                    {
-                        has_any_buffered_data = true;
-                        break;
-                    }
-                }
-            }
-        }
+        for (const auto& [h, ep] : port_previews)        { if (ep.has_data) { has_any_buffered_data = true; break; } }
+        if (!has_any_buffered_data)
+            for (const auto& [h, ep] : conn_input_previews)  { if (ep.has_data) { has_any_buffered_data = true; break; } }
+        if (!has_any_buffered_data)
+            for (const auto& [h, ep] : conn_output_previews) { if (ep.has_data) { has_any_buffered_data = true; break; } }
 
         ImGui::BeginDisabled(!has_any_buffered_data);
         if (ImGui::Button(get_gui_string(gui_string_id::btn_clear_all_data, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))

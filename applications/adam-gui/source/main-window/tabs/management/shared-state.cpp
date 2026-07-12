@@ -57,6 +57,7 @@ namespace adam::gui
     std::unordered_set<adam::string_hash> g_pending_inspector_connections_output;
 
     std::unordered_map<uint64_t, float> g_expanded_node_heights;
+    std::unordered_map<uint64_t, float> g_expanded_inspector_heights;
     
     bool g_request_open_inspector = false;
     adam::string_hash g_port_to_expand_in_inspector = 0;
@@ -271,12 +272,13 @@ namespace adam::gui
                 port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
             }
             
-            std::vector<std::vector<std::string>> parsed_rows;
+            std::vector<adam::analyzer::row> parsed_rows;
             if (data_analyzer)
             {
                 if (port_data.analyzer_columns.empty())
                 {
                     port_data.analyzer_columns = data_analyzer->get_columns();
+                    port_data.analyzer_column_types = data_analyzer->get_column_types();
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }
@@ -318,12 +320,13 @@ namespace adam::gui
                 port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
             }
             
-            std::vector<std::vector<std::string>> parsed_rows;
+            std::vector<adam::analyzer::row> parsed_rows;
             if (data_analyzer)
             {
                 if (port_data.analyzer_columns.empty())
                 {
                     port_data.analyzer_columns = data_analyzer->get_columns();
+                    port_data.analyzer_column_types = data_analyzer->get_column_types();
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }
@@ -372,6 +375,8 @@ namespace adam::gui
                         if (analyzer_ptr) {
                             std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
                             adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_columns = analyzer_ptr->get_columns();
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_column_types = analyzer_ptr->get_column_types();
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_ptr = analyzer_ptr;
                         }
                         adam::data_inspector* new_inspector = nullptr;
                         cmdr.request_connection_input_inspector_create(conn_hash, make_inspector_connection_input_buffer_callback(conn_hash, analyzer_ptr), new_inspector);
@@ -384,6 +389,8 @@ namespace adam::gui
                         if (analyzer_ptr) {
                             std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
                             adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_columns = analyzer_ptr->get_columns();
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_column_types = analyzer_ptr->get_column_types();
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_ptr = analyzer_ptr;
                         }
                         adam::data_inspector* new_inspector = nullptr;
                         cmdr.request_connection_output_inspector_create(conn_hash, make_inspector_connection_output_buffer_callback(conn_hash, analyzer_ptr), new_inspector);

@@ -131,6 +131,7 @@ namespace adam::gui
     extern std::unordered_set<adam::string_hash> g_pending_inspector_connections_output;
 
     extern std::unordered_map<uint64_t, float> g_expanded_node_heights;
+    extern std::unordered_map<uint64_t, float> g_expanded_inspector_heights;
     
     extern bool g_request_open_inspector;
     extern adam::string_hash g_port_to_expand_in_inspector;

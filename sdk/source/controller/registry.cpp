@@ -1354,12 +1354,12 @@ namespace adam
                     const auto& children = procs_list->get_children();
                     for (const auto& child_hash : procs_list->get_order())
                     {
-                        auto it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) {
+                        auto child_it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) {
                             return pair.first.get_hash() == child_hash;
                         });
-                        if (it != children.end())
+                        if (child_it != children.end())
                         {
-                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(it->second.get()))
+                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(child_it->second.get()))
                             {
                                 auto p_it = m_processors.find(ref->get_target().get_hash());
                                 if (p_it != m_processors.end())

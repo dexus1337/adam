@@ -1,7 +1,5 @@
 #include "data/analyzer.hpp"
 
-namespace adam 
+namespace adam
 {
-    analyzer::analyzer() = default;
-    analyzer::~analyzer() = default;
 }

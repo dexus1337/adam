@@ -58,9 +58,11 @@ namespace adam::gui
         std::vector<inspected_buffer> buffers;
         std::vector<uint8_t> data_pool;
         
-        std::vector<std::vector<std::vector<std::string>>> parsed_data;
+        std::vector<std::vector<adam::analyzer::row>> parsed_data;
         std::vector<std::pair<size_t, size_t>> parsed_flat_rows;
         std::vector<std::string> analyzer_columns;
+        std::vector<adam::analyzer::column_type> analyzer_column_types;
+        const adam::analyzer* analyzer_ptr = nullptr;
 
         std::set<size_t> expanded_nodes;
         bool was_at_bottom = true;

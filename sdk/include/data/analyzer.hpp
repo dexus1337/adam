@@ -26,23 +26,53 @@ namespace adam
     {
     public:
 
-        using columns = std::vector<std::string>;
+        enum column_type
+        {
+            column_frame_id,
+            column_timestamp,
+            column_text
+        };
 
-        using row = std::vector<std::string>;
+        struct row;
 
-        /** @brief Destroys the analyzer object and cleans up resources. */
-        virtual ~analyzer();
+        struct expanded_data
+        {
+            enum type
+            {
+                type_text,
+                type_table
+            };
 
-        /** @brief Returns the column names of the data format. */
-        virtual const columns&  get_columns() const                                                 = 0;
+            type data_type;
+            std::string text_content;
+            std::vector<row> table_rows;
+        };
+
+        struct row
+        {
+            std::vector<std::string> columns;
+            std::vector<expanded_data> expansions;
+        };
+
+        virtual ~analyzer() = default;
 
         /** @brief Analyzes the data in the buffer and populates the result vector with multiple rows (one string per column). */
-        virtual bool            analyze(const class buffer* buf, std::vector<row>& results) const   = 0;
+        virtual bool analyze(const class buffer* buf, std::vector<row>& results) const = 0;
+
+        bool                            is_row_expandable()      const { return m_b_row_expandable; }
+        const std::vector<std::string>& get_columns()            const { return m_columns; }
+        const std::vector<column_type>& get_column_types()       const { return m_column_types; }
+        const std::vector<std::string>& get_expandable_columns() const { return m_expandable_columns; }
 
     protected:
 
-        /** @brief Constructs a new analyzer object. */
-        analyzer();
+        analyzer() = default;
 
+        std::vector<std::string> m_columns;
+        std::vector<column_type> m_column_types;
+
+        bool                     m_b_row_expandable;
+
+        std::vector<std::string> m_expandable_columns;
     };
 }
