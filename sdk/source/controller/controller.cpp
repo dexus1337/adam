@@ -337,7 +337,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_already_exists, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_already_exists, get_language()), get_client_name(tid), tid);
 
             return false;
         }
@@ -348,7 +348,7 @@ namespace adam
         {
             delete new_queue;
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_open, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_open, get_language()), get_client_name(tid), tid);
 
             m_master_queue.response_queue().push(status_unavailable);
 
@@ -361,7 +361,7 @@ namespace adam
         {
             delete new_queue;
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_insert, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_failed_to_insert, get_language()), get_client_name(tid), tid);
 
             m_master_queue.response_queue().push(status_queue_failed_create);
 
@@ -387,7 +387,7 @@ namespace adam
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
-            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_already_exists, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_already_exists, get_language()), get_client_name(tid), tid);
 
             return false;
         }
@@ -486,7 +486,7 @@ namespace adam
         it->second->queue_thread.join();
 
         if (!it->second->queue.destroy())
-            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), tid);
+            this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), get_client_name(tid), tid);
 
         delete it->second;
 

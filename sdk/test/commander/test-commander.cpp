@@ -952,10 +952,6 @@ TEST_F(commander_test, request_connection_port_add_remove_flow)
 
     EXPECT_TRUE(conn_view->inputs.empty());
 
-    // Recreate the port (since it gets auto-destroyed when removed from its last connection)
-    EXPECT_EQ(ctrl.get_registry().create_port("my_test_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &test_port), adam::registry::status_success);
-    ASSERT_NE(test_port, nullptr);
-
     // 3. Request to add as output
     EXPECT_EQ(cmdr.request_connection_port_add(conn_hash, port_hash, false), adam::response_status::success);
 
@@ -977,6 +973,88 @@ TEST_F(commander_test, request_connection_port_add_remove_flow)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     EXPECT_TRUE(conn_view->outputs.empty());
+
+    // Verify port still exists in the registry after being removed from all connections
+    EXPECT_TRUE(cmdr.get_registry().get_ports().contains(port_hash));
+
+    // 5. Request to destroy the port completely
+    EXPECT_EQ(cmdr.request_port_destroy(port_hash), adam::response_status::success);
+
+    // Wait for the event to propagate
+    start = std::chrono::steady_clock::now();
+    while (cmdr.get_registry().get_ports().contains(port_hash) && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_FALSE(cmdr.get_registry().get_ports().contains(port_hash));
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests that destroying a port while it's connected automatically removes it from the connection and the registry. */
+TEST_F(commander_test, request_port_destroy_connected_flow)
+{
+    adam::controller& ctrl = adam::controller::get();
+    
+    // Create a port
+    adam::port* test_port = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_port("del_test_port"_ct, adam::port_internal::type_name(), "essential"_ct.get_hash(), &test_port), adam::registry::status_success);
+    ASSERT_NE(test_port, nullptr);
+    
+    // Create two connections
+    adam::connection* conn1 = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_connection("del_test_conn1"_ct, &conn1), adam::registry::status_success);
+    ASSERT_NE(conn1, nullptr);
+
+    adam::connection* conn2 = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_connection("del_test_conn2"_ct, &conn2), adam::registry::status_success);
+    ASSERT_NE(conn2, nullptr);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn1_hash = ("del_test_conn1"_ct).get_hash();
+    auto conn2_hash = ("del_test_conn2"_ct).get_hash();
+    auto port_hash = ("del_test_port"_ct).get_hash();
+
+    const auto& conn1_view = cmdr.get_registry().get_connections().at(conn1_hash);
+    const auto& conn2_view = cmdr.get_registry().get_connections().at(conn2_hash);
+
+    // 1. Request to add as input to first connection
+    EXPECT_EQ(cmdr.request_connection_port_add(conn1_hash, port_hash, true), adam::response_status::success);
+
+    // 2. Request to add as output to second connection
+    EXPECT_EQ(cmdr.request_connection_port_add(conn2_hash, port_hash, false), adam::response_status::success);
+
+    // Wait for the events to propagate
+    auto start = std::chrono::steady_clock::now();
+    while ((conn1_view->inputs.empty() || conn2_view->outputs.empty()) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    EXPECT_EQ(conn1_view->inputs.size(), 1u);
+    EXPECT_EQ(conn1_view->inputs[0], port_hash);
+    EXPECT_EQ(conn2_view->outputs.size(), 1u);
+    EXPECT_EQ(conn2_view->outputs[0], port_hash);
+
+    // 3. Request to destroy the port completely while it's still connected!
+    EXPECT_EQ(cmdr.request_port_destroy(port_hash), adam::response_status::success);
+
+    // Wait for the destroy event to propagate. It should remove the port from the registry AND all connections
+    start = std::chrono::steady_clock::now();
+    while ((cmdr.get_registry().get_ports().contains(port_hash) || 
+           !conn1_view->inputs.empty() || 
+           !conn2_view->outputs.empty()) && 
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Verify port is fully deleted from registry and all connections
+    EXPECT_FALSE(cmdr.get_registry().get_ports().contains(port_hash));
+    EXPECT_TRUE(conn1_view->inputs.empty());
+    EXPECT_TRUE(conn2_view->outputs.empty());
 
     EXPECT_TRUE(cmdr.destroy());
 }

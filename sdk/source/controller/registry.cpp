@@ -1351,14 +1351,21 @@ namespace adam
                 auto* procs_list = conn->get_parameter<configuration_parameter_list_sorted>("processors"_ct);
                 if (procs_list)
                 {
-                    for (auto& [idx_str, param] : procs_list->get_children())
+                    const auto& children = procs_list->get_children();
+                    for (const auto& child_hash : procs_list->get_order())
                     {
-                        if (auto* ref = dynamic_cast<configuration_parameter_reference*>(param.get()))
+                        auto it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) {
+                            return pair.first.get_hash() == child_hash;
+                        });
+                        if (it != children.end())
                         {
-                            auto p_it = m_processors.find(ref->get_target().get_hash());
-                            if (p_it != m_processors.end())
+                            if (auto* ref = dynamic_cast<configuration_parameter_reference*>(it->second.get()))
                             {
-                                conn->processors().push_back(p_it->second.get());
+                                auto p_it = m_processors.find(ref->get_target().get_hash());
+                                if (p_it != m_processors.end())
+                                {
+                                    conn->processors().push_back(p_it->second.get());
+                                }
                             }
                         }
                     }
@@ -1834,8 +1841,25 @@ namespace adam
             }
         };
 
-            for (const auto& [name, param] : source->get_children())
-                copy_single_parameter(name, param);
+            if (auto* sorted_source = dynamic_cast<const configuration_parameter_list_sorted*>(source))
+            {
+                const auto& children = sorted_source->get_children();
+                for (const auto& child_hash : sorted_source->get_order())
+                {
+                    auto it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) {
+                        return pair.first.get_hash() == child_hash;
+                    });
+                    if (it != children.end())
+                    {
+                        copy_single_parameter(it->first, it->second);
+                    }
+                }
+            }
+            else
+            {
+                for (const auto& [name, param] : source->get_children())
+                    copy_single_parameter(name, param);
+            }
         }
 
     std::string_view registry::get_status_text(status status, language lang)

@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt for the main application
+# CMakeLists.txt for the main application
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +21,21 @@ target_link_libraries(adam PRIVATE adam-sdk)  # Link against the SDK library
 set_target_properties(adam PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Copy the install service script to the bin directory depending on the platform
+if(WIN32)
+    add_custom_command(TARGET adam POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/scripts/service/windows/install-service.ps1"
+        "${CMAKE_BINARY_DIR}/bin/install-service.ps1"
+    )
+elseif(UNIX)
+    add_custom_command(TARGET adam POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/scripts/service/linux/install-service.sh"
+        "${CMAKE_BINARY_DIR}/bin/install-service.sh"
+    )
+endif()
 
 
 if(NOT DEFINED ADAM_NO_TESTS)

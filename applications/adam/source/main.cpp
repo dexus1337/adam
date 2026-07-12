@@ -2,30 +2,24 @@
 
 #include <csignal>
 #include <cstdlib>
+#include <atomic>
+#include <thread>
+#include <chrono>
+
+std::atomic<bool> running{true};
 
 void signal_handler(int signal) 
 {
-    if (signal == SIGINT) 
+    if (signal == SIGINT || signal == SIGTERM) 
     {
-        adam::controller::get().log(adam::log::info, std::format("sigint recieved with signal {:d}", signal));
-
-        try 
-        {
-            adam::controller::get().destroy();
-        } 
-        catch (const std::system_error& e) 
-        {
-            adam::controller::get().log(adam::log::error, std::format("os description \"{:s}\" (code {:d})", e.what(), e.code().value()));
-        }
-
-        adam::controller::get().log(adam::log::info, std::format("exiting...", signal));
-        std::exit(0);
+        running = false;
     }
 }
 
 int main() 
 {
     std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
 
     adam::controller::cleanup_zombie_shared_memory();
 
@@ -37,9 +31,27 @@ int main()
         return 1;
     }
 
-    getchar();
+    std::thread([]() 
+    {
+        if (getchar() != EOF) 
+            running = false;
+    }).detach();
 
-    controller.destroy();
+    while (running)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    controller.log(adam::log::info, "exiting...");
+
+    try 
+    {
+        controller.destroy();
+    } 
+    catch (const std::system_error& e) 
+    {
+        controller.log(adam::log::error, std::format("os description \"{:s}\" (code {:d})", e.what(), e.code().value()));
+    }
 
     return 0;
 }
