@@ -427,7 +427,18 @@ namespace adam::gui
 
                     if (is_expandable && port_data.expanded_nodes.count(i) && r_idx != SIZE_MAX)
                     {
-                        const auto& row_obj = port_data.parsed_data[b_idx][r_idx];
+                        auto& row_obj = port_data.parsed_data[b_idx][r_idx];
+
+                        if (!row_obj.expansions_fetched)
+                        {
+                            if (port_data.analyzer_ptr)
+                            {
+                                const uint8_t* data_ptr = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
+                                size_t data_size = port_data.buffers[b_idx].size;
+                                port_data.analyzer_ptr->analyze_expanded(data_ptr, data_size, r_idx, row_obj.expansions);
+                            }
+                            row_obj.expansions_fetched = true;
+                        }
 
                         if (table_open)
                         {

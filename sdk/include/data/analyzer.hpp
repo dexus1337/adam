@@ -52,12 +52,16 @@ namespace adam
         {
             std::vector<std::string> columns;
             std::vector<expanded_data> expansions;
+            bool expansions_fetched = false;
         };
 
         virtual ~analyzer() = default;
 
         /** @brief Analyzes the data in the buffer and populates the result vector with multiple rows (one string per column). */
         virtual bool analyze(const class buffer* buf, std::vector<row>& results) const = 0;
+
+        /** @brief Lazily generates expansions for a specific row in the buffer. */
+        virtual bool analyze_expanded(const uint8_t* data, size_t size, size_t row_idx, std::vector<expanded_data>& out_expansions) const;
 
         bool                            is_row_expandable()      const { return m_b_row_expandable; }
         const std::vector<std::string>& get_columns()            const { return m_columns; }

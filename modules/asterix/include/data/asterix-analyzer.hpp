@@ -26,6 +26,9 @@ namespace adam::modules::asterix
         /** @brief Analyzes the data in the buffer and populates the result vector. */
         bool analyze(const class adam::buffer* buf, std::vector<row>& results) const override;
 
+        /** @brief Lazily generates expansions for a specific row in the buffer. */
+        bool analyze_expanded(const uint8_t* data, size_t size, size_t row_idx, std::vector<expanded_data>& out_expansions) const override;
+
     private:
     };
 }

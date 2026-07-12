@@ -502,13 +502,11 @@ namespace adam::modules::network
     static bool is_virtual_or_useless_adapter(PIP_ADAPTER_ADDRESSES adapter)
     {
         if (adapter->IfType == IF_TYPE_TUNNEL)
-        {
             return true;
-        }
-        if (adapter->IfType == 71 && adapter->Flags != 485)
-        {
+            
+        if (adapter->IfType == 71 && adapter->OperStatus != IfOperStatusUp)
             return true;
-        }
+            
         return false;
     }
     #endif
