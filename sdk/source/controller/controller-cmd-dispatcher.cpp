@@ -1710,6 +1710,13 @@ namespace adam
             auto params = cmds->get_data_as<messages::port_action_data>();
             auto it = ctx.reg.ports().find(params->port);
 
+            if (it != ctx.reg.ports().end() && it->second->is_started())
+            {
+                ctx.ctrl.log(log::warning, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_already_started, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
+                ctx.set_single_response_status(response_status::success);
+                return;
+            }
+
             if (it == ctx.reg.ports().end() || !it->second->start())
             {
                 if (it != ctx.reg.ports().end())
@@ -1739,6 +1746,13 @@ namespace adam
         {
             auto params = cmds->get_data_as<messages::port_action_data>();
             auto it = ctx.reg.ports().find(params->port);
+
+            if (it != ctx.reg.ports().end() && !it->second->is_started())
+            {
+                ctx.ctrl.log(log::warning, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_already_stopped, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
+                ctx.set_single_response_status(response_status::success);
+                return;
+            }
 
             if (it == ctx.reg.ports().end() || !it->second->stop())
             {
@@ -2259,12 +2273,20 @@ namespace adam
                 { "{} ({:d}) failed to start port \"{}\".", "{} ({:d}) konnte Port \"{}\" nicht starten." }
             },
             {
+                log_event::port_already_started,
+                { "{} ({:d}) port \"{}\" is already started.", "{} ({:d}) Port \"{}\" ist bereits gestartet." }
+            },
+            {
                 log_event::port_stopped,
                 { "{} ({:d}) successfully stopped port \"{}\".", "{} ({:d}) hat Port \"{}\" erfolgreich gestoppt." }
             },
             {
                 log_event::port_stop_failed,
                 { "{} ({:d}) failed to stop port \"{}\".", "{} ({:d}) konnte Port \"{}\" nicht stoppen." }
+            },
+            {
+                log_event::port_already_stopped,
+                { "{} ({:d}) port \"{}\" is already stopped.", "{} ({:d}) Port \"{}\" ist bereits gestoppt." }
             },
             {
                 log_event::connection_started,

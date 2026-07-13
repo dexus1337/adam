@@ -56,10 +56,18 @@ namespace adam::cli
         usage_port_rename,
         desc_port_params,
         usage_port_params,
+        desc_port_params_info,
+        usage_port_params_info,
         desc_port_set_param,
         usage_port_set_param,
         desc_port_inject,
         usage_port_inject,
+        desc_port_inspect,
+        usage_port_inspect,
+        desc_conn_inspect,
+        usage_conn_inspect,
+        inspector_started,
+        inspector_stopped,
         desc_conn_rename,
         usage_conn_rename,
         desc_conn_set_fmt_in,
@@ -108,7 +116,11 @@ namespace adam::cli
         desc_cfg_path_rm,
         usage_cfg_path_rm,
         desc_cfg_path_list,
-        desc_mod_path_list
+        desc_mod_path_list,
+        desc_cli_params_info,
+        desc_cli_params,
+        desc_cli_set_param,
+        usage_cli_set_param
     };
 
     const char* get_cli_string(cmd_string_id id, adam::language lang);

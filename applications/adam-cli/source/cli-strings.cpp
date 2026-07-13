@@ -59,10 +59,18 @@ namespace adam::cli
             { cmd_string_id::usage_port_rename,           { "Usage: port_rename <old_name> <new_name>", "Verwendung: port_rename <old_name> <new_name>" } },
             { cmd_string_id::desc_port_params,            { "Lists all parameters of a port", "Listet alle Parameter eines Ports auf" } },
             { cmd_string_id::usage_port_params,           { "Usage: port_params <port_name>", "Verwendung: port_params <port_name>" } },
+            { cmd_string_id::desc_port_params_info,        { "Lists valid parameters and rules of a port", "Listet gültige Parameter und Regeln eines Ports auf" } },
+            { cmd_string_id::usage_port_params_info,       { "Usage: port_params_info <port_name>", "Verwendung: port_params_info <port_name>" } },
             { cmd_string_id::desc_port_set_param,         { "Sets a parameter of a port", "Setzt einen Parameter eines Ports" } },
             { cmd_string_id::usage_port_set_param,        { "Usage: port_set_param <port_name> <param_name> <value>", "Verwendung: port_set_param <port_name> <param_name> <value>" } },
             { cmd_string_id::desc_port_inject,            { "Injects hex data into a port", "Injiziert Hex-Daten in einen Port" } },
             { cmd_string_id::usage_port_inject,           { "Usage: port_inject <port_name> <hex_data> <in|out>", "Verwendung: port_inject <port_name> <hex_data> <in|out>" } },
+            { cmd_string_id::desc_port_inspect,           { "Inspects data arriving at a port", "Überprüft am Port ankommende Daten" } },
+            { cmd_string_id::usage_port_inspect,          { "Usage: port_inspect <port_name>", "Verwendung: port_inspect <port_name>" } },
+            { cmd_string_id::desc_conn_inspect,           { "Inspects data arriving at a connection", "Überprüft an einer Verbindung ankommende Daten" } },
+            { cmd_string_id::usage_conn_inspect,          { "Usage: conn_inspect <conn_name> <in|out>", "Verwendung: conn_inspect <conn_name> <in|out>" } },
+            { cmd_string_id::inspector_started,           { "Inspector started. Press 'Enter' or 'Escape' to stop...", "Inspektor gestartet. Drücken Sie 'Enter' oder 'Escape' zum Stoppen..." } },
+            { cmd_string_id::inspector_stopped,           { "Inspector stopped.", "Inspektor gestoppt." } },
             { cmd_string_id::desc_conn_rename,            { "Renames a connection", "Benennt eine Verbindung um" } },
             { cmd_string_id::usage_conn_rename,           { "Usage: conn_rename <old_name> <new_name>", "Verwendung: conn_rename <old_name> <new_name>" } },
             { cmd_string_id::desc_conn_set_fmt_in,        { "Sets the input format of a connection", "Setzt das Eingabeformat einer Verbindung" } },
@@ -111,7 +119,11 @@ namespace adam::cli
             { cmd_string_id::desc_cfg_path_rm,            { "Removes a config search path by index", "Entfernt einen Konfigurations-Suchpfad nach Index" } },
             { cmd_string_id::usage_cfg_path_rm,           { "Usage: cfg_path_rm <index>", "Verwendung: cfg_path_rm <index>" } },
             { cmd_string_id::desc_cfg_path_list,          { "Lists config search paths", "Listet Konfigurations-Suchpfade auf" } },
-            { cmd_string_id::desc_mod_path_list,          { "Lists module search paths", "Listet Modul-Suchpfade auf" } }
+            { cmd_string_id::desc_mod_path_list,          { "Lists module search paths", "Listet Modul-Suchpfade auf" } },
+            { cmd_string_id::desc_cli_params_info,        { "Lists valid parameters and rules of the CLI", "Listet gültige Parameter und Regeln der CLI auf" } },
+            { cmd_string_id::desc_cli_params,             { "Lists the current values of all CLI parameters", "Listet die aktuellen Werte aller CLI-Parameter auf" } },
+            { cmd_string_id::desc_cli_set_param,          { "Sets a parameter of the CLI", "Setzt einen Parameter der CLI" } },
+            { cmd_string_id::usage_cli_set_param,         { "Usage: cli_set_param <param_name> <value>", "Verwendung: cli_set_param <param_name> <value>" } }
         };
 
         auto it = translations.find(id);

@@ -1,13 +1,44 @@
 #include "default-commands.hpp"
 #include "cli-strings.hpp"
+#include "terminal-manager.hpp"
 
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
+#include <thread>
+#include <chrono>
 
 namespace adam::cli
 {
-    void register_default_commands(command_database& db, adam::logger_sink& lgsnk)
+    namespace
+    {
+        void cli_hex_dump(const uint8_t* data, size_t size, uint64_t timestamp)
+        {
+            std::cout << "[INSPECTOR] Received " << size << " bytes @ TS: " << timestamp << "\n";
+            for (size_t offset = 0; offset < size; offset += 16)
+            {
+                std::cout << std::setfill('0') << std::setw(4) << std::uppercase << std::hex << offset << ":  ";
+                size_t chunk = std::min(static_cast<size_t>(16), size - offset);
+                for (size_t j = 0; j < 16; ++j)
+                {
+                    if (j == 8) std::cout << " ";
+                    if (j < chunk) std::cout << std::setfill('0') << std::setw(2) << std::uppercase << std::hex << static_cast<int>(data[offset + j]) << " ";
+                    else std::cout << "   ";
+                }
+                std::cout << "  |";
+                for (size_t j = 0; j < chunk; ++j)
+                {
+                    char c = static_cast<char>(data[offset + j]);
+                    if (c >= 32 && c <= 126) std::cout << c;
+                    else std::cout << '.';
+                }
+                std::cout << "|\n";
+            }
+            std::cout << std::dec << std::setfill(' '); // reset format
+        }
+    }
+
+    void register_default_commands(command_database& db, adam::logger_sink& lgsnk, cli_settings& settings)
     {
         command_database* p_db = &db;
         adam::logger_sink* p_lgsnk = &lgsnk;
@@ -210,32 +241,33 @@ namespace adam::cli
                     std::lock_guard<std::mutex> lock(console_mutex);
                     std::cout << "\r\033[2K\nParameters for port '" << it->second->name.c_str() << "':\n";
                     if (it->second->user_params.get_children().empty()) std::cout << "  <none>\n";
+                    
+                    size_t max_name_len = 0;
+                    for (const auto& [hash, param] : it->second->user_params.get_children())
+                        max_name_len = std::max(max_name_len, param->get_name().length());
+                        
                     for (const auto& [hash, param] : it->second->user_params.get_children())
                     {
-                        std::cout << "  " << param->get_name().c_str() << " (";
+                        std::cout << "  " << std::left << std::setw(max_name_len) << param->get_name().c_str() << " (";
                         if (param->get_type() == adam::configuration_parameter::type_integer) 
                         {
                             auto* p = static_cast<adam::configuration_parameter_integer*>(param.get());
-                            std::cout << "int): " << p->get_value();
-                            if (p->get_mode() == adam::configuration_parameter_integer::value_mode_range)
-                                std::cout << " [" << p->get_min_value() << " - " << p->get_max_value() << "]";
+                            std::cout << "int)    : " << p->get_value();
                         }
                         else if (param->get_type() == adam::configuration_parameter::type_double) 
                         {
                             auto* p = static_cast<adam::configuration_parameter_double*>(param.get());
-                            std::cout << "double): " << p->get_value();
-                            if (p->get_mode() == adam::configuration_parameter_double::value_mode_range)
-                                std::cout << " [" << p->get_min_value() << " - " << p->get_max_value() << "]";
+                            std::cout << "double) : " << p->get_value();
                         }
                         else if (param->get_type() == adam::configuration_parameter::type_string) 
                         {
                             auto* p = static_cast<adam::configuration_parameter_string*>(param.get());
-                            std::cout << "string): " << p->get_value().c_str();
+                            std::cout << "string) : " << p->get_value().c_str();
                         }
                         else if (param->get_type() == adam::configuration_parameter::type_boolean) 
                         {
                             auto* p = static_cast<adam::configuration_parameter_boolean*>(param.get());
-                            std::cout << "bool): " << (p->get_value() ? "true" : "false");
+                            std::cout << "bool)   : " << (p->get_value() ? "true" : "false");
                         }
                         std::cout << "\n";
                     }
@@ -248,6 +280,110 @@ namespace adam::cli
                 }
             }
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_port_params, c.get_language()), std::cout); }
+        });
+
+        db.register_command("port_params_info", cmd_string_id::desc_port_params_info, [&settings](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() == 1) 
+            {
+                auto it = c.get_registry().get_ports().find(adam::string_hashed(params[0].c_str()).get_hash());
+                if (it != c.get_registry().get_ports().end())
+                {
+                    std::lock_guard<std::mutex> lock(console_mutex);
+                    std::cout << "\r\033[2K\nValid parameters for port '" << it->second->name.c_str() << "':\n";
+                    if (it->second->user_params.get_children().empty()) std::cout << "  <none>\n";
+                    
+                    size_t max_name_len = 0;
+                    for (const auto& [hash, param] : it->second->user_params.get_children())
+                        max_name_len = std::max(max_name_len, param->get_name().length());
+                        
+                    for (const auto& [hash, param] : it->second->user_params.get_children())
+                    {
+                        std::cout << "  " << std::left << std::setw(max_name_len) << param->get_name().c_str() << " (";
+
+                        auto print_constraint = [&]() {
+                            if (param->get_type() == adam::configuration_parameter::type_integer) 
+                            {
+                                auto* p = static_cast<adam::configuration_parameter_integer*>(param.get());
+                                if (p->get_mode() == adam::configuration_parameter_integer::value_mode_range)
+                                    std::cout << "Range [" << p->get_min_value() << " - " << p->get_max_value() << "]";
+                                else std::cout << "Any";
+                            }
+                            else if (param->get_type() == adam::configuration_parameter::type_double) 
+                            {
+                                auto* p = static_cast<adam::configuration_parameter_double*>(param.get());
+                                if (p->get_mode() == adam::configuration_parameter_double::value_mode_range)
+                                    std::cout << "Range [" << p->get_min_value() << " - " << p->get_max_value() << "]";
+                                else std::cout << "Any";
+                            }
+                            else if (param->get_type() == adam::configuration_parameter::type_string) 
+                            {
+                                auto* p = static_cast<adam::configuration_parameter_string*>(param.get());
+                                if (p->get_mode() == adam::configuration_parameter_string::value_mode_regex)
+                                    std::cout << "Regex [" << p->get_regex_parameter()->get_value().c_str() << "]";
+                                else if (p->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                                {
+                                    std::cout << "Presets [";
+                                    bool first = true;
+                                    size_t current_col = max_name_len + 35;
+                                    const size_t indent_len = current_col;
+                                    const size_t max_col = static_cast<size_t>(settings.get_parameter<adam::configuration_parameter_integer>("terminal_width"_ct)->get_value());
+                                    for (const auto& [h, preset] : p->get_presets())
+                                    {
+                                        std::string val = preset->get_value().c_str();
+                                        if (!first) 
+                                        {
+                                            std::cout << ",";
+                                            current_col += 1;
+                                            
+                                            if (current_col + 1 + val.length() > max_col)
+                                            {
+                                                std::cout << "\n" << std::string(indent_len, ' ');
+                                                current_col = indent_len;
+                                            }
+                                            else
+                                            {
+                                                std::cout << " ";
+                                                current_col += 1;
+                                            }
+                                        }
+                                        std::cout << val;
+                                        current_col += val.length();
+                                        first = false;
+                                    }
+                                    std::cout << "]";
+                                }
+                                else std::cout << "Any";
+                            }
+                            else if (param->get_type() == adam::configuration_parameter::type_boolean) 
+                            {
+                                std::cout << "true/false";
+                            }
+                        };
+
+                        std::string type_str;
+                        if (param->get_type() == adam::configuration_parameter::type_integer) type_str = "int)    : ";
+                        else if (param->get_type() == adam::configuration_parameter::type_double) type_str = "double) : ";
+                        else if (param->get_type() == adam::configuration_parameter::type_string) type_str = "string) : ";
+                        else if (param->get_type() == adam::configuration_parameter::type_boolean) type_str = "bool)   : ";
+
+                        std::cout << type_str;
+                        if (!param->get_description(c.get_language()).empty())
+                            std::cout << param->get_description(c.get_language()).c_str();
+
+                        std::cout << "\n" << std::string(max_name_len + 14, ' ') << "-> Allowed: ";
+                        print_constraint();
+                        std::cout << "\n";
+                    }
+                    std::cout << std::endl;
+                }
+                else 
+                {
+                    std::lock_guard<std::mutex> lock(console_mutex); 
+                    adam::stream_log(adam::log::error, "Port not found.", std::cout);
+                }
+            }
+            else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_port_params_info, c.get_language()), std::cout); }
         });
 
         db.register_command("port_set_param", cmd_string_id::desc_port_set_param, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
@@ -373,6 +509,46 @@ namespace adam::cli
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_port_inject, c.get_language()), std::cout); }
         });
 
+        db.register_command("port_inspect", cmd_string_id::desc_port_inspect, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() == 1) 
+            {
+                adam::data_inspector* inspector = nullptr;
+                auto cb = [&console_mutex](adam::buffer* buf) {
+                    std::lock_guard<std::mutex> lock(console_mutex);
+                    cli_hex_dump(buf->get_begin_as<uint8_t>(), buf->get_size(), buf->get_timestamp());
+                };
+                
+                if (c.request_inspector_create(adam::string_hashed(params[0].c_str()).get_hash(), cb, inspector) == adam::response_status::success && inspector)
+                {
+                    {
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        std::cout << "\r\033[2K\n" << get_cli_string(cmd_string_id::inspector_started, c.get_language()) << "\n";
+                    }
+                    
+                    while (true)
+                    {
+                        int ch = terminal_manager::read_char_raw();
+                        if (ch == '\r' || ch == '\n' || ch == 27) break;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    }
+                    
+                    c.request_inspector_destroy(inspector);
+                    
+                    {
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        std::cout << "\r\033[2K\n" << get_cli_string(cmd_string_id::inspector_stopped, c.get_language()) << "\n";
+                    }
+                }
+                else
+                {
+                    std::lock_guard<std::mutex> lock(console_mutex); 
+                    adam::stream_log(adam::log::error, "Failed to create inspector or port not found.", std::cout);
+                }
+            }
+            else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_port_inspect, c.get_language()), std::cout); }
+        });
+
         // CONNECTIONS
         db.register_command("conn_create", cmd_string_id::desc_conn_create, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
@@ -454,7 +630,7 @@ namespace adam::cli
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_conn_rm_port, c.get_language()), std::cout); }
         });
 
-        db.register_command("conn_list", cmd_string_id::desc_conn_list, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        db.register_command("conn_list", cmd_string_id::desc_conn_list, [&settings](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
             std::lock_guard<std::mutex> lock(console_mutex);
             if (c.get_registry().get_connections().empty())
@@ -521,13 +697,17 @@ namespace adam::cli
                 return;
             }
 
+            size_t tw = static_cast<size_t>(settings.get_parameter<adam::configuration_parameter_integer>("terminal_width"_ct)->get_value());
+            size_t dyn_col = std::max<size_t>(10, (tw > 30 ? tw - 30 : 0) / 3);
+
             std::cout << "\r\033[2K\n";
             std::cout << std::left << std::setw(20) << "Name" 
                       << std::setw(10) << "Status" 
-                      << std::setw(30) << "Inputs" 
-                      << std::setw(30) << "Processors" 
+                      << std::setw(dyn_col) << "Inputs" 
+                      << std::setw(dyn_col) << "Processors" 
                       << "Outputs\n";
-            std::cout << std::string(110, '-') << "\n";
+            size_t sep_len = 30 + dyn_col * 2 + std::max<size_t>(7, dyn_col);
+            std::cout << std::string(sep_len, '-') << "\n";
 
             for (const auto& [hash, conn] : c.get_registry().get_connections()) 
             {
@@ -540,7 +720,7 @@ namespace adam::cli
                     else inputs_str += "<unknown:" + std::to_string(ph) + ">";
                 }
                 if (inputs_str.empty()) inputs_str = "-";
-                if (inputs_str.length() > 28) inputs_str = inputs_str.substr(0, 25) + "...";
+                if (dyn_col > 5 && inputs_str.length() > dyn_col - 2) inputs_str = inputs_str.substr(0, dyn_col - 5) + "...";
 
                 std::string procs_str;
                 for (auto prh : conn->processors)
@@ -551,7 +731,7 @@ namespace adam::cli
                     else procs_str += "<unknown:" + std::to_string(prh) + ">";
                 }
                 if (procs_str.empty()) procs_str = "-";
-                if (procs_str.length() > 28) procs_str = procs_str.substr(0, 25) + "...";
+                if (dyn_col > 5 && procs_str.length() > dyn_col - 2) procs_str = procs_str.substr(0, dyn_col - 5) + "...";
 
                 std::string outputs_str;
                 for (auto ph : conn->outputs)
@@ -562,14 +742,12 @@ namespace adam::cli
                     else outputs_str += "<unknown:" + std::to_string(ph) + ">";
                 }
                 if (outputs_str.empty()) outputs_str = "-";
-                if (outputs_str.length() > 28) outputs_str = outputs_str.substr(0, 25) + "...";
-
-                std::string status_str = conn->started ? "Running" : "Stopped";
+                if (dyn_col > 5 && outputs_str.length() > dyn_col - 2) outputs_str = outputs_str.substr(0, dyn_col - 5) + "...";
 
                 std::cout << std::left << std::setw(20) << conn->name.c_str() 
-                          << std::setw(10) << status_str 
-                          << std::setw(30) << inputs_str 
-                          << std::setw(30) << procs_str 
+                          << std::setw(10) << (conn->started ? "Running" : "Stopped")
+                          << std::setw(dyn_col) << inputs_str
+                          << std::setw(dyn_col) << procs_str
                           << outputs_str << "\n";
             }
             std::cout << std::endl;
@@ -599,6 +777,51 @@ namespace adam::cli
                 c.request_connection_set_output_data_format(adam::string_hashed(params[0].c_str()).get_hash(), adam::string_hashed(params[1].c_str()).get_hash(), mod_hash);
             }
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_conn_set_fmt_out, c.get_language()), std::cout); }
+        });
+
+        db.register_command("conn_inspect", cmd_string_id::desc_conn_inspect, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() == 2) 
+            {
+                adam::data_inspector* inspector = nullptr;
+                auto cb = [&console_mutex](adam::buffer* buf) {
+                    std::lock_guard<std::mutex> lock(console_mutex);
+                    cli_hex_dump(buf->get_begin_as<uint8_t>(), buf->get_size(), buf->get_timestamp());
+                };
+                
+                adam::response_status status = adam::response_status::failed;
+                if (params[1] == "in") status = c.request_connection_input_inspector_create(adam::string_hashed(params[0].c_str()).get_hash(), cb, inspector);
+                else if (params[1] == "out") status = c.request_connection_output_inspector_create(adam::string_hashed(params[0].c_str()).get_hash(), cb, inspector);
+                
+                if (status == adam::response_status::success && inspector)
+                {
+                    {
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        std::cout << "\r\033[2K\n" << get_cli_string(cmd_string_id::inspector_started, c.get_language()) << "\n";
+                    }
+                    
+                    while (true)
+                    {
+                        int ch = terminal_manager::read_char_raw();
+                        if (ch == '\r' || ch == '\n' || ch == 27) break;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    }
+                    
+                    if (params[1] == "in") c.request_connection_input_inspector_destroy(inspector);
+                    else if (params[1] == "out") c.request_connection_output_inspector_destroy(inspector);
+                    
+                    {
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        std::cout << "\r\033[2K\n" << get_cli_string(cmd_string_id::inspector_stopped, c.get_language()) << "\n";
+                    }
+                }
+                else
+                {
+                    std::lock_guard<std::mutex> lock(console_mutex); 
+                    adam::stream_log(adam::log::error, "Failed to create inspector or invalid direction (use 'in' or 'out').", std::cout);
+                }
+            }
+            else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_conn_inspect, c.get_language()), std::cout); }
         });
 
         // PROCESSORS
@@ -973,7 +1196,129 @@ namespace adam::cli
             else
                 adam::stream_log(adam::log::error, "Failed to delete configuration.", std::cout);
         });
-        
+        db.register_command("cli_params_info", cmd_string_id::desc_cli_params_info, [&settings](const std::vector<std::string>&, adam::commander&, std::mutex& console_mutex) 
+        {
+            std::lock_guard<std::mutex> lock(console_mutex);
+            std::cout << "\r\033[2K\nValid CLI parameters:\n";
+            
+            size_t max_name_len = 0;
+            for (const auto& [hash, param] : settings.get_parameters().get_children())
+                max_name_len = std::max(max_name_len, param->get_name().length());
+                
+            for (const auto& [hash, param] : settings.get_parameters().get_children())
+            {
+                std::cout << "  " << std::left << std::setw(max_name_len) << param->get_name().c_str() << " (";
+
+                if (param->get_type() == adam::configuration_parameter::type_integer) 
+                {
+                    auto* p = static_cast<adam::configuration_parameter_integer*>(param.get());
+                    if (p->get_mode() == adam::configuration_parameter_integer::value_mode_range)
+                        std::cout << "int)    : Range [" << p->get_min_value() << " - " << p->get_max_value() << "]\n";
+                    else std::cout << "int)    : Any\n";
+                }
+            }
+            std::cout << "\n";
+        });
+
+        db.register_command("cli_params", cmd_string_id::desc_cli_params, [&settings](const std::vector<std::string>&, adam::commander&, std::mutex& console_mutex) 
+        {
+            std::lock_guard<std::mutex> lock(console_mutex);
+            std::cout << "\r\033[2K\nCLI parameters:\n";
+            
+            size_t max_name_len = 0;
+            for (const auto& [hash, param] : settings.get_parameters().get_children())
+                max_name_len = std::max(max_name_len, param->get_name().length());
+                
+            for (const auto& [hash, param] : settings.get_parameters().get_children())
+            {
+                std::cout << "  " << std::left << std::setw(max_name_len) << param->get_name().c_str() << " (";
+
+                if (param->get_type() == adam::configuration_parameter::type_integer) 
+                {
+                    auto* p = static_cast<adam::configuration_parameter_integer*>(param.get());
+                    std::cout << "int): " << p->get_value() << "\n";
+                }
+                else if (param->get_type() == adam::configuration_parameter::type_double) 
+                {
+                    auto* p = static_cast<adam::configuration_parameter_double*>(param.get());
+                    std::cout << "double): " << p->get_value() << "\n";
+                }
+                else if (param->get_type() == adam::configuration_parameter::type_string) 
+                {
+                    auto* p = static_cast<adam::configuration_parameter_string*>(param.get());
+                    std::cout << "string): " << p->get_value().c_str() << "\n";
+                }
+                else if (param->get_type() == adam::configuration_parameter::type_boolean) 
+                {
+                    auto* p = static_cast<adam::configuration_parameter_boolean*>(param.get());
+                    std::cout << "bool): " << (p->get_value() ? "true" : "false") << "\n";
+                }
+            }
+            std::cout << "\n";
+        });
+
+        db.register_command("cli_set_param", cmd_string_id::desc_cli_set_param, [&settings](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        {
+            if (params.size() >= 2) 
+            {
+                auto param_hash = adam::string_hashed(params[0].c_str()).get_hash();
+                auto* param = settings.get_parameters().get(param_hash);
+                
+                if (param)
+                {
+                    std::string val_str = params[1];
+                    for (size_t i = 2; i < params.size(); ++i) val_str += " " + params[i];
+
+                    bool valid = false;
+                    try 
+                    {
+                        if (param->get_type() == adam::configuration_parameter::type_integer) 
+                        {
+                            int64_t v = std::stoll(val_str);
+                            if (static_cast<adam::configuration_parameter_integer*>(param)->set_value(v))
+                                valid = true;
+                        }
+                        else if (param->get_type() == adam::configuration_parameter::type_double) 
+                        {
+                            double v = std::stod(val_str);
+                            if (static_cast<adam::configuration_parameter_double*>(param)->set_value(v))
+                                valid = true;
+                        }
+                        else if (param->get_type() == adam::configuration_parameter::type_boolean) 
+                        {
+                            bool v = (val_str == "true" || val_str == "1");
+                            static_cast<adam::configuration_parameter_boolean*>(param)->set_value(v);
+                            valid = true;
+                        }
+                        else if (param->get_type() == adam::configuration_parameter::type_string) 
+                        {
+                            adam::string_hashed v(val_str.c_str());
+                            if (static_cast<adam::configuration_parameter_string*>(param)->set_value(v))
+                                valid = true;
+                        }
+                    }
+                    catch (...) { valid = false; }
+
+                    if (valid)
+                    {
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        std::cout << "\r\033[2K\nParameter '" << params[0] << "' updated successfully.\n\n";
+                    }
+                    else
+                    {
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        adam::stream_log(adam::log::error, get_cli_string(cmd_string_id::err_param_invalid, c.get_language()), std::cout);
+                    }
+                }
+                else
+                {
+                    std::lock_guard<std::mutex> lock(console_mutex);
+                    adam::stream_log(adam::log::error, get_cli_string(cmd_string_id::err_param_not_found, c.get_language()), std::cout);
+                }
+            }
+            else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_cli_set_param, c.get_language()), std::cout); }
+        });
+
         auto clear_func = [](const std::vector<std::string>&, adam::commander&, std::mutex& console_mutex) 
         {
             std::lock_guard<std::mutex> lock(console_mutex);

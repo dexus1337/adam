@@ -4,6 +4,7 @@
 #include "cli-strings.hpp"
 #include "command-database.hpp"
 #include "default-commands.hpp"
+#include "cli-settings.hpp"
 
 #include <csignal>
 #include <iostream>
@@ -15,6 +16,7 @@
 #include <mutex>
 #include <thread>
 #include <algorithm>
+#include <chrono>
 
 struct app_context
 {
@@ -22,6 +24,7 @@ struct app_context
     adam::logger lg;
     adam::logger_sink lgsnk;
     adam::cli::command_database db;
+    adam::cli::cli_settings settings;
 };
 
 static app_context* g_app_ctx = nullptr;
@@ -78,7 +81,9 @@ bool setup(app_context& ctx)
         adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::connected_logger_sink, lang), std::cout);
     }
     
-    adam::cli::register_default_commands(ctx.db, ctx.lgsnk);
+    ctx.settings.load("adam-cli.adamcfg");
+    
+    adam::cli::register_default_commands(ctx.db, ctx.lgsnk, ctx.settings);
 
     return true;
 }
@@ -97,6 +102,8 @@ void teardown(app_context& ctx)
         adam::stream_log(adam::log::error, adam::cli::get_cli_string(adam::cli::cmd_string_id::failed_destroy_commander, lang), std::cerr);
 
     adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::exiting, lang), std::cout);
+    
+    ctx.settings.save("adam-cli.adamcfg");
 }
 
 int main() 
@@ -113,22 +120,75 @@ int main()
     std::string current_input;
     size_t cursor_pos = 0;
 
-    std::thread logger_sink_watcher([&]() 
+    std::atomic<bool> is_running{true};
+    std::thread background_watcher([&]() 
     {
-        while (ctx.lgsnk.queue().is_active())
+        auto last_reconnect_attempt = std::chrono::steady_clock::now() - std::chrono::seconds(5);
+
+        while (is_running)
         {
-            adam::log cur_log;
+            bool commander_active = ctx.cmd.is_active();
+            bool log_sink_active = ctx.lgsnk.is_active();
 
-            if (!ctx.lgsnk.queue().pop(cur_log, 100))
-                continue;
+            if (!commander_active || !log_sink_active)
+            {
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - last_reconnect_attempt).count() >= 5)
+                {
+                    last_reconnect_attempt = now;
 
-            std::lock_guard<std::mutex> lock(console_mutex);
-            std::cout << "\r\033[2K"; // ANSI clear line
-            adam::stream_log(cur_log, std::cout);
-            std::cout << "> " << current_input;
-            if (cursor_pos < current_input.length())
-                std::cout << "\033[" << (current_input.length() - cursor_pos) << "D";
-            std::cout << std::flush;
+                    if (!commander_active)
+                    {
+                        ctx.cmd.destroy();
+                        
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        std::cout << "\r\033[2K" << std::flush;
+                        
+                        if (ctx.cmd.connect())
+                            adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::connected_controller, ctx.cmd.get_language()), std::cout);
+                            
+                        std::cout << "> " << current_input;
+                        if (cursor_pos < current_input.length())
+                            std::cout << "\033[" << (current_input.length() - cursor_pos) << "D";
+                        std::cout << std::flush;
+                    }
+
+                    if (!log_sink_active)
+                    {
+                        ctx.lgsnk.destroy();
+                        
+                        std::lock_guard<std::mutex> lock(console_mutex);
+                        std::cout << "\r\033[2K" << std::flush;
+                        
+                        if (ctx.lgsnk.connect())
+                            adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::connected_logger_sink, ctx.cmd.get_language()), std::cout);
+                            
+                        std::cout << "> " << current_input;
+                        if (cursor_pos < current_input.length())
+                            std::cout << "\033[" << (current_input.length() - cursor_pos) << "D";
+                        std::cout << std::flush;
+                    }
+                }
+            }
+
+            if (ctx.lgsnk.queue().is_active())
+            {
+                adam::log cur_log;
+                if (!ctx.lgsnk.queue().pop(cur_log, 100))
+                    continue;
+
+                std::lock_guard<std::mutex> lock(console_mutex);
+                std::cout << "\r\033[2K"; // ANSI clear line
+                adam::stream_log(cur_log, std::cout);
+                std::cout << "> " << current_input;
+                if (cursor_pos < current_input.length())
+                    std::cout << "\033[" << (current_input.length() - cursor_pos) << "D";
+                std::cout << std::flush;
+            }
+            else
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
         }
     });
 
@@ -167,7 +227,7 @@ int main()
             
             if (input.empty())
             {
-                std::cout << "> " << std::flush;
+                refresh_line();
                 continue;
             }
             
@@ -304,7 +364,42 @@ int main()
                         for (const auto& [hash, info] : ctx.cmd.get_configs().get_available())
                             candidates.push_back(std::string(hash.c_str()));
                     }
+                    else if (cmd == "cli_set_param")
+                    {
+                        for (const auto& [hash, p] : ctx.settings.get_parameters().get_children())
+                            candidates.push_back(std::string(p->get_name().c_str()));
+                    }
                     
+                    if (!candidates.empty()) handle_matches(candidates, arg, base);
+                }
+                else if ((tokens[0] == "conn_set_fmt_in" || tokens[0] == "conn_set_fmt_out") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    std::unordered_set<std::string> unique_formats;
+                    for (const auto& [hash, info] : ctx.cmd.get_modules().database())
+                    {
+                        for (const auto& fmt : info.data_formats)
+                            unique_formats.insert(std::string(fmt.c_str()));
+                    }
+                    std::vector<std::string> candidates(unique_formats.begin(), unique_formats.end());
+                    if (!candidates.empty()) handle_matches(candidates, arg, base);
+                }
+                else if ((tokens[0] == "conn_set_fmt_in" || tokens[0] == "conn_set_fmt_out") && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                {
+                    std::string format_name = tokens[2];
+                    std::string arg = (tokens.size() == 4) ? tokens[3] : "";
+                    std::vector<std::string> candidates;
+                    for (const auto& [hash, info] : ctx.cmd.get_modules().database())
+                    {
+                        for (const auto& fmt : info.data_formats)
+                        {
+                            if (fmt.get_hash() == adam::string_hashed(format_name.c_str()).get_hash())
+                            {
+                                candidates.push_back(std::string(info.name.c_str()));
+                                break;
+                            }
+                        }
+                    }
                     if (!candidates.empty()) handle_matches(candidates, arg, base);
                 }
                 else if (tokens[0] == "port_create" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
@@ -320,6 +415,31 @@ int main()
                             candidates.push_back(std::string(p.name.c_str()));
                     }
                     if (!candidates.empty()) handle_matches(candidates, arg, base);
+                }
+                
+                else if (tokens[0] == "cli_set_param" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string param_name = tokens[1];
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    auto* param = ctx.settings.get_parameters().get(adam::string_hashed(param_name.c_str()).get_hash());
+                    if (param)
+                    {
+                        std::vector<std::string> candidates;
+                        if (param->get_type() == adam::configuration_parameter::type_boolean)
+                        {
+                            candidates = {"true", "false"};
+                        }
+                        else if (param->get_type() == adam::configuration_parameter::type_string)
+                        {
+                            auto* p = static_cast<adam::configuration_parameter_string*>(param);
+                            if (p->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                            {
+                                for (const auto& [phash, pval] : p->get_presets())
+                                    candidates.push_back(std::string(pval->get_value().c_str()));
+                            }
+                        }
+                        if (!candidates.empty()) handle_matches(candidates, arg, base);
+                    }
                 }
                 else if (tokens[0] == "port_set_param" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
                 {
@@ -404,6 +524,26 @@ int main()
                             if (!candidates.empty()) handle_matches(candidates, arg, base);
                         }
                     }
+                }
+                else if (tokens[0] == "conn_inspect" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    std::vector<std::string> candidates = {"in", "out"};
+                    handle_matches(candidates, arg, base);
+                }
+                else if ((tokens[0] == "conn_add_port" || tokens[0] == "conn_rm_port") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    std::vector<std::string> candidates;
+                    for (const auto& [hash, p] : ctx.cmd.get_registry().get_ports())
+                        candidates.push_back(std::string(p->name.c_str()));
+                    if (!candidates.empty()) handle_matches(candidates, arg, base);
+                }
+                else if ((tokens[0] == "conn_add_port" || tokens[0] == "conn_rm_port") && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                {
+                    std::string arg = (tokens.size() == 4) ? tokens[3] : "";
+                    std::vector<std::string> candidates = {"in", "out"};
+                    handle_matches(candidates, arg, base);
                 }
                 else if ((tokens[0] == "conn_add_proc" || tokens[0] == "conn_rm_proc" || tokens[0] == "conn_reorder_proc") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
                 {
@@ -522,12 +662,13 @@ int main()
         
         {
             std::lock_guard<std::mutex> lock(console_mutex);
-            std::cout << "> " << std::flush;
+            refresh_line();
         }
     }
 
+    is_running = false;
     ctx.lgsnk.queue().disable();
-    logger_sink_watcher.join();
+    background_watcher.join();
 
     if (g_term_mgr)
     {
