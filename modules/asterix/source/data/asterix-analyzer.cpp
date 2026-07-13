@@ -137,7 +137,7 @@ namespace adam::modules::asterix
                     };
 
                     uint8_t frn = 1;
-                    for (auto it = rec.begin(); it != rec.end(); ++it, ++frn)
+                    for (auto it = rec.begin(); it != rec.end() && (!used_uap || frn <= used_uap->get_highest_frn()); ++it, ++frn)
                     {
                         process_item(process_item, &(*it), frn, used_uap, 0);
                     }

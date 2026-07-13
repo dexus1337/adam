@@ -353,12 +353,37 @@ namespace adam::gui
             std::erase_if(port_data.expanded_nodes, [&](size_t idx) { return idx >= flat_rows.size(); });
 
             float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
-            ImGuiListClipper clipper;
-            clipper.Begin(static_cast<int>(flat_rows.size()), row_height);
-            while (clipper.Step())
+            static std::map<std::pair<size_t, size_t>, float> expanded_heights;
+            float scroll_y = ImGui::GetScrollY();
+            float window_h = ImGui::GetWindowHeight();
+            float top_dummy_h = 0.0f, bottom_dummy_h = 0.0f, total_h = 0.0f;
+            int display_start = 0, display_end = 0;
+            for (int i = 0; i < (int)flat_rows.size(); ++i) {
+                float item_h = row_height;
+                if (port_data.expanded_nodes.count(i)) {
+                    float expanded_h = 100.0f; 
+                    auto it = expanded_heights.find(flat_rows[i]);
+                    if (it != expanded_heights.end()) expanded_h = it->second;
+                    item_h += expanded_h;
+                }
+                if (total_h + item_h < scroll_y) {
+                    display_start = i + 1;
+                    top_dummy_h += item_h;
+                } else if (total_h < scroll_y + window_h) {
+                    display_end = i + 1;
+                } else {
+                    bottom_dummy_h += item_h;
+                }
+                total_h += item_h;
+            }
+            if (display_end < display_start) display_end = display_start;
+            
+            if (top_dummy_h > 0.0f && table_open) {
+                ImGui::TableNextRow(ImGuiTableRowFlags_None, top_dummy_h);
+            }
+            
+            for (int i = display_start; i < display_end; ++i)
             {
-                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
-                {
                     size_t b_idx = flat_rows[i].first;
                     size_t r_idx = flat_rows[i].second;
 
@@ -446,6 +471,8 @@ namespace adam::gui
                             table_open = false;
                         }
 
+                        float start_y = ImGui::GetCursorPosY();
+
                         ImGui::PushID(i);
                         float expand_indent = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().CellPadding.x;
                         float sub_table_w = inner_avail_w - expand_indent * 2.0f;
@@ -498,10 +525,17 @@ namespace adam::gui
                         ImGui::Unindent(expand_indent);
                         ImGui::PopID();
 
-                        table_open = ImGui::BeginTable("InspectorAnalyzerInner", num_cols, inner_flags);
+                        float end_y = ImGui::GetCursorPosY();
+                        expanded_heights[flat_rows[i]] = end_y - start_y;
+
+                        std::string next_table_id = "InspectorAnalyzerInner_" + std::to_string(i);
+                        table_open = ImGui::BeginTable(next_table_id.c_str(), num_cols, inner_flags);
                         if (table_open) setup_analyzer_columns();
                     }
                 }
+
+            if (bottom_dummy_h > 0.0f && table_open) {
+                ImGui::TableNextRow(ImGuiTableRowFlags_None, bottom_dummy_h);
             }
 
             if (table_open) ImGui::EndTable();
