@@ -1710,7 +1710,7 @@ namespace adam
             auto params = cmds->get_data_as<messages::port_action_data>();
             auto it = ctx.reg.ports().find(params->port);
 
-            if (it != ctx.reg.ports().end() && it->second->is_started())
+            if (it != ctx.reg.ports().end() && it->second->is_running())
             {
                 ctx.ctrl.log(log::warning, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::port_already_started, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, it->second->get_name().c_str());
                 ctx.set_single_response_status(response_status::success);

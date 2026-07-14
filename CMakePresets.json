@@ -60,6 +60,7 @@
         },
         {
             "name": "linux-pi-base",
+            "inherits": "linux-base",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_RPATH": "./",

@@ -6,6 +6,41 @@
 #include <thread>
 #include <chrono>
 
+#ifdef _WIN32
+#include <windows.h>
+DWORD orig_console_mode;
+void disable_echo() 
+{
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    if (hStdin == INVALID_HANDLE_VALUE) return;
+    GetConsoleMode(hStdin, &orig_console_mode);
+    SetConsoleMode(hStdin, orig_console_mode & ~ENABLE_ECHO_INPUT);
+}
+void restore_echo() 
+{
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    if (hStdin == INVALID_HANDLE_VALUE) return;
+    SetConsoleMode(hStdin, orig_console_mode);
+}
+#else
+#include <termios.h>
+#include <unistd.h>
+struct termios orig_termios;
+void disable_echo() 
+{
+    if (!isatty(STDIN_FILENO)) return;
+    tcgetattr(STDIN_FILENO, &orig_termios);
+    struct termios raw = orig_termios;
+    raw.c_lflag &= ~(ECHO);
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+void restore_echo() 
+{
+    if (!isatty(STDIN_FILENO)) return;
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+}
+#endif
+
 std::atomic<bool> running{true};
 
 void signal_handler(int signal) 
@@ -18,6 +53,8 @@ void signal_handler(int signal)
 
 int main() 
 {
+    disable_echo();
+
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
 
@@ -28,14 +65,9 @@ int main()
     if (!controller.run(true))
     {
         controller.log(adam::log::error, "CRITICAL: failed to start adam!");
+        restore_echo();
         return 1;
     }
-
-    std::thread([]() 
-    {
-        if (getchar() != EOF) 
-            running = false;
-    }).detach();
 
     while (running)
     {
@@ -53,5 +85,6 @@ int main()
         controller.log(adam::log::error, std::format("os description \"{:s}\" (code {:d})", e.what(), e.code().value()));
     }
 
+    restore_echo();
     return 0;
 }

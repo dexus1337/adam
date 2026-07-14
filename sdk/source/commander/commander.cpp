@@ -788,8 +788,7 @@ namespace adam
         }
 
         command cmd(command_type::processor_create);
-        buffer_handle handle;
-        cmd.data_as<processor::basic_info>()->setup(name, type, type_module, false, handle);
+        cmd.data_as<processor::basic_info>()->setup(name, type, type_module, false);
 
         return send_command(cmd);
     }

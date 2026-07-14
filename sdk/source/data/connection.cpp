@@ -186,7 +186,7 @@ namespace adam
         {
             for (auto* in : inputs) 
             {
-                if (!in->is_started())
+                if (!in->is_running())
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
@@ -199,7 +199,7 @@ namespace adam
         {
             for (auto* out : outputs) 
             {
-                if (!out->is_started())
+                if (!out->is_running())
                 {
                     command cmd(command_type::port_start);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
@@ -239,7 +239,7 @@ namespace adam
         {
             for (auto* in : inputs) 
             {
-                if (in->is_started() && !is_used_elsewhere(in))
+                if (in->is_running() && !is_used_elsewhere(in))
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
@@ -252,7 +252,7 @@ namespace adam
         {
             for (auto* out : outputs) 
             {
-                if (out->is_started() && !is_used_elsewhere(out))
+                if (out->is_running() && !is_used_elsewhere(out))
                 {
                     command cmd(command_type::port_stop);
                     cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
