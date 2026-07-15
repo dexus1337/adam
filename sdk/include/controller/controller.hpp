@@ -226,6 +226,8 @@ namespace adam
             std::unordered_map<os::thread_id, queue_slave_instance_data<queue_type>*>& queue_list
         );
 
+        mutable std::atomic_flag m_queues_lock = ATOMIC_FLAG_INIT;
+
         // REQUEST/CMD QUEUES
 
         using queue_command                                         = queue_shared_duplex<command, response>;           /**< Cmd/resp queue type */
