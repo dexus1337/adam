@@ -35,18 +35,15 @@ void signal_handler(int signal)
 {
     if (signal == SIGINT) 
     {
+        #ifndef ADAM_PLATFORM_LINUX
         std::cout << "\n";
         if (g_term_mgr)
         {
             delete g_term_mgr;
             g_term_mgr = nullptr;
         }
-        if (g_app_ctx)
-        {
-            g_app_ctx->lgsnk.queue().disable();
-            teardown(*g_app_ctx);
-        }
-        std::exit(0);
+        std::_Exit(0);
+        #endif
     }
 }
 
@@ -108,7 +105,15 @@ void teardown(app_context& ctx)
 
 int main() 
 {
+    #ifdef ADAM_PLATFORM_LINUX
+    struct sigaction sa;
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0; // No SA_RESTART
+    sigaction(SIGINT, &sa, nullptr);
+    #else
     std::signal(SIGINT, signal_handler);
+    #endif
 
     app_context ctx;
     g_app_ctx = &ctx;
