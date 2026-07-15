@@ -200,7 +200,6 @@ namespace adam
 
         m_master_queue.destroy();
 
-        adam::spinlock::acquire(m_queues_lock);
         for (auto& [tid, q] : m_queues_command)
         {
             q->queue.disable();
@@ -246,7 +245,6 @@ namespace adam
             delete q;
         }
         m_queues_event.clear();
-        adam::spinlock::release(m_queues_lock);
 
         m_registry.save("adam-config.adamcfg");
 
@@ -266,7 +264,6 @@ namespace adam
     
     void controller::broadcast_event(const event& e)
     {
-        adam::spinlock::guard guard(m_queues_lock);
         for (const auto& [tid, queue] : m_queues_event)
         {
             queue->push(e);
@@ -277,7 +274,6 @@ namespace adam
     {
         stream_log(cr_log, m_log_outstream);
 
-        adam::spinlock::acquire(m_queues_lock);
         // Push the log into our sink
         for (const auto& [tid, queue] : m_queues_log_sink)
         {
@@ -288,14 +284,12 @@ namespace adam
             
             queue->push(cr_log);
         }
-        adam::spinlock::release(m_queues_lock);
     }
 
     const char* controller::get_client_name(os::thread_id tid) const
     {
         static const char* unknown = "unknown";
 
-        adam::spinlock::guard guard(m_queues_lock);
         auto it = m_client_names.find(tid);
         if (it != m_client_names.end())
         {
@@ -336,13 +330,10 @@ namespace adam
         const char* prefix
     )
     {
-        adam::spinlock::acquire(m_queues_lock);
         auto it = queue_list.find(tid);
-        bool exists = it != queue_list.end();
-        adam::spinlock::release(m_queues_lock);
         
         // if it already is in the queue it has be running as expected
-        if (exists)
+        if (it != queue_list.end())
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
@@ -364,12 +355,9 @@ namespace adam
             return false;
         }
 
-        adam::spinlock::acquire(m_queues_lock);
         auto ins = queue_list.emplace(tid, new_queue);
-        bool inserted = ins.second;
-        adam::spinlock::release(m_queues_lock);
         
-        if (!inserted)
+        if (!ins.second)
         {
             delete new_queue;
 
@@ -392,13 +380,10 @@ namespace adam
         worker_fn fn
     )
     {
-        adam::spinlock::acquire(m_queues_lock);
         auto it = queue_list.find(tid);
-        bool exists = it != queue_list.end();
-        adam::spinlock::release(m_queues_lock);
         
         // if it already is in the queue it has be running as expected
-        if (exists)
+        if (it != queue_list.end())
         {
             m_master_queue.response_queue().push(status_queue_existing);
 
@@ -422,12 +407,9 @@ namespace adam
 
         new_queue->queue_thread = std::thread(fn, this, new_queue);
         
-        adam::spinlock::acquire(m_queues_lock);
         auto ins = queue_list.emplace(tid, new_queue);
-        bool inserted = ins.second;
-        adam::spinlock::release(m_queues_lock);
 
-        if (!inserted)
+        if (!ins.second)
         {
             new_queue->queue.disable();
 
@@ -452,12 +434,9 @@ namespace adam
         std::unordered_map<os::thread_id, queue_type*>& queue_list
     )
     {
-        adam::spinlock::acquire(m_queues_lock);
         auto it = queue_list.find(tid);
-        bool exists = it != queue_list.end();
-        adam::spinlock::release(m_queues_lock);
 
-        if (!exists)
+        if (it == queue_list.end())
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
@@ -466,15 +445,9 @@ namespace adam
             return false;
         }
 
-        adam::spinlock::acquire(m_queues_lock);
-        it = queue_list.find(tid);
-        auto* ptr = it->second;
-        queue_list.erase(it);
-        adam::spinlock::release(m_queues_lock);
+        it->second->disable();
 
-        ptr->disable();
-
-        if (!ptr->destroy())
+        if (!it->second->destroy())
         {
             m_master_queue.response_queue().push(status_queue_failed_destroy);
 
@@ -483,7 +456,9 @@ namespace adam
             return false;
         }
 
-        delete ptr;
+        delete it->second;
+
+        queue_list.erase(it);
 
         return true;
     }
@@ -495,12 +470,9 @@ namespace adam
         std::unordered_map<os::thread_id, queue_slave_instance_data<queue_type>*>& queue_list
     )
     {
-        adam::spinlock::acquire(m_queues_lock);
         auto it = queue_list.find(tid);
-        bool exists = it != queue_list.end();
-        adam::spinlock::release(m_queues_lock);
 
-        if (!exists)
+        if (it == queue_list.end())
         {
             m_master_queue.response_queue().push(status_queue_not_existing);
 
@@ -508,33 +480,17 @@ namespace adam
 
             return false;
         }
-        
-        adam::spinlock::acquire(m_queues_lock);
-        it = queue_list.find(tid);
-        auto* ptr = it->second;
-        queue_list.erase(it);
-        adam::spinlock::release(m_queues_lock);
 
-        ptr->queue.disable();
+        it->second->queue.disable();
 
-        if (ptr->queue_thread.joinable())
-        {
-            if (ptr->queue_thread.get_id() == std::this_thread::get_id())
-                ptr->queue_thread.detach();
-            else
-                ptr->queue_thread.join();
-        }
+        it->second->queue_thread.join();
 
-        if (!ptr->queue.destroy())
-        {
-            m_master_queue.response_queue().push(status_queue_failed_destroy);
-
+        if (!it->second->queue.destroy())
             this->log(log::error, get_log_event_text(log_event::slave_queue_worker_failed_to_destroy, get_language()), get_client_name(tid), tid);
 
-            return false;
-        }
+        delete it->second;
 
-        delete ptr;
+        queue_list.erase(it);
 
         return true;
     }
@@ -549,11 +505,7 @@ namespace adam
                 continue;
                 
             if (req.client_name[0] != '\0')
-            {
-                adam::spinlock::acquire(m_queues_lock);
                 m_client_names[req.tid] = string_hashed(&req.client_name[0]);
-                adam::spinlock::release(m_queues_lock);
-            }
 
             // check secret to only allow (basic) authenticated users
             if (req.tid != reverse_secret(req.code))
@@ -638,7 +590,6 @@ namespace adam
                 
                 bool has_other_queues = false;
 
-                adam::spinlock::acquire(m_queues_lock);
                 if (m_queues_command.count(req.tid))
                     has_other_queues = true;
                 else if (m_queues_event.count(req.tid))
@@ -650,7 +601,6 @@ namespace adam
 
                 if (!has_other_queues)
                     m_client_names.erase(req.tid);
-                adam::spinlock::release(m_queues_lock);
             }
 
             m_master_queue.response_queue().push(status_success);
