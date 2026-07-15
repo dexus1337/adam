@@ -179,7 +179,7 @@ namespace adam::modules::network
         }
 
         // --- Local interface bind ---
-        std::string resolved_ip;
+        adam::string_hashed resolved_ip;
         if (!resolve_local_interface_to_ip
         (
             m_interface->get_value(),
@@ -198,7 +198,7 @@ namespace adam::modules::network
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
 
-        if (!resolve_address(adam::string_hashed(resolved_ip.c_str()), static_cast<int>(m_interface_port->get_value()), m_ip_version->get_value(), local_addr, local_addr_len, SOCK_STREAM))
+        if (!resolve_address(resolved_ip, static_cast<int>(m_interface_port->get_value()), m_ip_version->get_value(), local_addr, local_addr_len, SOCK_STREAM))
         {
             log_network_message(log::error, log_event::tcp_address_resolution_failed, "TCP-Client", std::format("({}:{})", resolved_ip.c_str(), m_interface_port->get_value()));
             close_and_clear_socket(sock);

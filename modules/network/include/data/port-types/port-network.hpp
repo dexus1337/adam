@@ -94,9 +94,9 @@ namespace adam::modules::network
     {
         adam::string_hashed friendly_name;
         adam::string_hashed adapter_name;
-        std::vector<std::string> ipv4_addresses;
-        std::vector<std::string> ipv4_broadcasts;
-        std::vector<std::string> ipv6_addresses;
+        std::vector<adam::string_hashed> ipv4_addresses;
+        std::vector<adam::string_hashed> ipv4_broadcasts;
+        std::vector<adam::string_hashed> ipv6_addresses;
         unsigned int index = 0;
     };
 
@@ -106,9 +106,9 @@ namespace adam::modules::network
         explicit port_network(const string_hashed& item_name, uint32_t state_buffer_size = (sizeof(state_buffer_data) / sizeof(uintptr_t) + 1) * sizeof(uintptr_t));
         virtual ~port_network() = default;
 
-        adam::string_hashed get_active_interface() const;
-        const std::string& get_active_ip() const { return m_active_ip; }
-        int get_active_port() const { return m_active_port; }
+        const adam::string_hashed& get_active_interface()   const { return m_active_interface; }
+        const adam::string_hashed& get_active_ip()          const { return m_active_ip; }
+        int get_active_port()                               const { return m_active_port; }
 
     protected:
         void resolve_active_ip(uintptr_t socket_handle);
@@ -123,7 +123,6 @@ namespace adam::modules::network
         // Error code translation
         static int get_last_error();
         static void close_socket(socket_t& s);
-        void close_and_clear_socket(socket_t& s);
         static bool set_nonblocking(socket_t s, bool non_blocking);
         static bool is_blocking_error(int error);
         static socket_error_t resolve_socket_error(int os_error);
@@ -139,14 +138,14 @@ namespace adam::modules::network
         static std::vector<adapter_info>& get_adapter_cache();
         static void refresh_adapter_cache();
         static std::vector<std::string> get_system_interfaces();
-        static std::string resolve_auto_interface_for_remote(const adam::string_hashed& remote_ip, int remote_port, const adam::string_hashed& ip_version);
-        static std::string resolve_interface_to_ip(const adam::string_hashed& interface_name, int family);
+        static adam::string_hashed resolve_auto_interface_for_remote(const adam::string_hashed& remote_ip, int remote_port, const adam::string_hashed& ip_version);
+        static adam::string_hashed resolve_interface_to_ip(const adam::string_hashed& interface_name, int family);
 
         static bool resolve_local_interface_to_ip(const adam::string_hashed& interface_val,
                                                   const adam::string_hashed& remote_ip,
                                                   int remote_port,
                                                   const adam::string_hashed& ip_version,
-                                                  std::string& resolved_ip);
+                                                  adam::string_hashed& resolved_ip);
         static unsigned int get_interface_index(const adam::string_hashed& interface_val,
                                                 const adam::string_hashed& dest_ip,
                                                 int dest_port,
@@ -163,13 +162,15 @@ namespace adam::modules::network
                                          int sock_type,
                                          sockaddr_storage& out_addr,
                                          int& out_addr_len,
-                                         std::string& resolved_ip);
+                                         adam::string_hashed& resolved_ip);
 
+        void close_and_clear_socket(socket_t& s);
+        
         // Robust Send Helpers
         bool send_all(socket_t sock, const char* data, size_t size);
         bool send_all_nonblocking(socket_t sock, const char* data, size_t size);
 
-        std::string         m_active_ip;
+        adam::string_hashed m_active_ip;
         adam::string_hashed m_active_interface;
         int                 m_active_port = 0;
     };

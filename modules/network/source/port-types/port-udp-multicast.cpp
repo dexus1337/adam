@@ -96,7 +96,7 @@ namespace adam::modules::network
         // --- Resolve local bind address ---
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
-        std::string      resolved_ip;
+        adam::string_hashed resolved_ip;
 
         if (!resolve_local_interface_to_ip(m_interface->get_value(),
                                            m_multicast_ip->get_value(),
@@ -109,12 +109,12 @@ namespace adam::modules::network
         }
 
         #if defined(ADAM_PLATFORM_LINUX)
-        std::string bind_interface = (resolved_ip.find(':') != std::string::npos) ? "::" : "0.0.0.0";
+        adam::string_hashed bind_interface = (std::string_view(resolved_ip.c_str()).find(':') != std::string_view::npos) ? "::"_ct : "0.0.0.0"_ct;
         #else
-        std::string bind_interface = resolved_ip;
+        adam::string_hashed bind_interface = resolved_ip;
         #endif
 
-        if (!resolve_address(adam::string_hashed(bind_interface.c_str()),
+        if (!resolve_address(bind_interface,
                              static_cast<int>(m_interface_port->get_value()),
                              m_ip_version->get_value(), local_addr, local_addr_len, SOCK_DGRAM))
         {

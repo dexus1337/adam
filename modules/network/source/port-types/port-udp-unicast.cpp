@@ -78,7 +78,7 @@ namespace adam::modules::network
         // --- Resolve the local bind address ---
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
-        std::string      resolved_ip;
+        adam::string_hashed resolved_ip;
 
         if (!resolve_bind_address(m_interface->get_value(),
                                   m_remote_ip->get_value(),

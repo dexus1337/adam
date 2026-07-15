@@ -82,7 +82,7 @@ namespace adam::modules::network
         // --- Resolve the local listen address ---
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
-        std::string      resolved_ip;
+        adam::string_hashed resolved_ip;
 
         if (!resolve_bind_address(m_interface->get_value(), "", 0,
                                   static_cast<int>(m_interface_port->get_value()),

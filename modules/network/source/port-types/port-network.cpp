@@ -174,17 +174,6 @@ namespace adam::modules::network
         get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
     }
 
-    adam::string_hashed port_network::get_active_interface() const
-    {
-        if (!m_active_interface.empty())
-        {
-            return m_active_interface;
-        }
-        return get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct)
-            ->get<adam::configuration_parameter_string>("interface"_ct)
-            ->get_value();
-    }
-
     void port_network::resolve_active_ip(uintptr_t socket_handle)
     {
         socket_t sock = static_cast<socket_t>(socket_handle);
@@ -218,7 +207,7 @@ namespace adam::modules::network
                 ::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str));
                 local_port = ntohs(sa->sin6_port);
             }
-            m_active_ip = addr_str;
+            m_active_ip = string_hashed(&addr_str[0]);
             m_active_port = local_port;
 
             // Resolve the active interface name from adapter cache
@@ -269,7 +258,7 @@ namespace adam::modules::network
             if (lvl == log::error || lvl == log::warning)
             {
                 std::string iface_val = m_active_interface;
-                std::string ip_val = m_active_ip;
+                std::string ip_val = m_active_ip.c_str() ? m_active_ip.c_str() : "";
                 int64_t port_val = m_active_port;
 
                 auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
@@ -361,12 +350,6 @@ namespace adam::modules::network
             #endif
             s = invalid_socket_val;
         }
-    }
-
-    void port_network::close_and_clear_socket(socket_t& s)
-    {
-        close_socket(s);
-        resolve_active_ip(invalid_socket_val);
     }
 
     bool port_network::set_nonblocking(socket_t s, bool non_blocking)
@@ -562,12 +545,12 @@ namespace adam::modules::network
                                 auto* sa = reinterpret_cast<sockaddr_in*>(p_unicast->Address.lpSockaddr);
                                 if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)))
                                 {
-                                    info.ipv4_addresses.push_back(addr_str);
+                                    info.ipv4_addresses.push_back(adam::string_hashed(addr_str));
                                     
                                     uint32_t ip_host = ntohl(sa->sin_addr.s_addr);
                                     if (ip_host == 0x7F000001) // 127.0.0.1
                                     {
-                                        info.ipv4_broadcasts.push_back("127.0.0.1");
+                                        info.ipv4_broadcasts.push_back(adam::string_hashed("127.0.0.1"));
                                     }
                                     else
                                     {
@@ -581,11 +564,11 @@ namespace adam::modules::network
                                         char broad_str[INET_ADDRSTRLEN]{};
                                         if (::inet_ntop(AF_INET, &broad_addr, broad_str, sizeof(broad_str)))
                                         {
-                                            info.ipv4_broadcasts.push_back(broad_str);
+                                            info.ipv4_broadcasts.push_back(adam::string_hashed(broad_str));
                                         }
                                         else
                                         {
-                                            info.ipv4_broadcasts.push_back("255.255.255.255");
+                                            info.ipv4_broadcasts.push_back(adam::string_hashed("255.255.255.255"));
                                         }
                                     }
                                 }
@@ -595,7 +578,7 @@ namespace adam::modules::network
                                 auto* sa = reinterpret_cast<sockaddr_in6*>(p_unicast->Address.lpSockaddr);
                                 if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)))
                                 {
-                                    info.ipv6_addresses.push_back(addr_str);
+                                    info.ipv6_addresses.push_back(adam::string_hashed(addr_str));
                                 }
                             }
                         }
@@ -633,7 +616,7 @@ namespace adam::modules::network
                     auto* sa = reinterpret_cast<sockaddr_in*>(ifa->ifa_addr);
                     if (::inet_ntop(AF_INET, &sa->sin_addr, addr_str, sizeof(addr_str)))
                     {
-                        info.ipv4_addresses.push_back(addr_str);
+                        info.ipv4_addresses.push_back(string_hashed(&addr_str[0]));
                         
                         std::string broad_str = "255.255.255.255";
                         if (sa->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
@@ -649,7 +632,7 @@ namespace adam::modules::network
                                 broad_str = b_str;
                             }
                         }
-                        info.ipv4_broadcasts.push_back(broad_str);
+                        info.ipv4_broadcasts.push_back(adam::string_hashed(broad_str.c_str()));
                     }
                 }
                 else if (ifa->ifa_addr->sa_family == AF_INET6)
@@ -657,7 +640,7 @@ namespace adam::modules::network
                     auto* sa = reinterpret_cast<sockaddr_in6*>(ifa->ifa_addr);
                     if (::inet_ntop(AF_INET6, &sa->sin6_addr, addr_str, sizeof(addr_str)))
                     {
-                        info.ipv6_addresses.push_back(addr_str);
+                        info.ipv6_addresses.push_back(string_hashed(&addr_str[0]));
                     }
                 }
             }
@@ -691,28 +674,28 @@ namespace adam::modules::network
         return interfaces;
     }
 
-    std::string port_network::resolve_auto_interface_for_remote(const adam::string_hashed& remote_ip, int remote_port, const adam::string_hashed& ip_version)
+    adam::string_hashed port_network::resolve_auto_interface_for_remote(const adam::string_hashed& remote_ip, int remote_port, const adam::string_hashed& ip_version)
     {
         if (remote_ip.empty())
-            return "";
+            return adam::string_hashed();
 
         sockaddr_storage dest_addr{};
         int dest_addr_len = 0;
         if (!resolve_address(remote_ip, remote_port, ip_version, dest_addr, dest_addr_len, SOCK_DGRAM))
         {
-            return "";
+            return adam::string_hashed();
         }
 
         socket_t temp_sock = ::socket(dest_addr.ss_family, SOCK_DGRAM, IPPROTO_UDP);
         if (temp_sock == invalid_socket_val)
         {
-            return "";
+            return adam::string_hashed();
         }
 
         if (::connect(temp_sock, reinterpret_cast<sockaddr*>(&dest_addr), dest_addr_len) == socket_error_val)
         {
             close_socket(temp_sock);
-            return "";
+            return adam::string_hashed();
         }
 
         sockaddr_storage local_addr{};
@@ -725,7 +708,7 @@ namespace adam::modules::network
         if (::getsockname(temp_sock, reinterpret_cast<sockaddr*>(&local_addr), &local_addr_len) == socket_error_val)
         {
             close_socket(temp_sock);
-            return "";
+            return adam::string_hashed();
         }
 
         close_socket(temp_sock);
@@ -736,7 +719,7 @@ namespace adam::modules::network
             auto* sa = reinterpret_cast<sockaddr_in*>(&local_addr);
             if (::inet_ntop(AF_INET, &sa->sin_addr, local_ip_str, sizeof(local_ip_str)))
             {
-                return local_ip_str;
+                return string_hashed(&local_ip_str[0]);
             }
         }
         else if (local_addr.ss_family == AF_INET6)
@@ -744,18 +727,18 @@ namespace adam::modules::network
             auto* sa = reinterpret_cast<sockaddr_in6*>(&local_addr);
             if (::inet_ntop(AF_INET6, &sa->sin6_addr, local_ip_str, sizeof(local_ip_str)))
             {
-                return local_ip_str;
+                return string_hashed(&local_ip_str[0]);
             }
         }
 
-        return "";
+        return adam::string_hashed();
     }
 
-    std::string port_network::resolve_interface_to_ip(const adam::string_hashed& interface_name, int family)
+    adam::string_hashed port_network::resolve_interface_to_ip(const adam::string_hashed& interface_name, int family)
     {
         if (interface_name.empty() || interface_name == "auto"_ct)
         {
-            return "";
+            return adam::string_hashed();
         }
 
         auto& cache = get_adapter_cache();
@@ -778,18 +761,18 @@ namespace adam::modules::network
                 }
                 if (family == AF_UNSPEC)
                 {
-                    return !info.ipv4_addresses.empty() ? info.ipv4_addresses.front() : (!info.ipv6_addresses.empty() ? info.ipv6_addresses.front() : "");
+                    return !info.ipv4_addresses.empty() ? info.ipv4_addresses.front() : (!info.ipv6_addresses.empty() ? info.ipv6_addresses.front() : adam::string_hashed());
                 }
             }
         }
-        return "";
+        return adam::string_hashed();
     }
 
     bool port_network::resolve_local_interface_to_ip(const adam::string_hashed& interface_val,
                                                      const adam::string_hashed& remote_ip,
                                                      int remote_port,
                                                      const adam::string_hashed& ip_version,
-                                                     std::string& resolved_ip)
+                                                     adam::string_hashed& resolved_ip)
     {
         int family = AF_UNSPEC;
         if (ip_version == "ipv4"_ct) family = AF_INET;
@@ -814,7 +797,7 @@ namespace adam::modules::network
                     return true;
                 }
             }
-            resolved_ip = (family == AF_INET6) ? "::" : "0.0.0.0";
+            resolved_ip = adam::string_hashed((family == AF_INET6) ? "::" : "0.0.0.0");
             return true;
         }
 
@@ -845,7 +828,7 @@ namespace adam::modules::network
         {
             if (!dest_ip.empty())
             {
-                std::string local_ip = resolve_auto_interface_for_remote(dest_ip, dest_port, ip_version);
+                adam::string_hashed local_ip = resolve_auto_interface_for_remote(dest_ip, dest_port, ip_version);
                 if (!local_ip.empty())
                 {
                     auto& cache = get_adapter_cache();
@@ -911,13 +894,19 @@ namespace adam::modules::network
                                             int sock_type,
                                             sockaddr_storage& out_addr,
                                             int& out_addr_len,
-                                            std::string& resolved_ip)
+                                            adam::string_hashed& resolved_ip)
     {
         if (!resolve_local_interface_to_ip(interface_val, remote_ip, remote_port, ip_version, resolved_ip))
         {
             return false;
         }
-        return resolve_address(adam::string_hashed(resolved_ip.c_str()), local_port, ip_version, out_addr, out_addr_len, sock_type);
+        return resolve_address(resolved_ip, local_port, ip_version, out_addr, out_addr_len, sock_type);
+    }
+
+    void port_network::close_and_clear_socket(socket_t& s)
+    {
+        close_socket(s);
+        resolve_active_ip(invalid_socket_val);
     }
 
     bool port_network::send_all(socket_t sock, const char* data, size_t size)

@@ -80,7 +80,7 @@ namespace adam::modules::network
         // --- Resolve local bind address (always IPv4) ---
         sockaddr_storage local_addr{};
         int              local_addr_len = 0;
-        std::string      resolved_ip;
+        adam::string_hashed resolved_ip;
 
         if (!resolve_bind_address(m_interface->get_value(),
                                   m_broadcast_ip->get_value(),
@@ -92,6 +92,36 @@ namespace adam::modules::network
             log_network_socket_error(log::error, log_event::socket_bind_failed, socket_error_t::error_address_invalid, "UDP-Broadcast");
             return false;
         }
+
+        // --- Resolve broadcast IP ---
+        adam::string_hashed target_broadcast = m_broadcast_ip->get_value();
+        if (target_broadcast.empty() || target_broadcast == "auto"_ct)
+        {
+            target_broadcast = "255.255.255.255"_ct;
+            if (!resolved_ip.empty() && resolved_ip != "0.0.0.0"_ct)
+            {
+                auto& cache = get_adapter_cache();
+                if (cache.empty()) refresh_adapter_cache();
+                bool found = false;
+                for (const auto& info : cache)
+                {
+                    for (size_t j = 0; j < info.ipv4_addresses.size(); ++j)
+                    {
+                        if (info.ipv4_addresses[j] == resolved_ip)
+                        {
+                            if (j < info.ipv4_broadcasts.size())
+                            {
+                                target_broadcast = info.ipv4_broadcasts[j];
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (found) break;
+                }
+            }
+        }
+        m_resolved_broadcast_ip = target_broadcast;
 
         // --- Create IPv4 UDP socket ---
         socket_t sock = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -121,6 +151,22 @@ namespace adam::modules::network
         ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
                      reinterpret_cast<const char*>(&reuse), sizeof(reuse));
 
+        // Linux/Unix specific: to receive broadcast packets and restrict to a specific interface subnet,
+        // we bind to the subnet broadcast address. If we must use 255.255.255.255, we fallback to INADDR_ANY.
+        #if !defined(ADAM_PLATFORM_WINDOWS)
+        if (local_addr.ss_family == AF_INET)
+        {
+            if (target_broadcast != "255.255.255.255"_ct)
+            {
+                ::inet_pton(AF_INET, target_broadcast.c_str(), &reinterpret_cast<sockaddr_in*>(&local_addr)->sin_addr);
+            }
+            else
+            {
+                reinterpret_cast<sockaddr_in*>(&local_addr)->sin_addr.s_addr = htonl(INADDR_ANY);
+            }
+        }
+        #endif
+
         // --- Bind ---
         if (::bind(sock, reinterpret_cast<sockaddr*>(&local_addr), local_addr_len) == socket_error_val)
         {
@@ -131,36 +177,32 @@ namespace adam::modules::network
 
         resolve_active_ip(sock);
 
-        // --- Resolve broadcast IP ---
-        std::string target_broadcast = m_broadcast_ip->get_value();
-        if (target_broadcast.empty() || target_broadcast == "auto")
+        #if !defined(ADAM_PLATFORM_WINDOWS)
+        // Restore m_active_ip to the resolved unicast IP so we have correct logging.
+        // (resolve_active_ip sets it to the broadcast IP or 0.0.0.0 because of our bind).
+        m_active_ip = resolved_ip;
+
+        // Restore m_active_interface as well.
+        if (!m_active_ip.empty() && m_active_ip != "0.0.0.0"_ct)
         {
-            target_broadcast = "255.255.255.255";
-            std::string active_ip = get_active_ip();
-            if (!active_ip.empty() && active_ip != "0.0.0.0")
+            auto& cache = get_adapter_cache();
+            if (cache.empty()) refresh_adapter_cache();
+            for (const auto& info : cache)
             {
-                auto& cache = get_adapter_cache();
-                if (cache.empty()) refresh_adapter_cache();
                 bool found = false;
-                for (const auto& info : cache)
+                for (const auto& ip : info.ipv4_addresses)
                 {
-                    for (size_t j = 0; j < info.ipv4_addresses.size(); ++j)
+                    if (ip == m_active_ip)
                     {
-                        if (info.ipv4_addresses[j] == active_ip)
-                        {
-                            if (j < info.ipv4_broadcasts.size())
-                            {
-                                target_broadcast = info.ipv4_broadcasts[j];
-                                found = true;
-                                break;
-                            }
-                        }
+                        m_active_interface = !info.friendly_name.empty() ? info.friendly_name : info.adapter_name;
+                        found = true;
+                        break;
                     }
-                    if (found) break;
                 }
+                if (found) break;
             }
         }
-        m_resolved_broadcast_ip = adam::string_hashed(target_broadcast.c_str());
+        #endif
 
         // --- Non-blocking ---
         if (!set_nonblocking(sock, true))
