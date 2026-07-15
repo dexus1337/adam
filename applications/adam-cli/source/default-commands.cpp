@@ -14,7 +14,7 @@ namespace adam::cli
     {
         void cli_hex_dump(const std::string& port_name, const uint8_t* data, size_t size, uint64_t timestamp)
         {
-            std::cout << "[" << adam::get_log_time_string(timestamp) << "] [" << port_name << "] Received " << size << " bytes\n";
+            std::cout << adam::get_log_time_string(timestamp) << ": [" << port_name << "] Received " << size << " bytes\n";
             for (size_t offset = 0; offset < size; offset += 16)
             {
                 std::cout << std::setfill('0') << std::setw(4) << std::uppercase << std::hex << offset << ":  ";

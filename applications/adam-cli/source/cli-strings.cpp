@@ -69,7 +69,7 @@ namespace adam::cli
             { cmd_string_id::usage_port_inspect,          { "Usage: port_inspect <port_name>", "Verwendung: port_inspect <port_name>" } },
             { cmd_string_id::desc_conn_inspect,           { "Inspects data arriving at a connection", "Überprüft an einer Verbindung ankommende Daten" } },
             { cmd_string_id::usage_conn_inspect,          { "Usage: conn_inspect <conn_name> <in|out>", "Verwendung: conn_inspect <conn_name> <in|out>" } },
-            { cmd_string_id::inspector_started,           { "Inspector started. Press 'Enter' or 'Escape' to stop...", "Inspektor gestartet. Drücken Sie 'Enter' oder 'Escape' zum Stoppen..." } },
+            { cmd_string_id::inspector_started,           { "Inspector started. Press 'Enter' to stop...", "Inspektor gestartet. Drücken Sie 'Enter' zum Stoppen..." } },
             { cmd_string_id::inspector_stopped,           { "Inspector stopped.", "Inspektor gestoppt." } },
             { cmd_string_id::desc_conn_rename,            { "Renames a connection", "Benennt eine Verbindung um" } },
             { cmd_string_id::usage_conn_rename,           { "Usage: conn_rename <old_name> <new_name>", "Verwendung: conn_rename <old_name> <new_name>" } },
