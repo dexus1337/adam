@@ -12,9 +12,9 @@ namespace adam::cli
 {
     namespace
     {
-        void cli_hex_dump(const uint8_t* data, size_t size, uint64_t timestamp)
+        void cli_hex_dump(const std::string& port_name, const uint8_t* data, size_t size, uint64_t timestamp)
         {
-            std::cout << "[INSPECTOR] Received " << size << " bytes @ TS: " << timestamp << "\n";
+            std::cout << "[" << adam::get_log_time_string(timestamp) << "] [" << port_name << "] Received " << size << " bytes\n";
             for (size_t offset = 0; offset < size; offset += 16)
             {
                 std::cout << std::setfill('0') << std::setw(4) << std::uppercase << std::hex << offset << ":  ";
@@ -514,9 +514,9 @@ namespace adam::cli
             if (params.size() == 1) 
             {
                 adam::data_inspector* inspector = nullptr;
-                auto cb = [&console_mutex](adam::buffer* buf) {
+                auto cb = [&console_mutex, name = params[0]](adam::buffer* buf) {
                     std::lock_guard<std::mutex> lock(console_mutex);
-                    cli_hex_dump(buf->get_begin_as<uint8_t>(), buf->get_size(), buf->get_timestamp());
+                    cli_hex_dump(name, buf->get_begin_as<uint8_t>(), buf->get_size(), buf->get_timestamp());
                 };
                 
                 if (c.request_inspector_create(adam::string_hashed(params[0].c_str()).get_hash(), cb, inspector) == adam::response_status::success && inspector)
@@ -632,6 +632,68 @@ namespace adam::cli
 
         db.register_command("conn_list", cmd_string_id::desc_conn_list, [&settings](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
+            auto visual_length = [](const std::string& str) -> size_t {
+                size_t len = 0;
+                bool in_ansi = false;
+                for (size_t i = 0; i < str.length(); ++i) {
+                    if (str[i] == '\033') in_ansi = true;
+                    if (!in_ansi && (str[i] & 0xC0) != 0x80) len++; // simple utf8 handling
+                    if (in_ansi && str[i] == 'm') in_ansi = false;
+                }
+                return len;
+            };
+
+            auto pad_string = [&visual_length](const std::string& str, size_t width) -> std::string {
+                size_t vlen = visual_length(str);
+                if (vlen < width) return str + std::string(width - vlen, ' ');
+                return str;
+            };
+
+            auto truncate_string = [&visual_length](const std::string& str, size_t max_len) -> std::string {
+                if (visual_length(str) <= max_len) return str;
+                std::string res;
+                size_t vlen = 0;
+                bool in_ansi = false;
+                for (size_t i = 0; i < str.length(); ++i) {
+                    if (str[i] == '\033') in_ansi = true;
+                    if (in_ansi) {
+                        res += str[i];
+                        if (str[i] == 'm') in_ansi = false;
+                    } else {
+                        bool is_char = ((str[i] & 0xC0) != 0x80);
+                        if (is_char && vlen >= max_len - 3) {
+                            res += "...\033[0m";
+                            break;
+                        }
+                        res += str[i];
+                        if (is_char) vlen++;
+                    }
+                }
+                return res;
+            };
+
+            auto get_port_status_string = [](const adam::port_view* p) -> std::string {
+                if (!p || !p->started) return "\033[90m*\033[0m "; // grey *
+                if (p->statistic_buffer) {
+                    auto* stats = p->statistic_buffer->data_as<adam::port::state_buffer_data>();
+                    switch (stats->cur_state) {
+                        case adam::port::state_running:
+                        case adam::port::state_started:
+                        case adam::port::state_starting:
+                            return "\033[92m+\033[0m "; // green +
+                        case adam::port::state_error:
+                            return "\033[91m-\033[0m "; // red -
+                        case adam::port::state_inactive:
+                        case adam::port::state_stopping:
+                            return "\033[33m~\033[0m "; // orange ~
+                        case adam::port::state_stopped:
+                        default:
+                            return "\033[90m*\033[0m "; // grey *
+                    }
+                }
+                return "\033[92m+\033[0m ";
+            };
+
             std::lock_guard<std::mutex> lock(console_mutex);
             if (c.get_registry().get_connections().empty())
             {
@@ -654,7 +716,10 @@ namespace adam::cli
                     for (auto ph : conn->inputs)
                     {
                         auto pit = c.get_registry().get_ports().find(ph);
-                        if (pit != c.get_registry().get_ports().end()) in_names.push_back(pit->second->name.c_str());
+                        if (pit != c.get_registry().get_ports().end()) {
+                            std::string status = get_port_status_string(pit->second.get());
+                            in_names.push_back(status + pit->second->name.c_str());
+                        }
                         else in_names.push_back("<unknown:" + std::to_string(ph) + ">");
                     }
                     if (in_names.empty()) in_names.push_back("<none>");
@@ -670,22 +735,25 @@ namespace adam::cli
                     for (auto ph : conn->outputs)
                     {
                         auto pit = c.get_registry().get_ports().find(ph);
-                        if (pit != c.get_registry().get_ports().end()) out_names.push_back(pit->second->name.c_str());
+                        if (pit != c.get_registry().get_ports().end()) {
+                            std::string status = get_port_status_string(pit->second.get());
+                            out_names.push_back(status + pit->second->name.c_str());
+                        }
                         else out_names.push_back("<unknown:" + std::to_string(ph) + ">");
                     }
                     if (out_names.empty()) out_names.push_back("<none>");
 
                     size_t max_rows = std::max({in_names.size(), pr_names.size(), out_names.size()});
 
-                    std::cout << "\033[94m" << std::left << std::setw(30) << "Inputs:" << "\033[0m"
-                              << "\033[96m" << std::setw(30) << "Processors:" << "\033[0m"
+                    std::cout << "\033[94m" << pad_string("Inputs:", 30) << "\033[0m"
+                              << "\033[96m" << pad_string("Processors:", 30) << "\033[0m"
                               << "\033[91m" << "Outputs:" << "\033[0m\n";
                     std::cout << std::string(90, '-') << "\n";
 
                     for (size_t i = 0; i < max_rows; ++i)
                     {
-                        std::cout << "\033[94m" << std::left << std::setw(30) << (i < in_names.size() ? "- " + in_names[i] : "") << "\033[0m";
-                        std::cout << "\033[96m" << std::left << std::setw(30) << (i < pr_names.size() ? "- " + pr_names[i] : "") << "\033[0m";
+                        std::cout << "\033[94m" << pad_string(i < in_names.size() ? "- " + in_names[i] : "", 30) << "\033[0m";
+                        std::cout << "\033[96m" << pad_string(i < pr_names.size() ? "- " + pr_names[i] : "", 30) << "\033[0m";
                         std::cout << "\033[91m" << (i < out_names.size() ? "- " + out_names[i] : "") << "\033[0m\n";
                     }
                     std::cout << "\n";
@@ -716,11 +784,13 @@ namespace adam::cli
                 {
                     auto it = c.get_registry().get_ports().find(ph);
                     if (!inputs_str.empty()) inputs_str += ", ";
-                    if (it != c.get_registry().get_ports().end()) inputs_str += it->second->name.c_str();
+                    if (it != c.get_registry().get_ports().end()) {
+                        std::string status = get_port_status_string(it->second.get());
+                        inputs_str += status + it->second->name.c_str();
+                    }
                     else inputs_str += "<unknown:" + std::to_string(ph) + ">";
                 }
-                if (inputs_str.empty()) inputs_str = "-";
-                if (dyn_col > 5 && inputs_str.length() > dyn_col - 2) inputs_str = inputs_str.substr(0, dyn_col - 5) + "...";
+                if (dyn_col > 5 && visual_length(inputs_str) > dyn_col - 2) inputs_str = truncate_string(inputs_str, dyn_col - 2);
 
                 std::string procs_str;
                 for (auto prh : conn->processors)
@@ -730,24 +800,25 @@ namespace adam::cli
                     if (it != c.get_registry().get_processors().end()) procs_str += it->second->name.c_str();
                     else procs_str += "<unknown:" + std::to_string(prh) + ">";
                 }
-                if (procs_str.empty()) procs_str = "-";
-                if (dyn_col > 5 && procs_str.length() > dyn_col - 2) procs_str = procs_str.substr(0, dyn_col - 5) + "...";
+                if (dyn_col > 5 && visual_length(procs_str) > dyn_col - 2) procs_str = truncate_string(procs_str, dyn_col - 2);
 
                 std::string outputs_str;
                 for (auto ph : conn->outputs)
                 {
                     auto it = c.get_registry().get_ports().find(ph);
                     if (!outputs_str.empty()) outputs_str += ", ";
-                    if (it != c.get_registry().get_ports().end()) outputs_str += it->second->name.c_str();
+                    if (it != c.get_registry().get_ports().end()) {
+                        std::string status = get_port_status_string(it->second.get());
+                        outputs_str += status + it->second->name.c_str();
+                    }
                     else outputs_str += "<unknown:" + std::to_string(ph) + ">";
                 }
-                if (outputs_str.empty()) outputs_str = "-";
-                if (dyn_col > 5 && outputs_str.length() > dyn_col - 2) outputs_str = outputs_str.substr(0, dyn_col - 5) + "...";
+                if (dyn_col > 5 && visual_length(outputs_str) > dyn_col - 2) outputs_str = truncate_string(outputs_str, dyn_col - 2);
 
                 std::cout << std::left << std::setw(20) << conn->name.c_str() 
                           << std::setw(10) << (conn->started ? "Running" : "Stopped")
-                          << std::setw(dyn_col) << inputs_str
-                          << std::setw(dyn_col) << procs_str
+                          << pad_string(inputs_str, dyn_col)
+                          << pad_string(procs_str, dyn_col)
                           << outputs_str << "\n";
             }
             std::cout << std::endl;
@@ -784,9 +855,10 @@ namespace adam::cli
             if (params.size() == 2) 
             {
                 adam::data_inspector* inspector = nullptr;
-                auto cb = [&console_mutex](adam::buffer* buf) {
+                std::string name = params[0] + " " + params[1];
+                auto cb = [&console_mutex, name](adam::buffer* buf) {
                     std::lock_guard<std::mutex> lock(console_mutex);
-                    cli_hex_dump(buf->get_begin_as<uint8_t>(), buf->get_size(), buf->get_timestamp());
+                    cli_hex_dump(name, buf->get_begin_as<uint8_t>(), buf->get_size(), buf->get_timestamp());
                 };
                 
                 adam::response_status status = adam::response_status::failed;
