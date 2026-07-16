@@ -274,12 +274,12 @@ namespace adam::gui
                         std::time_t t = static_cast<std::time_t>(ts);
                         std::tm tm_val;
                         #ifdef ADAM_PLATFORM_WINDOWS
-                        localtime_s(&tm_val, &t);
+                        if (localtime_s(&tm_val, &t) != 0) return "Invalid";
                         #else
-                        localtime_r(&t, &tm_val);
+                        if (localtime_r(&t, &tm_val) == nullptr) return "Invalid";
                         #endif
                         char buf[64];
-                        std::strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M", &tm_val);
+                        if (std::strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M", &tm_val) == 0) return "Invalid";
                         return buf;
                     };
 

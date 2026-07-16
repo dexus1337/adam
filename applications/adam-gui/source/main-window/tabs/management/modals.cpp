@@ -219,7 +219,6 @@ namespace adam::gui
 
     void draw_delete_connection_modal(gui_controller& ctrl, adam::language lang)
     {
-        float dpi_scale = ImGui::GetStyle()._MainScale;
         if (g_request_delete_popup)
         {
             ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_delete_connection, lang));
@@ -261,8 +260,7 @@ namespace adam::gui
     }
 
     void draw_delete_port_modal(gui_controller& ctrl, adam::language lang)
-    {
-        float dpi_scale = ImGui::GetStyle()._MainScale;
+    {   
         if (g_request_delete_port_popup)
         {
             ImGui::OpenPopup(get_gui_string(gui_string_id::dlg_delete_port, lang));
@@ -321,7 +319,6 @@ namespace adam::gui
 
     void draw_create_connection_modal(gui_controller& ctrl, adam::language lang)
     {
-        float dpi_scale = ImGui::GetStyle()._MainScale;
         if (!ImGui::BeginPopupModal(get_gui_string(gui_string_id::dlg_create_connection, lang), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             return;

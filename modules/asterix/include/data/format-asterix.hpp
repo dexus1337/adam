@@ -13,13 +13,7 @@
 
 #include <adam-sdk.hpp>
 
-#include "module/module-asterix.hpp"
-
-#include "data/asterix-parser.hpp"
-#include "data/asterix-encoder.hpp"
-#include "data/asterix-analyzer.hpp"
-
 namespace adam::modules::asterix
 {
-    static const data_format data_format_asterix = data_format("asterix", new asterix_parser(), new asterix_encoder(), new asterix_analyzer(), get_adam_module());
+    extern ADAM_ASTERIX_API  data_format data_format_asterix; // The Asterix data format, used for parsing and encoding Asterix messages in the ADAM system.
 }

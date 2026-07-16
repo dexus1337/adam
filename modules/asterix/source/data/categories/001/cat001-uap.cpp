@@ -60,7 +60,7 @@ namespace adam::modules::asterix::cat001
         { 15, item_type_fixed,       0,      1, "I001/150 Presence of X-Pulse"                                         },
     });
 
-    uap cat001_plot_uap(1, "CAT001 " CAT001_VERSION " - PLOT"_ct, cat001_plot_items.data(), cat001_plot_items.size());
+    uap cat001_plot_uap(1, "CAT001 " CAT001_VERSION " - PLOT"_ct, cat001_plot_items.data(), cat001_plot_items.size(), 1);
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Track UAP
@@ -89,7 +89,7 @@ namespace adam::modules::asterix::cat001
         { 14, item_type_variable,    1,      1, "I001/210 Track Quality"                                               },
     });
 
-    uap cat001_track_uap(1, "CAT001 " CAT001_VERSION " - TRACK"_ct, cat001_track_items.data(), cat001_track_items.size());
+    uap cat001_track_uap(1, "CAT001 " CAT001_VERSION " - TRACK"_ct, cat001_track_items.data(), cat001_track_items.size(), 1);
 
     const auto cat001_alt = std::to_array<const uap*>({&cat001_track_uap, &cat001_plot_uap});
 
@@ -140,7 +140,7 @@ namespace adam::modules::asterix::cat001
     uap& get_uap()
     {
         // We need to init this here, after the static initialization of the sub-UAPs and selector function, but before any potential usage.
-        static uap cat001_uap(1, "CAT001 " CAT001_VERSION " - BASE"_ct, cat001_base.data(), cat001_base.size(), cat001_alt.data(), cat001_alt.size(), cat001_selector_fn );
+        static uap cat001_uap(1, "CAT001 " CAT001_VERSION " - BASE"_ct, cat001_base.data(), cat001_base.size(), cat001_alt.data(), cat001_alt.size(), cat001_selector_fn, 1);
         return cat001_uap;
     }
 }

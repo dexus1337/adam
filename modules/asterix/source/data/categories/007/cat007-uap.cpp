@@ -88,7 +88,7 @@ namespace adam::modules::asterix::cat007
         { 35, item_type_explicit,    0,      0, "REF Reserved Expansion Field"                                         },
     });
 
-    uap cat007_downlink_uap(7, "CAT007 " CAT007_VERSION " - DOWNLINK"_ct, cat007_downlink_items.data(), cat007_downlink_items.size());
+    uap cat007_downlink_uap(7, "CAT007 " CAT007_VERSION " - DOWNLINK"_ct, cat007_downlink_items.data(), cat007_downlink_items.size(), 1);
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Uplink UAP – Table 3 (Ed. 1.12)
@@ -123,7 +123,7 @@ namespace adam::modules::asterix::cat007
         { 21, item_type_explicit,    0,      0, "REF Reserved Expansion Field"                                         },
     });
 
-    uap cat007_uplink_uap(7, "CAT007 " CAT007_VERSION " - UPLINK"_ct, cat007_uplink_items.data(), cat007_uplink_items.size());
+    uap cat007_uplink_uap(7, "CAT007 " CAT007_VERSION " - UPLINK"_ct, cat007_uplink_items.data(), cat007_uplink_items.size(), 1);
 
     const auto cat007_alt = std::to_array<const uap*>({&cat007_downlink_uap, &cat007_uplink_uap});
 
@@ -192,7 +192,7 @@ namespace adam::modules::asterix::cat007
     uap& get_uap()
     {
         // We need to init this here, after the static initialization of the sub-UAPs and selector function, but before any potential usage.
-        static uap cat007_uap(7, "CAT007 " CAT007_VERSION " - BASE"_ct, cat007_base.data(), cat007_base.size(), cat007_alt.data(), cat007_alt.size(), cat007_selector_fn);
+        static uap cat007_uap(7, "CAT007 " CAT007_VERSION " - BASE"_ct, cat007_base.data(), cat007_base.size(), cat007_alt.data(), cat007_alt.size(), cat007_selector_fn, 1);
         return cat007_uap;
     }
 }

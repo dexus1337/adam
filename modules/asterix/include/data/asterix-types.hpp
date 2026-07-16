@@ -9,6 +9,7 @@
  */
 
 #include <api/api-sdk.hpp>
+#include <cstdint>
 #include <types/byteswap.hpp>
 #include <iterator>
 
@@ -161,6 +162,32 @@ namespace adam::modules::asterix
     struct raw_explicit_header
     {
         uint8_t item_count; // Number of items in the record (1-28)
+    };
+
+    /**
+     * @struct raw_sac_sic
+     * @brief Represents the raw System Area Code (SAC) and System Identification Code (SIC).
+     */
+    struct raw_sac_sic
+    {
+        uint8_t sac;
+        uint8_t sic;
+
+        inline uint8_t get_sac() const { return sac; }
+        inline uint8_t get_sic() const { return sic; }
+    };
+
+    /**
+     * @struct raw_cartesian_polar_coordinates
+     * @brief Represents the raw Cartesian Polar Coordinates.
+     */
+    struct raw_cartesian_polar_coordinates
+    {
+        uint16_t rho_s_code;    /**< big-endian (1/256 NM) */
+        uint16_t theta_s_code;  /**< big-endian (0.005 degrees) */
+
+        inline double get_range() const { return adam::swap_2(reinterpret_cast<const uint8_t*>(&rho_s_code)) / 256.0; }
+        inline double get_azimuth() const { return adam::swap_2(reinterpret_cast<const uint8_t*>(&theta_s_code)) * 0.005; }
     };
 
     #pragma pack(pop)

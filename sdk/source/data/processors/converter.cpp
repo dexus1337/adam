@@ -9,7 +9,6 @@ namespace adam
         get_parameter<configuration_parameter_boolean>("is_filter"_ct)->set_value(false);
     }
 
-
     converter::~converter()
     {
         // Clean up resources if necessary (currently none)

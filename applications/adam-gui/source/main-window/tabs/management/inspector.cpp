@@ -644,10 +644,7 @@ namespace adam::gui
         }
 
         char clear_btn_text[512];
-        if (lang == adam::language_german)
-            snprintf(clear_btn_text, sizeof(clear_btn_text), "Daten l\u00f6schen f\u00fcr \"%s\"", name);
-        else
-            snprintf(clear_btn_text, sizeof(clear_btn_text), "Clear Data for \"%s\"", name);
+        snprintf(clear_btn_text, sizeof(clear_btn_text), get_gui_string(gui_string_id::btn_clear_data_for, lang), name);
 
         if (ImGui::Button(clear_btn_text, ImVec2(-1.0f, 0.0f)))
         {

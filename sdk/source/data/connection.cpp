@@ -157,7 +157,7 @@ namespace adam
                 const data_format* proc_in = proc->get_input_format();
                 const data_format* proc_out = proc->get_output_format();
 
-                if (*current_format != *proc_in)
+                if (current_format != proc_in)
                     format_mismatch = true;
 
                 current_format = proc_out;
@@ -169,7 +169,7 @@ namespace adam
 
         const data_format* expected_out = m_output_format;
 
-        if (*current_format != *expected_out)
+        if (current_format != expected_out)
             return false;
 
         m_b_valid_data_chain = true;

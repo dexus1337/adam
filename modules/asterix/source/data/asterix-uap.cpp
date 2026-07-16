@@ -9,27 +9,31 @@
 
 namespace adam::modules::asterix
 {
-    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count)
-        : cat_id(cat), name(name), last_frn(0)
+    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, uint8_t sacsic_frn)
+        : m_cat_id(cat),
+          m_name(name),
+          m_sacsic_frn(sacsic_frn),
+          m_last_frn(0),
+          m_subitem_count(0)
     {
-        std::memset(items_by_frn, 0, sizeof(items_by_frn));
-        std::memset(custom_expansions, 0, sizeof(custom_expansions));
+        std::memset(m_items_by_frn, 0, sizeof(m_items_by_frn));
+        std::memset(m_custom_expansions, 0, sizeof(m_custom_expansions));
 
         for (size_t i = 0; i < spec_count; ++i)
         {
-            items_by_frn[spec_array[i].frn] = &spec_array[i];
-            if (spec_array[i].frn > last_frn)
-                last_frn = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
+            m_items_by_frn[spec_array[i].frn] = &spec_array[i];
+            if (spec_array[i].frn > m_last_frn)
+                m_last_frn = spec_array[i].frn; // Track highest FRN for fixed-FSPEC sizing
         }
     }
 
-    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap*const* alt_array, size_t alt_cout, selector_function sel)
-     :  uap(cat, name, spec_array, spec_count)
+    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap*const* alt_array, size_t alt_cout, selector_function sel, uint8_t sacsic_frn)
+     :  uap(cat, name, spec_array, spec_count, sacsic_frn)
     {
         for (size_t i = 0; i < alt_cout; i++)
-            alternatives.emplace(alt_array[i]->get_name().get_hash(), alt_array[i]);
+            m_alternatives.emplace(alt_array[i]->get_name().get_hash(), alt_array[i]);
         
-        selector_fn = std::move(sel); 
+        m_selector_fn = std::move(sel); 
     }
 
     void uap::setup()
@@ -39,22 +43,22 @@ namespace adam::modules::asterix
 
     void uap::expand_parameter(uint8_t frn, uap_expansion* data)
     {
-        custom_expansions[frn] = data;
+        m_custom_expansions[frn] = data;
     }
 
     void uap::compute_subitem_count()
     {
-        subitem_count = 0;
+        m_subitem_count = 0;
         
-        for (size_t i = 0; i <= last_frn; ++i)
+        for (size_t i = 0; i <= m_last_frn; ++i)
         {
-            if (items_by_frn[i] && items_by_frn[i]->sub_uap)
+            if (m_items_by_frn[i] && m_items_by_frn[i]->sub_uap)
             {
-                auto* const_casted_uap = const_cast<class uap*>(items_by_frn[i]->sub_uap);
+                auto* const_casted_uap = const_cast<class uap*>(m_items_by_frn[i]->sub_uap);
 
                 const_casted_uap->compute_subitem_count();
 
-                subitem_count += const_casted_uap->subitem_count;
+                m_subitem_count += const_casted_uap->m_subitem_count;
             }
         }
     }
@@ -67,7 +71,7 @@ namespace adam::modules::asterix
 
     uap_pool::uap_pool()
     {
-        std::memset(registered_uaps, 0, sizeof(registered_uaps));
+        std::memset(m_registered_uaps, 0, sizeof(m_registered_uaps));
 
         // Self-initialize with standard supported categories
         register_uap(&cat001::get_uap());
@@ -83,7 +87,7 @@ namespace adam::modules::asterix
         if (uap)
         {
             uap->setup();
-            registered_uaps[uap->get_cat_number()] = uap;
+            m_registered_uaps[uap->get_cat_number()] = uap;
         }
     }
 }

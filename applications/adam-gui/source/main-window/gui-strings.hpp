@@ -149,6 +149,7 @@ namespace adam::gui
         lbl_no_data,
         btn_clear_data,
         btn_clear_all_data,
+        btn_clear_data_for,
         col_index,
         col_timestamp,
         col_preview_hex,

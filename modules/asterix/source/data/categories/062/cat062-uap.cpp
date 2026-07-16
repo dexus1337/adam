@@ -62,7 +62,7 @@ namespace adam::modules::asterix::cat062
         { 35, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
 
-    uap cat062_uap(62, "CAT062 " CAT062_VERSION ""_ct, cat062_items.data(), cat062_items.size());
+    uap cat062_uap(62, "CAT062 " CAT062_VERSION ""_ct, cat062_items.data(), cat062_items.size(), 1);
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/110 Mode 5 Data reports & Extended Mode 1 Code (Compound)

@@ -31,7 +31,7 @@ namespace adam::modules::asterix::cat034
         { 14, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
 
-    uap cat034_uap(34, "CAT034 " CAT034_VERSION ""_ct, cat034_items.data(), cat034_items.size());
+    uap cat034_uap(34, "CAT034 " CAT034_VERSION ""_ct, cat034_items.data(), cat034_items.size(), 1);
 
     uap& get_uap()
     {

@@ -76,7 +76,7 @@ namespace adam::modules::asterix::cat021
         { 49, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
 
-    uap cat021_uap(21, "CAT021 " CAT021_VERSION ""_ct, cat021_items.data(), cat021_items.size());
+    uap cat021_uap(21, "CAT021 " CAT021_VERSION ""_ct, cat021_items.data(), cat021_items.size(), 1);
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I021/110 Trajectory Intent (Compound)

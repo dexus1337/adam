@@ -18,5 +18,5 @@
 
 namespace adam::modules::can
 {
-    static const data_format data_format_can = data_format("can", nullptr, nullptr, nullptr, get_adam_module());
+    extern ADAM_CAN_API data_format data_format_can; // The CAN data format, used for parsing and encoding CAN messages in the ADAM system.
 }

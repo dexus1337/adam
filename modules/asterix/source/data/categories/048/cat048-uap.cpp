@@ -52,7 +52,7 @@ namespace adam::modules::asterix::cat048
         { 28, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()},
     });
 
-    uap cat048_uap(48, "CAT048 " CAT048_VERSION ""_ct, cat048_items.data(), cat048_items.size());
+    uap cat048_uap(48, "CAT048 " CAT048_VERSION ""_ct, cat048_items.data(), cat048_items.size(), 1);
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I048/130 Radar Plot Characteristics (Compound)

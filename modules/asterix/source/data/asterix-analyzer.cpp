@@ -1,6 +1,7 @@
 #include "data/asterix-analyzer.hpp"
 #include "data/asterix-parser.hpp"
 #include "data/asterix-internal.hpp"
+#include "data/asterix-types.hpp"
 #include "data/asterix-uap.hpp"
 #include <cstdint>
 #include <string>
@@ -15,6 +16,7 @@ namespace adam::modules::asterix
             "Frame ID",
             "Timestamp",
             "CAT",
+            "Type",
             "SAC/SIC",
             "Items",
             "Size"
@@ -24,6 +26,7 @@ namespace adam::modules::asterix
         {
             column_frame_id,
             column_timestamp,
+            column_text,
             column_text,
             column_text,
             column_text,
@@ -60,11 +63,21 @@ namespace adam::modules::asterix
                 for (auto it = rec.begin(); it != rec.end(); ++it)
                     if (it->is_populated()) items++;
 
+                const raw_sac_sic* sac_sic = nullptr;
+
+                if (used_uap && used_uap->get_sacsic_frn() > 0)
+                {
+                    const item* sac_sic_item = rec.get_item(used_uap->get_sacsic_frn());
+                    if (sac_sic_item && sac_sic_item->is_populated())
+                        sac_sic = buf->get_at<raw_sac_sic>(sac_sic_item->raw_offset);
+                }
+
                 row r;
-                r.columns.push_back(used_uap ? used_uap->get_name().c_str() : "Unknown");
-                r.columns.push_back("");
-                r.columns.push_back(std::to_string(items));
-                r.columns.push_back(std::to_string(rec.raw_length));
+                r.columns.push_back(used_uap ? used_uap->get_name().c_str() : "Unknown");                                  // UAP
+                r.columns.push_back("");                                                                                   // Type
+                r.columns.push_back(std::string(sac_sic ? std::format("{:03d}/{:03d}", sac_sic->sac, sac_sic->sic) : "")); // SAC/SIC
+                r.columns.push_back(std::to_string(items));                                                                // Items
+                r.columns.push_back(std::to_string(rec.raw_length));                                                       // Size
 
                 results.push_back(std::move(r));
             }

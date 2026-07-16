@@ -25,7 +25,8 @@ echo "Creating systemd service file at $SERVICE_FILE..."
 sudo bash -c "cat > $SERVICE_FILE" << EOF
 [Unit]
 Description=$SERVICE_DESC
-After=network.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
