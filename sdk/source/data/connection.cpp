@@ -99,6 +99,10 @@ namespace adam
                 result &= processor->handle_data(buf);
         });
 
+        // If the buffer is null or empty, we can skip the rest of the processing
+        if (!buf || buf->get_size() == 0)
+            return result;
+
         // Run data through output inspectors
         m_inspectors_output.iterate([&](const auto& inspectors) 
         {

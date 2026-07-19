@@ -279,6 +279,7 @@ namespace adam::gui
                 {
                     port_data.analyzer_columns = data_analyzer->get_columns();
                     port_data.analyzer_column_types = data_analyzer->get_column_types();
+                    port_data.analyzer_ptr = data_analyzer;
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }
@@ -327,6 +328,7 @@ namespace adam::gui
                 {
                     port_data.analyzer_columns = data_analyzer->get_columns();
                     port_data.analyzer_column_types = data_analyzer->get_column_types();
+                    port_data.analyzer_ptr = data_analyzer;
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }

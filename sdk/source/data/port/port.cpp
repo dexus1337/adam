@@ -140,15 +140,12 @@ namespace adam
                     {
                         if (!conn->is_valid_chain()) continue;
 
-                        adam::buffer* buff_to_send = nullptr;
-                        const string_hash format_hash = conn->get_input_format()->get_name().get_hash();
+                        adam::buffer* buff_to_send = buf;
                         
-                        if (format_hash == data_format_transparent.get_name().get_hash())
+                        if (conn->get_input_format()->get_parser() != nullptr)
                         {
-                            buff_to_send = buf;
-                        }
-                        else
-                        {
+                            const string_hash format_hash = conn->get_input_format()->get_name().get_hash();
+                            
                             #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
                             auto it = std::find_if(m_parse_cache.cbegin(), m_parse_cache.cend(), [format_hash](const auto& entry) { return entry.first == format_hash; });
                             if (it != m_parse_cache.cend()) buff_to_send = it->second;

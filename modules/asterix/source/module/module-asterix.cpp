@@ -10,7 +10,7 @@ namespace adam::modules::asterix
     static module_asterix global_instance = adam::modules::asterix::module_asterix();
 
     static default_factory<processor, to_text_converter>    to_text_converter_factory = default_factory<processor, to_text_converter>();
-    static default_factory<processor, sac_sic_replacer>     sac_sic_filter_factory    = default_factory<processor,    sac_sic_replacer>();
+    static default_factory<processor, sac_sic_replacer>     sac_sic_filter_factory    = default_factory<processor, sac_sic_replacer>();
 
     module_asterix::module_asterix() : module("asterix", version)
     {

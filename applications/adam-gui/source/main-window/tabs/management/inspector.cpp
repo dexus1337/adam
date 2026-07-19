@@ -487,9 +487,11 @@ namespace adam::gui
                                 ImGui::PushID((int)exp_idx);
                                 if (exp.data_type == adam::analyzer::expanded_data::type_text)
                                 {
+                                    if (g_mono_font) ImGui::PushFont(g_mono_font);
                                     ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + sub_table_w);
                                     ImGui::TextWrapped("%s", exp.text_content.c_str());
                                     ImGui::PopTextWrapPos();
+                                    if (g_mono_font) ImGui::PopFont();
                                 }
                                 else if (exp.data_type == adam::analyzer::expanded_data::type_table)
                                 {

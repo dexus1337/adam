@@ -288,8 +288,10 @@ namespace adam::modules::recrep
         {
             pcap::block_header ph = {};
             uint64_t ts = buff->get_timestamp();
-            ph.ts_sec = static_cast<uint32_t>(ts / 1000000000ull);
-            ph.ts_usec = static_cast<uint32_t>((ts % 1000000000ull) / 1000ull);
+            uint64_t offset = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch() - std::chrono::steady_clock::now().time_since_epoch()).count();
+            uint64_t absolute_ts = ts + offset;
+            ph.ts_sec = static_cast<uint32_t>(absolute_ts / 1000000000ull);
+            ph.ts_usec = static_cast<uint32_t>((absolute_ts % 1000000000ull) / 1000ull);
             ph.incl_len = static_cast<uint32_t>(buff->get_size());
             ph.orig_len = static_cast<uint32_t>(buff->get_size());
 

@@ -454,7 +454,9 @@ namespace adam::modules::recrep
                 
                 if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
                 {
-                    buff->set_timestamp(static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull);
+                    uint64_t absolute_ts = static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull;
+                    uint64_t offset = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch() - std::chrono::steady_clock::now().time_since_epoch()).count();
+                    buff->set_timestamp(absolute_ts - offset);
                 }
                 else
                 {
@@ -527,7 +529,9 @@ namespace adam::modules::recrep
                 
                 if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
                 {
-                    buff->set_timestamp(state_data->file_time_start + packet_ts_ns.count());
+                    uint64_t absolute_ts = state_data->file_time_start + packet_ts_ns.count();
+                    uint64_t offset = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch() - std::chrono::steady_clock::now().time_since_epoch()).count();
+                    buff->set_timestamp(absolute_ts - offset);
                 }
                 else
                 {

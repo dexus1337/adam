@@ -3,7 +3,8 @@
 #include <cstdint>
 #include <string>
 #include <cstdio>
-
+#include <format>
+#include <bitset>
 namespace adam::modules::can
 {
     can_analyzer::can_analyzer()
@@ -23,8 +24,6 @@ namespace adam::modules::can
             column_timestamp,
             column_text,
             column_text,
-            column_text,
-            column_text,
             column_text
         };
 
@@ -42,40 +41,25 @@ namespace adam::modules::can
     {
         if (!buf) return false;
 
-        const auto* root_frame = reinterpret_cast<const frame*>(buf->get_data());
+        const can_message* messages = reinterpret_cast<const can_message*>(buf->get_data());
+        uint32_t message_count = buf->get_size() / sizeof(can_message);
 
         // Iterate over blocks
-        for (auto block_it = root_frame->begin(); block_it != root_frame->end(); ++block_it)
+        for (uint32_t i = 0; i < message_count; ++i)
         {
-            // Iterate over records in the block
-            for (auto rec_it = block_it->begin(); rec_it != block_it->end(); ++rec_it)
+            row r;
+            r.columns.push_back(std::format("0x{:04X}", messages[i].get_id())); // ID
+            r.columns.push_back(std::to_string(messages[i].get_data_length())); // Length
+            
+            std::string data_str;
+            for (int j = 0; j < messages[i].get_data_length(); ++j)
             {
-                const auto& rec = *rec_it;
-                const auto* used_uap = rec.find_used_uap();
-
-                uint8_t items = 0;
-
-                for (auto it = rec.begin(); it != rec.end(); ++it)
-                    if (it->is_populated()) items++;
-
-                const raw_sac_sic* sac_sic = nullptr;
-
-                if (used_uap && used_uap->get_sacsic_frn() > 0)
-                {
-                    const item* sac_sic_item = rec.get_item(used_uap->get_sacsic_frn());
-                    if (sac_sic_item && sac_sic_item->is_populated())
-                        sac_sic = buf->get_at<raw_sac_sic>(sac_sic_item->raw_offset);
-                }
-
-                row r;
-                r.columns.push_back(used_uap ? used_uap->get_name().c_str() : "Unknown");                                  // UAP
-                r.columns.push_back("");                                                                                   // Type
-                r.columns.push_back(std::string(sac_sic ? std::format("{:03d}/{:03d}", sac_sic->sac, sac_sic->sic) : "")); // SAC/SIC
-                r.columns.push_back(std::to_string(items));                                                                // Items
-                r.columns.push_back(std::to_string(rec.raw_length));                                                       // Size
-
-                results.push_back(std::move(r));
+                if (j > 0) data_str += " ";
+                data_str += std::format("{:02X}", messages[i].data[j]);
             }
+            r.columns.push_back(data_str);                                      // Data
+
+            results.push_back(std::move(r));
         }
 
         return true;
@@ -85,78 +69,50 @@ namespace adam::modules::can
     {
         if (!data) return false;
 
-        const auto* root_frame = reinterpret_cast<const frame*>(data);
+        const can_message* messages = reinterpret_cast<const can_message*>(data);
+        uint32_t message_count = size / sizeof(can_message);
 
-        size_t current_row = 0;
-        for (auto block_it = root_frame->begin(); block_it != root_frame->end(); ++block_it)
+        if (row_idx >= message_count) return false;
+
+        const can_message& msg = messages[row_idx];
+
+        adam::analyzer::expanded_data ed;
+        ed.data_type = adam::analyzer::expanded_data::type_text;
+
+        std::string text;
+
+        for (int chunk_start = 0; chunk_start < msg.get_data_length(); chunk_start += 4)
         {
-            for (auto rec_it = block_it->begin(); rec_it != block_it->end(); ++rec_it)
+            std::string line_byte_nr = "Byte Nr:    ";
+            std::string line_byte    = "Byte:       ";
+            std::string line_bit_nr  = "Bit Nr:     ";
+            std::string line_bits    = "Bits:       ";
+
+            int chunk_end = std::min((int)msg.get_data_length(), chunk_start + 4);
+
+            for (int i = chunk_start; i < chunk_end; ++i)
             {
-                if (current_row == row_idx)
-                {
-                    const auto& rec = *rec_it;
-                    const auto* used_uap = rec.find_used_uap();
+                line_byte_nr += std::format("{:<13}", i);
+                line_byte    += std::format("{:<13}", std::format("0x{:02X}", msg.data[i]));
+                line_bit_nr  += std::format("{:<5}{:<8}", i * 8, i * 8 + 4);
+                
+                std::string bits_str = std::format("{} {}", 
+                    std::bitset<4>((msg.data[i] >> 4) & 0x0F).to_string(), 
+                    std::bitset<4>(msg.data[i] & 0x0F).to_string());
+                line_bits    += std::format("{:<13}", bits_str);
+            }
 
-                    adam::analyzer::expanded_data ed;
-                    ed.data_type = adam::analyzer::expanded_data::type_table;
-
-                    auto process_item = [&](auto& self, const item* current_item, uint8_t current_frn, const uap* current_uap, int indent_level) -> void
-                    {
-                        if (!current_item->is_populated()) return;
-
-                        row sub_r;
-                        std::string indent_str(indent_level * 2, ' ');
-                        sub_r.columns.push_back(indent_str + std::to_string(current_frn));
-                        
-                        const field_spec* spec = current_uap ? current_uap->get_spec(current_frn) : nullptr;
-
-                        if (spec)
-                            sub_r.columns.push_back(indent_str + spec->name);
-                        else
-                            sub_r.columns.push_back(indent_str + "Unknown");
-
-                        std::string hex_data;
-                        if (current_item->raw_offset + current_item->raw_length <= size)
-                        {
-                            const uint8_t* item_data = data + current_item->raw_offset;
-                            for (size_t i = 0; i < current_item->raw_length; ++i)
-                            {
-                                char buf_str[4];
-                                snprintf(buf_str, sizeof(buf_str), "%02X ", item_data[i]);
-                                hex_data += buf_str;
-                            }
-                            if (!hex_data.empty()) hex_data.pop_back();
-                        }
-                        sub_r.columns.push_back(std::move(hex_data));
-
-                        ed.table_rows.push_back(std::move(sub_r));
-
-                        if (current_item->child_count > 0)
-                        {
-                            for (uint8_t child_frn = 1; child_frn <= current_item->child_count; ++child_frn)
-                            {
-                                const item* child = current_item->get_child_item(child_frn);
-                                if (child)
-                                {
-                                    self(self, child, child_frn, spec ? spec->sub_uap : nullptr, indent_level + 1);
-                                }
-                            }
-                        }
-                    };
-
-                    uint8_t frn = 1;
-                    for (auto it = rec.begin(); it != rec.end() && (!used_uap || frn <= used_uap->get_highest_frn()); ++it, ++frn)
-                    {
-                        process_item(process_item, &(*it), frn, used_uap, 0);
-                    }
-
-                    out_expansions.push_back(std::move(ed));
-                    return true;
-                }
-                current_row++;
+            text += line_byte_nr + "\n" + line_byte + "\n" + line_bit_nr + "\n" + line_bits + "\n";
+            if (chunk_end < msg.get_data_length())
+            {
+                text += "\n";
             }
         }
 
-        return false;
+        ed.text_content = text;
+        
+        out_expansions.push_back(std::move(ed));
+
+        return true;
     }
 }
