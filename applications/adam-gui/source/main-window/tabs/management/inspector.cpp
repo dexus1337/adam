@@ -339,17 +339,15 @@ namespace adam::gui
 
             ImGuiTableFlags common_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
 
-            ImGui::GetWindowDrawList()->ChannelsSplit(2);
+            ImGui::GetWindowDrawList()->ChannelsSplit(3);
 
-            // 1. Draw Floating Header on Foreground (Channel 1)
-            ImGui::GetWindowDrawList()->ChannelsSetCurrent(1);
+            // 1. Draw Floating Header on Foreground (Channel 2)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(2);
             float header_scroll_y = ImGui::GetScrollY();
             float header_start_y = ImGui::GetCursorPosY();
             ImGui::SetCursorPosY(header_start_y + header_scroll_y);
 
             ImVec2 header_pos = ImGui::GetCursorScreenPos();
-            float guessed_header_h = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f + 4.0f;
-            ImGui::GetWindowDrawList()->AddRectFilled(header_pos, ImVec2(header_pos.x + inner_avail_w, header_pos.y + guessed_header_h), ImGui::GetColorU32(ImGuiCol_WindowBg));
 
             bool header_table_begun = ImGui::BeginTable("InspectorAnalyzerMain", num_cols, common_flags);
             if (header_table_begun)
@@ -358,9 +356,13 @@ namespace adam::gui
                 ImGui::TableHeadersRow();
                 ImGui::EndTable();
             }
-            float actual_header_h = ImGui::GetCursorPosY() - (header_start_y + header_scroll_y);
+            float actual_header_h = ImGui::GetCursorPosY() - (header_start_y + header_scroll_y) - ImGui::GetStyle().ItemSpacing.y;
 
-            // 2. Draw Body Tables on Background (Channel 0)
+            // 2. Draw Header Background on Middleground (Channel 1)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(1);
+            ImGui::GetWindowDrawList()->AddRectFilled(header_pos, ImVec2(header_pos.x + inner_avail_w, header_pos.y + actual_header_h), ImGui::GetColorU32(ImGuiCol_WindowBg));
+
+            // 3. Draw Body Tables on Background (Channel 0)
             ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
             ImGui::SetCursorPosY(header_start_y + actual_header_h);
 
@@ -604,17 +606,15 @@ namespace adam::gui
 
             ImGuiTableFlags common_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
 
-            ImGui::GetWindowDrawList()->ChannelsSplit(2);
+            ImGui::GetWindowDrawList()->ChannelsSplit(3);
 
-            // 1. Draw Floating Header on Foreground (Channel 1)
-            ImGui::GetWindowDrawList()->ChannelsSetCurrent(1);
+            // 1. Draw Floating Header on Foreground (Channel 2)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(2);
             float header_scroll_y = ImGui::GetScrollY();
             float header_start_y = ImGui::GetCursorPosY();
             ImGui::SetCursorPosY(header_start_y + header_scroll_y);
 
             ImVec2 header_pos = ImGui::GetCursorScreenPos();
-            float guessed_header_h = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f + 4.0f;
-            ImGui::GetWindowDrawList()->AddRectFilled(header_pos, ImVec2(header_pos.x + inner_avail_w, header_pos.y + guessed_header_h), ImGui::GetColorU32(ImGuiCol_WindowBg));
 
             bool header_table_begun = ImGui::BeginTable("InspectorTableMain", 6, common_flags);
             if (header_table_begun)
@@ -623,9 +623,13 @@ namespace adam::gui
                 ImGui::TableHeadersRow();
                 ImGui::EndTable();
             }
-            float actual_header_h = ImGui::GetCursorPosY() - (header_start_y + header_scroll_y);
+            float actual_header_h = ImGui::GetCursorPosY() - (header_start_y + header_scroll_y) - ImGui::GetStyle().ItemSpacing.y;
 
-            // 2. Draw Body Tables on Background (Channel 0)
+            // 2. Draw Header Background on Middleground (Channel 1)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(1);
+            ImGui::GetWindowDrawList()->AddRectFilled(header_pos, ImVec2(header_pos.x + inner_avail_w, header_pos.y + actual_header_h), ImGui::GetColorU32(ImGuiCol_WindowBg));
+
+            // 3. Draw Body Tables on Background (Channel 0)
             ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
             ImGui::SetCursorPosY(header_start_y + actual_header_h);
 
