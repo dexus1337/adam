@@ -673,25 +673,30 @@ namespace adam::cli
             };
 
             auto get_port_status_string = [](const adam::port_view* p) -> std::string {
-                if (!p || !p->started) return "\033[90m*\033[0m "; // grey *
+                if (!p) return "\033[90m*\033[0m "; // grey *
                 if (p->statistic_buffer) {
                     auto* stats = p->statistic_buffer->data_as<adam::port::state_buffer_data>();
                     switch (stats->cur_state) {
                         case adam::port::state_running:
                         case adam::port::state_started:
-                        case adam::port::state_starting:
-                            return "\033[92m+\033[0m "; // green +
+                            if (p->started) return "\033[92m+\033[0m "; // green +
+                            break;
                         case adam::port::state_error:
                             return "\033[91m-\033[0m "; // red -
                         case adam::port::state_inactive:
+                        case adam::port::state_starting:
                         case adam::port::state_stopping:
-                            return "\033[33m~\033[0m "; // orange ~
+                            if (p->started) return "\033[33m~\033[0m "; // orange ~
+                            break;
                         case adam::port::state_stopped:
                         default:
-                            return "\033[90m*\033[0m "; // grey *
+                            break;
                     }
                 }
-                return "\033[92m+\033[0m ";
+                else if (p->started) {
+                    return "\033[92m+\033[0m "; // green +
+                }
+                return "\033[90m*\033[0m "; // grey *
             };
 
             std::lock_guard<std::mutex> lock(console_mutex);

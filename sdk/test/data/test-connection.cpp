@@ -160,8 +160,10 @@ TEST_F(connection_test, connection_data_forwarding_multiple_outputs)
     auto* stats_1 = out_port_1.get_state_buffer()->data_as<adam::port::state_buffer_data>();
     auto* stats_2 = out_port_2.get_state_buffer()->data_as<adam::port::state_buffer_data>();
 
-    EXPECT_EQ(stats_1->total_buffers_handled, 1u);
-    EXPECT_EQ(stats_2->total_buffers_handled, 1u);
+    EXPECT_EQ(stats_1->total_buffers_recieved, 1u);
+    EXPECT_EQ(stats_1->total_buffers_forwarded, 1u);
+    EXPECT_EQ(stats_2->total_buffers_recieved, 1u);
+    EXPECT_EQ(stats_2->total_buffers_forwarded, 1u);
 
     buf->release();
     in_port.stop();
@@ -200,7 +202,8 @@ TEST_F(connection_test, connection_data_forwarding_with_processor)
     EXPECT_TRUE(conn.handle_data(buf));
 
     auto* stats = out_port.get_state_buffer()->data_as<adam::port::state_buffer_data>();
-    EXPECT_EQ(stats->total_buffers_handled, 1u);
+    EXPECT_EQ(stats->total_buffers_recieved, 1u);
+    EXPECT_EQ(stats->total_buffers_forwarded, 1u);
 
     buf->release();
     in_port.stop();
@@ -332,7 +335,8 @@ TEST_F(connection_test, connection_format_runtime_change_dataflow)
 
     // Verify output port received the buffer
     auto* stats = out_port.get_state_buffer()->data_as<adam::port::state_buffer_data>();
-    EXPECT_EQ(stats->total_buffers_handled, 1u);
+    EXPECT_EQ(stats->total_buffers_recieved, 1u);
+    EXPECT_EQ(stats->total_buffers_forwarded, 1u);
 
     // 2. Change format at runtime to formatB
     conn.set_input_format(&formatB);
@@ -346,7 +350,8 @@ TEST_F(connection_test, connection_format_runtime_change_dataflow)
     EXPECT_EQ(parserB.parse_count.load(), 1);
 
     // Verify output port received the second buffer
-    EXPECT_EQ(stats->total_buffers_handled, 2u);
+    EXPECT_EQ(stats->total_buffers_recieved, 2u);
+    EXPECT_EQ(stats->total_buffers_forwarded, 2u);
 
     buf->release();
     in_port.stop();
@@ -409,8 +414,10 @@ TEST_F(connection_test, connection_same_port_multiple_formats)
     // Verify both output ports received the data
     auto* stats_A = out_port_A.get_state_buffer()->data_as<adam::port::state_buffer_data>();
     auto* stats_B = out_port_B.get_state_buffer()->data_as<adam::port::state_buffer_data>();
-    EXPECT_EQ(stats_A->total_buffers_handled, 1u);
-    EXPECT_EQ(stats_B->total_buffers_handled, 1u);
+    EXPECT_EQ(stats_A->total_buffers_recieved, 1u);
+    EXPECT_EQ(stats_A->total_buffers_forwarded, 1u);
+    EXPECT_EQ(stats_B->total_buffers_recieved, 1u);
+    EXPECT_EQ(stats_B->total_buffers_forwarded, 1u);
 
     buf->release();
     in_port.stop();

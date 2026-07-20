@@ -108,9 +108,24 @@ TEST_F(port_test, handle_data_statistics)
     p.handle_data(buf, adam::data_direction_in);
     
     auto* stats = p.get_state_buffer()->data_as<adam::port::state_buffer_data>();
-    EXPECT_EQ(stats->total_buffers_handled, 1u);
-    EXPECT_EQ(stats->total_bytes_handled, 123u);
+    EXPECT_EQ(stats->total_buffers_recieved, 1u);
+    EXPECT_EQ(stats->total_bytes_recieved, 123u);
+    EXPECT_EQ(stats->total_buffers_forwarded, 1u);
+    EXPECT_EQ(stats->total_bytes_forwarded, 123u);
+    EXPECT_EQ(stats->total_buffers_discarded, 0u);
+    EXPECT_EQ(stats->total_bytes_discarded, 0u);
     
+    // Now test a discarded message (test_port::write returns false)
+    buf->set_size(45);
+    EXPECT_FALSE(p.handle_data(buf, adam::data_direction_out));
+    
+    EXPECT_EQ(stats->total_buffers_recieved, 2u);
+    EXPECT_EQ(stats->total_bytes_recieved, 123u + 45u);
+    EXPECT_EQ(stats->total_buffers_forwarded, 1u);
+    EXPECT_EQ(stats->total_bytes_forwarded, 123u);
+    EXPECT_EQ(stats->total_buffers_discarded, 1u);
+    EXPECT_EQ(stats->total_bytes_discarded, 45u);
+
     buf->release();
     p.stop();
 }
@@ -129,8 +144,12 @@ TEST_F(port_test, inactive_drops_data)
     EXPECT_FALSE(p.handle_data(buf, adam::data_direction_in));
     
     auto* stats = p.get_state_buffer()->data_as<adam::port::state_buffer_data>();
-    EXPECT_EQ(stats->total_buffers_handled, 0u);
-    EXPECT_EQ(stats->total_bytes_handled, 0u);
+    EXPECT_EQ(stats->total_buffers_recieved, 0u);
+    EXPECT_EQ(stats->total_bytes_recieved, 0u);
+    EXPECT_EQ(stats->total_buffers_forwarded, 0u);
+    EXPECT_EQ(stats->total_bytes_forwarded, 0u);
+    EXPECT_EQ(stats->total_buffers_discarded, 0u);
+    EXPECT_EQ(stats->total_bytes_discarded, 0u);
     
     buf->release();
 }

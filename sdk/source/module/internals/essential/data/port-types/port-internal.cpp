@@ -46,8 +46,13 @@ namespace adam
 
                 auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
 
-                stat_data->total_buffers_handled++;
-                stat_data->total_bytes_handled += buf->get_size();
+                auto cur_buff_size = buf->get_referenced_buffer() ? buf->get_referenced_buffer()->get_size() : buf->get_size();
+
+                // Increase both recieved and forwarded stats
+                stat_data->total_buffers_recieved++;
+                stat_data->total_bytes_recieved += cur_buff_size;
+                stat_data->total_buffers_forwarded++;
+                stat_data->total_bytes_forwarded += cur_buff_size;
             }
         }
 

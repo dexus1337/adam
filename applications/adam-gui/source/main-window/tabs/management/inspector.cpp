@@ -77,7 +77,6 @@ namespace adam::gui
         const uint8_t* data,
         size_t size,
         int actual_index,
-        float inspector_height,
         float dpi_scale,
         adam::language lang,
         float target_width
@@ -105,17 +104,7 @@ namespace adam::gui
         float container_border_h = window_border_size * 2.0f;
         float reserved_container_elements_h = button_h + spacing_h + container_padding_h + container_border_h;
 
-        float max_container_h = inspector_height * 0.5f;
-        if (max_container_h < 110.0f * dpi_scale) max_container_h = 110.0f * dpi_scale;
-        
-        float absolute_max_h = inspector_height - (button_h + spacing_h + 8.0f * dpi_scale);
-        if (max_container_h > absolute_max_h) max_container_h = absolute_max_h;
-        if (max_container_h < 80.0f * dpi_scale) max_container_h = 80.0f * dpi_scale;
-
-        float max_child_h = max_container_h - reserved_container_elements_h;
-        if (max_child_h < 30.0f * dpi_scale) max_child_h = 30.0f * dpi_scale;
-
-        float child_h = std::min(calc_h, max_child_h);
+        float child_h = calc_h;
         float container_h = child_h + reserved_container_elements_h;
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
@@ -195,7 +184,7 @@ namespace adam::gui
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0.15f));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * dpi_scale, 4.0f * dpi_scale));
 
-            if (ImGui::BeginChild("##hex_child", ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_HorizontalScrollbar))
+            if (ImGui::BeginChild("##hex_child", ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
             {
                 if (g_mono_font) ImGui::PushFont(g_mono_font);
 
@@ -590,6 +579,35 @@ namespace adam::gui
                         if (sub_table_w < 20.0f) sub_table_w = 20.0f;
                         ImGui::Indent(expand_indent);
 
+                        if (ImGui::BeginChild("##HexDumpRegion", ImVec2(sub_table_w, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+                        {
+                            if (ImGui::TreeNodeEx("Hex Dump", 0))
+                            {
+                                float tree_indent = ImGui::GetStyle().IndentSpacing;
+                                ImGui::Unindent(tree_indent);
+                                
+                                const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
+                                size_t hex_size = port_data.buffers[b_idx].size;
+                                if (port_data.buffers[b_idx].ref_size > 0)
+                                {
+                                    hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
+                                    hex_size = port_data.buffers[b_idx].ref_size;
+                                }
+
+                                draw_inspector_hex_dump(
+                                    hex_data,
+                                    hex_size,
+                                    (int)i,
+                                    dpi_scale,
+                                    lang,
+                                    ImGui::GetContentRegionAvail().x);
+                                    
+                                ImGui::Indent(tree_indent);
+                                ImGui::TreePop();
+                            }
+                        }
+                        ImGui::EndChild();
+
                         if (!row_obj.expansions.empty())
                         {
                             for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
@@ -770,7 +788,16 @@ namespace adam::gui
                     float start_y = ImGui::GetCursorPosY();
 
                     ImGui::PushID(row_idx);
-                    draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, current_height, dpi_scale, lang, inner_avail_w);
+                    
+                    const uint8_t* hex_data = data_pool.data() + ib.offset;
+                    size_t hex_size = ib.size;
+                    if (ib.ref_size > 0)
+                    {
+                        hex_data = data_pool.data() + ib.ref_offset;
+                        hex_size = ib.ref_size;
+                    }
+                    
+                    draw_inspector_hex_dump(hex_data, hex_size, row_idx, dpi_scale, lang, inner_avail_w);
                     ImGui::PopID();
 
                     float end_y = ImGui::GetCursorPosY();

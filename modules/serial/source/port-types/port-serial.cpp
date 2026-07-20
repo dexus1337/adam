@@ -104,7 +104,7 @@ namespace adam::modules::serial
             flow_ctrl_param->set_description(language_german, "Die Hardware- oder Software-Flusssteuerung."_ct);
             up->add(std::move(flow_ctrl_param));
 
-            auto rit_param = std::make_unique<adam::configuration_parameter_integer>("read_interval_timeout"_ct, -1);
+            auto rit_param = std::make_unique<adam::configuration_parameter_integer>("read_interval_timeout"_ct, 1);
             rit_param->set_description(language_english, "Maximum time between bytes before returning (-1 = immediate)."_ct);
             rit_param->set_description(language_german, "Maximale Zeit zwischen Bytes vor der Rückgabe (-1 = sofort)."_ct);
             up->add(std::move(rit_param));
@@ -114,7 +114,7 @@ namespace adam::modules::serial
             rttc_param->set_description(language_german, "Konstantes Timeout zum Warten auf Daten (ms)."_ct);
             up->add(std::move(rttc_param));
 
-            auto rttm_param = std::make_unique<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct, -1);
+            auto rttm_param = std::make_unique<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct, 10);
             rttm_param->set_description(language_english, "Multiplier timeout per expected byte (ms)."_ct);
             rttm_param->set_description(language_german, "Multiplikator-Timeout pro erwartetem Byte (ms)."_ct);
             up->add(std::move(rttm_param));

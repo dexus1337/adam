@@ -498,13 +498,23 @@ namespace adam::gui
 
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_handled, lang));
+                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_received, lang));
                     ImGui::TableNextColumn();
-                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_handled);
+                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_recieved);
                     ImGui::TableNextColumn();
-                    char buf_handled[64];
-                    format_bytes_to_buf(stats->total_bytes_handled, buf_handled, sizeof(buf_handled));
-                    ImGui::TextUnformatted(buf_handled);
+                    char buf_recieved[64];
+                    format_bytes_to_buf(stats->total_bytes_recieved, buf_recieved, sizeof(buf_recieved));
+                    ImGui::TextUnformatted(buf_recieved);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_forwarded, lang));
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
+                    ImGui::TableNextColumn();
+                    char buf_forwarded[64];
+                    format_bytes_to_buf(stats->total_bytes_forwarded, buf_forwarded, sizeof(buf_forwarded));
+                    ImGui::TextUnformatted(buf_forwarded);
 
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();

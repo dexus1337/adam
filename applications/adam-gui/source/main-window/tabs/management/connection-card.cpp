@@ -591,17 +591,16 @@ namespace adam::gui
                 }
             }
 
-            if (is_unavailable)
-            { // Only check for missing modules if the connection itself is marked unavailable
-                if (!conn->input_format_module.empty() && !modules.is_module_loaded(conn->input_format_module))
-                {
-                    input_missing = true;
-                }
-                
-                if (!conn->output_format_module.empty() && !modules.is_module_loaded(conn->output_format_module))
-                {
-                    output_missing = true;
-                }
+            if (!conn->input_format_module.empty() && !modules.is_module_loaded(conn->input_format_module))
+            {
+                input_missing = true;
+                is_unavailable = true;
+            }
+            
+            if (!conn->output_format_module.empty() && !modules.is_module_loaded(conn->output_format_module))
+            {
+                output_missing = true;
+                is_unavailable = true;
             }
         }
 
@@ -623,7 +622,6 @@ namespace adam::gui
             }
         }
 
-
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
             
@@ -637,7 +635,13 @@ namespace adam::gui
             bg.z = (conn->color & 0xFF) / 255.0f * 0.35f + bg.z * 0.65f;
         }
             
-        if (is_being_dragged || is_unavailable)
+        bool reduce_alpha = is_being_dragged;
+        if (!is_being_dragged)
+        {
+            reduce_alpha = is_light_theme ? !is_unavailable : is_unavailable;
+        }
+
+        if (reduce_alpha)
         {
             bg.w *= 0.4f;
         }

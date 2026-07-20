@@ -114,13 +114,25 @@ namespace adam
         struct state_buffer_data
         {
             state    cur_state;
-            uint64_t total_buffers_handled;
-            uint64_t total_bytes_handled;
+            uint64_t total_buffers_recieved;
+            uint64_t total_bytes_recieved;
+            uint64_t total_buffers_forwarded;
+            uint64_t total_bytes_forwarded;
             uint64_t total_buffers_discarded;
             uint64_t total_bytes_discarded;
             uint8_t  user_data_array[1];
 
             template<typename T> T& user_data() { return *reinterpret_cast<T*>(user_data_array); }
+
+            inline void reset_statistics()
+            {
+                total_buffers_recieved  = 0;
+                total_bytes_recieved    = 0;
+                total_buffers_forwarded = 0;
+                total_bytes_forwarded   = 0;
+                total_buffers_discarded = 0;
+                total_bytes_discarded   = 0;
+            }
         };
         
 
@@ -196,7 +208,7 @@ namespace adam
         std::unordered_map<string_hash, buffer*>                m_parse_cache;      /**< Cache of parsed data formats active on this port. */
         #endif
 
-        buffer*                                                 m_state_buffer;     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes handled and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
+        buffer*                                                 m_state_buffer;     /**< A special buffer used for storing and sharing this port's runtime statistics, such as total buffers/bytes recieved and current active state. The data format of this buffer is expected to be a simple binary blob matching the structure of port::state_buffer_data. */
 
         configuration_parameter_boolean*                        m_started;          /**< Cached pointer to the started parameter as it will be frequently accessed. */
 

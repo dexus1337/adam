@@ -69,10 +69,7 @@ namespace adam
     {
         auto* stat_data = get_state_buffer_data();
 
-        stat_data->total_buffers_handled    = 0;
-        stat_data->total_bytes_handled      = 0;
-        stat_data->total_buffers_discarded  = 0;
-        stat_data->total_bytes_discarded    = 0;
+        stat_data->reset_statistics();
     }
 
     bool port::handle_data(buffer*& buf, data_direction dir)
@@ -90,8 +87,25 @@ namespace adam
 
         auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
 
-        stat_data->total_buffers_handled++;
-        stat_data->total_bytes_handled += buf->get_size();
+        auto cur_buff_size = buf->get_referenced_buffer() ? buf->get_referenced_buffer()->get_size() : buf->get_size();
+
+        stat_data->total_buffers_recieved++;
+        stat_data->total_bytes_recieved += cur_buff_size;
+
+        auto return_with_statistics = [&](bool success) -> bool 
+        { 
+            if (success) 
+            {
+                stat_data->total_buffers_forwarded++;
+                stat_data->total_bytes_forwarded += cur_buff_size;
+            }
+            else 
+            {
+                stat_data->total_buffers_discarded++;
+                stat_data->total_bytes_discarded += cur_buff_size;
+            }
+            return success; 
+        };
         
         switch (dir)
         {
@@ -126,10 +140,10 @@ namespace adam
                         auto it = m_parse_cache.find(hash);
                         #endif
                         if (it == m_parse_cache.end()) 
-                            return false;
+                            return return_with_statistics(false);
                         
                         if (!parser->parse(buf, it->second))
-                            return false;
+                            return return_with_statistics(false);
                     }
                 }
 
@@ -184,7 +198,7 @@ namespace adam
             }
         }
 
-        return result;
+        return return_with_statistics(result);
     }
 
     bool port::start()
