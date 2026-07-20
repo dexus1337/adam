@@ -20,7 +20,7 @@
 #include <mutex> // For std::lock_guard
 #include <string> // For std::string
 #include <unordered_set> // For std::unordered_set
-
+#include <set> // For std::set
 namespace adam::gui
 {
     // Helper to draw a single row in the inspector frames table
@@ -272,9 +272,109 @@ namespace adam::gui
         ImGui::PopStyleColor();
     }
 
+    template <typename HeightFunc>
+    static void calculate_custom_clipper(
+        int num_total_rows,
+        float row_height,
+        const std::set<size_t>& expanded_nodes,
+        float scroll_y,
+        float window_h,
+        int& out_display_start,
+        int& out_display_end,
+        float& out_top_dummy_h,
+        float& out_bottom_dummy_h,
+        HeightFunc get_expanded_height)
+    {
+        out_display_start = -1;
+        out_display_end = -1;
+        out_top_dummy_h = 0.0f;
+        out_bottom_dummy_h = 0.0f;
+        
+        if (num_total_rows == 0) return;
+
+        float current_y = 0.0f;
+        int current_idx = 0;
+        
+        for (size_t exp_idx : expanded_nodes)
+        {
+            if ((int)exp_idx >= num_total_rows) continue;
+            
+            int unexpanded_count = (int)exp_idx - current_idx;
+            if (unexpanded_count > 0)
+            {
+                float unexpanded_h = unexpanded_count * row_height;
+                if (out_display_start == -1 && current_y + unexpanded_h >= scroll_y)
+                {
+                    float overshoot = scroll_y - current_y;
+                    int rows_in = (int)(overshoot / row_height);
+                    out_display_start = current_idx + rows_in;
+                }
+                if (out_display_end == -1 && current_y + unexpanded_h >= scroll_y + window_h)
+                {
+                    float overshoot = (scroll_y + window_h) - current_y;
+                    int rows_in = (int)(overshoot / row_height);
+                    out_display_end = current_idx + rows_in;
+                    if (overshoot > rows_in * row_height) out_display_end += 1;
+                }
+                current_y += unexpanded_h;
+                current_idx = (int)exp_idx;
+            }
+            
+            float exp_h = get_expanded_height(exp_idx);
+            float item_h = row_height + exp_h;
+            
+            if (out_display_start == -1 && current_y + item_h >= scroll_y) out_display_start = current_idx;
+            if (out_display_end == -1 && current_y + item_h >= scroll_y + window_h)
+            {
+                out_display_end = current_idx + 1;
+            }
+            
+            current_y += item_h;
+            current_idx++;
+        }
+        
+        if (current_idx < num_total_rows)
+        {
+            int unexpanded_count = num_total_rows - current_idx;
+            float unexpanded_h = unexpanded_count * row_height;
+            if (out_display_start == -1 && current_y + unexpanded_h >= scroll_y)
+            {
+                float overshoot = scroll_y - current_y;
+                int rows_in = (int)(overshoot / row_height);
+                out_display_start = current_idx + rows_in;
+            }
+            if (out_display_end == -1 && current_y + unexpanded_h >= scroll_y + window_h)
+            {
+                float overshoot = (scroll_y + window_h) - current_y;
+                int rows_in = (int)(overshoot / row_height);
+                out_display_end = current_idx + rows_in;
+                if (overshoot > rows_in * row_height) out_display_end += 1;
+            }
+            current_y += unexpanded_h;
+        }
+        
+        if (out_display_start == -1) out_display_start = num_total_rows;
+        if (out_display_end == -1) out_display_end = num_total_rows;
+        if (out_display_end > num_total_rows) out_display_end = num_total_rows;
+        if (out_display_start > out_display_end) out_display_start = out_display_end;
+
+        out_top_dummy_h = out_display_start * row_height;
+        for (size_t exp_idx : expanded_nodes)
+        {
+            if ((int)exp_idx < out_display_start) out_top_dummy_h += get_expanded_height(exp_idx);
+            else break;
+        }
+        
+        out_bottom_dummy_h = (num_total_rows - out_display_end) * row_height;
+        for (auto it = expanded_nodes.rbegin(); it != expanded_nodes.rend(); ++it)
+        {
+            if ((int)*it >= out_display_end && (int)*it < num_total_rows) out_bottom_dummy_h += get_expanded_height(*it);
+            else if ((int)*it < out_display_end) break;
+        }
+    }
+
     static void draw_inspector_frames_table
     (
-        gui_controller& ctrl,
         const char* name,
         adam::string_hash hash,
         std::map<adam::string_hash, adam::gui::inspection_port_data>& data_map,
@@ -320,8 +420,6 @@ namespace adam::gui
                 }
             };
 
-            float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
-            ImGuiTableFlags header_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
             float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
             ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
             float inner_avail_w = ImGui::GetContentRegionAvail().x;
@@ -376,29 +474,20 @@ namespace adam::gui
             static std::map<std::pair<size_t, size_t>, float> expanded_heights;
             float scroll_y = ImGui::GetScrollY();
             float window_h = ImGui::GetWindowHeight();
-            float top_dummy_h = 0.0f, bottom_dummy_h = 0.0f, total_h = 0.0f;
+            float top_dummy_h = 0.0f, bottom_dummy_h = 0.0f;
             int display_start = 0, display_end = 0;
-            for (int i = 0; i < (int)flat_rows.size(); ++i) {
-                float item_h = row_height;
-                if (port_data.expanded_nodes.count(i)) {
-                    float expanded_h = 100.0f; 
-                    auto it = expanded_heights.find(flat_rows[i]);
-                    if (it != expanded_heights.end()) expanded_h = it->second;
-                    item_h += expanded_h;
-                }
-                if (total_h + item_h < scroll_y) {
-                    display_start = i + 1;
-                    top_dummy_h += item_h;
-                } else if (total_h < scroll_y + window_h) {
-                    display_end = i + 1;
-                } else {
-                    bottom_dummy_h += item_h;
-                }
-                total_h += item_h;
-            }
-            if (display_end < display_start) display_end = display_start;
+
+            calculate_custom_clipper(
+                (int)flat_rows.size(), row_height, port_data.expanded_nodes, scroll_y, window_h,
+                display_start, display_end, top_dummy_h, bottom_dummy_h,
+                [&](size_t idx) -> float
+                {
+                    auto it = expanded_heights.find(flat_rows[idx]);
+                    return (it != expanded_heights.end()) ? it->second : 100.0f;
+                });
             
-            if (top_dummy_h > 0.0f && table_open) {
+            if (top_dummy_h > 0.0f && table_open)
+            {
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, top_dummy_h);
             }
             
@@ -557,7 +646,8 @@ namespace adam::gui
                     }
                 }
 
-            if (bottom_dummy_h > 0.0f && table_open) {
+            if (bottom_dummy_h > 0.0f && table_open)
+            {
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, bottom_dummy_h);
             }
 
@@ -639,35 +729,62 @@ namespace adam::gui
             std::erase_if(expanded_nodes, [&](size_t idx) { return idx >= buffers.size(); });
 
             float row_height = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
-            ImGuiListClipper clipper;
-            clipper.Begin(static_cast<int>(buffers.size()), row_height);
-            while (clipper.Step())
-            {
-                for (int row_idx = clipper.DisplayStart; row_idx < clipper.DisplayEnd; ++row_idx)
-                {
-                    const auto& ib = buffers[row_idx];
+            static std::map<uint64_t, float> normal_expanded_heights;
+            float scroll_y = ImGui::GetScrollY();
+            float window_h = ImGui::GetWindowHeight();
+            float top_dummy_h = 0.0f, bottom_dummy_h = 0.0f;
+            int display_start = 0, display_end = 0;
 
+            calculate_custom_clipper(
+                (int)buffers.size(), row_height, expanded_nodes, scroll_y, window_h,
+                display_start, display_end, top_dummy_h, bottom_dummy_h,
+                [&](size_t idx) -> float
+                {
+                    uint64_t dump_id = unique_id ^ (idx * 0x9e3779b9);
+                    auto it = normal_expanded_heights.find(dump_id);
+                    return (it != normal_expanded_heights.end()) ? it->second : 100.0f;
+                });
+
+            if (top_dummy_h > 0.0f && table_open)
+            {
+                ImGui::TableNextRow(ImGuiTableRowFlags_None, top_dummy_h);
+            }
+
+            for (int row_idx = display_start; row_idx < display_end; ++row_idx)
+            {
+                const auto& ib = buffers[row_idx];
+
+                if (table_open)
+                {
+                    draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
+                }
+
+                if (expanded_nodes.count(row_idx))
+                {
                     if (table_open)
                     {
-                        draw_inspector_table_row(ib, row_idx, data_pool, (std::set<size_t>&)expanded_nodes);
+                        ImGui::EndTable();
+                        table_open = false;
                     }
 
-                    if (expanded_nodes.count(row_idx))
-                    {
-                        if (table_open)
-                        {
-                            ImGui::EndTable();
-                            table_open = false;
-                        }
+                    float start_y = ImGui::GetCursorPosY();
 
-                        ImGui::PushID(row_idx);
-                        draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, current_height, dpi_scale, lang, inner_avail_w);
-                        ImGui::PopID();
+                    ImGui::PushID(row_idx);
+                    draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, current_height, dpi_scale, lang, inner_avail_w);
+                    ImGui::PopID();
 
-                        table_open = ImGui::BeginTable("InspectorTableMain", 6, common_flags);
-                        if (table_open) setup_inner_columns();
-                    }
+                    float end_y = ImGui::GetCursorPosY();
+                    uint64_t dump_id = unique_id ^ (row_idx * 0x9e3779b9);
+                    normal_expanded_heights[dump_id] = end_y - start_y;
+
+                    table_open = ImGui::BeginTable("InspectorTableMain", 6, common_flags);
+                    if (table_open) setup_inner_columns();
                 }
+            }
+
+            if (bottom_dummy_h > 0.0f && table_open)
+            {
+                ImGui::TableNextRow(ImGuiTableRowFlags_None, bottom_dummy_h);
             }
 
             if (table_open) ImGui::EndTable();
@@ -1050,7 +1167,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, initial_inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL);
+                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, initial_inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL);
                         conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                         if (conn_table_open) setup_columns();
                     }
@@ -1142,7 +1259,7 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(ctrl, name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, initial_inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL);
+                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, initial_inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL);
                         if (!is_last_connection)
                         {
                             conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
@@ -1313,7 +1430,7 @@ namespace adam::gui
                 {
                     if (table_open) ImGui::EndTable();
                     
-                    draw_inspector_frames_table(ctrl, p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, initial_inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL);
+                    draw_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, initial_inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL);
 
                     if (!is_last_port)
                     {
