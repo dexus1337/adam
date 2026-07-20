@@ -16,7 +16,7 @@
 
 namespace adam::modules::can
 {
-    #pragma pack(push, 4)
+    #pragma pack(push, 1)
 
     /**
     * @brief Structure representing a CAN message frame.

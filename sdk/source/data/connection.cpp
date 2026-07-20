@@ -92,6 +92,9 @@ namespace adam
                 inspector->handle_data(buf);
         });
 
+        if (!m_b_valid_data_chain || !m_started->get_value())
+            return result;
+
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
         {

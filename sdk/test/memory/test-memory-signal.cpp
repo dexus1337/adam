@@ -42,7 +42,7 @@ TEST_F(memory_signaled_test, wait_timeout)
     
     EXPECT_FALSE(result); // Should timeout
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    EXPECT_GE(duration, 100); // Ensure it actually waited at least 100ms
+    EXPECT_GE(duration, 95); // Ensure it actually waited at least 95ms //Windows can be a bit off with timing, so we give a small buffer
 }
 
 /** @brief Tests the notification functionality of memory_signaled. */

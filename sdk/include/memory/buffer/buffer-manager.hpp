@@ -73,7 +73,7 @@ namespace adam
         /** @brief Returns a buffer back to the manager for cleanup and reuse. */
         void return_buffer(buffer* buf);
 
-        /** @brief Resolves a buffer handle received over IPC into a usable buffer object. */
+        /** @brief Resolves a buffer handle received over IPC into a usable buffer object. Expects a reference is added by the sender. TODO: is ther */
         buffer* resolve_handle(const buffer_handle& handle);
 
     protected:

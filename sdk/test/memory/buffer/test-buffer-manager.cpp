@@ -239,3 +239,74 @@ TEST_F(buffer_manager_test, benchmark_vs_malloc)
 
     EXPECT_GT(duration_mgr, 0);
 }
+
+TEST_F(buffer_manager_test, referenced_buffer_basic)
+{
+    auto& mgr = adam::buffer_manager::get();
+    
+    adam::buffer* parent = mgr.request_buffer(256);
+    adam::buffer* child = mgr.request_buffer(256);
+    
+    ASSERT_NE(parent, nullptr);
+    ASSERT_NE(child, nullptr);
+    
+    parent->set_referenced_buffer(child);
+    
+    EXPECT_EQ(parent->get_referenced_buffer(), child);
+    
+    child->release(); // Release local ownership, parent still owns it
+    
+    // Verify child is still alive via parent's reference
+    EXPECT_EQ(child->get_ref_count(), 1);
+    
+    parent->release(); // Should release parent and recursively release child
+    
+    // Verify both are now free
+    EXPECT_EQ(parent->get_ref_count(), adam::buffer_manager::buffer_free_state);
+    EXPECT_EQ(child->get_ref_count(), adam::buffer_manager::buffer_free_state);
+}
+
+TEST_F(buffer_manager_test, referenced_buffer_resolve_recursive)
+{
+    auto& mgr = adam::buffer_manager::get();
+    
+    adam::buffer* parent = mgr.request_buffer(256);
+    adam::buffer* child = mgr.request_buffer(256);
+    
+    const char* child_payload = "Child buffer payload";
+    child->fill_data(child_payload, static_cast<uint32_t>(strlen(child_payload) + 1));
+    
+    parent->set_referenced_buffer(child);
+    child->release();
+    
+    EXPECT_EQ(parent->get_ref_count(), 1);
+    EXPECT_EQ(child->get_ref_count(), 1);
+    
+    adam::buffer_handle parent_handle = parent->get_handle();
+    
+    adam::buffer* resolved_parent = mgr.resolve_handle(parent_handle);
+    ASSERT_NE(resolved_parent, nullptr);
+    resolved_parent->add_ref(); // Resolving does not automatically add a reference, so we do it here to keep it alive for the test
+    
+    adam::buffer* resolved_child = resolved_parent->get_referenced_buffer();
+    ASSERT_NE(resolved_child, nullptr);
+    EXPECT_STREQ(resolved_child->get_data_as<char>(), child_payload);
+    
+    // The resolved_parent should have called add_ref on the resolved_child
+    EXPECT_EQ(child->get_ref_count(), 2);
+    EXPECT_EQ(parent->get_ref_count(), 2);
+    EXPECT_EQ(resolved_child->get_ref_count(), 2);
+    EXPECT_EQ(resolved_parent->get_ref_count(), 2);
+    
+    resolved_parent->release(); // Releases both parent and child surrogates
+    
+    // Child's ref count drops back to 1 (owned solely by original parent)
+    EXPECT_EQ(child->get_ref_count(), 1);
+    EXPECT_EQ(parent->get_ref_count(), 1);
+    
+    parent->release();
+    
+    // Verify both are now free
+    EXPECT_EQ(parent->get_ref_count(), adam::buffer_manager::buffer_free_state);
+    EXPECT_EQ(child->get_ref_count(), adam::buffer_manager::buffer_free_state);
+}

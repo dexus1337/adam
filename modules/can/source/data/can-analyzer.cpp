@@ -65,8 +65,11 @@ namespace adam::modules::can
         return true;
     }
 
-    bool can_analyzer::analyze_expanded(const uint8_t* data, size_t size, size_t row_idx, std::vector<expanded_data>& out_expansions) const
+    bool can_analyzer::analyze_expanded(const uint8_t* data, size_t size, const uint8_t* ref_data, size_t ref_size, size_t row_idx, std::vector<expanded_data>& out_expansions) const
     {
+        (void)ref_data;
+        (void)ref_size;
+        
         if (!data) return false;
 
         const can_message* messages = reinterpret_cast<const can_message*>(data);

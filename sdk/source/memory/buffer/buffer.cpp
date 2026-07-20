@@ -27,11 +27,23 @@ namespace adam
 
     void buffer::set_referenced_buffer(buffer* buf)
     {
+        if (m_reference == buf) return;
+
+        if (m_reference)
+            m_reference->release();
+
         m_reference = buf;
+
         if (buf)
-            m_header->reference = buf->get_handle();
-        else
-            m_header->reference.set_invalid();
+            buf->add_ref();
+
+        if (!m_is_resolved)
+        {
+            if (buf)
+                m_header->reference = buf->get_handle();
+            else
+                m_header->reference.set_invalid();
+        }
     }
 
     bool buffer::fill_data(const void* in_data, uint32_t len, uint32_t offset)
@@ -65,9 +77,7 @@ namespace adam
         std::memcpy(new_buf->begin(), this->get_begin(), m_header->size);
 
         if (m_reference)
-        {
             new_buf->set_referenced_buffer(m_reference);
-        }
 
         return new_buf;
     }

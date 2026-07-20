@@ -51,6 +51,8 @@ namespace adam::gui
         uint64_t timestamp;
         uint32_t offset;
         uint32_t size;
+        uint32_t ref_offset;
+        uint32_t ref_size;
     };
 
     struct inspection_port_data

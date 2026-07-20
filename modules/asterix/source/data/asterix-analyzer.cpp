@@ -86,7 +86,7 @@ namespace adam::modules::asterix
         return true;
     }
 
-    bool asterix_analyzer::analyze_expanded(const uint8_t* data, size_t size, size_t row_idx, std::vector<expanded_data>& out_expansions) const
+    bool asterix_analyzer::analyze_expanded(const uint8_t* data, size_t size, const uint8_t* ref_data, size_t ref_size, size_t row_idx, std::vector<expanded_data>& out_expansions) const
     {
         if (!data) return false;
 
@@ -121,9 +121,9 @@ namespace adam::modules::asterix
                             sub_r.columns.push_back(indent_str + "Unknown");
 
                         std::string hex_data;
-                        if (current_item->raw_offset + current_item->raw_length <= size)
+                        if (ref_data && current_item->raw_offset + current_item->raw_length <= ref_size)
                         {
-                            const uint8_t* item_data = data + current_item->raw_offset;
+                            const uint8_t* item_data = ref_data + current_item->raw_offset;
                             for (size_t i = 0; i < current_item->raw_length; ++i)
                             {
                                 char buf_str[4];

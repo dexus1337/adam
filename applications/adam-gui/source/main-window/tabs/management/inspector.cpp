@@ -458,9 +458,11 @@ namespace adam::gui
                         {
                             if (port_data.analyzer_ptr)
                             {
-                                const uint8_t* data_ptr = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
-                                size_t data_size = port_data.buffers[b_idx].size;
-                                port_data.analyzer_ptr->analyze_expanded(data_ptr, data_size, r_idx, row_obj.expansions);
+                                const uint8_t* ref_data = nullptr;
+                                if (port_data.buffers[b_idx].ref_size > 0)
+                                    ref_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
+                                
+                                port_data.analyzer_ptr->analyze_expanded(port_data.data_pool.data() + port_data.buffers[b_idx].offset, port_data.buffers[b_idx].size, ref_data, port_data.buffers[b_idx].ref_size, r_idx, row_obj.expansions);
                             }
                             row_obj.expansions_fetched = true;
                         }

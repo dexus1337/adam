@@ -138,8 +138,6 @@ namespace adam
                 {
                     for (const auto& conn : connections)
                     {
-                        if (!conn->is_valid_chain()) continue;
-
                         adam::buffer* buff_to_send = buf;
                         
                         if (conn->get_input_format()->get_parser() != nullptr)
@@ -163,12 +161,7 @@ namespace adam
                 for (auto& [h, b] : m_parse_cache)
                 {
                     if (b) 
-                    { 
-                        if (b->get_referenced_buffer())
-                        {
-                            b->get_referenced_buffer()->release();
-                            b->set_referenced_buffer(nullptr);
-                        } 
+                    {
                         b->release(); 
                         b = nullptr;
                     }
@@ -302,11 +295,6 @@ namespace adam
         {
             for (auto* conn : conns)
             {
-                if (!conn->is_valid_chain())
-                {
-                    continue;
-                }
-
                 const data_format* fmt = conn->get_input_format();
                 if (fmt)
                 {

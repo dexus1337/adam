@@ -241,9 +241,25 @@ namespace adam::gui
             
             ib.size = buf->get_size();
             ib.offset = static_cast<uint32_t>(port_data.data_pool.size());
+            ib.ref_offset = 0;
+            ib.ref_size = 0;
             
-            const uint8_t* ptr = buf->get_begin_as<uint8_t>();
-            port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
+            if (ib.size > 0 && buf->get_data())
+            {
+                const uint8_t* ptr = buf->get_begin_as<uint8_t>();
+                port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
+            }
+            
+            if (auto* ref_buf = buf->get_referenced_buffer())
+            {
+                ib.ref_size = ref_buf->get_size();
+                ib.ref_offset = static_cast<uint32_t>(port_data.data_pool.size());
+                if (ib.ref_size > 0 && ref_buf->get_data())
+                {
+                    const uint8_t* ptr = ref_buf->get_begin_as<uint8_t>();
+                    port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.ref_size);
+                }
+            }
             
             port_data.buffers.push_back(ib);
         };
@@ -265,11 +281,24 @@ namespace adam::gui
             
             ib.size = buf->get_size();
             ib.offset = static_cast<uint32_t>(port_data.data_pool.size());
+            ib.ref_offset = 0;
+            ib.ref_size = 0;
             
             if (ib.size > 0 && buf->get_data())
             {
-                const uint8_t* ptr = buf->get_data_as<uint8_t>();
+                const uint8_t* ptr = buf->get_begin_as<uint8_t>();
                 port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
+            }
+            
+            if (auto* ref_buf = buf->get_referenced_buffer())
+            {
+                ib.ref_size = ref_buf->get_size();
+                ib.ref_offset = static_cast<uint32_t>(port_data.data_pool.size());
+                if (ib.ref_size > 0 && ref_buf->get_data())
+                {
+                    const uint8_t* ptr = ref_buf->get_begin_as<uint8_t>();
+                    port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.ref_size);
+                }
             }
             
             std::vector<adam::analyzer::row> parsed_rows;
@@ -314,11 +343,24 @@ namespace adam::gui
             
             ib.size = buf->get_size();
             ib.offset = static_cast<uint32_t>(port_data.data_pool.size());
+            ib.ref_offset = 0;
+            ib.ref_size = 0;
             
             if (ib.size > 0 && buf->get_data())
             {
-                const uint8_t* ptr = buf->get_data_as<uint8_t>();
+                const uint8_t* ptr = buf->get_begin_as<uint8_t>();
                 port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
+            }
+            
+            if (auto* ref_buf = buf->get_referenced_buffer())
+            {
+                ib.ref_size = ref_buf->get_size();
+                ib.ref_offset = static_cast<uint32_t>(port_data.data_pool.size());
+                if (ib.ref_size > 0 && ref_buf->get_data())
+                {
+                    const uint8_t* ptr = ref_buf->get_begin_as<uint8_t>();
+                    port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.ref_size);
+                }
             }
             
             std::vector<adam::analyzer::row> parsed_rows;

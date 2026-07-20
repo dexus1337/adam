@@ -103,8 +103,8 @@ namespace adam
         inline void set_size(uint32_t size)            { m_header->size = size; }
         inline void set_start_pos(uint32_t pos)        { m_header->start_pos = pos; }
         inline void move_start_pos(uint32_t offset)    { m_header->start_pos += offset; m_header->size -= offset; }
-        inline void add_ref()                          { m_header->ref_count.fetch_add(1, std::memory_order_relaxed); }
-        inline void release()                          { if (m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1) { buffer_manager::get().return_buffer(this); }};
+        inline void add_ref()                          { m_header->ref_count.fetch_add(1, std::memory_order_relaxed); if (m_reference) m_reference->add_ref(); }
+        inline void release()                          { buffer_manager::get().return_buffer(this); }
         inline void set_timestamp(uint64_t ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) { m_header->timestamp = ts; }
 
         void set_referenced_buffer(buffer* buf);

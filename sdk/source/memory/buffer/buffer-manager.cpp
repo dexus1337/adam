@@ -111,7 +111,7 @@ namespace adam
         local_list.pop_back();
         buf->m_header->ref_count.store(1, std::memory_order_relaxed);
         buf->m_header->size = 0;
-        buf->m_header->reference.set_invalid();
+        buf->set_referenced_buffer(nullptr);
         
         return buf;
     }
@@ -120,38 +120,45 @@ namespace adam
     {
         if (buf->m_is_resolved)
         {
-            // For resolved (surrogate) buffers, a simple decrement is sufficient.
-            // If this was the last reference, the surrogate object is returned to its own pool.
-            if (buf->m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
-            {
-                destroy_resolved_buffer(buf);
-            }
+            buf->m_header->ref_count.fetch_sub(1, std::memory_order_acq_rel);
+            // Surrogates must be destroyed locally unconditionally when release() is called.
+            destroy_resolved_buffer(buf);
             return;
         }
 
-        // For regular buffers, check the reference count.
         uint32_t current = buf->m_header->ref_count.load(std::memory_order_relaxed);
 
-        // If count is 1, this is the last reference. We can try to recycle it.
-        // If it's 0, it means it was already freed (e.g. by a scavenger thread).
-        // If it's buffer_free_state, it's already in a thread-local cache. Do nothing.
-        if (current <= 1)
-        { 
-            // Attempt to transition from 1 (or 0) to the 'free' state.
-            // This single atomic operation ensures that only one thread can successfully recycle this buffer.
-            if (buf->m_header->ref_count.compare_exchange_strong(current, buffer_free_state, std::memory_order_acq_rel, std::memory_order_relaxed))
-            {
-                uint8_t capacity_class = get_capacity_class(buf->get_capacity());
-                auto& local_list = t_cache.free_lists[capacity_class];
-                local_list.push_back(buf);
-
-                if (local_list.size() >= max_thread_cache_size) 
-                    return_batch(capacity_class, local_list); // Hits the spinlock
-            }
-        }
-        else // Otherwise, just decrement the reference count.
+        while (true)
         {
-            buf->m_header->ref_count.fetch_sub(1, std::memory_order_release);
+            if (current <= 1)
+            {
+                // Attempt to transition to the 'free' state.
+                if (buf->m_header->ref_count.compare_exchange_weak(current, buffer_free_state, std::memory_order_acq_rel, std::memory_order_relaxed))
+                {
+                    if (buf->m_reference) 
+                    {
+                        buf->m_reference->release();
+                        buf->m_reference = nullptr;
+                    }
+                    buf->m_header->reference.set_invalid();
+
+                    uint8_t capacity_class = get_capacity_class(buf->get_capacity());
+                    auto& local_list = t_cache.free_lists[capacity_class];
+                    local_list.push_back(buf);
+
+                    if (local_list.size() >= max_thread_cache_size) 
+                        return_batch(capacity_class, local_list);
+                    
+                    break;
+                }
+            }
+            else
+            {
+                if (buf->m_header->ref_count.compare_exchange_weak(current, current - 1, std::memory_order_release, std::memory_order_relaxed))
+                {
+                    break;
+                }
+            }
         }
     }
 
@@ -221,12 +228,25 @@ namespace adam
         raw_buf->m_data         = static_cast<uint8_t*>(static_cast<void*>(raw_buf->m_header)) + sizeof(buffer::header);
         raw_buf->m_is_resolved  = true;
         raw_buf->m_data_format  = &data_format_transparent;
+        raw_buf->m_reference    = nullptr;
+
+        if (raw_buf->m_header->reference.is_valid())
+        {
+            // resolve_handle already calls add_ref on the child, so we just take ownership of the surrogate
+            raw_buf->m_reference = resolve_handle(raw_buf->m_header->reference);
+        }
         
         return raw_buf;
     }
 
     void buffer_manager::destroy_resolved_buffer(buffer* buf)
     {
+        if (buf->m_reference) 
+        {
+            buf->m_reference->release();
+            buf->m_reference = nullptr;
+        }
+        
         std::lock_guard<std::mutex> resolved_lock(m_resolved_mutex);
         m_resolved_free_list.push_back(buf);
     }
@@ -239,8 +259,6 @@ namespace adam
     {
         destroy();
     }
-
-
 
     bool buffer_manager::allocate_pool_block(uint8_t capacity_class)
     {
@@ -276,15 +294,16 @@ namespace adam
             buf->m_is_resolved  = false;
             buf->m_data_format  = &data_format_transparent;
             buf->m_header       = reinterpret_cast<buffer::header*>(static_cast<uint8_t*>(new_mem->get()) + buf->m_handle.offset);
-            
+            buf->m_data         = static_cast<uint8_t*>(static_cast<void*>(buf->m_header)) + sizeof(buffer::header);
+            buf->m_reference    = nullptr;
+
             buf->m_header->ref_count.store(buffer_free_state, std::memory_order_relaxed);
             buf->m_header->capacity         = static_cast<uint32_t>(capacity);
             buf->m_header->size             = 0;
             buf->m_header->start_pos        = 0;
             buf->m_header->data_format_hash = data_format_transparent.get_name().get_hash();
             buf->m_header->timestamp        = 0;
-            buf->m_data                     = static_cast<uint8_t*>(static_cast<void*>(buf->m_header)) + sizeof(buffer::header);
-            buf->set_referenced_buffer(nullptr);
+            buf->m_header->reference.set_invalid();
 
             new_buffers.push_back(buf);
         }
@@ -331,7 +350,14 @@ namespace adam
 
                 uint32_t expected = 0;
                 if (buf->m_header->ref_count.compare_exchange_strong(expected, buffer_free_state, std::memory_order_acquire)) 
+                {
+                    if (buf->m_reference) {
+                        buf->m_reference->release();
+                        buf->m_reference = nullptr;
+                    }
+                    buf->m_header->reference.set_invalid();
                     recovered.push_back(buf);
+                }
             }
         }
         

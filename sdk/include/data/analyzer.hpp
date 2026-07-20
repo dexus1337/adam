@@ -62,7 +62,7 @@ namespace adam
         virtual bool analyze(const class buffer* buf, std::vector<row>& results) const = 0;
 
         /** @brief Lazily generates expansions for a specific row in the buffer. */
-        virtual bool analyze_expanded(const uint8_t* data, size_t size, size_t row_idx, std::vector<expanded_data>& out_expansions) const;
+        virtual bool analyze_expanded(const uint8_t* data, size_t size, const uint8_t* ref_data, size_t ref_size, size_t row_idx, std::vector<expanded_data>& out_expansions) const;
 
         bool                            is_row_expandable()      const { return m_b_row_expandable; }
         const std::vector<std::string>& get_columns()            const { return m_columns; }
