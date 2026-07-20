@@ -637,6 +637,7 @@ namespace adam::modules::asterix
         
         internal_data->set_size(out_offset);
         internal_data->set_referenced_buffer(buf);
+        internal_data->set_timestamp(buf->get_timestamp());
         internal_data->set_data_format(&data_format_asterix);
 
         return true;

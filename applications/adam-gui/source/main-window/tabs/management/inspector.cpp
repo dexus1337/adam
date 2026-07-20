@@ -322,16 +322,8 @@ namespace adam::gui
 
             float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
             ImGuiTableFlags header_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
-            bool header_table_begun = ImGui::BeginTable("InspectorAnalyzerHeader", num_cols, header_flags, ImVec2(header_w, 0));
-            if (header_table_begun)
-            {
-                setup_analyzer_columns();
-                ImGui::TableHeadersRow();
-                ImGui::EndTable();
-            }
-
             float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
-            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
             float inner_avail_w = ImGui::GetContentRegionAvail().x;
 
             bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
@@ -345,8 +337,34 @@ namespace adam::gui
             }
             bool auto_scroll = port_data.was_at_bottom;
 
-            ImGuiTableFlags inner_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
-            bool table_open = ImGui::BeginTable("InspectorAnalyzerInner", num_cols, inner_flags);
+            ImGuiTableFlags common_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
+
+            ImGui::GetWindowDrawList()->ChannelsSplit(2);
+
+            // 1. Draw Floating Header on Foreground (Channel 1)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(1);
+            float header_scroll_y = ImGui::GetScrollY();
+            float header_start_y = ImGui::GetCursorPosY();
+            ImGui::SetCursorPosY(header_start_y + header_scroll_y);
+
+            ImVec2 header_pos = ImGui::GetCursorScreenPos();
+            float guessed_header_h = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f + 4.0f;
+            ImGui::GetWindowDrawList()->AddRectFilled(header_pos, ImVec2(header_pos.x + inner_avail_w, header_pos.y + guessed_header_h), ImGui::GetColorU32(ImGuiCol_WindowBg));
+
+            bool header_table_begun = ImGui::BeginTable("InspectorAnalyzerMain", num_cols, common_flags);
+            if (header_table_begun)
+            {
+                setup_analyzer_columns();
+                ImGui::TableHeadersRow();
+                ImGui::EndTable();
+            }
+            float actual_header_h = ImGui::GetCursorPosY() - (header_start_y + header_scroll_y);
+
+            // 2. Draw Body Tables on Background (Channel 0)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
+            ImGui::SetCursorPosY(header_start_y + actual_header_h);
+
+            bool table_open = ImGui::BeginTable("InspectorAnalyzerMain", num_cols, common_flags);
             if (table_open) setup_analyzer_columns();
 
             const auto& flat_rows = port_data.parsed_flat_rows;
@@ -532,8 +550,7 @@ namespace adam::gui
                         float end_y = ImGui::GetCursorPosY();
                         expanded_heights[flat_rows[i]] = end_y - start_y;
 
-                        std::string next_table_id = "InspectorAnalyzerInner_" + std::to_string(i);
-                        table_open = ImGui::BeginTable(next_table_id.c_str(), num_cols, inner_flags);
+                        table_open = ImGui::BeginTable("InspectorAnalyzerMain", num_cols, common_flags);
                         if (table_open) setup_analyzer_columns();
                     }
                 }
@@ -554,6 +571,7 @@ namespace adam::gui
                 port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
             }
 
+            ImGui::GetWindowDrawList()->ChannelsMerge();
             ImGui::EndChild(); // ##inner_child
         }
         else
@@ -569,18 +587,8 @@ namespace adam::gui
                 ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_preview_ascii, lang), ImGuiTableColumnFlags_WidthStretch, 0.25f);
             };
 
-            float header_w = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
-            ImGuiTableFlags header_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg;
-            bool header_table_begun = ImGui::BeginTable("InspectorTableHeader", 6, header_flags, ImVec2(header_w, 0));
-            if (header_table_begun)
-            {
-                setup_inner_columns();
-                ImGui::TableHeadersRow();
-                ImGui::EndTable();
-            }
-
             float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
-            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false);
+            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
             float inner_avail_w = ImGui::GetContentRegionAvail().x;
 
             bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
@@ -594,8 +602,34 @@ namespace adam::gui
             }
             bool auto_scroll = port_data.was_at_bottom;
 
-            ImGuiTableFlags inner_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg;
-            bool table_open = ImGui::BeginTable("InspectorTableInner", 6, inner_flags);
+            ImGuiTableFlags common_flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
+
+            ImGui::GetWindowDrawList()->ChannelsSplit(2);
+
+            // 1. Draw Floating Header on Foreground (Channel 1)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(1);
+            float header_scroll_y = ImGui::GetScrollY();
+            float header_start_y = ImGui::GetCursorPosY();
+            ImGui::SetCursorPosY(header_start_y + header_scroll_y);
+
+            ImVec2 header_pos = ImGui::GetCursorScreenPos();
+            float guessed_header_h = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f + 4.0f;
+            ImGui::GetWindowDrawList()->AddRectFilled(header_pos, ImVec2(header_pos.x + inner_avail_w, header_pos.y + guessed_header_h), ImGui::GetColorU32(ImGuiCol_WindowBg));
+
+            bool header_table_begun = ImGui::BeginTable("InspectorTableMain", 6, common_flags);
+            if (header_table_begun)
+            {
+                setup_inner_columns();
+                ImGui::TableHeadersRow();
+                ImGui::EndTable();
+            }
+            float actual_header_h = ImGui::GetCursorPosY() - (header_start_y + header_scroll_y);
+
+            // 2. Draw Body Tables on Background (Channel 0)
+            ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
+            ImGui::SetCursorPosY(header_start_y + actual_header_h);
+
+            bool table_open = ImGui::BeginTable("InspectorTableMain", 6, common_flags);
             if (table_open) setup_inner_columns();
 
             std::erase_if(expanded_nodes, [&](size_t idx) { return idx >= buffers.size(); });
@@ -626,7 +660,7 @@ namespace adam::gui
                         draw_inspector_hex_dump(data_pool.data() + ib.offset, ib.size, row_idx, current_height, dpi_scale, lang, inner_avail_w);
                         ImGui::PopID();
 
-                        table_open = ImGui::BeginTable("InspectorTableInner", 6, inner_flags);
+                        table_open = ImGui::BeginTable("InspectorTableMain", 6, common_flags);
                         if (table_open) setup_inner_columns();
                     }
                 }
@@ -644,6 +678,7 @@ namespace adam::gui
                 port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
             }
 
+            ImGui::GetWindowDrawList()->ChannelsMerge();
             ImGui::EndChild(); // ##inner_child
         }
 

@@ -68,8 +68,9 @@ namespace adam::modules::asterix
                 if (used_uap && used_uap->get_sacsic_frn() > 0)
                 {
                     const item* sac_sic_item = rec.get_item(used_uap->get_sacsic_frn());
-                    if (sac_sic_item && sac_sic_item->is_populated())
-                        sac_sic = buf->get_at<raw_sac_sic>(sac_sic_item->raw_offset);
+                    const auto* raw_data = buf->get_referenced_buffer();
+                    if (raw_data && sac_sic_item && sac_sic_item->is_populated() && raw_data->get_size() > sac_sic_item->raw_offset)
+                        sac_sic = raw_data->get_at<raw_sac_sic>(sac_sic_item->raw_offset);
                 }
 
                 row r;
