@@ -38,8 +38,8 @@ namespace adam::gui
             { gui_string_id::theme_default_dark,          { "Default Dark", "Standard Dunkel" } },
             { gui_string_id::theme_default_light,         { "Default Light", "Standard Hell" } },
             { gui_string_id::btn_clear_log,               { "Clear Log###ClearLog", "Protokoll leeren###ClearLog" } },
-            { gui_string_id::lbl_commander_connected,     { "Commander connected.", "Commander verbunden." } },
-            { gui_string_id::lbl_commander_disconnected,  { "Commander disconnected.", "Commander getrennt." } },
+            { gui_string_id::lbl_commander_connected,     { "Connected to ADAM", "Verbunden mit ADAM" } },
+            { gui_string_id::lbl_commander_disconnected,  { "Disconnected from ADAM", "Nicht verbunden mit ADAM" } },
             { gui_string_id::lbl_log_console,             { "Log Console", "Protokollkonsole" } },
             { gui_string_id::combo_log_level_options,     { "Trace\0Info\0Warning\0Error\0\0", "Trace\0Info\0Warnung\0Fehler\0\0" } },
             { gui_string_id::tbl_time,                    { "Time", "Zeit" } },
@@ -61,7 +61,7 @@ namespace adam::gui
             { gui_string_id::menu_overlay_show_ram,       { "Memory (RAM) Usage", "Arbeitsspeicher (RAM) Auslastung" } },
             { gui_string_id::tab_management,              { "Management###TabManagement", "Verwaltung###TabManagement" } },
             { gui_string_id::tab_modules,                 { "Modules###TabModules", "Module###TabModules" } },
-            { gui_string_id::tab_information,             { "Information###TabInformation", "Informationen###TabInformation" } },
+            { gui_string_id::tab_information,             { "About###TabInformation", "Über###TabInformation" } },
             { gui_string_id::tab_configuration,           { "Configuration###TabConfiguration", "Konfiguration###TabConfiguration" } },
             { gui_string_id::tbl_load,                    { "Load", "Laden" } },
             { gui_string_id::tbl_name,                    { "Name", "Name" } },
@@ -193,7 +193,10 @@ namespace adam::gui
             { gui_string_id::lbl_available_configurations,{ "Available Configurations", "Verfügbare Konfigurationen" } },
             { gui_string_id::lbl_config_settings,         { "Configuration Settings", "Konfigurationseinstellungen" } },
             { gui_string_id::btn_export,                  { "Export", "Exportieren" } },
-            { gui_string_id::btn_save,                    { "Save", "Speichern" } }
+            { gui_string_id::btn_save,                    { "Save", "Speichern" } },
+            { gui_string_id::msg_about_description,       { "Advanced Data Analysis and Management (ADAM) is a modular, high-performance platform for routing, analyzing, and processing real-time data streams.", "Advanced Data Analysis and Management (ADAM) ist eine modulare Hochleistungsplattform für das Routing, die Analyse und die Verarbeitung von Echtzeit-Datenströmen." } },
+            { gui_string_id::msg_about_copyright1,        { "Copyright (c) 2026 dexus1337.", "Copyright (c) 2026 dexus1337." } },
+            { gui_string_id::msg_about_copyright2,        { "All rights reserved.", "Alle Rechte vorbehalten." } }
         };
 
         auto it = translations.find(id);

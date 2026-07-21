@@ -192,7 +192,10 @@ namespace adam::gui
         lbl_available_configurations,
         lbl_config_settings,
         btn_export,
-        btn_save
+        btn_save,
+        msg_about_description,
+        msg_about_copyright1,
+        msg_about_copyright2
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);
