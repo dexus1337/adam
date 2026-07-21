@@ -261,8 +261,9 @@ namespace adam::gui
         ImGui::PopStyleColor();
     }
 
-    template <typename HeightFunc>
-    static void calculate_custom_clipper(
+    template<typename heigth_func>
+    static void calculate_custom_clipper
+    (
         int num_total_rows,
         float row_height,
         const std::set<size_t>& expanded_nodes,
@@ -272,7 +273,7 @@ namespace adam::gui
         int& out_display_end,
         float& out_top_dummy_h,
         float& out_bottom_dummy_h,
-        HeightFunc get_expanded_height)
+        heigth_func get_expanded_height)
     {
         out_display_start = -1;
         out_display_end = -1;

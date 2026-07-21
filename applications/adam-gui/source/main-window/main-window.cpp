@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "tabs/tab-management.hpp"
 #include "tabs/tab-modules.hpp"
-#include "tabs/tab-information.hpp"
+#include "tabs/tab-about.hpp"
 #include "tabs/tab-configuration.hpp"
 #include "themes/themes.hpp"
 
@@ -257,7 +257,7 @@ namespace adam::gui
                     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
                     if (ImGui::BeginChild("##information_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
                     {
-                        draw_tab_information(m_ctrl, lang);
+                        draw_tab_about(m_ctrl, lang);
                     }
                     ImGui::EndChild();
                     ImGui::EndTabItem();

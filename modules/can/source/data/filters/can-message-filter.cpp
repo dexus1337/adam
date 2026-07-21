@@ -109,23 +109,14 @@ namespace adam::modules::can
         }
 
         if (m_filtered_messages.size() == message_count)
-        {
             return true;
-        }
 
         buffer* new_buf = buffer_manager::get().request_buffer(static_cast<uint32_t>(m_filtered_messages.size() * sizeof(can_message)));
         if (!new_buf)
-        {
-            return true; 
-        }
+            return true;
 
         new_buf->set_timestamp(buf->get_timestamp());
         new_buf->set_data_format(buf->get_data_format());
-        if (buf->get_referenced_buffer())
-        {
-            new_buf->set_referenced_buffer(buf->get_referenced_buffer());
-            buf->get_referenced_buffer()->add_ref();
-        }
 
         new_buf->fill_data(m_filtered_messages.data(), static_cast<uint32_t>(m_filtered_messages.size() * sizeof(can_message)));
 
