@@ -108,7 +108,6 @@ namespace adam::gui
         float child_h = calc_h;
         float container_h = child_h + reserved_container_elements_h;
 
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(ImGui::GetStyle().WindowPadding.x, 6.0f * dpi_scale));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f * dpi_scale);
 
@@ -182,7 +181,6 @@ namespace adam::gui
 
             ImGui::PopStyleVar();
 
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0.15f));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * dpi_scale, 4.0f * dpi_scale));
 
             if (ImGui::BeginChild("##hex_child", ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
@@ -254,12 +252,10 @@ namespace adam::gui
             }
             ImGui::EndChild();
             ImGui::PopStyleVar();
-            ImGui::PopStyleColor();
         }
         ImGui::EndChild();
         ImGui::PopID();
         ImGui::PopStyleVar(2);
-        ImGui::PopStyleColor();
     }
 
     template<typename heigth_func>
@@ -578,10 +574,7 @@ namespace adam::gui
                         float start_y = ImGui::GetCursorPosY();
 
                         ImGui::PushID(i);
-                        //float expand_indent = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().CellPadding.x;
-                        float sub_table_w = inner_avail_w;// - expand_indent * 2.0f;
-                        //if (sub_table_w < 20.0f) sub_table_w = 20.0f;
-                        //ImGui::Indent(expand_indent);
+                        float sub_table_w = inner_avail_w;
 
                         ImGui::PopStyleVar();
 
@@ -589,8 +582,9 @@ namespace adam::gui
                         {
                             if (ImGui::BeginChild("##HexDumpRegion", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
                             {
-                                if (ImGui::TreeNodeEx("Hex Dump", 0))
+                                if (ImGui::TreeNodeEx("Hex Dump"))
                                 {
+                                    ImGui::Unindent();
                                     const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
                                     size_t hex_size = port_data.buffers[b_idx].size;
                                     if (port_data.buffers[b_idx].ref_size > 0)
@@ -618,12 +612,13 @@ namespace adam::gui
                             {
                                 for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
                                 {
+                                    auto exp_table_w = ImGui::GetContentRegionAvail().x;
                                     const auto& exp = row_obj.expansions[exp_idx];
                                     ImGui::PushID((int)exp_idx);
                                     if (exp.data_type == adam::analyzer::expanded_data::type_text)
                                     {
                                         if (g_mono_font) ImGui::PushFont(g_mono_font);
-                                        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + sub_table_w);
+                                        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + exp_table_w);
                                         ImGui::TextWrapped("%s", exp.text_content.c_str());
                                         ImGui::PopTextWrapPos();
                                         if (g_mono_font) ImGui::PopFont();
@@ -635,7 +630,7 @@ namespace adam::gui
                                             ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
                                             ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
                                             ImGuiTableFlags_SizingStretchSame,
-                                            ImVec2(sub_table_w, 0), 0.0f))
+                                            ImVec2(exp_table_w, 0), 0.0f))
                                         {
                                             for (const auto& h : ext_cols) ImGui::TableSetupColumn(h.c_str());
                                             ImGui::TableHeadersRow();
@@ -661,7 +656,6 @@ namespace adam::gui
                         }
                         ImGui::EndChild();
 
-                        //ImGui::Unindent(expand_indent);
                         ImGui::PopID();
 
                         float end_y = ImGui::GetCursorPosY();
