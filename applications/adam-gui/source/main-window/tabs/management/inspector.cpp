@@ -7,6 +7,7 @@
  */
 
 #include "inspector.hpp"
+#include "imgui.h"
 #include "shared-state.hpp"
 #include "../../main-window.hpp"
 #include "controller/controller.hpp"
@@ -108,7 +109,7 @@ namespace adam::gui
         float container_h = child_h + reserved_container_elements_h;
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f * dpi_scale, 6.0f * dpi_scale));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(ImGui::GetStyle().WindowPadding.x, 6.0f * dpi_scale));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f * dpi_scale);
 
         ImGui::PushID(actual_index);
@@ -566,6 +567,8 @@ namespace adam::gui
                             row_obj.expansions_fetched = true;
                         }
 
+                        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+
                         if (table_open)
                         {
                             ImGui::EndTable();
@@ -575,86 +578,90 @@ namespace adam::gui
                         float start_y = ImGui::GetCursorPosY();
 
                         ImGui::PushID(i);
-                        float expand_indent = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().CellPadding.x;
-                        float sub_table_w = inner_avail_w - expand_indent * 2.0f;
-                        if (sub_table_w < 20.0f) sub_table_w = 20.0f;
-                        ImGui::Indent(expand_indent);
+                        //float expand_indent = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().CellPadding.x;
+                        float sub_table_w = inner_avail_w;// - expand_indent * 2.0f;
+                        //if (sub_table_w < 20.0f) sub_table_w = 20.0f;
+                        //ImGui::Indent(expand_indent);
 
-                        if (ImGui::BeginChild("##HexDumpRegion", ImVec2(sub_table_w, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+                        ImGui::PopStyleVar();
+
+                        if (ImGui::BeginChild("##ExpandedRegion", ImVec2(sub_table_w, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
                         {
-                            if (ImGui::TreeNodeEx("Hex Dump", 0))
+                            if (ImGui::BeginChild("##HexDumpRegion", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
                             {
-                                float tree_indent = ImGui::GetStyle().IndentSpacing;
-                                ImGui::Unindent(tree_indent);
-                                
-                                const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
-                                size_t hex_size = port_data.buffers[b_idx].size;
-                                if (port_data.buffers[b_idx].ref_size > 0)
+                                if (ImGui::TreeNodeEx("Hex Dump", 0))
                                 {
-                                    hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
-                                    hex_size = port_data.buffers[b_idx].ref_size;
-                                }
+                                    const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
+                                    size_t hex_size = port_data.buffers[b_idx].size;
+                                    if (port_data.buffers[b_idx].ref_size > 0)
+                                    {
+                                        hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
+                                        hex_size = port_data.buffers[b_idx].ref_size;
+                                    }
 
-                                draw_inspector_hex_dump(
-                                    hex_data,
-                                    hex_size,
-                                    (int)i,
-                                    dpi_scale,
-                                    lang,
-                                    ImGui::GetContentRegionAvail().x);
-                                    
-                                ImGui::Indent(tree_indent);
-                                ImGui::TreePop();
+                                    draw_inspector_hex_dump
+                                    (
+                                        hex_data,
+                                        hex_size,
+                                        (int)i,
+                                        dpi_scale,
+                                        lang,
+                                        ImGui::GetContentRegionAvail().x
+                                    );
+                                        
+                                    ImGui::TreePop();
+                                }
+                            }
+                            ImGui::EndChild();
+
+                            if (!row_obj.expansions.empty())
+                            {
+                                for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
+                                {
+                                    const auto& exp = row_obj.expansions[exp_idx];
+                                    ImGui::PushID((int)exp_idx);
+                                    if (exp.data_type == adam::analyzer::expanded_data::type_text)
+                                    {
+                                        if (g_mono_font) ImGui::PushFont(g_mono_font);
+                                        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + sub_table_w);
+                                        ImGui::TextWrapped("%s", exp.text_content.c_str());
+                                        ImGui::PopTextWrapPos();
+                                        if (g_mono_font) ImGui::PopFont();
+                                    }
+                                    else if (exp.data_type == adam::analyzer::expanded_data::type_table)
+                                    {
+                                        const auto& ext_cols = port_data.analyzer_ptr->get_expandable_columns();
+                                        if (ImGui::BeginTable("##sub_table", (int)ext_cols.size(),
+                                            ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
+                                            ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
+                                            ImGuiTableFlags_SizingStretchSame,
+                                            ImVec2(sub_table_w, 0), 0.0f))
+                                        {
+                                            for (const auto& h : ext_cols) ImGui::TableSetupColumn(h.c_str());
+                                            ImGui::TableHeadersRow();
+                                            for (const auto& row_v : exp.table_rows)
+                                            {
+                                                ImGui::TableNextRow();
+                                                for (size_t c = 0; c < row_v.columns.size() && c < ext_cols.size(); ++c)
+                                                {
+                                                    ImGui::TableSetColumnIndex((int)c);
+                                                    ImGui::TextUnformatted(row_v.columns[c].c_str());
+                                                }
+                                            }
+                                            ImGui::EndTable();
+                                        }
+                                    }
+                                    ImGui::PopID();
+                                }
+                            }
+                            else
+                            {
+                                ImGui::TextDisabled("No expanded data available.");
                             }
                         }
                         ImGui::EndChild();
 
-                        if (!row_obj.expansions.empty())
-                        {
-                            for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
-                            {
-                                const auto& exp = row_obj.expansions[exp_idx];
-                                ImGui::PushID((int)exp_idx);
-                                if (exp.data_type == adam::analyzer::expanded_data::type_text)
-                                {
-                                    if (g_mono_font) ImGui::PushFont(g_mono_font);
-                                    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + sub_table_w);
-                                    ImGui::TextWrapped("%s", exp.text_content.c_str());
-                                    ImGui::PopTextWrapPos();
-                                    if (g_mono_font) ImGui::PopFont();
-                                }
-                                else if (exp.data_type == adam::analyzer::expanded_data::type_table)
-                                {
-                                    const auto& ext_cols = port_data.analyzer_ptr->get_expandable_columns();
-                                    if (ImGui::BeginTable("##sub_table", (int)ext_cols.size(),
-                                        ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
-                                        ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
-                                        ImGuiTableFlags_SizingStretchSame,
-                                        ImVec2(sub_table_w, 0), 0.0f))
-                                    {
-                                        for (const auto& h : ext_cols) ImGui::TableSetupColumn(h.c_str());
-                                        ImGui::TableHeadersRow();
-                                        for (const auto& row_v : exp.table_rows)
-                                        {
-                                            ImGui::TableNextRow();
-                                            for (size_t c = 0; c < row_v.columns.size() && c < ext_cols.size(); ++c)
-                                            {
-                                                ImGui::TableSetColumnIndex((int)c);
-                                                ImGui::TextUnformatted(row_v.columns[c].c_str());
-                                            }
-                                        }
-                                        ImGui::EndTable();
-                                    }
-                                }
-                                ImGui::PopID();
-                            }
-                        }
-                        else
-                        {
-                            ImGui::TextDisabled("No expanded data available.");
-                        }
-
-                        ImGui::Unindent(expand_indent);
+                        //ImGui::Unindent(expand_indent);
                         ImGui::PopID();
 
                         float end_y = ImGui::GetCursorPosY();
@@ -754,15 +761,12 @@ namespace adam::gui
             float top_dummy_h = 0.0f, bottom_dummy_h = 0.0f;
             int display_start = 0, display_end = 0;
 
-            calculate_custom_clipper(
-                (int)buffers.size(), row_height, expanded_nodes, scroll_y, window_h,
-                display_start, display_end, top_dummy_h, bottom_dummy_h,
-                [&](size_t idx) -> float
-                {
-                    uint64_t dump_id = unique_id ^ (idx * 0x9e3779b9);
-                    auto it = normal_expanded_heights.find(dump_id);
-                    return (it != normal_expanded_heights.end()) ? it->second : 100.0f;
-                });
+            calculate_custom_clipper( (int)buffers.size(), row_height, expanded_nodes, scroll_y, window_h, display_start, display_end, top_dummy_h, bottom_dummy_h, [&](size_t idx) -> float
+            {
+                uint64_t dump_id = unique_id ^ (idx * 0x9e3779b9);
+                auto it = normal_expanded_heights.find(dump_id);
+                return (it != normal_expanded_heights.end()) ? it->second : 100.0f;
+            });
 
             if (top_dummy_h > 0.0f && table_open)
             {
@@ -780,6 +784,7 @@ namespace adam::gui
 
                 if (expanded_nodes.count(row_idx))
                 {
+                    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
                     if (table_open)
                     {
                         ImGui::EndTable();
@@ -797,7 +802,8 @@ namespace adam::gui
                         hex_data = data_pool.data() + ib.ref_offset;
                         hex_size = ib.ref_size;
                     }
-                    
+                    ImGui::PopStyleVar();
+
                     draw_inspector_hex_dump(hex_data, hex_size, row_idx, dpi_scale, lang, inner_avail_w);
                     ImGui::PopID();
 

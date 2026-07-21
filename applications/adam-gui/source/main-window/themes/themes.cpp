@@ -15,10 +15,10 @@ namespace adam::gui::themes
         ImVec4* colors = style.Colors;
 
         style.WindowBorderSize = 1.0f;
-        style.FrameBorderSize = 0.0f;
+        style.FrameBorderSize = 1.0f;
         style.PopupBorderSize = 1.0f;
         style.ChildBorderSize = 1.0f;
-        style.TabBorderSize = 0.0f;
+        style.TabBorderSize = 1.0f;
         
         colors[ImGuiCol_Text]                       = ImVec4(0.95f, 0.95f, 0.95f, 1.00f); // #f2f2f2ff
         colors[ImGuiCol_TextDisabled]               = ImVec4(0.50f, 0.50f, 0.50f, 1.00f); // #808080ff
@@ -27,7 +27,7 @@ namespace adam::gui::themes
         colors[ImGuiCol_PopupBg]                    = ImVec4(0.12f, 0.12f, 0.12f, 0.96f); // #1f1f1ff5
         colors[ImGuiCol_Border]                     = ImVec4(0.25f, 0.25f, 0.25f, 1.00f); // #404040ff
         colors[ImGuiCol_BorderShadow]               = ImVec4(0.00f, 0.00f, 0.00f, 0.00f); // #00000000
-        colors[ImGuiCol_FrameBg]                    = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // #2a2a2aff
+        colors[ImGuiCol_FrameBg]                    = ImVec4(0.20f, 0.20f, 0.20f, 1.00f); // #333333ff
         colors[ImGuiCol_FrameBgHovered]             = ImVec4(0.25f, 0.25f, 0.25f, 1.00f); // #404040ff
         colors[ImGuiCol_FrameBgActive]              = ImVec4(0.30f, 0.30f, 0.30f, 1.00f); // #4c4c4cff
         colors[ImGuiCol_TitleBg]                    = ImVec4(0.08f, 0.08f, 0.08f, 1.00f); // #141414ff
@@ -57,10 +57,10 @@ namespace adam::gui::themes
         colors[ImGuiCol_TabHovered]                 = ImVec4(0.26f, 0.59f, 0.98f, 0.80f); // #4296facc
         colors[ImGuiCol_TabActive]                  = ImVec4(0.25f, 0.25f, 0.25f, 1.00f); // #404040ff
         colors[ImGuiCol_TabUnfocused]               = ImVec4(0.15f, 0.15f, 0.15f, 1.00f); // #262626ff
-        colors[ImGuiCol_TabUnfocusedActive]         = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // #2a2a2aff
+        colors[ImGuiCol_TabUnfocusedActive]         = ImVec4(0.20f, 0.20f, 0.20f, 1.00f); // #333333ff
         colors[ImGuiCol_TableHeaderBg]              = ImVec4(0.18f, 0.18f, 0.18f, 1.00f); // #2e2e2eff
         colors[ImGuiCol_TableBorderStrong]          = ImVec4(0.25f, 0.25f, 0.25f, 1.00f); // #404040ff
-        colors[ImGuiCol_TableBorderLight]           = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // #2a2a2aff
+        colors[ImGuiCol_TableBorderLight]           = ImVec4(0.20f, 0.20f, 0.20f, 1.00f); // #333333ff
         colors[ImGuiCol_TableRowBg]                 = ImVec4(0.00f, 0.00f, 0.00f, 0.00f); // #00000000
         colors[ImGuiCol_TableRowBgAlt]              = ImVec4(1.00f, 1.00f, 1.00f, 0.03f); // #ffffff08
         colors[ImGuiCol_CheckboxSelectedBg]         = ImVec4(0.23f, 0.23f, 0.23f, 1.00f); // #3b3b3bff
@@ -68,7 +68,7 @@ namespace adam::gui::themes
         colors[ImGuiCol_TabSelected]                = ImVec4(0.25f, 0.25f, 0.25f, 1.00f); // #404040ff
         colors[ImGuiCol_TabSelectedOverline]        = ImVec4(0.26f, 0.59f, 0.98f, 1.00f); // #4296faff
         colors[ImGuiCol_TabDimmed]                  = ImVec4(0.15f, 0.15f, 0.15f, 1.00f); // #262626ff
-        colors[ImGuiCol_TabDimmedSelected]          = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // #2a2a2aff
+        colors[ImGuiCol_TabDimmedSelected]          = ImVec4(0.20f, 0.20f, 0.20f, 1.00f); // #333333ff
         colors[ImGuiCol_TabDimmedSelectedOverline]  = ImVec4(0.50f, 0.50f, 0.50f, 0.00f); // #80808000
         colors[ImGuiCol_PlotLines]                  = ImVec4(0.61f, 0.61f, 0.61f, 1.00f); // #9c9c9cff
         colors[ImGuiCol_PlotLinesHovered]           = ImVec4(1.00f, 0.43f, 0.35f, 1.00f); // #ff6e59ff
