@@ -78,7 +78,7 @@ bool setup(app_context& ctx)
         adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::connected_logger_sink, lang), std::cout);
     }
     
-    ctx.settings.load("adam-cli.adamcfg");
+    ctx.settings.load("adam-cli-config.adamclicfg");
     
     adam::cli::register_default_commands(ctx.db, ctx.lgsnk, ctx.settings);
 
@@ -100,7 +100,7 @@ void teardown(app_context& ctx)
 
     adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::exiting, lang), std::cout);
     
-    ctx.settings.save("adam-cli.adamcfg");
+    ctx.settings.save("adam-cli-config.adamclicfg");
 }
 
 int main() 

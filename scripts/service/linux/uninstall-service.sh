@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SERVICE_NAME="adam"
-SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 echo "Stopping service $SERVICE_NAME..."
 sudo systemctl stop $SERVICE_NAME 2>/dev/null || true

@@ -18,7 +18,7 @@ if [ ! -f "$EXE_PATH" ]; then
     echo "  ./install-service.sh /path/to/adam"
 fi
 
-SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 echo "Creating systemd service file at $SERVICE_FILE..."
 
