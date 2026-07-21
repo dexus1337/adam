@@ -55,7 +55,7 @@ namespace adam::modules::recrep
         #pragma pack(push, 1)
         struct file_header
         {
-            static const uint64_t magic_number = 0x0020202020464652ull; //52 46 46 20 20 20 20 00 -> "RFF   ."
+            static ADAM_CONSTEXPR uint32_t magic_number = 0x20464652u; //52 46 46 20 -> "RFF "
 
             time_string         time_start          = time_string();
             time_string         time_end            = time_string();
@@ -63,8 +63,9 @@ namespace adam::modules::recrep
             version_string      version             = version_string();
             user_string         user                = user_string();
             uint32_t            file_size_bytes     = 0;
-            char                reserved[6]         = {};
-            uint64_t            magic               = magic_number;
+            char                reserved_0[6]       = {};
+            uint32_t            magic               = magic_number;
+            char                reserved_1[4]       = {};
             uint8_t             file_format         = 2;
             uint8_t             data_format         = 0;
             system_id_string    system_id           = system_id_string();
