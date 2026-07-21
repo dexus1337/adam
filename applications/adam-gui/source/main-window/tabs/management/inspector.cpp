@@ -879,7 +879,7 @@ namespace adam::gui
         
         float dpi_scale = ImGui::GetStyle()._MainScale;
         auto* s_theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-        const bool s_is_light_theme = s_theme_param && s_theme_param->get_value() == "default-light"_ct;
+        const bool s_is_light_theme = s_theme_param && s_theme_param->get_value() == "light"_ct;
 
         auto format_bytes_to_buf = [](uint64_t bytes, char* buf, size_t buf_size) 
         {

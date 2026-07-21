@@ -142,12 +142,14 @@ namespace adam::gui
 
         // Load monospace fonts for hex viewer
         #if defined(ADAM_PLATFORM_WINDOWS)
-        if (std::filesystem::exists("C:\\Windows\\Fonts\\consola.ttf")) 
+        if (std::filesystem::exists("font.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f);
+        else if (std::filesystem::exists("C:\\Windows\\Fonts\\consola.ttf")) 
             g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\cour.ttf")) 
             g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\cour.ttf", 16.0f, &mono_config);
         #elif defined(ADAM_PLATFORM_LINUX)
-        if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSansMono.ttf"))
+        else if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSansMono.ttf"))
             g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"))
             g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);

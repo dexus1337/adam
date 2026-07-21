@@ -341,7 +341,7 @@ namespace adam::gui
         float spacing_x = ImGui::GetStyle().ItemSpacing.x;
 
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-        bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
+        bool is_light_theme = theme_param && theme_param->get_value() == "light"_ct;
 
         // --- Row 1 Layout ---
         ImGui::AlignTextToFramePadding();
@@ -605,7 +605,7 @@ namespace adam::gui
         }
 
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-        bool is_light_theme = theme_param && theme_param->get_value() == "default-light"_ct;
+        bool is_light_theme = theme_param && theme_param->get_value() == "light"_ct;
 
         auto& stage_pins_in = is_drag_preview ? g_stage_pins_in_preview : g_stage_pins_in_normal;
         auto& stage_pins_out = is_drag_preview ? g_stage_pins_out_preview : g_stage_pins_out_normal;

@@ -1196,7 +1196,7 @@ namespace adam::gui
         (void)conn;
         bool is_light_theme = false;
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-        if (theme_param && theme_param->get_value() == "default-light"_ct)
+        if (theme_param && theme_param->get_value() == "light"_ct)
         {
             is_light_theme = true;
         }

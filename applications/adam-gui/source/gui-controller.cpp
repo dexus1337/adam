@@ -17,7 +17,7 @@ namespace adam::gui
             p.add(std::make_unique<configuration_parameter_double>("perf_ovly_x"_ct, -1.0));
             p.add(std::make_unique<configuration_parameter_double>("perf_ovly_y"_ct, -1.0));
             p.add(std::make_unique<configuration_parameter_integer>("perf_ovly_content"_ct, 7));
-            p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "default-dark"_ct));
+            p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "dark"_ct));
             p.add(std::make_unique<configuration_parameter_double>("log_height"_ct, 0.0));
             p.add(std::make_unique<configuration_parameter_double>("font_scale"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_integer>("window_x"_ct, -1));
