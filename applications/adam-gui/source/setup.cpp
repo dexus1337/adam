@@ -141,9 +141,9 @@ namespace adam::gui
         mono_config.Name[sizeof(mono_config.Name) - 1] = '\0';
 
         // Load monospace fonts for hex viewer
-        #if defined(ADAM_PLATFORM_WINDOWS)
         if (std::filesystem::exists("font.ttf"))
             g_mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f);
+        #if defined(ADAM_PLATFORM_WINDOWS)
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\consola.ttf")) 
             g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\cour.ttf")) 

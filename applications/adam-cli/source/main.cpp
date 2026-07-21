@@ -21,7 +21,7 @@
 struct app_context
 {
     adam::commander cmd = adam::commander("CLI");
-    adam::logger lg;
+    //adam::logger lg;
     adam::logger_sink lgsnk;
     adam::cli::command_database db;
     adam::cli::cli_settings settings;
@@ -60,14 +60,14 @@ bool setup(app_context& ctx)
     lang = ctx.cmd.get_language();
     adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::connected_controller, lang), std::cout);
 
-    if (!ctx.lg.connect())
+    /*if (!ctx.lg.connect())
     {
         adam::stream_log(adam::log::warning, adam::cli::get_cli_string(adam::cli::cmd_string_id::failed_connect_logger, lang), std::cout);
     }
     else
     {
         adam::stream_log(adam::log::info, adam::cli::get_cli_string(adam::cli::cmd_string_id::connected_logger, lang), std::cout);
-    }
+    }*/
     
     if (!ctx.lgsnk.connect())
     {
@@ -92,9 +92,9 @@ void teardown(app_context& ctx)
     if (!ctx.lgsnk.destroy())
         adam::stream_log(adam::log::warning, adam::cli::get_cli_string(adam::cli::cmd_string_id::failed_destroy_logger_sink, lang), std::cout);
 
-    if (!ctx.lg.destroy())
+    /*if (!ctx.lg.destroy())
         adam::stream_log(adam::log::warning, adam::cli::get_cli_string(adam::cli::cmd_string_id::failed_destroy_logger, lang), std::cout);
-    
+    */
     if (!ctx.cmd.destroy())
         adam::stream_log(adam::log::error, adam::cli::get_cli_string(adam::cli::cmd_string_id::failed_destroy_commander, lang), std::cerr);
 

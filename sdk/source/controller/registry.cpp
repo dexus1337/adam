@@ -973,14 +973,19 @@ namespace adam
         }
 
         // 5. Restore connections
-        auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format, bool& missing_module)
+        auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, bool& missing_module) -> const data_format*
         {
             missing_module = false;
             if (!mod_name.empty() && !get_module(mod_name.get_hash()))
             {
                 missing_module = true;
+                return &data_format_transparent;
             }
-            out_format = get_data_format(fmt_name.get_hash(), mod_name.get_hash());
+            if (const auto* fmt = get_data_format(fmt_name.get_hash(), mod_name.get_hash()))
+            {
+                return fmt;
+            }
+            return &data_format_transparent;
         };
 
         if (auto* connections_list = static_cast<configuration_parameter_list*>(root_list->get("connections"_ct)))
@@ -994,13 +999,11 @@ namespace adam
                 const auto& out_fmt = static_cast<configuration_parameter_string*>(conn_params->get("output_format"_ct))->get_value();
                 const auto& out_mod = static_cast<configuration_parameter_string*>(conn_params->get("output_format_module"_ct))->get_value();
 
-                const data_format* resolved_in_fmt  = &data_format_transparent;
-                const data_format* resolved_out_fmt = &data_format_transparent;
                 bool missing_in  = false;
                 bool missing_out = false;
 
-                resolve_format(in_fmt,  in_mod,  resolved_in_fmt,  missing_in);
-                resolve_format(out_fmt, out_mod, resolved_out_fmt, missing_out);
+                const data_format* resolved_in_fmt  = resolve_format(in_fmt,  in_mod,  missing_in);
+                const data_format* resolved_out_fmt = resolve_format(out_fmt, out_mod, missing_out);
 
                 if (missing_in || missing_out)
                 {
@@ -1505,15 +1508,17 @@ namespace adam
 
             copy_parameters(&new_conn->parameters(), &it->second->parameters());
             
-            auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name, const data_format*& out_format)
+            auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name) -> const data_format*
             {
-                out_format = get_data_format(fmt_name.get_hash(), mod_name.get_hash());
+                if (const auto* fmt = get_data_format(fmt_name.get_hash(), mod_name.get_hash()))
+                {
+                    return fmt;
+                }
+                return &data_format_transparent;
             };
 
-            const data_format* resolved_in_fmt = &data_format_transparent;
-            const data_format* resolved_out_fmt = &data_format_transparent;
-            resolve_format(in_fmt, in_mod, resolved_in_fmt);
-            resolve_format(out_fmt, out_mod, resolved_out_fmt);
+            const data_format* resolved_in_fmt  = resolve_format(in_fmt, in_mod);
+            const data_format* resolved_out_fmt = resolve_format(out_fmt, out_mod);
 
             new_conn->set_input_format(resolved_in_fmt);
             new_conn->set_output_format(resolved_out_fmt);

@@ -3,8 +3,8 @@
 # Default values
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 EXE_PATH=$(realpath "$SCRIPT_DIR/adam")
-SERVICE_NAME="adam.service"
-SERVICE_DESC="Adam Application Service"
+SERVICE_NAME="adam"
+SERVICE_DESC="ADAM Daemon"
 USER_RUNNING="root"
 
 # Allow passing a custom executable path

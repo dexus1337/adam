@@ -29,11 +29,21 @@ if(WIN32)
         "${CMAKE_SOURCE_DIR}/scripts/service/windows/install-service.ps1"
         "${CMAKE_BINARY_DIR}/bin/install-service.ps1"
     )
+    add_custom_command(TARGET adam POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/scripts/service/windows/uninstall-service.ps1"
+        "${CMAKE_BINARY_DIR}/bin/uninstall-service.ps1"
+    )
 elseif(UNIX)
     add_custom_command(TARGET adam POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/scripts/service/linux/install-service.sh"
         "${CMAKE_BINARY_DIR}/bin/install-service.sh"
+    )
+    add_custom_command(TARGET adam POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/scripts/service/linux/uninstall-service.sh"
+        "${CMAKE_BINARY_DIR}/bin/uninstall-service.sh"
     )
 endif()
 

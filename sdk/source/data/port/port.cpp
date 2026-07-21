@@ -210,9 +210,7 @@ namespace adam
         if (m_b_threaded)
         {
             if (m_thread.joinable())
-            {
                 m_thread.join();
-            }
 
             m_thread = std::thread(&port::worker, this);
             
@@ -233,13 +231,9 @@ namespace adam
         if (m_b_threaded && m_thread.joinable())
         {
             if (m_thread.get_id() == std::this_thread::get_id())
-            {
                 m_thread.detach();
-            }
             else
-            {
                 m_thread.join();
-            }
         }
 
         set_state(state_stopped);

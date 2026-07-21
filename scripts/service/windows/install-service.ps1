@@ -1,8 +1,8 @@
 param(
     [string]$exePath = "$PSScriptRoot\adam.exe",
-    [string]$serviceName = "AdamService",
-    [string]$displayName = "Adam Application Service",
-    [string]$description = "Runs the Adam application in the background"
+    [string]$serviceName = "adam",
+    [string]$displayName = "ADAM Daemon",
+    [string]$description = "Runs the ADAM daemon in the background"
 )
 
 if (-not (Test-Path $exePath)) {

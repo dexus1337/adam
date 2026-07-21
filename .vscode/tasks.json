@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start gdbserver on Pi",
+            "type": "shell",
+            "command": "ssh",
+            "args": [
+                "pi@pi",
+                "killall -9 gdbserver adam || true; cd /home/pi/adam && gdbserver :55556 ./adam"
+            ],
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "Listening on port \\d+"
+                }
+            }
+        }
+    ]
+}

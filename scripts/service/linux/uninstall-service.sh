@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE_NAME="adam.service"
+SERVICE_NAME="adam"
 SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
 
 echo "Stopping service $SERVICE_NAME..."

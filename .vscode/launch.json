@@ -27,3 +27,45 @@
         }
     ]
 }*/
+
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Remote Pi Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "additionalSOLibSearchPath": "${command:cmake.launchTargetDirectory}/modules",
+            "logging": { "engineLogging": true },
+            "targetArchitecture": "arm64",
+            "MIMode": "gdb",
+            "preLaunchTask": "Start gdbserver on Pi",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Architecture",
+                    "text": "set architecture aarch64",
+                    "ignoreFailures": false
+                },
+
+                {
+                    "description": "Set Sysroot",
+                    "text": "set sysroot /home/pc/pi-sysroot",
+                    "ignoreFailures": false
+                }
+            ],
+            "miDebuggerPath": "/usr/bin/gdb-multiarch",
+            "miDebuggerServerAddress": "pi:55556"
+        }
+    ]
+}
