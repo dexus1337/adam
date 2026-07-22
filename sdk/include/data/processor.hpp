@@ -15,6 +15,7 @@
 #include "commander/messages/message-structs.hpp"
 #include "commander/messages/command.hpp"
 #include "types/vector-double-buffer.hpp"
+#include <atomic>
 
 namespace adam 
 {
@@ -74,10 +75,10 @@ namespace adam
 
         struct state_buffer_data
         {
-            uint64_t total_buffers_handled;
-            uint64_t total_bytes_handled;
-            uint64_t total_buffers_discarded;
-            uint64_t total_bytes_discarded;
+            std::atomic<uint64_t> total_buffers_handled;
+            std::atomic<uint64_t> total_bytes_handled;
+            std::atomic<uint64_t> total_buffers_discarded;
+            std::atomic<uint64_t> total_bytes_discarded;
             uint8_t  user_data_array[1];
 
             template<typename T> T& user_data() { return *reinterpret_cast<T*>(user_data_array); }

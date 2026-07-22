@@ -17,6 +17,7 @@
 
 #include "types/string-hashed.hpp"
 #include "memory/memory-signaled.hpp"
+#include "os/os.hpp"
 
 namespace adam 
 {
@@ -90,6 +91,8 @@ namespace adam
             std::atomic<uint32_t> head; /**< The index of the head of the queue_type queue, used for tracking where new items should be added. */
             std::atomic<uint32_t> tail; /**< The index of the tail of the queue_type queue, used for tracking where items should be read from. */
         
+            std::atomic_flag write_lock;
+
             queue_type items[1];
         };
 
@@ -160,6 +163,7 @@ namespace adam
         queue_header* header = reinterpret_cast<queue_header*>(m_shared_memory.get());
         new (&header->head) std::atomic<uint32_t>(0);
         new (&header->tail) std::atomic<uint32_t>(0);
+        new (&header->write_lock) std::atomic_flag();
         
         for (uint32_t i = 0; i < max_items; i++)
             new (&header->items[i]) queue_type();
@@ -186,6 +190,8 @@ namespace adam
     {
         auto* header = this->header();
         
+        adam::spinlock::guard lock(header->write_lock);
+
         uint32_t current_head = header->head.load(std::memory_order_relaxed);
         uint32_t next_head = (current_head + 1) % header->max_items;
 

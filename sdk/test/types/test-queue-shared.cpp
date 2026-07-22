@@ -162,3 +162,65 @@ TEST_F(queue_shared_test, multiple_commands_fifo_order)
             << "Command at index " << i << " is out of order!";
     }
 }
+
+/** @brief Tests multiple producers pushing concurrently to verify MPSC thread-safety */
+TEST_F(queue_shared_test, multiple_producers_concurrent_push)
+{
+    const uint32_t num_producers = 10;
+    const uint32_t items_per_producer = 1000;
+    const uint32_t total_items = num_producers * items_per_producer;
+    
+    ASSERT_TRUE(queuecreatetest->create(total_items + 1));
+    ASSERT_TRUE(queueopentest->open());
+
+    std::atomic<uint32_t> received_count{0};
+    std::atomic<bool> consumer_finished{false};
+
+    // 1. Launch Consumer Thread
+    std::thread consumer([&]() 
+    {
+        for (uint32_t i = 0; i < total_items; ++i) 
+        {
+            int item;
+            if (queueopentest->pop(item, std::chrono::seconds(2))) 
+            {
+                received_count++;
+            }
+            else
+            {
+                break; // Timeout
+            }
+        }
+        consumer_finished = true;
+    });
+
+    // 2. Launch Producer Threads
+    std::vector<std::thread> producers;
+    for (uint32_t p = 0; p < num_producers; ++p)
+    {
+        producers.emplace_back([&]() 
+        {
+            for (uint32_t i = 0; i < items_per_producer; ++i) 
+            {
+                while (!queuecreatetest->push(1)) 
+                {
+                    std::this_thread::yield();
+                }
+            }
+        });
+    }
+
+    // 3. Cleanup
+    for (auto& t : producers)
+    {
+        if (t.joinable())
+            t.join();
+    }
+
+    if (consumer.joinable())
+        consumer.join();
+
+    // 4. Verify results
+    ASSERT_TRUE(consumer_finished);
+    EXPECT_EQ(received_count.load(), total_items);
+}

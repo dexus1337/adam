@@ -61,10 +61,12 @@ namespace adam::modules::network
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
 
+        m_use_spinlock_for_write = true; // Prevent concurrent writes interleaving bytes
+
         add_parameters(port_tcp_server::get_user_parameters());
 
         // Cache user-parameter pointers (read-only after construction).
-        auto up          = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+        auto up           = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
         m_interface       = up->get<adam::configuration_parameter_string>("interface"_ct);
         m_interface_port  = up->get<adam::configuration_parameter_integer>("interface_port"_ct);
         m_tcp_nodelay     = up->get<adam::configuration_parameter_boolean>("tcp_nodelay"_ct);
