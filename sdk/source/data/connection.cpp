@@ -92,8 +92,7 @@ namespace adam
                 inspector->handle_data(buf);
         });
 
-        if (!m_b_valid_data_chain || !m_started->get_value())
-            return result;
+        if (!m_b_valid_data_chain || !m_started->get_value()) return false;
 
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
@@ -104,7 +103,7 @@ namespace adam
 
         // If the buffer is null or empty, we can skip the rest of the processing
         if (!buf || buf->get_size() == 0)
-            return result;
+            return false;
 
         // Run data through output inspectors
         m_inspectors_output.iterate([&](const auto& inspectors) 
@@ -113,21 +112,22 @@ namespace adam
                 inspector->handle_data(buf);
         });
 
+        buffer* encoded_buf = nullptr;
+
         // Run data through output encoder
         if (buf->get_data_format() != m_output_format && m_output_format->get_encoder())
         {
-            buffer* encoded_buf = nullptr;
             m_output_format->get_encoder()->encode(encoded_buf, buf);
-
-            buf = encoded_buf;
         }
 
         // Forward to all output ports
         m_ports_output.iterate([&](const auto& outputs) 
         {
             for (auto* output_port : outputs) 
-                result &= output_port->handle_data(buf, data_direction_out);
+                result &= output_port->handle_data(encoded_buf ? encoded_buf : buf, data_direction_out);
         });
+
+        if (encoded_buf) encoded_buf->release();
 
         return result;
     }
@@ -186,21 +186,9 @@ namespace adam
 
     bool connection::start()
     {
-        bool result = true;
-        auto* ctrl  = get_controller();
+        auto* ctrl = get_controller();
 
-        m_ports_input.iterate([&](const auto& inputs) 
-        {
-            for (auto* in : inputs) 
-            {
-                if (!in->is_started())
-                {
-                    command cmd(command_type::port_start);
-                    cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
-                }
-            }
-        });
+        m_started->set_value(true);
 
         m_ports_output.iterate([&](const auto& outputs) 
         {
@@ -215,14 +203,24 @@ namespace adam
             }
         });
 
-        m_started->set_value(result);
+        m_ports_input.iterate([&](const auto& inputs) 
+        {
+            for (auto* in : inputs) 
+            {
+                if (!in->is_started())
+                {
+                    command cmd(command_type::port_start);
+                    cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
+                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                }
+            }
+        });
 
-        return result;
+        return true;
     }
 
     bool connection::stop()
     {
-        bool result = true;
         auto* ctrl  = get_controller();
 
         auto is_used_elsewhere = [&](port* p)
@@ -270,6 +268,6 @@ namespace adam
 
         m_started->set_value(false);
         
-        return result;
+        return true;
     }
 }

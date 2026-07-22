@@ -27,7 +27,7 @@ namespace adam
         map_double_buffer() : m_dirty(false) {}
         ~map_double_buffer() = default;
 
-        void update(const std::unordered_map<key, value>& new_map)
+        inline void update(const std::unordered_map<key, value>& new_map)
         {
             {
                 std::unique_lock lock(m_mutex);
@@ -36,14 +36,19 @@ namespace adam
             m_dirty.store(true, std::memory_order_release);
         }
 
-        bool is_dirty() const
+        inline bool is_dirty() const
         {
             return m_dirty.load(std::memory_order_acquire);
         }
 
-        const std::unordered_map<key, value>& get_active() const
+        inline const std::unordered_map<key, value>& get(bool* p_was_dirty = nullptr) const
         {
-            if (m_dirty.load(std::memory_order_acquire))
+            bool dirty = is_dirty();
+
+            if (p_was_dirty)
+                *p_was_dirty = dirty;
+
+            if (dirty)
             {
                 std::unique_lock lock(m_mutex);
                 const_cast<std::unordered_map<key, value>&>(m_active) = m_pending;

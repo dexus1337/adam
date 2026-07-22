@@ -38,10 +38,13 @@ namespace adam
         queue_shared<response_type>&    response_queue()    { return m_response_queue;  }
 
         /** @brief Gives the amount of items being able to be queued simoultanesously */
-        uint32_t get_max_items() const { return m_request_queue.get_max_items(); }
+        inline uint32_t get_max_items() const { return m_request_queue.get_max_items(); }
 
         /** @brief Gets the memorys active flag. Can be as loop condition for threads .*/
-        bool is_active() const { return m_request_queue.is_active() && m_response_queue.is_active(); };
+        inline bool is_active() const { return m_request_queue.is_active() && m_response_queue.is_active(); };
+
+        /** @brief Unsets the active flag. Can be used to stop waiting threads. */
+        inline void disable() { m_request_queue.disable(); m_response_queue.disable(); }
 
         /** @brief Sets the name of the queue */
         void set_name(const string_hashed& new_name);
@@ -51,9 +54,6 @@ namespace adam
 
         /** @brief Opens an existing queue */
         bool open();
-
-        /** @brief Unsets the active flag. Can be used to stop waiting threads. */
-        void disable() { m_request_queue.disable(); m_response_queue.disable(); }
 
         /** @brief Destroys the queue and free all resources */
         bool destroy();

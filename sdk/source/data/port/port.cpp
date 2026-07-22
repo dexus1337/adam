@@ -111,10 +111,9 @@ namespace adam
         {
             case data_direction_in:
             {
-                // Populate map for active formats, if anything changed
-                bool formats_updated = m_formats.is_dirty();
-                auto& active_formats = m_formats.get_active();
-                formats_updated = formats_updated || m_parse_cache.empty() != active_formats.empty();
+                bool formats_updated = false;
+                auto& active_formats = m_formats.get(&formats_updated);
+                
                 if (formats_updated) 
                 {
                     m_parse_cache.clear();
@@ -154,7 +153,7 @@ namespace adam
                     {
                         adam::buffer* buff_to_send = buf;
                         
-                        if (conn->get_input_format()->get_parser() != nullptr)
+                        if (conn->get_input_format()->get_parser())
                         {
                             const string_hash format_hash = conn->get_input_format()->get_name().get_hash();
                             
@@ -167,7 +166,7 @@ namespace adam
                             #endif
                         }
 
-                        result &= conn->handle_data(buff_to_send);
+                        conn->handle_data(buff_to_send);
                     }
                 });
 

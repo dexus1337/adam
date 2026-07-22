@@ -19,8 +19,6 @@ namespace adam
     
     bool port_internal::handle_data(buffer*& buf, data_direction dir)
     {
-        bool result = true;
-
         if (!is_running()) return false;
 
         switch (dir)
@@ -31,6 +29,17 @@ namespace adam
             }
             case data_direction_out:
             {
+                auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
+
+                auto cur_buff_size = buf->get_referenced_buffer() ? buf->get_referenced_buffer()->get_size() : buf->get_size();
+
+                // Increase recieved stats
+                stat_data->total_buffers_recieved++;
+                stat_data->total_bytes_recieved += cur_buff_size;
+                
+                stat_data->total_buffers_forwarded++;
+                stat_data->total_bytes_forwarded += cur_buff_size;
+
                 m_inspectors.iterate([&](const auto& active_inspectors) 
                 {
                     for (const auto& data_inspector : active_inspectors) 
@@ -41,22 +50,15 @@ namespace adam
                 m_in_connections.iterate([&](const auto& connections) 
                 {
                     for (const auto& conn : connections) 
-                        result &= conn->handle_data(buf);
+                    {
+                        adam::buffer* buff_to_send = buf;
+                        conn->handle_data(buff_to_send);
+                    }
                 });
-
-                auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
-
-                auto cur_buff_size = buf->get_referenced_buffer() ? buf->get_referenced_buffer()->get_size() : buf->get_size();
-
-                // Increase both recieved and forwarded stats
-                stat_data->total_buffers_recieved++;
-                stat_data->total_bytes_recieved += cur_buff_size;
-                stat_data->total_buffers_forwarded++;
-                stat_data->total_bytes_forwarded += cur_buff_size;
             }
         }
 
-        return result;
+        return true;
     }
 
 }

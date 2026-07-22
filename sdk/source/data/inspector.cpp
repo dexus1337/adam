@@ -1,5 +1,10 @@
 #include "data/inspector.hpp"
+
+#include <chrono>
+
 #include "memory/buffer/buffer-manager.hpp"
+#include "os/os.hpp"
+
 
 namespace adam 
 {
@@ -46,11 +51,9 @@ namespace adam
     {
         buf->add_ref();
         
-        if (!m_buffer_queue.push(buf->get_handle()))
-        {
-            buf->release();
-            return false;
-        }
+        while (!m_buffer_queue.push(buf->get_handle()))
+            cpu::pause();
+        
         return true;
     }
 

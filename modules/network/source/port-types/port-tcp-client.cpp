@@ -434,7 +434,7 @@ namespace adam::modules::network
         if (buff->get_size() == 0) return false;
         if (get_state() != state_running) return false;
 
-        if (!send_all(static_cast<socket_t>(m_socket), buff->get_data_as<char>(), buff->get_size()))
+        if (!send_all(static_cast<socket_t>(m_socket), buff->get_begin_as<char>(), buff->get_size()))
         {
             log_network_socket_error(log::warning, log_event::tcp_client_send_failed, resolve_socket_error(get_last_error()), "TCP-Client");
             return false;

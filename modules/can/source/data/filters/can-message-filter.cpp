@@ -84,41 +84,66 @@ namespace adam::modules::can
 
         const bool is_whitelist = (m_mode_param->get_value() == "whitelist"_ct);
 
-        const can_message* messages = reinterpret_cast<const can_message*>(buf->get_data());
+        auto* orig_messages = buf->get_begin_as<const can_message>();
         uint32_t message_count = buf->get_size() / sizeof(can_message);
 
-        m_filtered_messages.clear();
-        m_filtered_messages.reserve(message_count);
+        if (message_count == 0) return false;
+
+        uint32_t first_kept = message_count;
+        uint32_t last_kept = 0;
+        uint32_t kept_count = 0;
 
         for (uint32_t i = 0; i < message_count; ++i)
         {
-            uint32_t id = messages[i].get_id();
+            uint32_t id = orig_messages[i].get_id();
             bool contains = (m_parsed_ids.find(id) != m_parsed_ids.end());
 
             if ((is_whitelist && contains) || (!is_whitelist && !contains))
             {
-                m_filtered_messages.push_back(messages[i]);
+                if (first_kept == message_count)
+                    first_kept = i;
+                last_kept = i;
+                kept_count++;
             }
         }
 
-        if (m_filtered_messages.empty())
+        if (kept_count == 0)
         {
             buf->release();
             buf = nullptr;
             return false; 
         }
 
-        if (m_filtered_messages.size() == message_count)
+        if (kept_count == message_count)
             return true;
 
-        buffer* new_buf = buffer_manager::get().request_buffer(static_cast<uint32_t>(m_filtered_messages.size() * sizeof(can_message)));
+        if (kept_count == (last_kept - first_kept + 1))
+        {
+            buf->move_start_pos(first_kept * sizeof(can_message));
+            buf->set_size(kept_count * sizeof(can_message));
+            return true;
+        }
+
+        auto new_size   = static_cast<uint32_t>(kept_count * sizeof(can_message));
+        buffer* new_buf = buffer_manager::get().request_buffer(new_size);
         if (!new_buf)
             return true;
 
         new_buf->set_timestamp(buf->get_timestamp());
         new_buf->set_data_format(buf->get_data_format());
+        new_buf->set_start_pos(0);
+        new_buf->set_size(new_size);
 
-        new_buf->fill_data(m_filtered_messages.data(), static_cast<uint32_t>(m_filtered_messages.size() * sizeof(can_message)));
+        auto* new_messages = new_buf->begin_as<can_message>();
+        uint32_t write_idx = 0;
+        for (uint32_t i = first_kept; i <= last_kept; ++i)
+        {
+            uint32_t id = orig_messages[i].get_id();
+            bool contains = (m_parsed_ids.find(id) != m_parsed_ids.end());
+
+            if ((is_whitelist && contains) || (!is_whitelist && !contains))
+                new_messages[write_idx++] = orig_messages[i];
+        }
 
         buf->release();
         buf = new_buf;

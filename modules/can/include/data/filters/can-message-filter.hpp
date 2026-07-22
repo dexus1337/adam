@@ -45,6 +45,5 @@ namespace adam::modules::can
 
         string_hashed                 m_last_ids_hash;
         std::unordered_set<uint32_t>  m_parsed_ids;
-        std::vector<can_message>      m_filtered_messages;
     };
 }

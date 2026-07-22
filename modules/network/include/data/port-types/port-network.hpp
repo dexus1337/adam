@@ -74,6 +74,7 @@ namespace adam::modules::network
         socket_option_failed,
         udp_socket_closed,
         udp_send_failed,
+        udp_send_incomplete,
         multicast_join_success,
         multicast_join_failed,
         multicast_address_invalid,

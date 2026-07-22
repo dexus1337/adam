@@ -272,7 +272,14 @@ namespace adam::modules::network
             return false;
         }
 
-        return sent == static_cast<int>(size);
+        auto res = sent == static_cast<int>(size);
+        if (!res)
+        {
+            log_network_message(log::warning, log_event::udp_send_incomplete, "UDP-Broadcast",
+                                std::format("Sent {} of {} bytes to {}:{}", sent, size, m_resolved_broadcast_ip.c_str(), m_remote_port->get_value()));
+        }
+
+        return res;
     }
 
 } // namespace adam::modules::network

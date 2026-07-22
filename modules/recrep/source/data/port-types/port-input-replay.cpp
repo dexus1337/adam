@@ -445,9 +445,7 @@ namespace adam::modules::recrep
 
                 buff = buffer_manager::get().request_buffer(bh.incl_len);
                 if (!buff)
-                {
                     return false;
-                }
 
                 m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.incl_len);
                 buff->set_size(bh.incl_len);
