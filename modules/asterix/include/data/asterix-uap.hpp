@@ -51,30 +51,55 @@ namespace adam::modules::asterix
     {
     public:
 
-        using selector_function = std::function<const uap*(const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len)>;
+        using alternatives_database = std::unordered_map<string_hash, const uap*>;
+        using selector_function     = std::function<const uap*(const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len)>;
+
+        using type_getter_function  = std::function<uint8_t(const record*, const adam::buffer*)>;
+        using type_names_database   = std::unordered_map<uint8_t, std::string_view>;
     
         /**
          * @brief Constructs a UAP without alternatives and initializes the O(1) lookup arrays.
-         * @param cat           The category ID.
-         * @param name          The name of the UAP.
-         * @param spec_array    Array of field specs.
-         * @param spec_count    Number of elements in spec_array.
-         * @param sacsic_frn    The FRN for the SAC/SIC field. Defaults to 0 if not specified.
+         * @param cat               The category ID.
+         * @param name              The name of the UAP.
+         * @param spec_array        Array of field specs.
+         * @param spec_count        Number of elements in spec_array.
+         * @param sacsic_frn        The FRN for the SAC/SIC field. Defaults to 0 if not specified.
          */
-        uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, uint8_t sacsic_frn = 0);
+        uap
+        (
+            uint8_t                     cat, 
+            const string_hashed_ct&     name, 
+            const field_spec*           spec_array, 
+            size_t                      spec_count,
+            uint8_t                     sacsic_frn  = 0,
+            const type_names_database&  type_names  = type_names_database(),
+            type_getter_function        type_get_fn = nullptr
+        );
 
         /**
          * @brief Constructs a UAP with alternatives and initializes the O(1) lookup arrays.
-         * @param cat           The category ID.
-         * @param name          The name of the UAP.
-         * @param spec_array    Array of field specs.
-         * @param spec_count    Number of elements in spec_array.
-         * @param alt_array     Array of alternative uaps.
-         * @param alt_cout      Number of elements in alternatives.
-         * @param sel           The selector function.
-         * @param sacsic_frn    The FRN for the SAC/SIC field. Defaults to 0 if not specified.
+         * @param cat               The category ID.
+         * @param name              The name of the UAP.
+         * @param spec_array        Array of field specs.
+         * @param spec_count        Number of elements in spec_array.
+         * @param alt_array         Array of alternative uaps.
+         * @param alt_cout          Number of elements in alternatives.
+         * @param sel               The selector function.
+         * @param sacsic_frn        The FRN for the SAC/SIC field. Defaults to 0 if not specified.
          */
-        uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap*const* alt_array, size_t alt_cout, selector_function sel, uint8_t sacsic_frn = 0);
+        uap
+        (
+            uint8_t                     cat, 
+            const string_hashed_ct&     name, 
+            const field_spec*           spec_array, 
+            size_t                      spec_count, 
+            const uap*const*            alt_array, 
+            size_t                      alt_cout, 
+            selector_function           sel, 
+            uint8_t                     sacsic_frn  = 0,
+            const type_names_database&  type_names  = type_names_database(),
+            type_getter_function        type_get_fn = nullptr
+        );
 
         
         // Prevent copying
@@ -88,6 +113,11 @@ namespace adam::modules::asterix
         inline const field_spec*        get_spec(uint8_t frn)       const { return m_items_by_frn[frn]; }
         inline uap_expansion*           get_expansion(uint8_t frn)  const { return m_custom_expansions[frn]; }
         inline bool                     has_alternatives()          const { return !m_alternatives.empty(); }
+        
+        inline uint8_t                  get_record_type(const record* rec, const adam::buffer* buf) const  { return m_type_getter_fn ? m_type_getter_fn(rec, buf) : 0xff; }
+
+        template<typename record_type>
+        inline record_type              get_record_type(const record* rec, const adam::buffer* buf)  const { return static_cast<record_type>(get_record_type(rec, buf)); }
 
         inline const uap*               select_alternative(const raw_record_header* raw_head, uint8_t fspec_size, uint32_t raw_len) const 
         { 
@@ -101,6 +131,34 @@ namespace adam::modules::asterix
                 return it->second;
             return nullptr;
         }
+
+        inline std::string_view         get_record_type_name(const record* rec, const adam::buffer* buf) const
+        { 
+            auto type = get_record_type(rec, buf);
+            
+            auto it = m_types_database.find(type);
+            if (it != m_types_database.end())
+                return it->second;
+
+            return "";
+        }
+
+        inline const raw_sac_sic*       get_record_sac_sic(const record* rec, const adam::buffer* buf) const
+        {
+            if (!m_sacsic_frn) return nullptr;
+
+            const item* sac_sic_item = rec->get_item(m_sacsic_frn);
+            if (!sac_sic_item || !sac_sic_item->is_populated() || sac_sic_item->raw_offset + sizeof(raw_sac_sic) > buf->get_size())
+                return nullptr;
+
+            return buf->get_at<raw_sac_sic>(sac_sic_item->raw_offset);
+        }
+        
+        inline void                     register_type(uint8_t t, std::string_view name)
+        {
+            m_types_database[t] = name;
+        }
+
         
         /** @brief Initializer. MUST be called before inserting this into the pool */
         void setup();
@@ -110,24 +168,27 @@ namespace adam::modules::asterix
 
     protected:
     
-        uint8_t                 m_cat_id;                                     /**< The category ID (e.g., 48, 62). */
-        uint8_t                 m_sacsic_frn;                                 /**< The FRN for the SAC/SIC field. */
-        string_hashed_ct        m_name;                                       /**< Name for printing or debugging */
-        uint8_t                 m_last_frn;                                   /**< Highest registered FRN; Also determines fixed FSPEC octet count for explicit items. */
-        uint16_t                m_subitem_count;                              /**< Summended last_frn of all children. */
-        const field_spec*       m_items_by_frn[asterix::highest_frn];         /**< O(1) array mapping FRN to field spec. */
-        uap_expansion*          m_custom_expansions[asterix::highest_frn];    /**< O(1) array mapping FRN to custom expansion metadata. */
+        /** @brief Compute the number of sub-items. */
+        void compute_subitem_count();
+
+        uint8_t                 m_cat_id;                                   /**< The category ID (e.g., 48, 62). */
+        uint8_t                 m_sacsic_frn;                               /**< The FRN for the SAC/SIC field. */
+        string_hashed_ct        m_name;                                     /**< Name for printing or debugging */
+        uint8_t                 m_last_frn;                                 /**< Highest registered FRN; Also determines fixed FSPEC octet count for explicit items. */
+        uint16_t                m_subitem_count;                            /**< Summended last_frn of all children. */
+        const field_spec*       m_items_by_frn[asterix::highest_frn];       /**< O(1) array mapping FRN to field spec. */
+        uap_expansion*          m_custom_expansions[asterix::highest_frn];  /**< O(1) array mapping FRN to custom expansion metadata. */
 
         /** 
          * Some Categories (eg CAT001), may use different UAPs based on certain fields. 
          * To handle these automatically, the uap will have "alternatives" and
          * a "selector" function that will retrieve the correct alternative uap
          */
-        std::unordered_map<string_hash, const uap*> m_alternatives;           /**< All available alternative uaps  */
-        selector_function                           m_selector_fn;            /**< The selector function to choose from the alternatives, based on input data */
+        alternatives_database   m_alternatives;                             /**< All available alternative uaps. */
+        selector_function       m_selector_fn;                              /**< The selector function to choose from the alternatives, based on input data */
 
-        /** @brief Compute the number of sub-items. */
-        void compute_subitem_count();
+        type_names_database     m_types_database;                           /**< Hosts strings of all registered types. */
+        type_getter_function    m_type_getter_fn;                           /**< Function to get the type of a Record. */
     };
 
     /**

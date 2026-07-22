@@ -50,37 +50,42 @@ namespace adam::modules::asterix
         const auto* root_frame = reinterpret_cast<const frame*>(buf->get_data());
 
         // Iterate over blocks
-        for (auto block_it = root_frame->begin(); block_it != root_frame->end(); ++block_it)
+        for (const auto& block : *root_frame)
         {
-            // Iterate over records in the block
-            for (auto rec_it = block_it->begin(); rec_it != block_it->end(); ++rec_it)
+            if (block.record_count == 0)
             {
-                const auto& rec = *rec_it;
-                const auto* used_uap = rec.find_used_uap();
-
-                uint8_t items = 0;
-
-                for (auto it = rec.begin(); it != rec.end(); ++it)
-                    if (it->is_populated()) items++;
-
-                const raw_sac_sic* sac_sic = nullptr;
-
-                if (used_uap && used_uap->get_sacsic_frn() > 0)
-                {
-                    const item* sac_sic_item = rec.get_item(used_uap->get_sacsic_frn());
-                    const auto* raw_data = buf->get_referenced_buffer();
-                    if (raw_data && sac_sic_item && sac_sic_item->is_populated() && raw_data->get_size() > sac_sic_item->raw_offset)
-                        sac_sic = raw_data->get_at<raw_sac_sic>(sac_sic_item->raw_offset);
-                }
-
                 row r;
-                r.columns.push_back(used_uap ? used_uap->get_name().c_str() : "Unknown");                                  // UAP
-                r.columns.push_back("");                                                                                   // Type
-                r.columns.push_back(std::string(sac_sic ? std::format("{:03d}/{:03d}", sac_sic->sac, sac_sic->sic) : "")); // SAC/SIC
-                r.columns.push_back(std::to_string(items));                                                                // Items
-                r.columns.push_back(std::to_string(rec.raw_length));                                                       // Size
+                r.columns.push_back(std::format("CAT{:03} (No UAP)", block.category));  // UAP
+                r.columns.push_back("");                                                // Type
+                r.columns.push_back("");                                                // SAC/SIC
+                r.columns.push_back("");                                                // Items
+                r.columns.push_back(std::to_string(block.raw_length));                  // Size
 
                 results.push_back(std::move(r));
+            }
+            else
+            {
+                // Iterate over records in the block
+                for (const auto& rec : block)
+                {
+                    const auto* used_uap = rec.find_used_uap();
+                    const auto* raw_data = buf->get_referenced_buffer();
+                    const auto* sac_sic  = used_uap ? used_uap->get_record_sac_sic(&rec, raw_data) : nullptr;
+
+                    uint8_t items = 0;
+
+                    for (auto it = rec.begin(); it != rec.end(); ++it)
+                        if (it->is_populated()) items++;
+
+                    row r;
+                    r.columns.push_back(used_uap ? used_uap->get_name().c_str() : "Unknown");                                   // UAP
+                    r.columns.push_back(used_uap ? std::string(used_uap->get_record_type_name(&rec, raw_data)) : "");           // Type
+                    r.columns.push_back(std::string(sac_sic ? std::format("{:03d}/{:03d}", sac_sic->sac, sac_sic->sic) : ""));  // SAC/SIC
+                    r.columns.push_back(std::to_string(items));                                                                 // Items
+                    r.columns.push_back(std::to_string(rec.raw_length));                                                        // Size
+
+                    results.push_back(std::move(r));
+                }
             }
         }
 
@@ -94,72 +99,79 @@ namespace adam::modules::asterix
         const auto* root_frame = reinterpret_cast<const frame*>(data);
 
         size_t current_row = 0;
-        for (auto block_it = root_frame->begin(); block_it != root_frame->end(); ++block_it)
+        for (const auto& block : *root_frame)
         {
-            for (auto rec_it = block_it->begin(); rec_it != block_it->end(); ++rec_it)
+            if (block.record_count == 0)
             {
-                if (current_row == row_idx)
-                {
-                    const auto& rec = *rec_it;
-                    const auto* used_uap = rec.find_used_uap();
-
-                    adam::analyzer::expanded_data ed;
-                    ed.data_type = adam::analyzer::expanded_data::type_table;
-
-                    auto process_item = [&](auto& self, const item* current_item, uint8_t current_frn, const uap* current_uap, int indent_level) -> void
-                    {
-                        if (!current_item->is_populated()) return;
-
-                        row sub_r;
-                        std::string indent_str(indent_level * 2, ' ');
-                        sub_r.columns.push_back(indent_str + std::to_string(current_frn));
-                        
-                        const field_spec* spec = current_uap ? current_uap->get_spec(current_frn) : nullptr;
-
-                        if (spec)
-                            sub_r.columns.push_back(indent_str + spec->name);
-                        else
-                            sub_r.columns.push_back(indent_str + "Unknown");
-
-                        std::string hex_data;
-                        if (ref_data && current_item->raw_offset + current_item->raw_length <= ref_size)
-                        {
-                            const uint8_t* item_data = ref_data + current_item->raw_offset;
-                            for (size_t i = 0; i < current_item->raw_length; ++i)
-                            {
-                                char buf_str[4];
-                                snprintf(buf_str, sizeof(buf_str), "%02X ", item_data[i]);
-                                hex_data += buf_str;
-                            }
-                            if (!hex_data.empty()) hex_data.pop_back();
-                        }
-                        sub_r.columns.push_back(std::move(hex_data));
-
-                        ed.table_rows.push_back(std::move(sub_r));
-
-                        if (current_item->child_count > 0)
-                        {
-                            for (uint8_t child_frn = 1; child_frn <= current_item->child_count; ++child_frn)
-                            {
-                                const item* child = current_item->get_child_item(child_frn);
-                                if (child)
-                                {
-                                    self(self, child, child_frn, spec ? spec->sub_uap : nullptr, indent_level + 1);
-                                }
-                            }
-                        }
-                    };
-
-                    uint8_t frn = 1;
-                    for (auto it = rec.begin(); it != rec.end() && (!used_uap || frn <= used_uap->get_highest_frn()); ++it, ++frn)
-                    {
-                        process_item(process_item, &(*it), frn, used_uap, 0);
-                    }
-
-                    out_expansions.push_back(std::move(ed));
-                    return true;
-                }
                 current_row++;
+                continue;
+            }
+
+            for (const auto& rec : block)
+            {
+                if (current_row != row_idx)
+                {
+                    current_row++;
+                    continue;
+                }
+
+                const auto* used_uap = rec.find_used_uap();
+
+                adam::analyzer::expanded_data ed;
+                ed.data_type = adam::analyzer::expanded_data::type_table;
+
+                auto process_item = [&](auto& self, const item* current_item, uint8_t current_frn, const uap* current_uap, int indent_level) -> void
+                {
+                    if (!current_item->is_populated()) return;
+
+                    row sub_r;
+                    std::string indent_str(indent_level * 2, ' ');
+                    sub_r.columns.push_back(indent_str + std::to_string(current_frn));
+                    
+                    const field_spec* spec = current_uap ? current_uap->get_spec(current_frn) : nullptr;
+
+                    if (spec)
+                        sub_r.columns.push_back(indent_str + spec->name);
+                    else
+                        sub_r.columns.push_back(indent_str + "Unknown");
+
+                    std::string hex_data;
+                    if (ref_data && current_item->raw_offset + current_item->raw_length <= ref_size)
+                    {
+                        const uint8_t* item_data = ref_data + current_item->raw_offset;
+                        for (size_t i = 0; i < current_item->raw_length; ++i)
+                        {
+                            char buf_str[4];
+                            snprintf(buf_str, sizeof(buf_str), "%02X ", item_data[i]);
+                            hex_data += buf_str;
+                        }
+                        if (!hex_data.empty()) hex_data.pop_back();
+                    }
+                    sub_r.columns.push_back(std::move(hex_data));
+
+                    ed.table_rows.push_back(std::move(sub_r));
+
+                    if (current_item->child_count > 0)
+                    {
+                        for (uint8_t child_frn = 1; child_frn <= current_item->child_count; ++child_frn)
+                        {
+                            const item* child = current_item->get_child_item(child_frn);
+                            if (child)
+                            {
+                                self(self, child, child_frn, spec ? spec->sub_uap : nullptr, indent_level + 1);
+                            }
+                        }
+                    }
+                };
+
+                uint8_t frn = 1;
+                for (auto it = rec.begin(); it != rec.end() && (!used_uap || frn <= used_uap->get_highest_frn()); ++it, ++frn)
+                {
+                    process_item(process_item, &(*it), frn, used_uap, 0);
+                }
+
+                out_expansions.push_back(std::move(ed));
+                return true;
             }
         }
 

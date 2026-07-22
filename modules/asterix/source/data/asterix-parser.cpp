@@ -18,48 +18,51 @@ namespace adam::modules::asterix
         uint32_t&           child_offset
     );
 
-    static inline uint32_t guess_internal_buffer_size(const uint8_t* raw_data, uint32_t raw_length, uint16_t& bock_count)
+    static inline bool prepass_blocks(const uint8_t* raw_data, uint32_t raw_length, uint16_t& bock_count, uint32_t* p_needed_internal_size)
     {
-        // Pre-pass to estimate required capacity based on actual block layouts and record density.
-        // This avoids allocating massive buffers (e.g. 26MB for 64KB inputs) which thrash L1/L2 caches and bypass thread-local caches.
-        uint32_t required_capacity = sizeof(frame);
+        // Pre-pass the entire frame to count number of blocks and guess the needed size for parsing into internal format
+
+        if (p_needed_internal_size)
+            *p_needed_internal_size = sizeof(frame);
+
         uint32_t scan_offset = 0;
         bock_count = 0;
+
         while (scan_offset < raw_length)
         {
             if (scan_offset + sizeof(raw_block_header) > raw_length)
                 break;
 
             const auto* raw_block_head = reinterpret_cast<const raw_block_header*>(raw_data + scan_offset);
+
             uint16_t block_len = raw_block_head->get_length();
+
             if (block_len < min_block_length || scan_offset + block_len > raw_length)
-                break;
+                return false;
 
             bock_count++;
-
-            uint8_t category = raw_block_head->category;
-            const uap* active_uap = uap_pool::get().get_uap(category);
-            uint32_t max_frn = active_uap ? active_uap->get_highest_frn() : 40;
-
-            // Safe educated guess: assume an average minimum record size of 6 bytes (including FSPEC and data).
-            // A record containing data (e.g., DSID + TOD) can almost never be smaller than 6 bytes.
-            uint32_t payload_len = (block_len > sizeof(raw_block_header)) ? (block_len - sizeof(raw_block_header)) : 0;
-            uint32_t est_records = std::max(1u, payload_len / asterix::min_block_length + 1);
-
-            // Reserve space for the record headers, direct UAP items, and 10 extra items per record for compound/explicit children.
-            uint32_t est_items = est_records * (max_frn + 10);
-
-            required_capacity += sizeof(block) + est_records * sizeof(record) + est_items * sizeof(item);
             scan_offset += block_len;
+
+            if (p_needed_internal_size)
+            {
+
+                uint8_t category = raw_block_head->category;
+                const uap* active_uap = uap_pool::get().get_uap(category);
+                uint32_t max_frn = active_uap ? active_uap->get_highest_frn() : 40;
+
+                // Educated guess: assume an average minimum record size of 6 bytes (including FSPEC and data).
+                // A record containing data (e.g., DSID + TOD) can almost never be smaller than 6 bytes.
+                uint32_t payload_len = (block_len > sizeof(raw_block_header)) ? (block_len - sizeof(raw_block_header)) : 0;
+                uint32_t est_records = std::max(1u, payload_len / asterix::min_block_length + 1);
+
+                // Reserve space for the record headers, direct UAP items, and 10 extra items per record for compound/explicit children.
+                uint32_t est_items = est_records * (max_frn + 10);
+
+                *p_needed_internal_size += sizeof(block) + est_records * sizeof(record) + est_items * sizeof(item);
+            }
         }
 
-        // Safe fallback in case of parsing errors or empty/malformed packets in scan
-        if (required_capacity <= sizeof(frame))
-        {
-            required_capacity = sizeof(frame) + sizeof(block) + sizeof(record) + 40 * sizeof(item);
-        }
-
-        return required_capacity;
+        return true;
     }
 
     static inline bool critical_parser_error(adam::buffer*& internal_data)
@@ -478,16 +481,20 @@ namespace adam::modules::asterix
 
         // First of all, we expect only whole blocks in here, so make sure to use a destreamer ahead of this parser
 
-        // Guess the internal buffer size
-        auto        raw_data    = buf->get_begin_as<const uint8_t>();
-        auto        raw_length  = buf->get_size();
-        uint16_t    block_count = 0;
+        auto        raw_data        = buf->get_begin_as<const uint8_t>();
+        auto        raw_length      = buf->get_size();
+        uint16_t    block_count     = 0;
+        uint32_t    internal_size   = 0;
 
-        if (!internal_data)
+        // Quickly prepass the frame to get number of blocks and filter out invalid frames
+        if (!prepass_blocks(raw_data, raw_length, block_count, &internal_size)) return false;
+
+        if (!internal_data || internal_data->get_capacity() < internal_size)
         {
-            auto internal_buffer_size = guess_internal_buffer_size(raw_data, raw_length, block_count);
+            if (internal_data)
+                internal_data->release();
 
-            internal_data = adam::buffer_manager::get().request_buffer(internal_buffer_size);
+            internal_data = adam::buffer_manager::get().request_buffer(internal_size);
             if (!internal_data) return false;
         }
         
@@ -513,8 +520,6 @@ namespace adam::modules::asterix
             if (block_len < min_block_length || block_start_raw + block_len > raw_length) 
                 return critical_parser_error(internal_data);
 
-            raw_offset += sizeof(raw_block_header);
-
             uint32_t block_end_raw = block_start_raw + block_len;
 
             // At this point we have a valid block. No need to count blocks (for now) since we already did that in the guess_internal_buffer_size function
@@ -535,90 +540,100 @@ namespace adam::modules::asterix
             uint16_t record_items_count = 0;
             uint32_t last_record_offset = 0;
 
-            // Parse records in the block
-            while (raw_offset < block_end_raw)
+            if (raw_block_head->get_uap())
             {
-                bool active_frns[asterix::highest_frn];
+                // Parse records in the block
+                raw_offset += sizeof(raw_block_header);
 
-                uint32_t record_start_raw = raw_offset;
-                const auto* raw_rec_head = reinterpret_cast<const raw_record_header*>(raw_data + record_start_raw);
-            
-                if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns))
+                while (raw_offset < block_end_raw)
                 {
-                    // Log FSPEC invalid, move to next block
-                    raw_offset = block_end_raw; break;
-                }
+                    bool active_frns[asterix::highest_frn];
 
-                uint8_t fspec_size = static_cast<uint8_t>(raw_offset - record_start_raw);
-                auto resolved_frns = (fspec_size * 7);
-
-                // Retrieve the correct uap for the given record, this will automatically handle alterantive uaps
-                const uap* active_uap = raw_rec_head->retrieve_uap(raw_block_head, fspec_size, raw_length);
-                if (!active_uap)
-                {
-                    // Log UAP not available, move to next block
-                    raw_offset = block_end_raw; break;
-                }
+                    uint32_t record_start_raw = raw_offset;
+                    const auto* raw_rec_head = reinterpret_cast<const raw_record_header*>(raw_data + record_start_raw);
                 
-                // Set possible remaining active_frns to false
-                if (resolved_frns < active_uap->get_highest_frn())
-                    std::memset(active_frns + resolved_frns + 1, 0, active_uap->get_highest_frn() - resolved_frns);
+                    if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns))
+                    {
+                        // Log FSPEC invalid, move to next block
+                        raw_offset = block_end_raw; break;
+                    }
 
-                if (internal_data->get_capacity() < out_offset + sizeof(record))
-                {
-                    // Out buffer too small for additional record, move to next block
-                    raw_offset = block_end_raw; break;
+                    uint8_t fspec_size = static_cast<uint8_t>(raw_offset - record_start_raw);
+                    auto resolved_frns = (fspec_size * 7);
+
+                    // Retrieve the correct uap for the given record, this will automatically handle alterantive uaps
+                    const uap* active_uap = raw_rec_head->retrieve_uap(raw_block_head, fspec_size, raw_length);
+                    if (!active_uap)
+                    {
+                        // Log UAP not available, move to next block
+                        raw_offset = block_end_raw; break;
+                    }
+                    
+                    // Set possible remaining active_frns to false
+                    if (resolved_frns < active_uap->get_highest_frn())
+                        std::memset(active_frns + resolved_frns + 1, 0, active_uap->get_highest_frn() - resolved_frns);
+
+                    if (internal_data->get_capacity() < out_offset + sizeof(record))
+                    {
+                        // Out buffer too small for additional record, move to next block
+                        raw_offset = block_end_raw; break;
+                    }
+
+                    // At this point we have a valid record
+                    record_count++;
+
+                    // Reserve space for record
+                    uint32_t record_offset = out_offset;
+                    if (!reserve_internal_data(sizeof(record), out_offset, internal_data)) return false;
+
+                    if (last_record_offset)
+                    {
+                        auto* last_record = internal_data->at<record>(last_record_offset);
+                        last_record->set_has_next();
+                    }
+
+                    last_record_offset = record_offset;
+
+                    // Save the offset where the child items for the current record will be located
+                    uint32_t child_items_offset = out_offset + active_uap->get_highest_frn() * sizeof(item);
+                    uint32_t child_offset       = child_items_offset;
+
+                    if (!parse_children
+                    (
+                        active_uap,
+                        raw_data,
+                        raw_offset,
+                        raw_length,
+                        active_frns,
+                        internal_data,
+                        out_offset,
+                        child_offset
+                    ))
+                    {
+                        break;
+                        // TODO log, and then?
+                    }
+
+                    out_offset += child_offset - child_items_offset; // Move out_offset to the end of the child items
+
+                    auto child_count = static_cast<uint16_t>((child_offset - child_items_offset) / sizeof(item));
+
+                    auto* cur_rec = internal_data->at<record>(record_offset);
+                    cur_rec->category   = active_uap->get_cat_number();
+                    cur_rec->used_uap   = active_uap->get_name().get_hash();
+                    cur_rec->fspec_size = fspec_size;
+                    cur_rec->raw_length = static_cast<uint16_t>(raw_offset - record_start_raw);
+                    cur_rec->raw_offset = record_start_raw;
+                    cur_rec->item_count = active_uap->get_highest_frn() + child_count; // Total items = direct items + child items
+                    cur_rec->flags      = record_flag_none;
+
+                    record_items_count += cur_rec->item_count;
                 }
-
-                // At this point we have a valid record
-                record_count++;
-
-                // Reserve space for record
-                uint32_t record_offset = out_offset;
-                if (!reserve_internal_data(sizeof(record), out_offset, internal_data)) return false;
-
-                if (last_record_offset)
-                {
-                    auto* last_record = internal_data->at<record>(last_record_offset);
-                    last_record->set_has_next();
-                }
-
-                last_record_offset = record_offset;
-
-                // Save the offset where the child items for the current record will be located
-                uint32_t child_items_offset = out_offset + active_uap->get_highest_frn() * sizeof(item);
-                uint32_t child_offset       = child_items_offset;
-
-                if (!parse_children
-                (
-                    active_uap,
-                    raw_data,
-                    raw_offset,
-                    raw_length,
-                    active_frns,
-                    internal_data,
-                    out_offset,
-                    child_offset
-                ))
-                {
-                    break;
-                    // TODO log, and then?
-                }
-
-                out_offset += child_offset - child_items_offset; // Move out_offset to the end of the child items
-
-                auto child_count = static_cast<uint16_t>((child_offset - child_items_offset) / sizeof(item));
-
-                auto* cur_rec = internal_data->at<record>(record_offset);
-                cur_rec->category   = active_uap->get_cat_number();
-                cur_rec->used_uap   = active_uap->get_name().get_hash();
-                cur_rec->fspec_size = fspec_size;
-                cur_rec->raw_length = static_cast<uint16_t>(raw_offset - record_start_raw);
-                cur_rec->raw_offset = record_start_raw;
-                cur_rec->item_count = active_uap->get_highest_frn() + child_count; // Total items = direct items + child items
-                cur_rec->flags      = record_flag_none;
-
-                record_items_count += cur_rec->item_count;
+            }
+            else
+            {
+                // Just add the current block TODO: we need parser settings to handle this kind of cases where uaps are unknown
+                raw_offset += block_len;
             }
        
             auto* cur_blk = internal_data->at<block>(block_offset);

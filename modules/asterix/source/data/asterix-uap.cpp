@@ -9,12 +9,25 @@
 
 namespace adam::modules::asterix
 {
-    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, uint8_t sacsic_frn)
-        : m_cat_id(cat),
-          m_name(name),
-          m_sacsic_frn(sacsic_frn),
-          m_last_frn(0),
-          m_subitem_count(0)
+    uap::uap
+    (
+        uint8_t                     cat, 
+        const string_hashed_ct&     name, 
+        const field_spec*           spec_array, 
+        size_t                      spec_count,
+        uint8_t                     sacsic_frn,
+        const type_names_database&  type_names,
+        type_getter_function        type_get_fn
+    )
+     :  m_cat_id(cat),
+        m_sacsic_frn(sacsic_frn),
+        m_name(name),
+        m_last_frn(0),
+        m_subitem_count(0),
+        m_alternatives(),
+        m_selector_fn(),
+        m_types_database(type_names),
+        m_type_getter_fn(type_get_fn)
     {
         std::memset(m_items_by_frn, 0, sizeof(m_items_by_frn));
         std::memset(m_custom_expansions, 0, sizeof(m_custom_expansions));
@@ -27,8 +40,29 @@ namespace adam::modules::asterix
         }
     }
 
-    uap::uap(uint8_t cat, const string_hashed_ct& name, const field_spec* spec_array, size_t spec_count, const uap*const* alt_array, size_t alt_cout, selector_function sel, uint8_t sacsic_frn)
-     :  uap(cat, name, spec_array, spec_count, sacsic_frn)
+    uap::uap
+    (
+        uint8_t                     cat, 
+        const string_hashed_ct&     name, 
+        const field_spec*           spec_array, 
+        size_t                      spec_count, 
+        const uap*const*            alt_array, 
+        size_t                      alt_cout, 
+        selector_function           sel, 
+        uint8_t                     sacsic_frn,
+        const type_names_database&  type_names,
+        type_getter_function        type_get_fn
+    ) 
+     :  uap
+        (
+            cat, 
+            name, 
+            spec_array, 
+            spec_count, 
+            sacsic_frn,
+            type_names,
+            type_get_fn
+        )
     {
         for (size_t i = 0; i < alt_cout; i++)
             m_alternatives.emplace(alt_array[i]->get_name().get_hash(), alt_array[i]);

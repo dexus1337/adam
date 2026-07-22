@@ -209,12 +209,9 @@ namespace adam
 
         if (m_b_threaded)
         {
-            if (m_thread.joinable())
-                m_thread.join();
+            set_state(state_started);
 
             m_thread = std::thread(&port::worker, this);
-            
-            set_state(state_started);
         }
         else
         {

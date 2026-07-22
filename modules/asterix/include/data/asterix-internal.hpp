@@ -177,6 +177,15 @@ namespace adam::modules::asterix
         item_type   type;           /**< Type of the item. */
         item_flag   flags;          /**< Flags for the item. e.g. populated, modified. */
 
+        template<typename data_type>
+        inline data_type* get_data_as(const adam::buffer* buf) const 
+        {
+            if (raw_offset + sizeof(data_type) > buf->get_size())
+                return nullptr;
+
+            return buf->get_at<data_type>(raw_offset);
+        }
+
         inline const item* get_child_item(uint8_t frn) const 
         { 
             if (frn > child_count) return nullptr;
