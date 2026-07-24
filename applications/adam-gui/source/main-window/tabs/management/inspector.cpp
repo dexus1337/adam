@@ -88,13 +88,13 @@ namespace adam::gui
         size_t num_rows = (display_len + 15) / 16;
 
         if (g_mono_font) ImGui::PushFont(g_mono_font);
-        float line_h = ImGui::GetTextLineHeight();
+        float line_h = ImGui::GetTextLineHeightWithSpacing();
         if (g_mono_font) ImGui::PopFont();
 
         float window_border_size = ImGui::GetStyle().WindowBorderSize;
 
         float spacing_h = ImGui::GetStyle().ItemSpacing.y;
-        float text_content_h = num_rows > 0 ? (line_h * num_rows) + spacing_h: 0.0f;
+        float text_content_h = num_rows > 0 ? (line_h * num_rows) : 0.0f;
         float child_padding_h = (4.0f * dpi_scale) * 2.0f;
         float child_border_h = window_border_size * 2.0f;
         
@@ -121,37 +121,40 @@ namespace adam::gui
 
             if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_hex, lang), ImVec2(button_w, button_h)))
             {
-                std::string copy_str;
-                copy_str.reserve(size * 3);
+                static std::string s_copy_str;
+                s_copy_str.clear();
+                s_copy_str.reserve(size * 3);
                 for (size_t j = 0; j < size; ++j)
                 {
                     char hex[4];
                     snprintf(hex, sizeof(hex), "%02X ", data[j]);
-                    copy_str += hex;
+                    s_copy_str += hex;
                 }
-                if (!copy_str.empty()) copy_str.pop_back();
-                ImGui::SetClipboardText(copy_str.c_str());
+                if (!s_copy_str.empty()) s_copy_str.pop_back();
+                ImGui::SetClipboardText(s_copy_str.c_str());
             }
             ImGui::SameLine();
 
             if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_ascii, lang), ImVec2(button_w, button_h)))
             {
-                std::string copy_str;
-                copy_str.reserve(size);
+                static std::string s_copy_str;
+                s_copy_str.clear();
+                s_copy_str.reserve(size);
                 for (size_t j = 0; j < size; ++j)
                 {
                     char c = data[j];
-                    if (c >= 32 && c <= 126) copy_str += c;
-                    else copy_str += '.';
+                    if (c >= 32 && c <= 126) s_copy_str += c;
+                    else s_copy_str += '.';
                 }
-                ImGui::SetClipboardText(copy_str.c_str());
+                ImGui::SetClipboardText(s_copy_str.c_str());
             }
             ImGui::SameLine();
 
             if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_hex_dump, lang), ImVec2(button_w, button_h)))
             {
-                std::string copy_str;
-                copy_str.reserve(num_rows * 80);
+                static std::string s_copy_str;
+                s_copy_str.clear();
+                s_copy_str.reserve(num_rows * 80);
                 for (size_t offset = 0; offset < display_len; offset += 16)
                 {
                     char line_buf[256];
@@ -174,9 +177,9 @@ namespace adam::gui
                     line_buf[printed++] = '|';
                     line_buf[printed++] = '\n';
                     line_buf[printed] = '\0';
-                    copy_str += line_buf;
+                    s_copy_str += line_buf;
                 }
-                ImGui::SetClipboardText(copy_str.c_str());
+                ImGui::SetClipboardText(s_copy_str.c_str());
             }
 
             ImGui::PopStyleVar();
@@ -244,7 +247,109 @@ namespace adam::gui
                         line_buf[printed] = '\0';
 
                         ImGui::SetCursorPosX(offset_x);
-                        ImGui::TextUnformatted(line_buf);
+                        ImVec2 start_pos = ImGui::GetCursorScreenPos();
+                        
+                        char sel_id[32];
+                        snprintf(sel_id, sizeof(sel_id), "##sel_%d", row);
+                        
+                        ImGui::Selectable(sel_id, false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(text_w, 0));
+                        
+                        bool copy_requested = false;
+                        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                        {
+                            copy_requested = true;
+                        }
+                        
+                        if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_C, false) && ImGui::GetIO().KeyCtrl)
+                        {
+                            copy_requested = true;
+                        }
+                        
+                        if (ImGui::BeginPopupContextItem())
+                        {
+                            if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_copy_row, lang)))
+                            {
+                                copy_requested = true;
+                            }
+                            ImGui::EndPopup();
+                        }
+                        
+                        if (copy_requested)
+                        {
+                            static std::string s_clipboard_buffer;
+                            s_clipboard_buffer = line_buf;
+                            ImGui::SetClipboardText(s_clipboard_buffer.c_str());
+                        }
+                        
+                        ImGui::SetCursorScreenPos(start_pos);
+
+                        char addr_buf[16];
+                        snprintf(addr_buf, sizeof(addr_buf), "%04X:  ", static_cast<unsigned int>(offset));
+                        ImGui::TextUnformatted(addr_buf);
+                        ImGui::SameLine(0, 0);
+
+                        for (size_t j = 0; j < 16; ++j)
+                        {
+                            if (j == 8)
+                            {
+                                ImGui::TextUnformatted(" ");
+                                ImGui::SameLine(0, 0);
+                            }
+                            if (j < chunk)
+                            {
+                                char byte_buf[8];
+                                snprintf(byte_buf, sizeof(byte_buf), "%02X ", data[offset + j]);
+                                if (data[offset + j] == 0x00)
+                                {
+                                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                                    ImGui::TextUnformatted(byte_buf);
+                                    ImGui::PopStyleColor();
+                                }
+                                else
+                                {
+                                    ImGui::TextUnformatted(byte_buf);
+                                }
+                            }
+                            else
+                            {
+                                ImGui::TextUnformatted("   ");
+                            }
+                            ImGui::SameLine(0, 0);
+                        }
+
+                        ImGui::TextUnformatted("  |");
+                        ImGui::SameLine(0, 0);
+
+                        for (size_t j = 0; j < 16; ++j)
+                        {
+                            if (j < chunk)
+                            {
+                                char c = data[offset + j];
+                                char char_buf[2] = { (char)((c >= 32 && c <= 126) ? c : '.'), '\0' };
+                                if (c == 0x00)
+                                {
+                                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                                    ImGui::TextUnformatted(char_buf);
+                                    ImGui::PopStyleColor();
+                                }
+                                else
+                                {
+                                    ImGui::TextUnformatted(char_buf);
+                                }
+                            }
+                            else
+                            {
+                                ImGui::TextUnformatted(" ");
+                            }
+                            
+                            if (j < 15)
+                            {
+                                ImGui::SameLine(0, 0);
+                            }
+                        }
+                        
+                        ImGui::SameLine(0, 0);
+                        ImGui::TextUnformatted("|");
                     }
                 }
 
@@ -457,6 +562,10 @@ namespace adam::gui
             // 3. Draw Body Tables on Background (Channel 0)
             ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
             ImGui::SetCursorPosY(header_start_y + actual_header_h);
+
+            ImVec2 clip_min(-FLT_MAX, header_pos.y + actual_header_h);
+            ImVec2 clip_max(FLT_MAX, FLT_MAX);
+            ImGui::PushClipRect(clip_min, clip_max, true);
 
             bool table_open = ImGui::BeginTable("InspectorAnalyzerMain", num_cols, common_flags);
             if (table_open) setup_analyzer_columns();
@@ -715,6 +824,7 @@ namespace adam::gui
                 port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
             }
 
+            ImGui::PopClipRect();
             ImGui::GetWindowDrawList()->ChannelsMerge();
             ImGui::EndChild(); // ##inner_child
         }
@@ -774,6 +884,10 @@ namespace adam::gui
             // 3. Draw Body Tables on Background (Channel 0)
             ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
             ImGui::SetCursorPosY(header_start_y + actual_header_h);
+
+            ImVec2 clip_min(-FLT_MAX, header_pos.y + actual_header_h);
+            ImVec2 clip_max(FLT_MAX, FLT_MAX);
+            ImGui::PushClipRect(clip_min, clip_max, true);
 
             bool table_open = ImGui::BeginTable("InspectorTableMain", 6, common_flags);
             if (table_open) setup_inner_columns();
@@ -859,6 +973,7 @@ namespace adam::gui
                 port_data.was_at_bottom = (ImGui::GetScrollMaxY() == 0.0f || ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 5.0f * dpi_scale);
             }
 
+            ImGui::PopClipRect();
             ImGui::GetWindowDrawList()->ChannelsMerge();
             ImGui::EndChild(); // ##inner_child
         }

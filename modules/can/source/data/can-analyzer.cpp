@@ -28,13 +28,6 @@ namespace adam::modules::can
         };
 
         m_b_row_expandable = true;
-
-        m_expandable_columns =
-        {
-            "FRN",
-            "Item",
-            "Data"
-        };
     }
 
     bool can_analyzer::analyze(const adam::buffer* buf, std::vector<row>& results) const
