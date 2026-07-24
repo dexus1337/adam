@@ -91,17 +91,16 @@ namespace adam::gui
         float line_h = ImGui::GetTextLineHeight();
         if (g_mono_font) ImGui::PopFont();
 
-        float item_spacing_y = ImGui::GetStyle().ItemSpacing.y;
         float window_border_size = ImGui::GetStyle().WindowBorderSize;
 
-        float text_content_h = num_rows > 0 ? (line_h * num_rows + item_spacing_y * (num_rows - 1)) : 0.0f;
+        float spacing_h = ImGui::GetStyle().ItemSpacing.y;
+        float text_content_h = num_rows > 0 ? (line_h * num_rows) + spacing_h: 0.0f;
         float child_padding_h = (4.0f * dpi_scale) * 2.0f;
         float child_border_h = window_border_size * 2.0f;
         
         float calc_h = text_content_h + child_padding_h + child_border_h;
 
         float button_h = ImGui::GetFrameHeight();
-        float spacing_h = item_spacing_y;
         float container_padding_h = (6.0f * dpi_scale) * 2.0f;
         float container_border_h = window_border_size * 2.0f;
         float reserved_container_elements_h = button_h + spacing_h + container_padding_h + container_border_h;
