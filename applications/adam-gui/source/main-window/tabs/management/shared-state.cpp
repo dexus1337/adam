@@ -306,9 +306,11 @@ namespace adam::gui
             {
                 if (port_data.analyzer_columns.empty())
                 {
-                    port_data.analyzer_columns = data_analyzer->get_columns();
-                    port_data.analyzer_column_types = data_analyzer->get_column_types();
-                    port_data.analyzer_ptr = data_analyzer;
+                    port_data.analyzer_columns          = data_analyzer->get_columns();
+                    port_data.analyzer_column_types     = data_analyzer->get_column_types();
+                    port_data.analyzer_column_fonts     = data_analyzer->get_column_fonts();
+                    port_data.analyzer_column_weights   = data_analyzer->get_column_weights();
+                    port_data.analyzer_ptr              = data_analyzer;
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }
@@ -368,9 +370,11 @@ namespace adam::gui
             {
                 if (port_data.analyzer_columns.empty())
                 {
-                    port_data.analyzer_columns = data_analyzer->get_columns();
-                    port_data.analyzer_column_types = data_analyzer->get_column_types();
-                    port_data.analyzer_ptr = data_analyzer;
+                    port_data.analyzer_columns          = data_analyzer->get_columns();
+                    port_data.analyzer_column_types     = data_analyzer->get_column_types();
+                    port_data.analyzer_column_fonts     = data_analyzer->get_column_fonts();
+                    port_data.analyzer_column_weights   = data_analyzer->get_column_weights();
+                    port_data.analyzer_ptr              = data_analyzer;
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }
@@ -416,11 +420,14 @@ namespace adam::gui
                 {
                     if (cmdr.get_connection_input_inspectors().find(conn_hash) == cmdr.get_connection_input_inspectors().end()) 
                     {
-                        if (analyzer_ptr) {
+                        if (analyzer_ptr) 
+                        {
                             std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
-                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_columns = analyzer_ptr->get_columns();
-                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_column_types = analyzer_ptr->get_column_types();
-                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_ptr = analyzer_ptr;
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_columns          = analyzer_ptr->get_columns();
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_column_types     = analyzer_ptr->get_column_types();
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_column_fonts     = analyzer_ptr->get_column_fonts();
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_column_weights   = analyzer_ptr->get_column_weights();
+                            adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_ptr              = analyzer_ptr;
                         }
                         adam::data_inspector* new_inspector = nullptr;
                         cmdr.request_connection_input_inspector_create(conn_hash, make_inspector_connection_input_buffer_callback(conn_hash, analyzer_ptr), new_inspector);
@@ -430,11 +437,14 @@ namespace adam::gui
                 {
                     if (cmdr.get_connection_output_inspectors().find(conn_hash) == cmdr.get_connection_output_inspectors().end()) 
                     {
-                        if (analyzer_ptr) {
+                        if (analyzer_ptr) 
+                        {
                             std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
-                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_columns = analyzer_ptr->get_columns();
-                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_column_types = analyzer_ptr->get_column_types();
-                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_ptr = analyzer_ptr;
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_columns         = analyzer_ptr->get_columns();
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_column_types    = analyzer_ptr->get_column_types();
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_column_fonts    = analyzer_ptr->get_column_fonts();
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_column_weights  = analyzer_ptr->get_column_weights();
+                            adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_ptr             = analyzer_ptr;
                         }
                         adam::data_inspector* new_inspector = nullptr;
                         cmdr.request_connection_output_inspector_create(conn_hash, make_inspector_connection_output_buffer_callback(conn_hash, analyzer_ptr), new_inspector);

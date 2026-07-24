@@ -34,6 +34,12 @@ namespace adam
             column_text
         };
 
+        enum column_font
+        {
+            column_font_normal,
+            column_font_mono
+        };
+
         struct row;
 
         struct expanded_data
@@ -67,7 +73,12 @@ namespace adam
         bool                            is_row_expandable()      const { return m_b_row_expandable; }
         const std::vector<std::string>& get_columns()            const { return m_columns; }
         const std::vector<column_type>& get_column_types()       const { return m_column_types; }
-        const std::vector<std::string>& get_expandable_columns() const { return m_expandable_columns; }
+        const std::vector<column_font>& get_column_fonts()       const { return m_column_fonts; }
+        const std::vector<float>&       get_column_weights()     const { return m_column_weights; }
+        
+        const std::vector<std::string>& get_expandable_columns()            const { return m_expandable_columns; }
+        const std::vector<column_font>& get_expandable_columns_fonts()      const { return m_expandable_columns_fonts; }
+        const std::vector<float>&       get_expandable_columns_weights()    const { return m_expandable_columns_weights; }
 
     protected:
 
@@ -75,9 +86,13 @@ namespace adam
 
         std::vector<std::string> m_columns;
         std::vector<column_type> m_column_types;
+        std::vector<column_font> m_column_fonts;
+        std::vector<float>       m_column_weights;
 
         bool                     m_b_row_expandable;
 
         std::vector<std::string> m_expandable_columns;
+        std::vector<column_font> m_expandable_columns_fonts;
+        std::vector<float>       m_expandable_columns_weights;
     };
 }

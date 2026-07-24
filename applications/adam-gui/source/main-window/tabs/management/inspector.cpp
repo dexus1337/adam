@@ -25,7 +25,8 @@
 namespace adam::gui
 {
     // Helper to draw a single row in the inspector frames table
-    static void draw_inspector_table_row(
+    static void draw_inspector_table_row
+    (
         const adam::gui::inspected_buffer& ib,
         int actual_index,
         const std::vector<uint8_t>& data_pool,
@@ -398,13 +399,19 @@ namespace adam::gui
 
             auto setup_analyzer_columns = [&]()
             {
-                if (is_expandable) {
-                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_NoClip,
-                        ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
-                }
-                for (const auto& col_name : port_data.analyzer_columns)
+                auto expandable_colum_width = 0;
+
+                if (is_expandable) 
                 {
-                    ImGui::TableSetupColumn(col_name.c_str());
+                    expandable_colum_width = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f;
+                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_NoClip, expandable_colum_width);
+                }
+
+                //auto avail = ImGui::GetContentRegionAvail().x - expandable_colum_width;
+
+                for (size_t i = 0; i < port_data.analyzer_columns.size(); i++)
+                {
+                    ImGui::TableSetupColumn(port_data.analyzer_columns[i].c_str(), ImGuiTableColumnFlags_WidthStretch, port_data.analyzer_column_weights[i]);
                 }
             };
 
@@ -465,14 +472,16 @@ namespace adam::gui
             float top_dummy_h = 0.0f, bottom_dummy_h = 0.0f;
             int display_start = 0, display_end = 0;
 
-            calculate_custom_clipper(
+            calculate_custom_clipper
+            (
                 (int)flat_rows.size(), row_height, port_data.expanded_nodes, scroll_y, window_h,
                 display_start, display_end, top_dummy_h, bottom_dummy_h,
                 [&](size_t idx) -> float
                 {
                     auto it = expanded_heights.find(flat_rows[idx]);
                     return (it != expanded_heights.end()) ? it->second : 100.0f;
-                });
+                }
+            );
             
             if (top_dummy_h > 0.0f && table_open)
             {
@@ -481,191 +490,214 @@ namespace adam::gui
             
             for (int i = display_start; i < display_end; ++i)
             {
-                    size_t b_idx = flat_rows[i].first;
-                    size_t r_idx = flat_rows[i].second;
+                size_t b_idx = flat_rows[i].first;
+                size_t r_idx = flat_rows[i].second;
 
-                    if (table_open)
+                if (table_open)
+                {
+                    ImGui::TableNextRow();
+                    int current_col = 0;
+
+                    bool is_open = false;
+                    if (is_expandable)
                     {
-                        ImGui::TableNextRow();
-                        int current_col = 0;
-
-                        bool is_open = false;
-                        if (is_expandable)
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::PushID(i);
+                        ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
+                        is_open = ImGui::TreeNodeEx("##row_node", ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | (port_data.expanded_nodes.count(i) ? ImGuiTreeNodeFlags_DefaultOpen : 0));
+                        if (is_open)
                         {
-                            ImGui::TableSetColumnIndex(0);
-                            ImGui::PushID(i);
-                            is_open = ImGui::TreeNodeEx("##row_node",
-                                ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow |
-                                (port_data.expanded_nodes.count(i) ? ImGuiTreeNodeFlags_DefaultOpen : 0));
-                            if (is_open)
-                            {
-                                if (!port_data.expanded_nodes.count(i)) port_data.expanded_nodes.insert(i);
-                                ImGui::TreePop();
-                            }
-                            else
-                            {
-                                port_data.expanded_nodes.erase(i);
-                            }
-                            ImGui::PopID();
-                            current_col = 1;
-                        }
-
-                        if (r_idx == SIZE_MAX)
-                        {
-                            ImGui::TableSetColumnIndex(current_col);
-                            char unparsed_buf[128];
-                            snprintf(unparsed_buf, sizeof(unparsed_buf), "%s (Size: %zu)",
-                                get_gui_string(gui_string_id::lbl_no_data, lang), (size_t)port_data.buffers[b_idx].size);
-                            ImGui::TextDisabled("%s", unparsed_buf);
+                            if (!port_data.expanded_nodes.count(i)) port_data.expanded_nodes.insert(i);
+                            ImGui::TreePop();
                         }
                         else
                         {
-                            const auto& row = port_data.parsed_data[b_idx][r_idx];
-                            size_t text_idx = 0;
-                            for (size_t c = 0; c < port_data.analyzer_columns.size(); ++c)
-                            {
-                                ImGui::TableSetColumnIndex(current_col + (int)c);
-                                adam::analyzer::column_type c_type = adam::analyzer::column_text;
-                                if (c < port_data.analyzer_column_types.size())
-                                    c_type = port_data.analyzer_column_types[c];
-
-                                if (c_type == adam::analyzer::column_frame_id)
-                                {
-                                    ImGui::Text("%zu", b_idx);
-                                }
-                                else if (c_type == adam::analyzer::column_timestamp)
-                                {
-                                    ImGui::TextUnformatted(adam::get_log_time_string(port_data.buffers[b_idx].timestamp).c_str());
-                                }
-                                else
-                                {
-                                    if (text_idx < row.columns.size())
-                                        ImGui::TextUnformatted(row.columns[text_idx].c_str());
-                                    text_idx++;
-                                }
-                            }
+                            port_data.expanded_nodes.erase(i);
                         }
+                        ImGui::PopID();
+                        current_col = 1;
                     }
 
-                    if (is_expandable && port_data.expanded_nodes.count(i) && r_idx != SIZE_MAX)
+                    if (r_idx == SIZE_MAX)
                     {
-                        auto& row_obj = port_data.parsed_data[b_idx][r_idx];
-
-                        if (!row_obj.expansions_fetched)
+                        ImGui::TableSetColumnIndex(current_col);
+                        char unparsed_buf[128];
+                        snprintf(unparsed_buf, sizeof(unparsed_buf), "%s (Size: %zu)", get_gui_string(gui_string_id::lbl_no_data, lang), (size_t)port_data.buffers[b_idx].size);
+                        ImGui::TextDisabled("%s", unparsed_buf);
+                    }
+                    else
+                    {
+                        const auto& row = port_data.parsed_data[b_idx][r_idx];
+                        size_t text_idx = 0;
+                        for (size_t c = 0; c < port_data.analyzer_columns.size(); ++c)
                         {
-                            if (port_data.analyzer_ptr)
+                            ImGui::TableSetColumnIndex(current_col + (int)c);
+                            adam::analyzer::column_type c_type = adam::analyzer::column_text;
+                            adam::analyzer::column_font c_font = adam::analyzer::column_font_normal;
+
+                            if (c < port_data.analyzer_column_types.size())
+                                c_type = port_data.analyzer_column_types[c];
+                            if (c < port_data.analyzer_column_fonts.size())
+                                c_font = port_data.analyzer_column_fonts[c];
+
+                            if (c_font == adam::analyzer::column_font_mono && g_mono_font)
+                                ImGui::PushFont(g_mono_font);
+
+                            if (c_type == adam::analyzer::column_frame_id)
                             {
-                                const uint8_t* ref_data = nullptr;
-                                if (port_data.buffers[b_idx].ref_size > 0)
-                                    ref_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
-                                
-                                port_data.analyzer_ptr->analyze_expanded(port_data.data_pool.data() + port_data.buffers[b_idx].offset, port_data.buffers[b_idx].size, ref_data, port_data.buffers[b_idx].ref_size, r_idx, row_obj.expansions);
+                                ImGui::Text("%zu", b_idx);
                             }
-                            row_obj.expansions_fetched = true;
-                        }
-
-                        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-
-                        if (table_open)
-                        {
-                            ImGui::EndTable();
-                            table_open = false;
-                        }
-
-                        float start_y = ImGui::GetCursorPosY();
-
-                        ImGui::PushID(i);
-                        float sub_table_w = inner_avail_w;
-
-                        ImGui::PopStyleVar();
-
-                        if (ImGui::BeginChild("##ExpandedRegion", ImVec2(sub_table_w, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
-                        {
-                            if (ImGui::BeginChild("##HexDumpRegion", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+                            else if (c_type == adam::analyzer::column_timestamp)
                             {
-                                if (ImGui::TreeNodeEx("Hex Dump"))
-                                {
-                                    ImGui::Unindent();
-                                    const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
-                                    size_t hex_size = port_data.buffers[b_idx].size;
-                                    if (port_data.buffers[b_idx].ref_size > 0)
-                                    {
-                                        hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
-                                        hex_size = port_data.buffers[b_idx].ref_size;
-                                    }
-
-                                    draw_inspector_hex_dump
-                                    (
-                                        hex_data,
-                                        hex_size,
-                                        (int)i,
-                                        dpi_scale,
-                                        lang,
-                                        ImGui::GetContentRegionAvail().x
-                                    );
-                                        
-                                    ImGui::TreePop();
-                                }
-                            }
-                            ImGui::EndChild();
-
-                            if (!row_obj.expansions.empty())
-                            {
-                                for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
-                                {
-                                    auto exp_table_w = ImGui::GetContentRegionAvail().x;
-                                    const auto& exp = row_obj.expansions[exp_idx];
-                                    ImGui::PushID((int)exp_idx);
-                                    if (exp.data_type == adam::analyzer::expanded_data::type_text)
-                                    {
-                                        if (g_mono_font) ImGui::PushFont(g_mono_font);
-                                        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + exp_table_w);
-                                        ImGui::TextWrapped("%s", exp.text_content.c_str());
-                                        ImGui::PopTextWrapPos();
-                                        if (g_mono_font) ImGui::PopFont();
-                                    }
-                                    else if (exp.data_type == adam::analyzer::expanded_data::type_table)
-                                    {
-                                        const auto& ext_cols = port_data.analyzer_ptr->get_expandable_columns();
-                                        if (ImGui::BeginTable("##sub_table", (int)ext_cols.size(),
-                                            ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
-                                            ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
-                                            ImGuiTableFlags_SizingStretchSame,
-                                            ImVec2(exp_table_w, 0), 0.0f))
-                                        {
-                                            for (const auto& h : ext_cols) ImGui::TableSetupColumn(h.c_str());
-                                            ImGui::TableHeadersRow();
-                                            for (const auto& row_v : exp.table_rows)
-                                            {
-                                                ImGui::TableNextRow();
-                                                for (size_t c = 0; c < row_v.columns.size() && c < ext_cols.size(); ++c)
-                                                {
-                                                    ImGui::TableSetColumnIndex((int)c);
-                                                    ImGui::TextUnformatted(row_v.columns[c].c_str());
-                                                }
-                                            }
-                                            ImGui::EndTable();
-                                        }
-                                    }
-                                    ImGui::PopID();
-                                }
+                                ImGui::TextUnformatted(adam::get_log_time_string(port_data.buffers[b_idx].timestamp).c_str());
                             }
                             else
                             {
-                                ImGui::TextDisabled("No expanded data available.");
+                                if (text_idx < row.columns.size())
+                                {
+                                    ImGui::TextUnformatted(row.columns[text_idx].c_str());
+                                }
+
+                                text_idx++;
+                            }
+                            
+                            if (c_font == adam::analyzer::column_font_mono && g_mono_font)
+                                ImGui::PopFont();
+                        }
+                    }
+                }
+
+                if (is_expandable && port_data.expanded_nodes.count(i) && r_idx != SIZE_MAX)
+                {
+                    auto& row_obj = port_data.parsed_data[b_idx][r_idx];
+
+                    if (!row_obj.expansions_fetched)
+                    {
+                        if (port_data.analyzer_ptr)
+                        {
+                            const uint8_t* ref_data = nullptr;
+                            if (port_data.buffers[b_idx].ref_size > 0)
+                                ref_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
+                            
+                            port_data.analyzer_ptr->analyze_expanded(port_data.data_pool.data() + port_data.buffers[b_idx].offset, port_data.buffers[b_idx].size, ref_data, port_data.buffers[b_idx].ref_size, r_idx, row_obj.expansions);
+                        }
+                        row_obj.expansions_fetched = true;
+                    }
+
+                    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+
+                    if (table_open)
+                    {
+                        ImGui::EndTable();
+                        table_open = false;
+                    }
+
+                    float start_y = ImGui::GetCursorPosY();
+
+                    ImGui::PushID(i);
+                    float sub_table_w = inner_avail_w;
+
+                    ImGui::PopStyleVar();
+
+                    if (ImGui::BeginChild("##ExpandedRegion", ImVec2(sub_table_w, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+                    {
+                        if (ImGui::BeginChild("##HexDumpRegion", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+                        {
+                            if (ImGui::TreeNodeEx("Hex Dump"))
+                            {
+                                ImGui::Unindent();
+                                const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
+                                size_t hex_size = port_data.buffers[b_idx].size;
+                                if (port_data.buffers[b_idx].ref_size > 0)
+                                {
+                                    hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
+                                    hex_size = port_data.buffers[b_idx].ref_size;
+                                }
+
+                                draw_inspector_hex_dump
+                                (
+                                    hex_data,
+                                    hex_size,
+                                    (int)i,
+                                    dpi_scale,
+                                    lang,
+                                    ImGui::GetContentRegionAvail().x
+                                );
+                                    
+                                ImGui::TreePop();
                             }
                         }
                         ImGui::EndChild();
 
-                        ImGui::PopID();
+                        if (!row_obj.expansions.empty())
+                        {
+                            for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
+                            {
+                                auto exp_table_w = ImGui::GetContentRegionAvail().x;
+                                const auto& exp = row_obj.expansions[exp_idx];
+                                ImGui::PushID((int)exp_idx);
+                                if (exp.data_type == adam::analyzer::expanded_data::type_text)
+                                {
+                                    if (g_mono_font) ImGui::PushFont(g_mono_font);
+                                    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + exp_table_w);
+                                    ImGui::TextWrapped("%s", exp.text_content.c_str());
+                                    ImGui::PopTextWrapPos();
+                                    if (g_mono_font) ImGui::PopFont();
+                                }
+                                else if (exp.data_type == adam::analyzer::expanded_data::type_table)
+                                {
+                                    const auto& ext_cols            = port_data.analyzer_ptr->get_expandable_columns();
+                                    const auto& ext_cols_fonts      = port_data.analyzer_ptr->get_expandable_columns_fonts();
+                                    const auto& ext_cols_weights    = port_data.analyzer_ptr->get_expandable_columns_weights();
 
-                        float end_y = ImGui::GetCursorPosY();
-                        expanded_heights[flat_rows[i]] = end_y - start_y;
+                                    if (ImGui::BeginTable("##sub_table", (int)ext_cols.size(),
+                                        ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
+                                        ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
+                                        ImGuiTableFlags_SizingStretchSame,
+                                        ImVec2(exp_table_w, 0), 0.0f))
+                                    {
+                                        for (size_t c = 0; c < ext_cols.size(); c++) 
+                                        {
+                                            ImGui::TableSetupColumn(ext_cols[c].c_str(), ImGuiTableColumnFlags_WidthStretch, ext_cols_weights[c]);
+                                        }
 
-                        table_open = ImGui::BeginTable("InspectorAnalyzerMain", num_cols, common_flags);
-                        if (table_open) setup_analyzer_columns();
+                                        ImGui::TableHeadersRow();
+                                        for (const auto& row_v : exp.table_rows)
+                                        {
+                                            ImGui::TableNextRow();
+                                            for (size_t c = 0; c < row_v.columns.size() && c < ext_cols.size(); ++c)
+                                            {
+                                                ImGui::TableSetColumnIndex((int)c);
+                                                
+                                                bool usemonofont = (ext_cols_fonts[c] == adam::analyzer::column_font_mono) && g_mono_font;
+
+                                                if (usemonofont) ImGui::PushFont(g_mono_font);
+                                                ImGui::TextUnformatted(row_v.columns[c].c_str());
+                                                if (usemonofont) ImGui::PopFont();
+                                            }
+                                        }
+                                        ImGui::EndTable();
+                                    }
+                                }
+                                ImGui::PopID();
+                            }
+                        }
+                        else
+                        {
+                            ImGui::TextDisabled("No expanded data available.");
+                        }
                     }
+                    ImGui::EndChild();
+
+                    ImGui::PopID();
+
+                    float end_y = ImGui::GetCursorPosY();
+                    expanded_heights[flat_rows[i]] = end_y - start_y;
+
+                    table_open = ImGui::BeginTable("InspectorAnalyzerMain", num_cols, common_flags);
+                    if (table_open) setup_analyzer_columns();
                 }
+            }
 
             if (bottom_dummy_h > 0.0f && table_open)
             {

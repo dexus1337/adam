@@ -24,13 +24,35 @@ namespace adam::modules::asterix
 
         m_column_types =
         {
-            column_frame_id,
-            column_timestamp,
-            column_text,
-            column_text,
-            column_text,
-            column_text,
-            column_text
+            column_frame_id,    // Frame ID
+            column_timestamp,   // Timestamp
+            column_text,        // CAT
+            column_text,        // Type
+            column_text,        // SAC/SIC
+            column_text,        // Items
+            column_text,        // Size
+        };
+
+        m_column_fonts =
+        {
+            column_font_normal, // Frame ID
+            column_font_normal, // Timestamp
+            column_font_normal, // CAT
+            column_font_normal, // Type
+            column_font_normal, // SAC/SIC
+            column_font_normal, // Items
+            column_font_normal  // Size
+        };
+
+        m_column_weights = 
+        {
+            0.1f,               // Frame ID
+            0.15f,              // Timestamp
+            0.225f,             // CAT
+            0.225f,             // Type
+            0.1f,               // SAC/SIC
+            0.1f,               // Items
+            0.1f,               // Size
         };
 
         m_b_row_expandable = true;
@@ -41,6 +63,21 @@ namespace adam::modules::asterix
             "Item",
             "Data"
         };
+
+        m_expandable_columns_fonts = 
+        {
+            column_font_normal,
+            column_font_normal,
+            column_font_mono
+        };
+
+        m_expandable_columns_weights = 
+        {
+            0.1f,
+            0.45f,
+            0.45f,
+        };
+
     }
 
     bool asterix_analyzer::analyze(const adam::buffer* buf, std::vector<row>& results) const
