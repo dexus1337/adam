@@ -20,11 +20,29 @@ namespace adam::modules::can
 
         m_column_types =
         {
-            column_frame_id,
-            column_timestamp,
-            column_text,
-            column_text,
-            column_text
+            column_frame_id,    // Frame ID
+            column_timestamp,   // Timestamp
+            column_text,        // ID
+            column_text,        // Length
+            column_text         // Data
+        };
+
+        m_column_fonts =
+        {
+            column_font_normal, // Frame ID
+            column_font_normal, // Timestamp
+            column_font_normal, // ID
+            column_font_normal, // Length
+            column_font_mono,   // Data
+        };
+
+        m_column_weights = 
+        {
+            0.1f,               // Frame ID
+            0.15f,              // Timestamp
+            0.1f,               // ID
+            0.1f,               // Length
+            0.55f,              // Data
         };
 
         m_b_row_expandable = true;

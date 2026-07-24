@@ -252,7 +252,7 @@ namespace adam::gui
                         char sel_id[32];
                         snprintf(sel_id, sizeof(sel_id), "##sel_%d", row);
                         
-                        ImGui::Selectable(sel_id, false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(text_w, 0));
+                        ImGui::Selectable(sel_id, false, ImGuiSelectableFlags_AllowOverlap, ImVec2(text_w, 0));
                         
                         bool copy_requested = false;
                         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))

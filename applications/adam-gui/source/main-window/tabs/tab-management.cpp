@@ -267,7 +267,7 @@ namespace adam::gui
                             proc_w,
                             true, // is_drag_preview
                             name,
-                            node_type_processor,
+                            node_type_filter,
                             0,
                             0.0f,
                             col,

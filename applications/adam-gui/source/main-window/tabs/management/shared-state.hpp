@@ -44,7 +44,7 @@ namespace adam::gui
     {
         node_type_input,
         node_type_output,
-        node_type_processor,
+        node_type_filter,
         node_type_converter
     };
 

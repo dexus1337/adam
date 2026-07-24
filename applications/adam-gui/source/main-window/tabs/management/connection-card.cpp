@@ -693,7 +693,7 @@ namespace adam::gui
             int stage = 1;
             for (auto fid : conn->processors)
             {
-                uint64_t uid = get_unique_node_id(fid, hash, stage, node_type_processor);
+                uint64_t uid = get_unique_node_id(fid, hash, stage, node_type_filter);
                 if (g_expanded_nodes.count(uid))
                 {
                     float h = static_cast<float>(max_rows) * row_height + get_expanded_node_height(uid, dpi_scale);
@@ -769,7 +769,7 @@ namespace adam::gui
                 int current_stage = 1;
                 for (auto fid : conn->processors)
                 {
-                    uint64_t uid = get_unique_node_id(fid, hash, current_stage++, node_type_processor);
+                    uint64_t uid = get_unique_node_id(fid, hash, current_stage++, node_type_filter);
                     if (g_expanded_nodes.count(uid)) expanded_in_this_conn.push_back(uid);
                 }
                 for (auto pid : conn->outputs)
@@ -1017,11 +1017,11 @@ namespace adam::gui
                 {
                     char short_name[16];
                     snprintf(short_name, sizeof(short_name), "%02d", processor_idx);
-                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, short_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
+                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, short_name, node_type_filter, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
                 }
                 else
                 {
-                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, proc_name, node_type_processor, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
+                    draw_connection_node(ctrl, lang, conn, hash, dpi_scale, draw_list, cur_pos, port_w, gap, proc_w, node_h, row_height, total_stages, avail_x, is_node_drag_preview, proc_name, node_type_filter, current_stage, 0.0f, col, p_in, p_out, is_unavail, mod_name, fid, proc_extra_y, deferred_expansions);
                 }
                 if (!conn->input_format.empty())
                     p_in.format_name = conn->input_format.c_str();

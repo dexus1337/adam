@@ -303,7 +303,7 @@ namespace adam::gui
         }
 
         float gap = -1.5f * dpi_scale;
-        if (info.type == node_type_processor && info.header_w < info.current_node_w)
+        if (info.type == node_type_filter && info.header_w < info.current_node_w)
         {
             gap = 6.0f * dpi_scale;
         }
@@ -317,7 +317,7 @@ namespace adam::gui
         draw_list->AddRectFilled(exp_min, exp_max, ImColor(bg_col), 6.0f * dpi_scale, corners);
         draw_list->AddRect(exp_min, exp_max, ImColor(info.captured_color.Value.x * 1.2f, info.captured_color.Value.y * 1.2f, info.captured_color.Value.z * 1.2f), 6.0f * dpi_scale, corners, 1.5f * dpi_scale);
 
-        if (info.type == node_type_processor && info.header_w < info.current_node_w)
+        if (info.type == node_type_filter && info.header_w < info.current_node_w)
         {
             float center_x = info.p_max.x - info.header_w * 0.5f;
             draw_list->AddLine(
@@ -376,7 +376,7 @@ namespace adam::gui
             return;
         }
 
-        if (info.type == node_type_processor && info.header_w < info.current_node_w)
+        if (info.type == node_type_filter && info.header_w < info.current_node_w)
         {
             ImVec2 header_min = ImGui::GetCursorScreenPos();
             float h_height = ImGui::GetFrameHeight() + 4.0f * dpi_scale;
@@ -491,41 +491,95 @@ namespace adam::gui
                 
                 if (ImGui::BeginTable("PortStatsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg))
                 {
-                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 100.0f * dpi_scale);
+                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetTextLineHeight() * 6.f);
                     ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_messages, lang), ImGuiTableColumnFlags_WidthStretch);
                     ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_size, lang), ImGuiTableColumnFlags_WidthStretch);
                     ImGui::TableHeadersRow();
 
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_received, lang));
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_recieved);
-                    ImGui::TableNextColumn();
-                    char buf_recieved[64];
-                    format_bytes_to_buf(stats->total_bytes_recieved, buf_recieved, sizeof(buf_recieved));
-                    ImGui::TextUnformatted(buf_recieved);
-
+                    char buf_in[64];
+                    switch (info.type)
+                    {
+                    case node_type_input:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_read, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_read);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(stats->total_bytes_read, buf_in, sizeof(buf_in));
+                        ImGui::TextUnformatted(buf_in);
+                        break;
+                    case node_type_output:
+                    case node_type_filter:
+                    case node_type_converter:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_received, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_recieved);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(stats->total_bytes_recieved, buf_in, sizeof(buf_in));
+                        ImGui::TextUnformatted(buf_in);
+                        break;
+                    }
+                    
                     ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_forwarded, lang));
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
                     ImGui::TableNextColumn();
                     char buf_forwarded[64];
-                    format_bytes_to_buf(stats->total_bytes_forwarded, buf_forwarded, sizeof(buf_forwarded));
-                    ImGui::TextUnformatted(buf_forwarded);
-
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
+                    switch (info.type)
+                    {
+                    case node_type_input:
+                    case node_type_output:
+                    case node_type_converter:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
+                        break;
+                    case node_type_filter:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_filtered, lang));
+                        break;
+                    }
                     ImGui::TableNextColumn();
                     ImGui::Text("%llu", (unsigned long long)stats->total_buffers_discarded);
                     ImGui::TableNextColumn();
-                    char buf_discarded[64];
-                    format_bytes_to_buf(stats->total_bytes_discarded, buf_discarded, sizeof(buf_discarded));
-                    ImGui::TextUnformatted(buf_discarded);
-
+                    format_bytes_to_buf(stats->total_bytes_discarded, buf_forwarded, sizeof(buf_forwarded));
+                    ImGui::TextUnformatted(buf_forwarded);
+                    
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    char buf_out[64];
+                    switch (info.type)
+                    {
+                    case node_type_output:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_written, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_written);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(stats->total_bytes_written, buf_out, sizeof(buf_out));
+                        ImGui::TextUnformatted(buf_out);
+                        break;
+                    case node_type_input:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_forwarded, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
+                        ImGui::TextUnformatted(buf_out);
+                        break;
+                    case node_type_filter:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_forwarded, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
+                        ImGui::TextUnformatted(buf_out);
+                        break;
+                    case node_type_converter:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_converted, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
+                        ImGui::TextUnformatted(buf_out);
+                        break;
+                    }
+                    
                     ImGui::EndTable();
                 }
 
@@ -1239,7 +1293,7 @@ namespace adam::gui
         }
 
         ImDrawFlags header_corners = ImDrawFlags_RoundCornersAll;
-        if (is_expanded && !(type == node_type_processor && compact_processors))
+        if (is_expanded && !(type == node_type_filter && compact_processors))
         {
             header_corners = ImDrawFlags_RoundCornersTop;
         }
@@ -1252,7 +1306,7 @@ namespace adam::gui
         ImGui::SetNextItemAllowOverlap();
         bool clicked = ImGui::InvisibleButton("##node_btn", ImVec2(current_node_w, node_h));
 
-        if (type == node_type_processor && !is_drag_preview)
+        if (type == node_type_filter && !is_drag_preview)
         {
             if (ImGui::IsItemActivated())
             {
@@ -1331,7 +1385,7 @@ namespace adam::gui
             unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
             float this_expanded_h = get_expanded_node_height(unique_node_id, dpi_scale);
             
-            float exp_w = (type == node_type_processor) ? port_w : current_node_w;
+            float exp_w = (type == node_type_filter) ? port_w : current_node_w;
 
             deferred_expansions.push_back
             ({
@@ -1350,7 +1404,7 @@ namespace adam::gui
             
         // Draw Port Name
         bool allow_edit = (port_hash != 0 && !is_drag_preview);
-        if (type == node_type_processor && compact_processors)
+        if (type == node_type_filter && compact_processors)
         {
             allow_edit = false;
         }
@@ -1412,7 +1466,7 @@ namespace adam::gui
         {
             float text_width = ImGui::CalcTextSize(name).x;
             float text_x = p_min.x + (current_node_w - text_width) * 0.5f;
-            float min_margin = (type == node_type_processor && compact_processors) ? 2.0f * dpi_scale : 8.0f * dpi_scale;
+            float min_margin = (type == node_type_filter && compact_processors) ? 2.0f * dpi_scale : 8.0f * dpi_scale;
             if (text_x < p_min.x + min_margin) text_x = p_min.x + min_margin;
             ImVec2 text_pos(text_x, p_min.y + (node_h - ImGui::GetTextLineHeight()) * 0.5f);
             draw_list->PushClipRect(p_min, p_max, true);

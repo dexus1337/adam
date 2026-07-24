@@ -59,6 +59,11 @@ namespace adam
             buffer* input = nullptr;
             if (read(input))
             {
+                auto* stat_data = m_state_buffer->data_as<state_buffer_data>();
+
+                stat_data->total_buffers_read++;
+                stat_data->total_bytes_read += input->get_size();
+
                 handle_data(input, data_direction_in);
                 input->release();
             }
@@ -193,6 +198,13 @@ namespace adam
                 {
                     result &= write(buf);
                 }
+
+                if (result)
+                {
+                    stat_data->total_buffers_written++;
+                    stat_data->total_bytes_written += buf->get_size();
+                }
+
                 break;
             }
         }
