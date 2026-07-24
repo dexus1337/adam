@@ -65,6 +65,10 @@ int main(int, char**)
             {
                 adam::gui::update_dpi_scale(window);
             }
+            if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_MAXIMIZED || event.type == SDL_EVENT_WINDOW_RESTORED)
+            {
+                ui_window.save_window_state();
+            }
         };
 
         if (needs_redraw)

@@ -78,12 +78,56 @@ namespace adam::gui
         int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->get_value_as<int>();
         int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->get_value_as<int>();
         bool maximized = static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->get_value();
-        
         if (x != -1 && y != -1)
+        {
+            bool pos_valid = false;
+            int num_displays = 0;
+            SDL_DisplayID* displays = SDL_GetDisplays(&num_displays);
+            if (displays)
+            {
+                for (int i = 0; i < num_displays; ++i)
+                {
+                    SDL_Rect bounds;
+                    if (SDL_GetDisplayBounds(displays[i], &bounds) == 0)
+                    {
+                        int center_x = x + w / 2;
+                        int center_y = y + h / 2;
+                        if (center_x >= bounds.x && center_x < bounds.x + bounds.w &&
+                            center_y >= bounds.y && center_y < bounds.y + bounds.h)
+                        {
+                            pos_valid = true;
+                            break;
+                        }
+                    }
+                }
+                SDL_free(displays);
+            }
+            
+            if (!pos_valid)
+            {
+                x = SDL_WINDOWPOS_CENTERED;
+                y = SDL_WINDOWPOS_CENTERED;
+            }
+            
             SDL_SetWindowPosition(m_window, x, y);
+        }
             
         if (w > 0 && h > 0)
+        {
+            SDL_DisplayID display_id = SDL_GetDisplayForWindow(m_window);
+            if (display_id == 0) display_id = SDL_GetPrimaryDisplay();
+            
+            if (display_id != 0)
+            {
+                SDL_Rect bounds;
+                if (SDL_GetDisplayUsableBounds(display_id, &bounds) == 0)
+                {
+                    if (w > bounds.w) w = bounds.w;
+                    if (h > bounds.h) h = bounds.h;
+                }
+            }
             SDL_SetWindowSize(m_window, w, h);
+        }
             
         if (maximized)
             SDL_MaximizeWindow(m_window);
@@ -116,13 +160,23 @@ namespace adam::gui
             SDL_GetWindowPosition(m_window, &x, &y);
             SDL_GetWindowSize(m_window, &w, &h);
             SDL_WindowFlags flags = SDL_GetWindowFlags(m_window);
-
             auto& params = m_ctrl.get_parameters();
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->set_value(static_cast<int64_t>(x));
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->set_value(static_cast<int64_t>(y));
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->set_value(static_cast<int64_t>(w));
-            static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->set_value(static_cast<int64_t>(h));
-            static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->set_value((flags & SDL_WINDOW_MAXIMIZED) != 0);
+            bool is_maximized = (flags & SDL_WINDOW_MAXIMIZED) != 0;
+            bool is_minimized = (flags & SDL_WINDOW_MINIMIZED) != 0;
+            bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+
+            if (!is_maximized && !is_minimized && !is_fullscreen)
+            {
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->set_value(static_cast<int64_t>(x));
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->set_value(static_cast<int64_t>(y));
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->set_value(static_cast<int64_t>(w));
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->set_value(static_cast<int64_t>(h));
+            }
+            
+            if (!is_minimized)
+            {
+                static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->set_value(is_maximized);
+            }
         }
     }
 
