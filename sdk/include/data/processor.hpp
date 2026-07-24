@@ -75,11 +75,13 @@ namespace adam
 
         struct state_buffer_data
         {
-            std::atomic<uint64_t> total_buffers_handled;
-            std::atomic<uint64_t> total_bytes_handled;
-            std::atomic<uint64_t> total_buffers_discarded;
-            std::atomic<uint64_t> total_bytes_discarded;
-            uint8_t  user_data_array[1];
+            std::atomic<uint64_t>   total_buffers_recieved;
+            std::atomic<uint64_t>   total_bytes_recieved;
+            std::atomic<uint64_t>   total_buffers_forwarded;
+            std::atomic<uint64_t>   total_bytes_forwarded;
+            std::atomic<uint64_t>   total_buffers_discarded;
+            std::atomic<uint64_t>   total_bytes_discarded;
+            uint8_t                 user_data_array[1];
 
             template<typename T> T& user_data() { return *reinterpret_cast<T*>(user_data_array); }
         };

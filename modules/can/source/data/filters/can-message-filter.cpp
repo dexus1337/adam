@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <string>
+#include <cstring>
 
 namespace adam::modules::can
 {
@@ -84,47 +85,77 @@ namespace adam::modules::can
 
         const bool is_whitelist = (m_mode_param->get_value() == "whitelist"_ct);
 
-        auto* orig_messages = buf->get_begin_as<const can_message>();
-        uint32_t message_count = buf->get_size() / sizeof(can_message);
+        const uint8_t* current = buf->get_begin_as<uint8_t>();
+        const uint8_t* end = current + buf->get_size();
 
-        if (message_count == 0) return false;
-
-        uint32_t first_kept = message_count;
-        uint32_t last_kept = 0;
+        uint32_t message_count = 0;
         uint32_t kept_count = 0;
+        uint32_t kept_bytes = 0;
+        uint32_t discarded_bytes = 0;
 
-        for (uint32_t i = 0; i < message_count; ++i)
+        const uint8_t* first_kept_ptr = nullptr;
+        const uint8_t* last_kept_ptr = nullptr;
+        uint32_t last_kept_len = 0;
+
+        while (current + sizeof(can_message) <= end)
         {
-            uint32_t id = orig_messages[i].get_id();
+            const can_message* msg = reinterpret_cast<const can_message*>(current);
+            uint8_t len = msg->get_length();
+            if (current + len > end) break;
+
+            uint32_t id = msg->get_id();
             bool contains = (m_parsed_ids.find(id) != m_parsed_ids.end());
 
             if ((is_whitelist && contains) || (!is_whitelist && !contains))
             {
-                if (first_kept == message_count)
-                    first_kept = i;
-                last_kept = i;
+                if (!first_kept_ptr) first_kept_ptr = current;
+                last_kept_ptr = current;
+                last_kept_len = len;
                 kept_count++;
+                kept_bytes += len;
             }
+            else
+            {
+                discarded_bytes += len;
+            }
+
+            message_count++;
+            current += len;
         }
+
+        auto* stats = get_state_buffer_data();
+        stats->total_buffers_recieved++;
+        stats->total_bytes_recieved += buf->get_size();
 
         if (kept_count == 0)
         {
-            buf->release();
-            buf = nullptr;
+            stats->total_buffers_discarded++;
+            stats->total_bytes_discarded += buf->get_size();
+
             return false; 
         }
 
         if (kept_count == message_count)
-            return true;
-
-        if (kept_count == (last_kept - first_kept + 1))
         {
-            buf->move_start_pos(first_kept * sizeof(can_message));
-            buf->set_size(kept_count * sizeof(can_message));
+            stats->total_buffers_forwarded++;
+            stats->total_bytes_forwarded += buf->get_size();
             return true;
         }
 
-        auto new_size   = static_cast<uint32_t>(kept_count * sizeof(can_message));
+        stats->total_bytes_discarded += discarded_bytes;
+
+        uint32_t contiguous_kept_size = static_cast<uint32_t>((last_kept_ptr + last_kept_len) - first_kept_ptr);
+        if (kept_bytes == contiguous_kept_size)
+        {
+            uint32_t offset = static_cast<uint32_t>(first_kept_ptr - buf->get_begin_as<uint8_t>());
+            buf->move_start_pos(offset);
+            buf->set_size(kept_bytes);
+            stats->total_buffers_forwarded++;
+            stats->total_bytes_forwarded += kept_bytes;
+            return true;
+        }
+
+        auto new_size = kept_bytes;
         buffer* new_buf = buffer_manager::get().request_buffer(new_size);
         if (!new_buf)
             return true;
@@ -134,19 +165,32 @@ namespace adam::modules::can
         new_buf->set_start_pos(0);
         new_buf->set_size(new_size);
 
-        auto* new_messages = new_buf->begin_as<can_message>();
-        uint32_t write_idx = 0;
-        for (uint32_t i = first_kept; i <= last_kept; ++i)
+        uint8_t* write_ptr = new_buf->begin_as<uint8_t>();
+        current = buf->get_begin_as<uint8_t>();
+        
+        while (current + sizeof(can_message) <= end)
         {
-            uint32_t id = orig_messages[i].get_id();
+            const can_message* msg = reinterpret_cast<const can_message*>(current);
+            uint8_t len = msg->get_length();
+            if (current + len > end) break;
+
+            uint32_t id = msg->get_id();
             bool contains = (m_parsed_ids.find(id) != m_parsed_ids.end());
 
             if ((is_whitelist && contains) || (!is_whitelist && !contains))
-                new_messages[write_idx++] = orig_messages[i];
+            {
+                std::memcpy(write_ptr, current, len);
+                write_ptr += len;
+            }
+            
+            current += len;
         }
 
         buf->release();
         buf = new_buf;
+
+        stats->total_buffers_forwarded++;
+        stats->total_bytes_forwarded += kept_bytes;
 
         return true;
     }

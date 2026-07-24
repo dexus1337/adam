@@ -45,18 +45,18 @@ namespace adam::modules::can
         uint8_t dlc;                      ///< Data Length Code (0-8 bytes)
 
         /**
-         * @brief Gets the total length of the message in bytes.
-         * 
-         * @return The total length of the message (structure + data).
-         */
-        inline uint8_t     get_length()         const { return sizeof(can_message) + dlc; }
-
-        /**
          * @brief Gets the length of the data portion of the message.
          * 
          * @return The length of the data (0-8 bytes).
          */
-        inline uint8_t     get_data_length()    const { return dlc; }
+        inline uint8_t     get_data_length()    const { return (dlc & 0x7); }
+
+        /**
+         * @brief Gets the total length of the message in bytes.
+         * 
+         * @return The total length of the message (structure + data).
+         */
+        inline uint8_t     get_length()         const { return sizeof(can_message) + get_data_length(); }
 
         /**
          * @brief Gets the pointer to the data portion of the message.

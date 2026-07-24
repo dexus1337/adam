@@ -31,8 +31,18 @@ namespace adam::network
 
     bool filter_network_stack_remover::handle_data(buffer*& buf)
     {
+        auto* stats = get_state_buffer_data();
+        stats->total_buffers_recieved++;
+        stats->total_bytes_recieved += buf->get_size();
+
+        uint32_t initial_size = buf->get_size();
+
         if (buf->get_size() < 20) // Minimum IPv4 header size
+        {
+            stats->total_buffers_discarded++;
+            stats->total_bytes_discarded += initial_size;
             return false;
+        }
 
         ip_header* iph = buf->begin_as<ip_header>();
         uint8_t version = iph->version();
@@ -44,19 +54,31 @@ namespace adam::network
         {
             ipv4_header* v4 = iph->as_ipv4();
             ip_header_len = (v4->ihl_version & 0x0F) * 4;
-            if (buf->get_size() < ip_header_len) return false;
+            if (buf->get_size() < ip_header_len)
+            {
+                stats->total_buffers_discarded++;
+                stats->total_bytes_discarded += initial_size;
+                return false;
+            }
             protocol = v4->protocol;
         }
         else if (version == 6)
         {
             ipv6_header* v6 = iph->as_ipv6();
             ip_header_len = 40; // Basic IPv6 header
-            if (buf->get_size() < ip_header_len) return false;
+            if (buf->get_size() < ip_header_len)
+            {
+                stats->total_buffers_discarded++;
+                stats->total_bytes_discarded += initial_size;
+                return false;
+            }
             protocol = v6->next_header;
             // Note: Does not handle IPv6 extension headers currently.
         }
         else
         {
+            stats->total_buffers_discarded++;
+            stats->total_bytes_discarded += initial_size;
             return false; // Unknown IP version
         }
 
@@ -64,14 +86,24 @@ namespace adam::network
 
         if (protocol == 6) // TCP
         {
-            if (buf->get_size() < ip_header_len + 20) return false;
+            if (buf->get_size() < ip_header_len + 20)
+            {
+                stats->total_buffers_discarded++;
+                stats->total_bytes_discarded += initial_size;
+                return false;
+            }
             tcp_header* tcph = reinterpret_cast<tcp_header*>(buf->begin_as<uint8_t>() + ip_header_len);
             // res1_doff_flags is in network byte order, but we can just read the byte directly
             // data offset is the top 4 bits of the 13th byte (which is offset 12 in the TCP header)
             uint8_t* tcp_bytes = reinterpret_cast<uint8_t*>(tcph);
             uint8_t data_offset = tcp_bytes[12] >> 4;
             transport_header_len = data_offset * 4;
-            if (transport_header_len < 20) return false;
+            if (transport_header_len < 20)
+            {
+                stats->total_buffers_discarded++;
+                stats->total_bytes_discarded += initial_size;
+                return false;
+            }
         }
         else if (protocol == 17) // UDP
         {
@@ -79,13 +111,24 @@ namespace adam::network
         }
         else
         {
+            stats->total_buffers_discarded++;
+            stats->total_bytes_discarded += initial_size;
             return false; // Not TCP or UDP
         }
 
         uint32_t total_header_len = ip_header_len + transport_header_len;
-        if (buf->get_size() < total_header_len) return false;
+        if (buf->get_size() < total_header_len)
+        {
+            stats->total_buffers_discarded++;
+            stats->total_bytes_discarded += initial_size;
+            return false;
+        }
 
         buf->move_start_pos(total_header_len);
+
+        stats->total_buffers_forwarded++;
+        stats->total_bytes_forwarded += buf->get_size();
+
         return true;
     }
 }

@@ -146,6 +146,12 @@ namespace adam::network
 
     bool filter_network_stack_generator::handle_data(buffer*& buf)
     {
+        auto* stats = get_state_buffer_data();
+        stats->total_buffers_recieved++;
+        stats->total_bytes_recieved += buf->get_size();
+
+        uint32_t initial_size = buf->get_size();
+
         const string_hashed& ip_ver = m_ip_version->get_value();
         const string_hashed& proto = m_protocol->get_value();
         
@@ -158,7 +164,12 @@ namespace adam::network
         uint32_t ip_len = 0;
         if (ip_ver == "ipv4"_ct) ip_len = sizeof(ipv4_header);
         else if (ip_ver == "ipv6"_ct) ip_len = sizeof(ipv6_header);
-        else return false;
+        else
+        {
+            stats->total_buffers_discarded++;
+            stats->total_bytes_discarded += initial_size;
+            return false;
+        }
         
         uint32_t total_header_len = transport_len + ip_len;
         
@@ -173,7 +184,12 @@ namespace adam::network
             else
             {
                 buffer* new_buf = buffer_manager::get().request_buffer(buf->get_size() + total_header_len);
-                if (!new_buf) return false;
+                if (!new_buf)
+                {
+                    stats->total_buffers_discarded++;
+                    stats->total_bytes_discarded += initial_size;
+                    return false;
+                }
                 
                 new_buf->set_start_pos(total_header_len);
                 new_buf->set_size(buf->get_size());
@@ -283,6 +299,9 @@ namespace adam::network
                 break;
             }
         }
+
+        stats->total_buffers_forwarded++;
+        stats->total_bytes_forwarded += buf->get_size();
 
         return true;
     }

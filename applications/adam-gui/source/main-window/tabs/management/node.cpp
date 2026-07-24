@@ -332,7 +332,8 @@ namespace adam::gui
         bool p_started = false;
         const char* p_type = "Unknown";
         const char* p_module = "Unknown";
-        adam::port::state_buffer_data* stats = nullptr;
+        adam::port::state_buffer_data* port_stats = nullptr;
+        adam::processor::state_buffer_data* proc_stats = nullptr;
         bool has_stats = false;
         bool is_port = (info.type == node_type_input || info.type == node_type_output);
         auto p_it = registry.get_ports().find(info.port_hash);
@@ -345,7 +346,7 @@ namespace adam::gui
             user_params = &p_it->second->user_params;
             if (p_it->second->statistic_buffer)
             {
-                stats = p_it->second->statistic_buffer->data_as<adam::port::state_buffer_data>();
+                port_stats = p_it->second->statistic_buffer->data_as<adam::port::state_buffer_data>();
                 has_stats = true;
             }
             p_type = p_it->second->type.c_str();
@@ -356,7 +357,7 @@ namespace adam::gui
             user_params = &proc_it->second->user_params;
             if (proc_it->second->state_buffer)
             {
-                stats = proc_it->second->state_buffer->data_as<adam::port::state_buffer_data>();
+                proc_stats = proc_it->second->state_buffer->data_as<adam::processor::state_buffer_data>();
                 has_stats = true;
             }
             p_type = proc_it->second->type.c_str();
@@ -479,7 +480,7 @@ namespace adam::gui
         {
             ImGui::Unindent();
             
-            if (has_stats && stats)
+            if (has_stats && (port_stats || proc_stats))
             {
                 auto format_bytes_to_buf = [](uint64_t bytes, char* buf, size_t buf_size) 
                 {
@@ -504,19 +505,26 @@ namespace adam::gui
                     case node_type_input:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_read, lang));
                         ImGui::TableNextColumn();
-                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_read);
+                        ImGui::Text("%llu", (unsigned long long)port_stats->total_buffers_read);
                         ImGui::TableNextColumn();
-                        format_bytes_to_buf(stats->total_bytes_read, buf_in, sizeof(buf_in));
+                        format_bytes_to_buf(port_stats->total_bytes_read, buf_in, sizeof(buf_in));
                         ImGui::TextUnformatted(buf_in);
                         break;
                     case node_type_output:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_received, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)port_stats->total_buffers_recieved);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(port_stats->total_bytes_recieved, buf_in, sizeof(buf_in));
+                        ImGui::TextUnformatted(buf_in);
+                        break;
                     case node_type_filter:
                     case node_type_converter:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_received, lang));
                         ImGui::TableNextColumn();
-                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_recieved);
+                        ImGui::Text("%llu", (unsigned long long)proc_stats->total_buffers_recieved);
                         ImGui::TableNextColumn();
-                        format_bytes_to_buf(stats->total_bytes_recieved, buf_in, sizeof(buf_in));
+                        format_bytes_to_buf(proc_stats->total_bytes_recieved, buf_in, sizeof(buf_in));
                         ImGui::TextUnformatted(buf_in);
                         break;
                     }
@@ -528,18 +536,30 @@ namespace adam::gui
                     {
                     case node_type_input:
                     case node_type_output:
-                    case node_type_converter:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)port_stats->total_buffers_discarded);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(port_stats->total_bytes_discarded, buf_forwarded, sizeof(buf_forwarded));
+                        ImGui::TextUnformatted(buf_forwarded);
                         break;
                     case node_type_filter:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_filtered, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)proc_stats->total_buffers_discarded);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(proc_stats->total_bytes_discarded, buf_forwarded, sizeof(buf_forwarded));
+                        ImGui::TextUnformatted(buf_forwarded);
+                        break;
+                    case node_type_converter:
+                        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_discarded, lang));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%llu", (unsigned long long)proc_stats->total_buffers_discarded);
+                        ImGui::TableNextColumn();
+                        format_bytes_to_buf(proc_stats->total_bytes_discarded, buf_forwarded, sizeof(buf_forwarded));
+                        ImGui::TextUnformatted(buf_forwarded);
                         break;
                     }
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%llu", (unsigned long long)stats->total_buffers_discarded);
-                    ImGui::TableNextColumn();
-                    format_bytes_to_buf(stats->total_bytes_discarded, buf_forwarded, sizeof(buf_forwarded));
-                    ImGui::TextUnformatted(buf_forwarded);
                     
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
@@ -549,33 +569,33 @@ namespace adam::gui
                     case node_type_output:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_written, lang));
                         ImGui::TableNextColumn();
-                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_written);
+                        ImGui::Text("%llu", (unsigned long long)port_stats->total_buffers_written);
                         ImGui::TableNextColumn();
-                        format_bytes_to_buf(stats->total_bytes_written, buf_out, sizeof(buf_out));
+                        format_bytes_to_buf(port_stats->total_bytes_written, buf_out, sizeof(buf_out));
                         ImGui::TextUnformatted(buf_out);
                         break;
                     case node_type_input:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_forwarded, lang));
                         ImGui::TableNextColumn();
-                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
+                        ImGui::Text("%llu", (unsigned long long)port_stats->total_buffers_forwarded);
                         ImGui::TableNextColumn();
-                        format_bytes_to_buf(stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
+                        format_bytes_to_buf(port_stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
                         ImGui::TextUnformatted(buf_out);
                         break;
                     case node_type_filter:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_forwarded, lang));
                         ImGui::TableNextColumn();
-                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
+                        ImGui::Text("%llu", (unsigned long long)proc_stats->total_buffers_forwarded);
                         ImGui::TableNextColumn();
-                        format_bytes_to_buf(stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
+                        format_bytes_to_buf(proc_stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
                         ImGui::TextUnformatted(buf_out);
                         break;
                     case node_type_converter:
                         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_converted, lang));
                         ImGui::TableNextColumn();
-                        ImGui::Text("%llu", (unsigned long long)stats->total_buffers_forwarded);
+                        ImGui::Text("%llu", (unsigned long long)proc_stats->total_buffers_forwarded);
                         ImGui::TableNextColumn();
-                        format_bytes_to_buf(stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
+                        format_bytes_to_buf(proc_stats->total_bytes_forwarded, buf_out, sizeof(buf_out));
                         ImGui::TextUnformatted(buf_out);
                         break;
                     }

@@ -52,7 +52,7 @@ namespace adam::modules::can
     {
         if (!buf) return false;
 
-        const uint8_t* current = static_cast<const uint8_t*>(buf->get_data());
+        const uint8_t* current = buf->get_begin_as<uint8_t>();
         const uint8_t* end = current + buf->get_size();
 
         while (current + sizeof(can_message) <= end)

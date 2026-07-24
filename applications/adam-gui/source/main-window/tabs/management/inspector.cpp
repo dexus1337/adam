@@ -596,10 +596,22 @@ namespace adam::gui
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, top_dummy_h);
             }
             
+            float missed_height = 0.0f;
             for (int i = display_start; i < display_end; ++i)
             {
                 size_t b_idx = flat_rows[i].first;
                 size_t r_idx = flat_rows[i].second;
+
+                if (!table_open)
+                {
+                    missed_height += row_height;
+                    if (port_data.expanded_nodes.count(i))
+                    {
+                        auto it = expanded_heights.find(flat_rows[i]);
+                        missed_height += (it != expanded_heights.end()) ? it->second : 100.0f;
+                    }
+                    continue;
+                }
 
                 if (table_open)
                 {
@@ -814,6 +826,17 @@ namespace adam::gui
 
             if (table_open) ImGui::EndTable();
 
+            float total_dummy_outside = missed_height;
+            if (!table_open && bottom_dummy_h > 0.0f)
+            {
+                total_dummy_outside += bottom_dummy_h;
+            }
+            
+            if (total_dummy_outside > 0.0f)
+            {
+                ImGui::Dummy(ImVec2(0, total_dummy_outside));
+            }
+
             if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
             {
                 ImGui::SetScrollY(ImGui::GetScrollMaxY());
@@ -913,9 +936,22 @@ namespace adam::gui
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, top_dummy_h);
             }
 
+            float missed_height = 0.0f;
             for (int row_idx = display_start; row_idx < display_end; ++row_idx)
             {
                 const auto& ib = buffers[row_idx];
+
+                if (!table_open)
+                {
+                    missed_height += row_height;
+                    if (expanded_nodes.count(row_idx))
+                    {
+                        uint64_t dump_id = unique_id ^ (row_idx * 0x9e3779b9);
+                        auto it = normal_expanded_heights.find(dump_id);
+                        missed_height += (it != normal_expanded_heights.end()) ? it->second : 100.0f;
+                    }
+                    continue;
+                }
 
                 if (table_open)
                 {
@@ -962,6 +998,17 @@ namespace adam::gui
             }
 
             if (table_open) ImGui::EndTable();
+
+            float total_dummy_outside = missed_height;
+            if (!table_open && bottom_dummy_h > 0.0f)
+            {
+                total_dummy_outside += bottom_dummy_h;
+            }
+            
+            if (total_dummy_outside > 0.0f)
+            {
+                ImGui::Dummy(ImVec2(0, total_dummy_outside));
+            }
 
             if (auto_scroll && ImGui::GetScrollMaxY() > 0.0f)
             {

@@ -101,8 +101,8 @@ namespace adam
                 result &= processor->handle_data(buf);
         });
 
-        // If the buffer is null or empty, we can skip the rest of the processing
-        if (!buf || buf->get_size() == 0)
+        // If any processor discarded the buffer, stop here
+        if (!result)
             return false;
 
         // Run data through output inspectors
