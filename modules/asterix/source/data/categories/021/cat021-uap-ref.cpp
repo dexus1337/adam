@@ -13,14 +13,14 @@ namespace adam::modules::asterix::cat021::ref
     const auto cat021_ref_items = std::to_array<const field_spec>
     (
         {
-            {  1, item_type_fixed,       0,      2, "BPS - Barometric Pressure Setting"                                    },
-            {  2, item_type_fixed,       0,      2, "SelH - Selected Heading"                                              },
-            {  3, item_type_fixed,       0,      1, "NAV - Navigation Mode Settings"                                       },
-            {  4, item_type_fixed,       0,      1, "GAO - GPS Antenna Offset"                                             },
-            {  5, item_type_variable,    2,      1, "SGV - Surface Ground Vector"                                          },
-            {  6, item_type_variable,    1,      1, "STA - Aircraft Status"                                                },
-            {  7, item_type_fixed,       0,      2, "TNH - True North Heading"                                             },
-            {  8, item_type_compound,    0,      0, "MES - Military Extended Squitters",                &cat021_ref_mes_uap}
+            {  1, item_type_fixed,       0,      2, "BPS - Barometric Pressure Setting"                                },
+            {  2, item_type_fixed,       0,      2, "SelH - Selected Heading"                                          },
+            {  3, item_type_fixed,       0,      1, "NAV - Navigation Mode Settings"                                   },
+            {  4, item_type_fixed,       0,      1, "GAO - GPS Antenna Offset"                                         },
+            {  5, item_type_variable,    2,      1, "SGV - Surface Ground Vector"                                      },
+            {  6, item_type_variable,    1,      1, "STA - Aircraft Status"                                            },
+            {  7, item_type_fixed,       0,      2, "TNH - True North Heading"                                         },
+            {  8, item_type_compound,    0,      0, "MES - Military Extended Squitters",            &cat021_ref_mes_uap}
         }
     );
 
@@ -32,12 +32,12 @@ namespace adam::modules::asterix::cat021::ref
     const auto cat021_ref_mes_items = std::to_array<const field_spec>
     (
         {
-            {  1, item_type_fixed,       0,      1, "Mode 5 Summary"                                                       },
-            {  2, item_type_fixed,       0,      4, "Mode 5 PIN / National Origin"                                         },
-            {  3, item_type_fixed,       0,      2, "Extended Mode 1 Code in Octal Representation"                         },
-            {  4, item_type_fixed,       0,      1, "X Pulse Presence"                                                     },
-            {  5, item_type_fixed,       0,      1, "Figure of Merit"                                                      },
-            {  6, item_type_fixed,       0,      2, "Mode 2 Code in Octal Representation"                                 }
+            {  1, item_type_fixed,       0,      1, "Mode 5 Summary"                                                   },
+            {  2, item_type_fixed,       0,      4, "Mode 5 PIN / National Origin"                                     },
+            {  3, item_type_fixed,       0,      2, "Extended Mode 1 Code in Octal Representation"                     },
+            {  4, item_type_fixed,       0,      1, "X Pulse Presence"                                                 },
+            {  5, item_type_fixed,       0,      1, "Figure of Merit"                                                  },
+            {  6, item_type_fixed,       0,      2, "Mode 2 Code in Octal Representation"                              }
         }
     );
 

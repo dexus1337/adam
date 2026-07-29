@@ -10,6 +10,7 @@
 #include "data/asterix-types.hpp"
 #include "data/categories/001/cat001.hpp"
 #include "data/categories/021/cat021.hpp"
+#include "data/categories/062/cat062.hpp"
 
 #include <string_view>
 
@@ -1104,27 +1105,519 @@ TEST_F(parser_test, custom_uap_expansion_and_o1_lookup)
     EXPECT_EQ(retrieved_data->classification_level, 42);
 }
 
-TEST_F(parser_test, cat021_ref_uap_structure)
+TEST_F(parser_test, parse_full_cat021_message)
 {
-    auto& cat021 = asterix::cat021::get_uap();
+    std::vector<uint8_t> raw = build_cat021_message();
 
-    const asterix::field_spec* spec_re = cat021.get_spec(48);
-    ASSERT_NE(spec_re, nullptr);
-    EXPECT_EQ(spec_re->type, asterix::item_type_explicit);
-    ASSERT_NE(spec_re->sub_uap, nullptr);
+    adam::buffer* data = adam::buffer_manager::get().request_buffer(static_cast<uint32_t>(raw.size()));
+    std::memcpy(data->begin_as<uint8_t>(), raw.data(), raw.size());
+    data->set_size(static_cast<uint32_t>(raw.size()));
 
-    const auto* ref_uap = spec_re->sub_uap;
-    EXPECT_EQ(ref_uap->get_cat_number(), 21);
-    EXPECT_EQ(ref_uap->get_highest_frn(), 8);
+    adam::buffer* internal = nullptr;
+    ASSERT_TRUE(parser.parse(data, internal));
 
-    const asterix::field_spec* spec_mes = ref_uap->get_spec(8);
-    ASSERT_NE(spec_mes, nullptr);
-    EXPECT_EQ(spec_mes->type, asterix::item_type_compound);
-    ASSERT_NE(spec_mes->sub_uap, nullptr);
+    ASSERT_NE(internal, nullptr);
+    const auto* frm = internal->get_begin_as<asterix::frame>();
+    EXPECT_EQ(frm->block_count, 1u);
 
-    const auto* mes_uap = spec_mes->sub_uap;
-    EXPECT_EQ(mes_uap->get_cat_number(), 21);
-    EXPECT_EQ(mes_uap->get_highest_frn(), 6);
+    const auto* blk = frm->get_block(0);
+    ASSERT_NE(blk, nullptr);
+    EXPECT_EQ(blk->category, 21);
+    EXPECT_EQ(blk->record_count, 1u);
+    EXPECT_EQ(blk->raw_length, static_cast<uint16_t>(raw.size()));
+    EXPECT_EQ(blk->raw_offset, 0u);
+
+    const auto* rec = blk->get_record(0);
+    ASSERT_NE(rec, nullptr);
+    EXPECT_EQ(rec->category, 21);
+    EXPECT_EQ(rec->item_count, 92u);
+    EXPECT_EQ(rec->raw_offset, 3u);
+    EXPECT_EQ(rec->raw_length, static_cast<uint16_t>(raw.size() - 3));
+
+    auto check_item = [&](uint8_t frn, asterix::item_type expected_type,
+                          uint16_t expected_raw_len, uint32_t expected_raw_off)
+    {
+        const auto* it = rec->get_item(frn);
+        ASSERT_NE(it, nullptr) << "FRN " << (int)frn << " must exist";
+        EXPECT_TRUE(it->is_populated()) << "FRN " << (int)frn << " must be populated";
+        EXPECT_EQ(it->type, expected_type) << "FRN " << (int)frn << " type mismatch";
+        EXPECT_EQ(it->raw_length, expected_raw_len) << "FRN " << (int)frn << " raw_length mismatch";
+        EXPECT_EQ(it->raw_offset, expected_raw_off) << "FRN " << (int)frn << " raw_offset mismatch";
+    };
+
+    // Verify main UAP items (FRNs 1-42)
+    check_item(1,  asterix::item_type_fixed,     2, 10u);  // I021/010 Data Source Identifier
+    check_item(2,  asterix::item_type_variable,  1, 12u);  // I021/040 Target Report Descriptor
+    check_item(3,  asterix::item_type_fixed,     2, 13u);  // I021/161 Track Number
+    check_item(4,  asterix::item_type_fixed,     1, 15u);  // I021/015 Service Identification
+    check_item(5,  asterix::item_type_fixed,     3, 16u);  // I021/071 Time of Applicability for Position
+    check_item(6,  asterix::item_type_fixed,     6, 19u);  // I021/130 Position in WGS-84
+    check_item(7,  asterix::item_type_fixed,     8, 25u);  // I021/131 Position in WGS-84 High Res
+    check_item(8,  asterix::item_type_fixed,     3, 33u);  // I021/072 Time of Applicability for Velocity
+    check_item(9,  asterix::item_type_fixed,     2, 36u);  // I021/150 Air Speed
+    check_item(10, asterix::item_type_fixed,     2, 38u);  // I021/151 True Air Speed
+    check_item(11, asterix::item_type_fixed,     3, 40u);  // I021/080 Target Address
+    check_item(12, asterix::item_type_fixed,     3, 43u);  // I021/073 Time of Reception Position
+    check_item(13, asterix::item_type_fixed,     4, 46u);  // I021/074 Time of Reception Position High Precision
+    check_item(14, asterix::item_type_fixed,     3, 50u);  // I021/075 Time of Reception Velocity
+    check_item(15, asterix::item_type_fixed,     4, 53u);  // I021/076 Time of Reception Velocity High Precision
+    check_item(16, asterix::item_type_fixed,     2, 57u);  // I021/140 Geometric Height
+    check_item(17, asterix::item_type_variable,  1, 59u);  // I021/090 Quality Indicators
+    check_item(18, asterix::item_type_fixed,     1, 60u);  // I021/210 MOPS Version
+    check_item(19, asterix::item_type_fixed,     2, 61u);  // I021/070 Mode 3/A Code
+    check_item(20, asterix::item_type_fixed,     2, 63u);  // I021/230 Roll Angle
+    check_item(21, asterix::item_type_fixed,     2, 65u);  // I021/145 Flight Level
+    check_item(22, asterix::item_type_fixed,     2, 67u);  // I021/152 Magnetic Heading
+    check_item(23, asterix::item_type_fixed,     1, 69u);  // I021/200 Target Status
+    check_item(24, asterix::item_type_fixed,     2, 70u);  // I021/155 Barometric Vertical Rate
+    check_item(25, asterix::item_type_fixed,     2, 72u);  // I021/157 Geometric Vertical Rate
+    check_item(26, asterix::item_type_fixed,     4, 74u);  // I021/160 Airborne Ground Vector
+    check_item(27, asterix::item_type_fixed,     2, 78u);  // I021/165 Track Angle Rate
+    check_item(28, asterix::item_type_fixed,     3, 80u);  // I021/077 Time of Report Transmission
+    check_item(29, asterix::item_type_fixed,     6, 83u);  // I021/170 Target Identification
+    check_item(30, asterix::item_type_fixed,     1, 89u);  // I021/020 Emitter Category
+
+    // FRN 31 – I021/220 Met Information (compound)
+    {
+        const auto* met = rec->get_item(31);
+        ASSERT_NE(met, nullptr);
+        EXPECT_TRUE(met->is_populated());
+        EXPECT_EQ(met->type,       asterix::item_type_compound);
+        EXPECT_EQ(met->raw_length, 8u);
+        EXPECT_EQ(met->raw_offset, 90u);
+
+        auto check_met_child = [&](uint8_t child_frn, uint16_t len, uint32_t off)
+        {
+            const auto* ch = met->get_child_item(child_frn);
+            ASSERT_NE(ch, nullptr)      << "Met child FRN " << (int)child_frn;
+            EXPECT_TRUE(ch->is_populated())  << "Met child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->type, asterix::item_type_fixed) << "Met child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_length, len) << "Met child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_offset, off) << "Met child FRN " << (int)child_frn;
+        };
+        check_met_child(1, 2u, 91u);  // Wind Speed
+        check_met_child(2, 2u, 93u);  // Wind Direction
+        check_met_child(3, 2u, 95u);  // Temperature
+        check_met_child(4, 1u, 97u);  // Turbulence
+    }
+
+    check_item(32, asterix::item_type_fixed, 2, 98u);   // I021/146 Selected Altitude
+    check_item(33, asterix::item_type_fixed, 2, 100u);  // I021/148 Final State Selected Altitude
+
+    // FRN 34 – I021/110 Trajectory Intent (compound)
+    {
+        const auto* ti = rec->get_item(34);
+        ASSERT_NE(ti, nullptr);
+        EXPECT_TRUE(ti->is_populated());
+        EXPECT_EQ(ti->type,       asterix::item_type_compound);
+        EXPECT_EQ(ti->raw_length, 18u);
+        EXPECT_EQ(ti->raw_offset, 102u);
+
+        const auto* tis = ti->get_child_item(1);
+        ASSERT_NE(tis, nullptr);
+        EXPECT_TRUE(tis->is_populated());
+        EXPECT_EQ(tis->type,       asterix::item_type_fixed);
+        EXPECT_EQ(tis->raw_length, 1u);
+        EXPECT_EQ(tis->raw_offset, 103u);
+
+        const auto* tid = ti->get_child_item(2);
+        ASSERT_NE(tid, nullptr);
+        EXPECT_TRUE(tid->is_populated());
+        EXPECT_EQ(tid->type,       asterix::item_type_repetetive);
+        EXPECT_EQ(tid->raw_length, 16u);
+        EXPECT_EQ(tid->raw_offset, 104u);
+    }
+
+    check_item(35, asterix::item_type_fixed,      1, 120u); // I021/016 Service Management
+    check_item(36, asterix::item_type_fixed,      1, 121u); // I021/008 Aircraft Operational Status
+    check_item(37, asterix::item_type_variable,   1, 122u); // I021/271 Surface Capabilities
+    check_item(38, asterix::item_type_fixed,      1, 123u); // I021/132 Message Amplitude
+    check_item(39, asterix::item_type_repetetive, 9, 124u); // I021/250 BDS Register Data
+    check_item(40, asterix::item_type_fixed,      7, 133u); // I021/260 ACAS Resolution Advisory
+    check_item(41, asterix::item_type_fixed,      1, 140u); // I021/400 Receiver ID
+
+    // FRN 42 – I021/295 Data Ages (compound)
+    {
+        const auto* ages = rec->get_item(42);
+        ASSERT_NE(ages, nullptr);
+        EXPECT_TRUE(ages->is_populated());
+        EXPECT_EQ(ages->type,       asterix::item_type_compound);
+        EXPECT_EQ(ages->raw_length, 27u);
+        EXPECT_EQ(ages->raw_offset, 141u);
+
+        for (uint8_t child_frn = 1; child_frn <= 23; ++child_frn)
+        {
+            const auto* ch = ages->get_child_item(child_frn);
+            ASSERT_NE(ch, nullptr)      << "Data age child FRN " << (int)child_frn;
+            EXPECT_TRUE(ch->is_populated())  << "Data age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->type, asterix::item_type_fixed) << "Data age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_length, 1u)  << "Data age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_offset, 145u + (child_frn - 1)) << "Data age child FRN " << (int)child_frn;
+        }
+    }
+
+    // FRN 48 – RE Reserved Expansion Field (explicit, sub‑UAP REF)
+    {
+        const auto* re = rec->get_item(48);
+        ASSERT_NE(re, nullptr);
+        EXPECT_TRUE(re->is_populated());
+        EXPECT_EQ(re->type,       asterix::item_type_explicit);
+        EXPECT_EQ(re->raw_length, 25u); // 1 length + 1 FSPEC + 23 payload bytes
+        EXPECT_EQ(re->raw_offset, 168u);
+
+        // REF child 1: BPS (fixed 2B)
+        const auto* bps = re->get_child_item(1);
+        ASSERT_NE(bps, nullptr);
+        EXPECT_TRUE(bps->is_populated());
+        EXPECT_EQ(bps->raw_length, 2u);
+        EXPECT_EQ(bps->raw_offset, 170u);
+
+        // REF child 2: SelH (fixed 2B)
+        const auto* selh = re->get_child_item(2);
+        ASSERT_NE(selh, nullptr);
+        EXPECT_TRUE(selh->is_populated());
+        EXPECT_EQ(selh->raw_length, 2u);
+        EXPECT_EQ(selh->raw_offset, 172u);
+
+        // REF child 3: NAV (fixed 1B)
+        const auto* nav = re->get_child_item(3);
+        ASSERT_NE(nav, nullptr);
+        EXPECT_TRUE(nav->is_populated());
+        EXPECT_EQ(nav->raw_length, 1u);
+        EXPECT_EQ(nav->raw_offset, 174u);
+
+        // REF child 4: GAO (fixed 1B)
+        const auto* gao = re->get_child_item(4);
+        ASSERT_NE(gao, nullptr);
+        EXPECT_TRUE(gao->is_populated());
+        EXPECT_EQ(gao->raw_length, 1u);
+        EXPECT_EQ(gao->raw_offset, 175u);
+
+        // REF child 5: SGV (variable 2B)
+        const auto* sgv = re->get_child_item(5);
+        ASSERT_NE(sgv, nullptr);
+        EXPECT_TRUE(sgv->is_populated());
+        EXPECT_EQ(sgv->raw_length, 2u);
+        EXPECT_EQ(sgv->raw_offset, 176u);
+
+        // REF child 6: STA (variable 1B)
+        const auto* sta = re->get_child_item(6);
+        ASSERT_NE(sta, nullptr);
+        EXPECT_TRUE(sta->is_populated());
+        EXPECT_EQ(sta->raw_length, 1u);
+        EXPECT_EQ(sta->raw_offset, 178u);
+
+        // REF child 7: TNH (fixed 2B)
+        const auto* tnh = re->get_child_item(7);
+        ASSERT_NE(tnh, nullptr);
+        EXPECT_TRUE(tnh->is_populated());
+        EXPECT_EQ(tnh->raw_length, 2u);
+        EXPECT_EQ(tnh->raw_offset, 179u);
+
+        // REF child 8: MES (compound sub-UAP, 6 items)
+        const auto* mes = re->get_child_item(8);
+        ASSERT_NE(mes, nullptr);
+        EXPECT_TRUE(mes->is_populated());
+        EXPECT_EQ(mes->type,       asterix::item_type_compound);
+        EXPECT_EQ(mes->raw_length, 12u); // 1 FSPEC + 11 payload
+        EXPECT_EQ(mes->raw_offset, 181u);
+
+        auto check_mes_child = [&](uint8_t child_frn, uint16_t len, uint32_t off)
+        {
+            const auto* ch = mes->get_child_item(child_frn);
+            ASSERT_NE(ch, nullptr)      << "MES child FRN " << (int)child_frn;
+            EXPECT_TRUE(ch->is_populated())  << "MES child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->type, asterix::item_type_fixed) << "MES child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_length, len) << "MES child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_offset, off) << "MES child FRN " << (int)child_frn;
+        };
+        check_mes_child(1, 1u, 182u); // Mode 5 Summary
+        check_mes_child(2, 4u, 183u); // PIN / National Origin
+        check_mes_child(3, 2u, 187u); // Ext Mode 1
+        check_mes_child(4, 1u, 189u); // X Pulse
+        check_mes_child(5, 1u, 190u); // FOM
+        check_mes_child(6, 2u, 191u); // Mode 2 Code
+    }
+
+    // FRN 49 – SP Special Purpose Field (explicit)
+    check_item(49, asterix::item_type_explicit, 6, 193u);
+
+    adam::buffer_manager::get().return_buffer(internal);
+    adam::buffer_manager::get().return_buffer(data);
+}
+
+TEST_F(parser_test, parse_full_cat062_message)
+{
+    std::vector<uint8_t> raw = build_cat062_message();
+
+    adam::buffer* data = adam::buffer_manager::get().request_buffer(static_cast<uint32_t>(raw.size()));
+    std::memcpy(data->begin_as<uint8_t>(), raw.data(), raw.size());
+    data->set_size(static_cast<uint32_t>(raw.size()));
+
+    adam::buffer* internal = nullptr;
+    ASSERT_TRUE(parser.parse(data, internal));
+
+    ASSERT_NE(internal, nullptr);
+    const auto* frm = internal->get_begin_as<asterix::frame>();
+    EXPECT_EQ(frm->block_count, 1u);
+
+    const auto* blk = frm->get_block(0);
+    ASSERT_NE(blk, nullptr);
+    EXPECT_EQ(blk->category, 62);
+    EXPECT_EQ(blk->record_count, 1u);
+    EXPECT_EQ(blk->raw_length, static_cast<uint16_t>(raw.size()));
+    EXPECT_EQ(blk->raw_offset, 0u);
+
+    const auto* rec = blk->get_record(0);
+    ASSERT_NE(rec, nullptr);
+    EXPECT_EQ(rec->category, 62);
+    EXPECT_EQ(rec->item_count, 190u);
+    EXPECT_EQ(rec->raw_offset, 3u);
+    EXPECT_EQ(rec->raw_length, static_cast<uint16_t>(raw.size() - 3));
+
+    auto check_item = [&](uint8_t frn, asterix::item_type expected_type,
+                          uint16_t expected_raw_len, uint32_t expected_raw_off)
+    {
+        const auto* it = rec->get_item(frn);
+        ASSERT_NE(it, nullptr) << "FRN " << (int)frn << " must exist";
+        EXPECT_TRUE(it->is_populated()) << "FRN " << (int)frn << " must be populated";
+        EXPECT_EQ(it->type, expected_type) << "FRN " << (int)frn << " type mismatch";
+        EXPECT_EQ(it->raw_length, expected_raw_len) << "FRN " << (int)frn << " raw_length mismatch";
+        EXPECT_EQ(it->raw_offset, expected_raw_off) << "FRN " << (int)frn << " raw_offset mismatch";
+    };
+
+    // Verify main UAP items
+    check_item(1,  asterix::item_type_fixed, 2, 8u);   // I062/010 Data Source Identifier
+    check_item(3,  asterix::item_type_fixed, 1, 10u);  // I062/015 Service Identification
+    check_item(4,  asterix::item_type_fixed, 3, 11u);  // I062/070 Time Of Track Information
+    check_item(5,  asterix::item_type_fixed, 8, 14u);  // I062/105 Calculated Position (WGS-84)
+    check_item(6,  asterix::item_type_fixed, 6, 22u);  // I062/100 Calculated Position (Cartesian)
+    check_item(7,  asterix::item_type_fixed, 4, 28u);  // I062/185 Calculated Velocity (Cartesian)
+    check_item(8,  asterix::item_type_fixed, 2, 32u);  // I062/210 Calculated Acceleration (Cartesian)
+    check_item(9,  asterix::item_type_fixed, 2, 34u);  // I062/060 Track Mode 3/A Code
+    check_item(10, asterix::item_type_fixed, 7, 36u);  // I062/245 Target Identification
+
+    // FRN 11 – I062/380 Aircraft Derived Data (compound, 28 children)
+    {
+        const auto* add = rec->get_item(11);
+        ASSERT_NE(add, nullptr);
+        EXPECT_TRUE(add->is_populated());
+        EXPECT_EQ(add->type,       asterix::item_type_compound);
+        EXPECT_EQ(add->raw_length, 106u);
+        EXPECT_EQ(add->raw_offset, 43u);
+
+        const auto* adr = add->get_child_item(1);
+        ASSERT_NE(adr, nullptr);
+        EXPECT_TRUE(adr->is_populated());
+        EXPECT_EQ(adr->raw_length, 3u);
+        EXPECT_EQ(adr->raw_offset, 47u);
+
+        const auto* id = add->get_child_item(2);
+        ASSERT_NE(id, nullptr);
+        EXPECT_TRUE(id->is_populated());
+        EXPECT_EQ(id->raw_length, 6u);
+        EXPECT_EQ(id->raw_offset, 50u);
+    }
+
+    check_item(12, asterix::item_type_fixed,    2, 149u); // I062/040 Track Number
+    check_item(13, asterix::item_type_variable, 1, 151u); // I062/080 Track Status
+
+    // FRN 14 – I062/290 System Track Update Ages (compound, 10 children)
+    {
+        const auto* ages = rec->get_item(14);
+        ASSERT_NE(ages, nullptr);
+        EXPECT_TRUE(ages->is_populated());
+        EXPECT_EQ(ages->type,       asterix::item_type_compound);
+        EXPECT_EQ(ages->raw_length, 12u);
+        EXPECT_EQ(ages->raw_offset, 152u);
+
+        for (uint8_t child_frn = 1; child_frn <= 10; ++child_frn)
+        {
+            const auto* ch = ages->get_child_item(child_frn);
+            ASSERT_NE(ch, nullptr)      << "System age child FRN " << (int)child_frn;
+            EXPECT_TRUE(ch->is_populated())  << "System age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->type, asterix::item_type_fixed) << "System age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_length, 1u)  << "System age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_offset, 154u + (child_frn - 1)) << "System age child FRN " << (int)child_frn;
+        }
+    }
+
+    check_item(15, asterix::item_type_fixed, 1, 164u); // I062/200 Mode of Movement
+
+    // FRN 16 – I062/295 Track Data Ages (compound, 31 children)
+    {
+        const auto* ages = rec->get_item(16);
+        ASSERT_NE(ages, nullptr);
+        EXPECT_TRUE(ages->is_populated());
+        EXPECT_EQ(ages->type,       asterix::item_type_compound);
+        EXPECT_EQ(ages->raw_length, 36u);
+        EXPECT_EQ(ages->raw_offset, 165u);
+
+        for (uint8_t child_frn = 1; child_frn <= 31; ++child_frn)
+        {
+            const auto* ch = ages->get_child_item(child_frn);
+            ASSERT_NE(ch, nullptr)      << "Track age child FRN " << (int)child_frn;
+            EXPECT_TRUE(ch->is_populated())  << "Track age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->type, asterix::item_type_fixed) << "Track age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_length, 1u)  << "Track age child FRN " << (int)child_frn;
+            EXPECT_EQ(ch->raw_offset, 170u + (child_frn - 1)) << "Track age child FRN " << (int)child_frn;
+        }
+    }
+
+    check_item(17, asterix::item_type_fixed, 2, 201u); // I062/136 Measured Flight Level
+    check_item(18, asterix::item_type_fixed, 2, 203u); // I062/130 Calculated Geometric Altitude
+    check_item(19, asterix::item_type_fixed, 2, 205u); // I062/135 Calculated Barometric Altitude
+    check_item(20, asterix::item_type_fixed, 2, 207u); // I062/220 Calculated Rate Of Climb/Descent
+
+    // FRN 21 – I062/390 Flight Plan Related Data (compound, 18 children)
+    {
+        const auto* fp = rec->get_item(21);
+        ASSERT_NE(fp, nullptr);
+        EXPECT_TRUE(fp->is_populated());
+        EXPECT_EQ(fp->type,       asterix::item_type_compound);
+        EXPECT_EQ(fp->raw_length, 78u);
+        EXPECT_EQ(fp->raw_offset, 209u);
+
+        const auto* tag = fp->get_child_item(1);
+        ASSERT_NE(tag, nullptr);
+        EXPECT_TRUE(tag->is_populated());
+        EXPECT_EQ(tag->raw_length, 2u);
+        EXPECT_EQ(tag->raw_offset, 212u);
+    }
+
+    check_item(22, asterix::item_type_variable, 1, 287u); // I062/270 Target Size & Orientation
+    check_item(23, asterix::item_type_fixed,    1, 288u); // I062/300 Vehicle Fleet Identification
+
+    // FRN 24 – I062/110 Mode 5 Data reports (compound, 7 children)
+    {
+        const auto* m5 = rec->get_item(24);
+        ASSERT_NE(m5, nullptr);
+        EXPECT_TRUE(m5->is_populated());
+        EXPECT_EQ(m5->type,       asterix::item_type_compound);
+        EXPECT_EQ(m5->raw_length, 19u);
+        EXPECT_EQ(m5->raw_offset, 289u);
+    }
+
+    check_item(25, asterix::item_type_fixed,    2, 308u); // I062/120 Track Mode 2 Code
+    check_item(26, asterix::item_type_variable, 3, 310u); // I062/510 Composed Track Number
+
+    // FRN 27 – I062/500 Estimated Accuracies (compound, 8 children)
+    {
+        const auto* acc = rec->get_item(27);
+        ASSERT_NE(acc, nullptr);
+        EXPECT_TRUE(acc->is_populated());
+        EXPECT_EQ(acc->type,       asterix::item_type_compound);
+        EXPECT_EQ(acc->raw_length, 19u);
+        EXPECT_EQ(acc->raw_offset, 313u);
+    }
+
+    // FRN 28 – I062/340 Measured Information (compound, 6 children)
+    {
+        const auto* mi = rec->get_item(28);
+        ASSERT_NE(mi, nullptr);
+        EXPECT_TRUE(mi->is_populated());
+        EXPECT_EQ(mi->type,       asterix::item_type_compound);
+        EXPECT_EQ(mi->raw_length, 14u);
+        EXPECT_EQ(mi->raw_offset, 332u);
+    }
+
+    // FRN 34 – RE Reserved Expansion Field (explicit, sub‑UAP REF)
+    {
+        const auto* re = rec->get_item(34);
+        ASSERT_NE(re, nullptr);
+        EXPECT_TRUE(re->is_populated());
+        EXPECT_EQ(re->type,       asterix::item_type_explicit);
+        EXPECT_EQ(re->raw_length, 144u);
+        EXPECT_EQ(re->raw_offset, 346u);
+
+        // REF child 1: CST (repetitive 6B)
+        const auto* cst = re->get_child_item(1);
+        ASSERT_NE(cst, nullptr);
+        EXPECT_TRUE(cst->is_populated());
+        EXPECT_EQ(cst->type,       asterix::item_type_repetetive);
+        EXPECT_EQ(cst->raw_length, 6u);
+        EXPECT_EQ(cst->raw_offset, 348u);
+
+        // REF child 2: CSN (repetitive 4B)
+        const auto* csn = re->get_child_item(2);
+        ASSERT_NE(csn, nullptr);
+        EXPECT_TRUE(csn->is_populated());
+        EXPECT_EQ(csn->type,       asterix::item_type_repetetive);
+        EXPECT_EQ(csn->raw_length, 4u);
+        EXPECT_EQ(csn->raw_offset, 354u);
+
+        // REF child 3: TVS (fixed 4B)
+        const auto* tvs = re->get_child_item(3);
+        ASSERT_NE(tvs, nullptr);
+        EXPECT_TRUE(tvs->is_populated());
+        EXPECT_EQ(tvs->type,       asterix::item_type_fixed);
+        EXPECT_EQ(tvs->raw_length, 4u);
+        EXPECT_EQ(tvs->raw_offset, 358u);
+
+        // REF child 4: STS (variable 1B)
+        const auto* sts = re->get_child_item(4);
+        ASSERT_NE(sts, nullptr);
+        EXPECT_TRUE(sts->is_populated());
+        EXPECT_EQ(sts->type,       asterix::item_type_variable);
+        EXPECT_EQ(sts->raw_length, 1u);
+        EXPECT_EQ(sts->raw_offset, 362u);
+
+        // REF child 5: V3 (compound, 4 children)
+        const auto* v3 = re->get_child_item(5);
+        ASSERT_NE(v3, nullptr);
+        EXPECT_TRUE(v3->is_populated());
+        EXPECT_EQ(v3->type,       asterix::item_type_compound);
+        EXPECT_EQ(v3->raw_length, 7u);
+        EXPECT_EQ(v3->raw_offset, 363u);
+
+        const auto* ps3 = v3->get_child_item(1);
+        ASSERT_NE(ps3, nullptr);
+        EXPECT_TRUE(ps3->is_populated());
+        EXPECT_EQ(ps3->raw_length, 1u);
+        EXPECT_EQ(ps3->raw_offset, 364u);
+
+        // REF child 6: MOI (explicit, 25 children)
+        const auto* moi = re->get_child_item(6);
+        ASSERT_NE(moi, nullptr);
+        EXPECT_TRUE(moi->is_populated());
+        EXPECT_EQ(moi->type,       asterix::item_type_explicit);
+        EXPECT_EQ(moi->raw_length, 74u);
+        EXPECT_EQ(moi->raw_offset, 370u);
+
+        const auto* atad = moi->get_child_item(1);
+        ASSERT_NE(atad, nullptr);
+        EXPECT_TRUE(atad->is_populated());
+        EXPECT_EQ(atad->raw_length, 1u);
+        EXPECT_EQ(atad->raw_offset, 375u);
+
+        // REF child 7: MTI (explicit, 9 children)
+        const auto* mti = re->get_child_item(7);
+        ASSERT_NE(mti, nullptr);
+        EXPECT_TRUE(mti->is_populated());
+        EXPECT_EQ(mti->type,       asterix::item_type_explicit);
+        EXPECT_EQ(mti->raw_length, 44u);
+        EXPECT_EQ(mti->raw_offset, 444u);
+
+        const auto* date = mti->get_child_item(1);
+        ASSERT_NE(date, nullptr);
+        EXPECT_TRUE(date->is_populated());
+        EXPECT_EQ(date->raw_length, 4u);
+        EXPECT_EQ(date->raw_offset, 447u);
+
+        // REF child 8: GEN62 (compound, 1 child)
+        const auto* gen62 = re->get_child_item(8);
+        ASSERT_NE(gen62, nullptr);
+        EXPECT_TRUE(gen62->is_populated());
+        EXPECT_EQ(gen62->type,       asterix::item_type_compound);
+        EXPECT_EQ(gen62->raw_length, 2u);
+        EXPECT_EQ(gen62->raw_offset, 488u);
+    }
+
+    // FRN 35 – SP Special Purpose Field (explicit)
+    check_item(35, asterix::item_type_explicit, 6, 490u);
+
+    adam::buffer_manager::get().return_buffer(internal);
+    adam::buffer_manager::get().return_buffer(data);
 }
 
 TEST_F(parser_test, parse_full_cat048_message)
