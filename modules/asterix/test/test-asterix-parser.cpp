@@ -9,6 +9,7 @@
 #include "memory/buffer/buffer.hpp"
 #include "data/asterix-types.hpp"
 #include "data/categories/001/cat001.hpp"
+#include "data/categories/021/cat021.hpp"
 
 #include <string_view>
 
@@ -1101,6 +1102,29 @@ TEST_F(parser_test, custom_uap_expansion_and_o1_lookup)
     // Cast it back to verify custom attributes
     dummy_classification_data* retrieved_data = static_cast<dummy_classification_data*>(expansion);
     EXPECT_EQ(retrieved_data->classification_level, 42);
+}
+
+TEST_F(parser_test, cat021_ref_uap_structure)
+{
+    auto& cat021 = asterix::cat021::get_uap();
+
+    const asterix::field_spec* spec_re = cat021.get_spec(48);
+    ASSERT_NE(spec_re, nullptr);
+    EXPECT_EQ(spec_re->type, asterix::item_type_explicit);
+    ASSERT_NE(spec_re->sub_uap, nullptr);
+
+    const auto* ref_uap = spec_re->sub_uap;
+    EXPECT_EQ(ref_uap->get_cat_number(), 21);
+    EXPECT_EQ(ref_uap->get_highest_frn(), 8);
+
+    const asterix::field_spec* spec_mes = ref_uap->get_spec(8);
+    ASSERT_NE(spec_mes, nullptr);
+    EXPECT_EQ(spec_mes->type, asterix::item_type_compound);
+    ASSERT_NE(spec_mes->sub_uap, nullptr);
+
+    const auto* mes_uap = spec_mes->sub_uap;
+    EXPECT_EQ(mes_uap->get_cat_number(), 21);
+    EXPECT_EQ(mes_uap->get_highest_frn(), 6);
 }
 
 TEST_F(parser_test, parse_full_cat048_message)

@@ -1,4 +1,5 @@
 #include "data/categories/021/cat021-uap.hpp"
+#include "data/categories/021/cat021-uap-ref.hpp"
 
 #include <array>
 
@@ -72,7 +73,7 @@ namespace adam::modules::asterix::cat021
 
         // FSPEC Byte 7
         // FRNs 43 to 47 are Not Used
-        { 48, item_type_explicit,    0,      0, "RE Reserved Expansion Field"                                          },
+        { 48, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()},
         { 49, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
 
