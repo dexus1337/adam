@@ -23,7 +23,7 @@ namespace adam::gui
         gui_controller& ctrl,
         adam::language lang,
         int& sort_mode,
-        bool& show_inspector
+        std::string& search_str
     );
 
     void draw_connection_name_and_color

@@ -1,9 +1,9 @@
 #pragma once
 
 /**
- * @file    tab-modules.hpp
+ * @file    window-modules.hpp
  * @author  dexus1337
- * @brief   Header for the modules tab drawing functions.
+ * @brief   Header for the modules window drawing functions.
  * @version 1.0
  * @date    12.06.2026
  */
@@ -14,7 +14,7 @@ namespace adam::gui
 {
     class gui_controller;
 
-    void draw_tab_modules
+    void draw_window_modules
     (
         gui_controller& ctrl,
         adam::language lang,

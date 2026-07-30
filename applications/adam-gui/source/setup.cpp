@@ -52,7 +52,7 @@ namespace adam::gui
         style.ItemSpacing = ImVec2(8.0f, 6.0f);
         style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
 
-        style.WindowMinSize = window_min_size;
+        style.WindowMinSize = ImVec2(32.0f, 32.0f);
 
         style.WindowBorderSize = 1.0f;
         style.FrameBorderSize = 1.0f;
@@ -102,6 +102,8 @@ namespace adam::gui
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
         // Disable the creation of imgui.ini, as we handle configuration saving ourselves
         io.IniFilename = NULL;

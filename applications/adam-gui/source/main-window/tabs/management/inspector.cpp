@@ -22,6 +22,7 @@
 #include <string> // For std::string
 #include <unordered_set> // For std::unordered_set
 #include <set> // For std::set
+#include <cctype> // For std::tolower
 namespace adam::gui
 {
     // Helper to draw a single row in the inspector frames table
@@ -1152,6 +1153,110 @@ namespace adam::gui
             else ++it;
         }
 
+        static adam::configuration_parameter_integer* sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(ctrl.get_parameters().get("analysis_sort_mode"_ct));
+        int sort_mode = sort_mode_param ? static_cast<int>(sort_mode_param->get_value()) : 4;
+
+        static adam::configuration_parameter_string* search_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("analysis_search"_ct));
+        static std::string search_str = search_param ? std::string(search_param->get_value().c_str()) : "";
+
+        // --- Top Control Bar ---
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_sort_by, lang));
+        ImGui::SameLine();
+        const char* sort_options[] = 
+        {
+            get_gui_string(gui_string_id::sort_analysis_active, lang),
+            get_gui_string(gui_string_id::sort_analysis_inactive, lang),
+            get_gui_string(gui_string_id::sort_analysis_name_asc, lang),
+            get_gui_string(gui_string_id::sort_analysis_name_desc, lang),
+            get_gui_string(gui_string_id::sort_analysis_mirror, lang)
+        };
+        ImGui::SetNextItemWidth(200.0f * dpi_scale);
+        if (ImGui::Combo("##AnalysisSortMode", &sort_mode, sort_options, IM_ARRAYSIZE(sort_options)))
+        {
+            if (sort_mode_param)
+                sort_mode_param->set_value(static_cast<int64_t>(sort_mode));
+        }
+
+        float center_pos = 0.0f;
+        float search_width = 0.0f;
+        get_search_bar_layout(lang, ImGui::GetContentRegionAvail().x, center_pos, search_width);
+        
+        if (center_pos < ImGui::GetCursorPosX()) center_pos = ImGui::GetCursorPosX() + ImGui::GetStyle().ItemSpacing.x;
+
+        ImGui::SameLine(center_pos);
+        ImGui::SetNextItemWidth(search_width);
+        char search_buf[256];
+        strncpy(search_buf, search_str.c_str(), sizeof(search_buf) - 1);
+        search_buf[sizeof(search_buf) - 1] = '\0';
+        if (ImGui::InputTextWithHint("##AnalysisSearch", get_gui_string(gui_string_id::search_hint, lang), search_buf, sizeof(search_buf)))
+        {
+            search_str = search_buf;
+            if (search_param)
+                search_param->set_value(adam::string_hashed(search_str));
+        }
+        ImGui::Spacing();
+
+        // --- Filtering and Sorting ---
+        std::string search_lower = search_str;
+        std::transform(search_lower.begin(), search_lower.end(), search_lower.begin(), [](unsigned char c) { return std::tolower(c); });
+
+        std::vector<std::pair<adam::string_hash, const adam::connection_view*>> sorted_connections;
+        for (const auto& [hash, conn] : connections)
+        {
+            if (!search_lower.empty())
+            {
+                std::string name_lower = conn->name.c_str();
+                std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), [](unsigned char c) { return std::tolower(c); });
+                if (name_lower.find(search_lower) == std::string::npos) continue;
+            }
+            sorted_connections.push_back({hash, conn.get()});
+        }
+
+        std::vector<std::pair<adam::string_hash, const adam::port_view*>> sorted_ports;
+        for (const auto& [hash, p_view] : ports)
+        {
+            if (!search_lower.empty())
+            {
+                std::string name_lower = p_view->name.c_str();
+                std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), [](unsigned char c) { return std::tolower(c); });
+                if (name_lower.find(search_lower) == std::string::npos) continue;
+            }
+            sorted_ports.push_back({hash, p_view.get()});
+        }
+
+        auto conn_sort_func = [sort_mode](const auto& a, const auto& b) {
+            if (sort_mode == 0) { // Active
+                if (a.second->started != b.second->started) return a.second->started > b.second->started;
+                return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
+            }
+            if (sort_mode == 1) { // Inactive
+                if (a.second->started != b.second->started) return a.second->started < b.second->started;
+                return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
+            }
+            if (sort_mode == 2) return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0; // Name Asc
+            if (sort_mode == 3) return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) > 0; // Name Desc
+            if (sort_mode == 4) return a.second->sorting_index < b.second->sorting_index; // Mirror
+            return false;
+        };
+        std::stable_sort(sorted_connections.begin(), sorted_connections.end(), conn_sort_func);
+
+        auto port_sort_func = [sort_mode](const auto& a, const auto& b) {
+            bool a_active = a.second->started;
+            bool b_active = b.second->started;
+            if (sort_mode == 0) { // Active
+                if (a_active != b_active) return a_active > b_active;
+                return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
+            }
+            if (sort_mode == 1) { // Inactive
+                if (a_active != b_active) return a_active < b_active;
+                return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
+            }
+            if (sort_mode == 3) return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) > 0;
+            return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
+        };
+        std::stable_sort(sorted_ports.begin(), sorted_ports.end(), port_sort_func);
+
         for (auto it = g_expanded_inspector_ports.begin(); it != g_expanded_inspector_ports.end(); )
         {
             if (ports.find(*it) == ports.end()) it = g_expanded_inspector_ports.erase(it);
@@ -1251,15 +1356,15 @@ namespace adam::gui
         }
 
         float base_outer_h = 0.0f;
-        if (!connections.empty())
+        if (!sorted_connections.empty())
         {
-            base_outer_h += table_row_h * (connections.size() * 2 + 1);
+            base_outer_h += table_row_h * (sorted_connections.size() * 2 + 1);
         }
-        if (!ports.empty())
+        if (!sorted_ports.empty())
         {
-            base_outer_h += table_row_h * (ports.size() + 1);
+            base_outer_h += table_row_h * (sorted_ports.size() + 1);
         }
-        if (!connections.empty() && !ports.empty())
+        if (!sorted_connections.empty() && !sorted_ports.empty())
         {
             base_outer_h += spacing_h;
         }
@@ -1297,8 +1402,8 @@ namespace adam::gui
             ImGui::TableHeadersRow();
 
             size_t connection_idx = 0;
-            size_t total_connections = connections.size();
-            for (const auto& [conn_hash, c_view] : connections)
+            size_t total_connections = sorted_connections.size();
+            for (const auto& [conn_hash, c_view] : sorted_connections)
             {
                 connection_idx++;
                 bool is_last_connection = (connection_idx == total_connections);
@@ -1520,8 +1625,8 @@ namespace adam::gui
             ImGui::TableHeadersRow();
 
             size_t port_idx = 0;
-            size_t total_ports = ports.size();
-            for (const auto& [port_hash, p_view] : ports)
+            size_t total_ports = sorted_ports.size();
+            for (const auto& [port_hash, p_view] : sorted_ports)
             {
                 port_idx++;
                 bool is_last_port = (port_idx == total_ports);

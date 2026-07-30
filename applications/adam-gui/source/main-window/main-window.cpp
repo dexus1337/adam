@@ -3,14 +3,17 @@
 
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <SDL3/SDL.h>
 #include <unordered_map>
 #include <array>
 #include <algorithm>
-#include "tabs/tab-management.hpp"
-#include "tabs/tab-modules.hpp"
-#include "tabs/tab-about.hpp"
-#include "tabs/tab-configuration.hpp"
+#include "tabs/window-management.hpp"
+#include "tabs/window-modules.hpp"
+#include "tabs/window-about.hpp"
+#include "tabs/window-configuration.hpp"
+#include "tabs/window-analysis.hpp"
+#include "tabs/window-log.hpp"
 #include "themes/themes.hpp"
 
 namespace adam::gui 
@@ -44,6 +47,38 @@ namespace adam::gui
         return colors[static_cast<size_t>(id)];
     }
 
+    void get_search_bar_layout(adam::language lang, float window_avail_x, float& out_pos_x, float& out_width)
+    {
+        float pad_x = ImGui::GetStyle().WindowPadding.x;
+        float spacing_x = ImGui::GetStyle().ItemSpacing.x;
+        float border = ImGui::GetStyle().WindowBorderSize;
+
+        float card_avail_x = window_avail_x - pad_x * 2.0f - border * 2.0f;
+        float char_width = ImGui::CalcTextSize("x").x;
+        float desired_node_w = char_width * 40.0f + ImGui::GetStyle().FramePadding.x * 4.0f;
+        
+        float port_w = std::min(desired_node_w, card_avail_x * 0.25f);
+        if (port_w < char_width * 15.0f) port_w = char_width * 15.0f; 
+        
+        float color_w = ImGui::GetFrameHeight();
+        float btn_start_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_start, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_stop_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_stop, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_delete_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_delete, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_add_port_w = ImGui::GetFrameHeight();
+
+        float total_controls_w = color_w + spacing_x + port_w;
+        total_controls_w += spacing_x + btn_start_w + spacing_x + btn_stop_w;
+        total_controls_w += spacing_x + btn_delete_w;
+        total_controls_w += spacing_x + btn_add_port_w;
+
+        float start_mid_x = pad_x + (card_avail_x - total_controls_w) * 0.5f;
+        float min_start_x = pad_x + port_w + spacing_x;
+        if (start_mid_x < min_start_x) start_mid_x = min_start_x;
+
+        out_pos_x = ImGui::GetCursorPosX() + start_mid_x;
+        out_width = total_controls_w;
+    }
+
     
     main_window::main_window(gui_controller& ctrl, SDL_Window* window) 
         : m_ctrl(ctrl),
@@ -52,6 +87,7 @@ namespace adam::gui
         auto& params = m_ctrl.get_parameters();
 
         m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"_ct));
+        m_p_show_inspector      = static_cast<adam::configuration_parameter_boolean*>(params.get("show_inspector"_ct));
         m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
         m_p_gui_mode            = static_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
         m_p_fps_limit           = static_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
@@ -60,10 +96,17 @@ namespace adam::gui
         m_p_perf_ovly_y         = static_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
         m_p_perf_ovly_content   = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_content"_ct));
         m_p_theme               = static_cast<adam::configuration_parameter_string*>(params.get("theme"_ct));
+        m_p_docking_layout      = static_cast<adam::configuration_parameter_string*>(params.get("docking_layout"_ct));
         m_p_font_scale          = static_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
         m_p_log_height          = static_cast<adam::configuration_parameter_double*>(params.get("log_height"_ct));
         m_p_log_level           = static_cast<adam::configuration_parameter_integer*>(params.get("log_level"_ct));
         m_p_language            = static_cast<adam::configuration_parameter_integer*>(params.get("language"_ct));
+
+        if (m_p_docking_layout && !m_p_docking_layout->get_value().empty())
+        {
+            std::string layout_data = m_p_docking_layout->get_value().data();
+            ImGui::LoadIniSettingsFromMemory(layout_data.c_str(), layout_data.size());
+        }
         
         m_last_lang         = static_cast<adam::language>(255);
         m_modules_was_empty = true;
@@ -177,6 +220,13 @@ namespace adam::gui
             {
                 static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->set_value(is_maximized);
             }
+
+            size_t ini_size = 0;
+            const char* ini_data = ImGui::SaveIniSettingsToMemory(&ini_size);
+            if (ini_data && ini_size > 0 && m_p_docking_layout)
+            {
+                m_p_docking_layout->set_value(adam::string_hashed(std::string_view(ini_data, ini_size)));
+            }
         }
     }
 
@@ -238,118 +288,132 @@ namespace adam::gui
 
         //ImGui::ShowDemoWindow();
 
-        const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        
-        ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
-        ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
-        
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::Begin(get_gui_string(gui_string_id::main_ui, lang), nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar);
-        ImGui::PopStyleVar();
-
-        if (ImGui::BeginMenuBar())
+        if (ImGui::BeginMainMenuBar())
         {
             draw_menu_bar(lang);
-            ImGui::EndMenuBar();
+            ImGui::EndMainMenuBar();
+        }
+
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        float bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
+        
+        ImGuiWindowFlags dock_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, viewport->WorkSize.y - bar_height));
+        ImGui::SetNextWindowViewport(viewport->ID);
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::Begin("MainDockSpaceWindow", nullptr, dock_flags);
+        ImGui::PopStyleVar(3);
+        
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        
+        // Build default docking layout if no node layout exists yet
+        if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+        {
+            ImGui::DockBuilderRemoveNode(dockspace_id);
+            ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+            ImGui::DockBuilderSetNodeSize(dockspace_id, ImVec2(viewport->WorkSize.x, viewport->WorkSize.y - bar_height));
+
+            ImGuiID dock_main_id = dockspace_id;
+            ImGuiID dock_bottom_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+
+            ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_management, lang), dock_main_id);
+            ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_analysis, lang), dock_main_id);
+            ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_configuration, lang), dock_main_id);
+            ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_modules, lang), dock_main_id);
+            ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_about, lang), dock_main_id);
+            ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_log_console, lang), dock_bottom_id);
+
+            ImGui::DockBuilderFinish(dockspace_id);
         }
         
-        float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
-        float content_avail_y = ImGui::GetWindowHeight() - ImGui::GetCursorPosY() - status_bar_height;
-        float log_height_val = static_cast<float>(m_p_log_height->get_value());
-        float default_space = content_avail_y * 0.2f;
-        float max_height = content_avail_y - default_space;
-        if (max_height < default_space) max_height = default_space;
-
-        if (m_p_show_log->get_value())
-        {
-            if (log_height_val > max_height) log_height_val = max_height;
-            if (log_height_val < default_space) log_height_val = default_space;
-
-            content_avail_y -= log_height_val + ImGui::GetStyle().ItemSpacing.y * 2.0f + 4.0f;
-        }
-
-        if (ImGui::BeginChild("MainContent", ImVec2(0.0f, content_avail_y), false))
-        {
-            if (ImGui::BeginTabBar("MainTabs"))
-            {
-                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_management, lang)))
-                {
-                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
-                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
-                    if (ImGui::BeginChild("##management_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
-                    {
-                        draw_tab_management(m_ctrl, lang);
-                    }
-                    ImGui::EndChild();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_configuration, lang)))
-                {
-                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
-                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
-                    if (ImGui::BeginChild("##configuration_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
-                    {
-                        draw_tab_configuration(m_ctrl, lang);
-                    }
-                    ImGui::EndChild();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_modules, lang)))
-                {
-                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
-                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
-                    if (ImGui::BeginChild("##modules_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
-                    {
-                        draw_tab_modules(m_ctrl, lang, m_module_paths_table_id, m_modules_table_id);
-                    }
-                    ImGui::EndChild();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem(get_gui_string(gui_string_id::tab_information, lang)))
-                {
-                    ImVec2 pad = ImGui::GetStyle().WindowPadding;
-                    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x + pad.x, ImGui::GetCursorPos().y + pad.y));
-                    if (ImGui::BeginChild("##information_content", ImVec2(ImGui::GetContentRegionAvail().x - pad.x, ImGui::GetContentRegionAvail().y - pad.y), false))
-                    {
-                        draw_tab_about(m_ctrl, lang);
-                    }
-                    ImGui::EndChild();
-                    ImGui::EndTabItem();
-                }
-                ImGui::EndTabBar();
-            }
-        }
-        ImGui::EndChild();
-
-        if (m_p_show_log->get_value())
-        {
-            draw_log_window(lang, log_height_val, max_height, status_bar_height);
-        }
-
-        // Status bar
-        ImGui::SetCursorPosY(ImGui::GetWindowHeight() - status_bar_height);
-        ImGui::Separator();
-        
-        if (m_ctrl.is_commander_active())
-            ImGui::TextColored(get_gui_color(gui_color_id::commander_connected), "%s", get_gui_string(gui_string_id::lbl_commander_connected, lang));
-        else
-            ImGui::TextColored(get_gui_color(gui_color_id::commander_disconnected), "%s", get_gui_string(gui_string_id::lbl_commander_disconnected, lang));
-            
-        const char* lang_short = (lang == adam::language_german) ? "DE" : "EN";
-        float lang_width = ImGui::CalcTextSize(lang_short).x;
-        ImGui::SameLine(ImGui::GetWindowWidth() - lang_width - ImGui::GetStyle().WindowPadding.x);
-        ImGui::TextUnformatted(lang_short);
-        if (ImGui::IsItemHovered())
-            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-        if (ImGui::IsItemClicked())
-        {
-            adam::language new_lang = (lang == adam::language_english) ? adam::language_german : adam::language_english;
-            if (m_ctrl.is_commander_active())
-                m_ctrl.commander().request_language_change(new_lang);
-            m_p_language->set_value(static_cast<int64_t>(new_lang));
-        }
-        
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), 0);
         ImGui::End();
+
+        if (g_request_open_inspector)
+        {
+            m_p_show_inspector->set_value(true);
+            g_request_open_inspector = false;
+        }
+
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_management, lang)))
+        {
+            draw_window_management(m_ctrl, lang);
+        }
+        ImGui::End();
+
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_analysis, lang)))
+        {
+            draw_window_analysis(m_ctrl, lang);
+        }
+        ImGui::End();
+
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_configuration, lang)))
+        {
+            draw_window_configuration(m_ctrl, lang);
+        }
+        ImGui::End();
+
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_modules, lang)))
+        {
+            draw_window_modules(m_ctrl, lang, m_module_paths_table_id, m_modules_table_id);
+        }
+        ImGui::End();
+
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_about, lang)))
+        {
+            draw_window_about(m_ctrl, lang);
+        }
+        ImGui::End();
+
+        if (m_p_show_log->get_value())
+        {
+            draw_window_log(m_ctrl, lang, m_log_table_id);
+        }
+
+        // Fixed status bar at bottom of viewport
+        {
+            ImGuiWindowFlags status_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | 
+                                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | 
+                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | 
+                                            ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoDocking;
+
+            float bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
+            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x, viewport->WorkPos.y + viewport->WorkSize.y - bar_height));
+            ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, bar_height));
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(ImGui::GetStyle().WindowPadding.x, ImGui::GetStyle().FramePadding.y));
+
+            if (ImGui::Begin("##MainStatusBar", nullptr, status_flags))
+            {
+                ImGui::Separator();
+                if (m_ctrl.is_commander_active())
+                    ImGui::TextColored(get_gui_color(gui_color_id::commander_connected), "%s", get_gui_string(gui_string_id::lbl_commander_connected, lang));
+                else
+                    ImGui::TextColored(get_gui_color(gui_color_id::commander_disconnected), "%s", get_gui_string(gui_string_id::lbl_commander_disconnected, lang));
+                    
+                const char* lang_short = (lang == adam::language_german) ? "DE" : "EN";
+                float lang_width = ImGui::CalcTextSize(lang_short).x;
+                ImGui::SameLine(ImGui::GetWindowWidth() - lang_width - ImGui::GetStyle().WindowPadding.x * 2.0f);
+                ImGui::TextUnformatted(lang_short);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                if (ImGui::IsItemClicked())
+                {
+                    adam::language new_lang = (lang == adam::language_english) ? adam::language_german : adam::language_english;
+                    if (m_ctrl.is_commander_active())
+                        m_ctrl.commander().request_language_change(new_lang);
+                    m_p_language->set_value(static_cast<int64_t>(new_lang));
+                }
+            }
+            ImGui::End();
+            ImGui::PopStyleVar(3);
+        }
 
         if (m_p_show_performance->get_value())
         {
@@ -482,140 +546,7 @@ namespace adam::gui
         }
     }
 
-    void main_window::draw_log_window
-    (
-        adam::language lang,
-        float& log_height_val,
-        float max_height,
-        float status_bar_height
-    )
-    {
-        float dpi_scale = ImGui::GetStyle()._MainScale;
-        
-        // Visible splitter for vertical resizing
-        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
-        ImGui::Button("##vsplitter", ImVec2(-1, 4.0f));
-        ImGui::PopStyleColor(3);
 
-        if (ImGui::IsItemActive())
-        {
-            log_height_val -= ImGui::GetIO().MouseDelta.y;
-
-            // Re-apply clamping during drag to prevent getting stuck
-            if (log_height_val > max_height) log_height_val = max_height;
-            if (log_height_val < 100.0f * dpi_scale) log_height_val = 100.0f * dpi_scale;
-
-            m_p_log_height->set_value(static_cast<double>(log_height_val));
-        }
-        if (ImGui::IsItemHovered())
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-            
-        ImGui::Spacing();
-        ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_log_console, lang));
-        
-        float max_combo_text_width = std::max(ImGui::CalcTextSize("Warning").x, ImGui::CalcTextSize("Warnung").x);
-        float combo_width = max_combo_text_width + ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.x * 2.0f;
-        const char* clear_log_text = get_gui_string(gui_string_id::btn_clear_log, lang);
-        float btn_width = ImGui::CalcTextSize(clear_log_text, NULL, true).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-        float right_align_offset = combo_width + btn_width + ImGui::GetStyle().ItemSpacing.x;
-        
-        ImGui::SameLine();
-        ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - right_align_offset);
-
-        int current_log_level = static_cast<int>(m_p_log_level->get_value());
-        ImGui::SetNextItemWidth(combo_width);
-        if (ImGui::Combo("##LogLevel", &current_log_level, get_gui_string(gui_string_id::combo_log_level_options, lang)))
-        {
-            m_p_log_level->set_value(static_cast<int64_t>(current_log_level));
-            if (m_ctrl.get_log_sink().is_active() && m_ctrl.log_sink().queue().metadata())
-            {
-                m_ctrl.log_sink().queue().metadata()->store(static_cast<adam::log::level>(current_log_level + 1), std::memory_order_relaxed);
-            }
-        }
-        
-        ImGui::SameLine();
-        
-        if (ImGui::Button(clear_log_text))
-        {
-            m_ctrl.clear_log_history();
-        }
-        
-        ImGui::PushID(m_log_table_id);
-        if (ImGui::BeginTable("LogTable", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, -status_bar_height)))
-        {
-            ImGui::TableSetupScrollFreeze(0, 1);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_time, lang), ImGuiTableColumnFlags_WidthFixed);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_level, lang), ImGuiTableColumnFlags_WidthFixed);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_message, lang), ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableHeadersRow();
-
-            auto log_history = m_ctrl.get_log_history();
-            int i = 0;
-            for (const auto& log_line : log_history)
-            {
-                ImGui::TableNextRow();
-                
-                const char* level_text = "";
-                float r, g, b;
-                adam::get_log_appearance(log_line.level, level_text, r, g, b);
-                
-                ImVec4 color;
-                switch (log_line.level)
-                {
-                    case adam::log::level::trace:   color = get_gui_color(gui_color_id::log_trace); break;
-                    case adam::log::level::info:    color = get_gui_color(gui_color_id::log_info); break;
-                    case adam::log::level::warning: color = get_gui_color(gui_color_id::log_warning); break;
-                    case adam::log::level::error:   color = get_gui_color(gui_color_id::log_error); break;
-                    default:                        color = ImVec4(r, g, b, 1.0f); break; // Fallback to SDK defaults
-                }
-
-                ImGui::TableSetColumnIndex(0);
-                ImGui::PushID(i);
-                std::string time_str = adam::get_log_time_string(log_line.timestamp);
-                ImGui::Selectable(time_str.c_str(), false, ImGuiSelectableFlags_SpanAllColumns);
-                
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                {
-                    ImGui::SetClipboardText(log_line.text.c_str());
-                }
-
-                if (ImGui::BeginPopupContextItem())
-                {
-                    if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_copy_message, lang)))
-                    {
-                        ImGui::SetClipboardText(log_line.text.c_str());
-                    }
-                    if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_copy_row, lang)))
-                    {
-                        char row_str[1024];
-                        snprintf(row_str, sizeof(row_str), "[%s] [%s] %s", 
-                                 time_str.c_str(),
-                                 level_text,
-                                 log_line.text.c_str());
-                        ImGui::SetClipboardText(row_str);
-                    }
-                    ImGui::EndPopup();
-                }
-                ImGui::PopID();
-
-                ImGui::TableSetColumnIndex(1);
-                ImGui::TextColored(color, "%s", level_text);
-
-                ImGui::TableSetColumnIndex(2);
-                ImGui::TextUnformatted(log_line.text.c_str());
-
-                i++;
-            }
-
-            if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-                ImGui::SetScrollHereY(1.0f);
-                
-            ImGui::EndTable();
-        }
-        ImGui::PopID();
-    }
 
     void main_window::draw_performance_overlay(adam::language lang)
     {

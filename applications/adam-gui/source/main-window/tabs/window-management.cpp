@@ -1,12 +1,12 @@
 /**
- * @file    tab-management.cpp
+ * @file    window-management.cpp
  * @author  dexus1337
- * @brief   Implementation of the management tab drawing entry point.
+ * @brief   Implementation of the management window drawing entry point.
  * @version 1.0
  * @date    12.06.2026
  */
 
-#include "tab-management.hpp"
+#include "window-management.hpp"
 #include "../main-window.hpp"
 
 #include <imgui.h>
@@ -28,31 +28,12 @@
 #include "module/module.hpp"
 #include "data/port-types/port-input-replay.hpp"
 
+#include <cctype>
+
 namespace adam::gui
 {
-    void draw_tab_management(gui_controller& ctrl, adam::language lang)
+    void draw_window_management(gui_controller& ctrl, adam::language lang)
     {
-        static bool show_inspector = false;
-        if (g_request_open_inspector)
-        {
-            show_inspector = true;
-            g_request_open_inspector = false;
-        }
-
-        static size_t last_frame_inspector_count = 0;
-        size_t current_inspector_count = 0;
-        if (ctrl.is_commander_active())
-        {
-            current_inspector_count = ctrl.commander().get_inspectors().size() + 
-                                      ctrl.commander().get_connection_input_inspectors().size() + 
-                                      ctrl.commander().get_connection_output_inspectors().size();
-        }
-
-        if (last_frame_inspector_count > 0 && current_inspector_count == 0)
-        {
-            show_inspector = false;
-        }
-        last_frame_inspector_count = current_inspector_count;
         bool commander_active   = ctrl.is_commander_active();
 
         draw_delete_connection_modal(ctrl, lang);
@@ -69,14 +50,68 @@ namespace adam::gui
         static adam::configuration_parameter_integer* sort_mode_param = dynamic_cast<adam::configuration_parameter_integer*>(ctrl.get_parameters().get("connection_sort_mode"_ct));
         int sort_mode = static_cast<int>(sort_mode_param->get_value());
         
-        draw_top_control_bar(ctrl, lang, sort_mode, show_inspector);
+        static adam::configuration_parameter_string* search_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("management_search"_ct));
+        static std::string search_str = search_param ? std::string(search_param->get_value().c_str()) : "";
+
+        draw_top_control_bar(ctrl, lang, sort_mode, search_str);
 
         ImGui::Spacing();
+
+        std::string search_lower = search_str;
+        std::transform(search_lower.begin(), search_lower.end(), search_lower.begin(), [](unsigned char c) { return std::tolower(c); });
 
         static std::vector<std::pair<adam::string_hash, adam::connection_view*>> sorted_connections;
         sorted_connections.clear();
         for (const auto& [hash, conn] : connections)
+        {
+            if (!search_lower.empty())
+            {
+                bool match = false;
+                std::string conn_name = conn->name.c_str();
+                std::transform(conn_name.begin(), conn_name.end(), conn_name.begin(), [](unsigned char c) { return std::tolower(c); });
+                if (conn_name.find(search_lower) != std::string::npos) match = true;
+                
+                if (!match)
+                {
+                    for (auto p : conn->inputs)
+                    {
+                        if (reg_view.get_ports().count(p))
+                        {
+                            std::string p_name = reg_view.get_ports().at(p)->name.c_str();
+                            std::transform(p_name.begin(), p_name.end(), p_name.begin(), [](unsigned char c) { return std::tolower(c); });
+                            if (p_name.find(search_lower) != std::string::npos) { match = true; break; }
+                        }
+                    }
+                }
+                if (!match)
+                {
+                    for (auto p : conn->outputs)
+                    {
+                        if (reg_view.get_ports().count(p))
+                        {
+                            std::string p_name = reg_view.get_ports().at(p)->name.c_str();
+                            std::transform(p_name.begin(), p_name.end(), p_name.begin(), [](unsigned char c) { return std::tolower(c); });
+                            if (p_name.find(search_lower) != std::string::npos) { match = true; break; }
+                        }
+                    }
+                }
+                if (!match)
+                {
+                    for (auto p : conn->processors)
+                    {
+                        if (reg_view.get_processors().count(p))
+                        {
+                            std::string p_name = reg_view.get_processors().at(p)->name.c_str();
+                            std::transform(p_name.begin(), p_name.end(), p_name.begin(), [](unsigned char c) { return std::tolower(c); });
+                            if (p_name.find(search_lower) != std::string::npos) { match = true; break; }
+                        }
+                    }
+                }
+                
+                if (!match) continue;
+            }
             sorted_connections.push_back({hash, conn.get()});
+        }
 
         std::sort(sorted_connections.begin(), sorted_connections.end(), [sort_mode](const auto& a, const auto& b)
         {
@@ -143,25 +178,8 @@ namespace adam::gui
             }
         }
 
-        float avail_w = ImGui::GetContentRegionAvail().x;
-        float content_h = ImGui::GetContentRegionAvail().y;
-
-        static float left_ratio = 0.66f;
-        
-        float dpi_scale = ImGui::GetStyle()._MainScale;
-        float left_w    = avail_w * left_ratio;
-        
-        if (avail_w > 0.0f)
-        {
-            if (left_w < 100.0f * dpi_scale) left_w = 100.0f * dpi_scale;
-            if (show_inspector && left_w > avail_w - 100.0f * dpi_scale) left_w = avail_w - 100.0f * dpi_scale;
-            left_ratio = left_w / avail_w;
-        }
-
-        if (show_inspector) 
-            ImGui::BeginChild("ConnectionsRegion", ImVec2(left_w, content_h), false);
-
         static float card_width = ImGui::GetContentRegionAvail().x;
+        float dpi_scale = ImGui::GetStyle()._MainScale;
         
         draw_connections_list(ctrl, lang, sort_mode, card_width, sorted_connections, g_is_dragging_connection);
 
@@ -311,15 +329,5 @@ namespace adam::gui
             }
         }
         if (!commander_active) ImGui::EndDisabled();
-
-        if (show_inspector)
-        {
-            ImGui::EndChild();
-            draw_inspector_subwindow(ctrl, lang, left_w, avail_w, content_h);
-            if (avail_w > 0.0f)
-            {
-                left_ratio = left_w / avail_w;
-            }
-        }
     }
 }

@@ -105,6 +105,12 @@ int main(int, char**)
             }
         }
 
+        if (ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered() || ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+        {
+            frames_to_render = event_redraw_count;
+            needs_redraw = true;
+        }
+
         if (!needs_redraw && !done)
             continue;
 
@@ -125,6 +131,16 @@ int main(int, char**)
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
+            SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
+        }
+
         SDL_GL_SwapWindow(window);
 
         if (p_immediate->get_value() == 1)

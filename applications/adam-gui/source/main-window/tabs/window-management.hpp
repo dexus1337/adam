@@ -1,9 +1,9 @@
 #pragma once
 
 /**
- * @file    tab-management.hpp
+ * @file    window-management.hpp
  * @author  dexus1337
- * @brief   Header for the management tab drawing entry point.
+ * @brief   Header for the management window drawing entry point.
  * @version 1.0
  * @date    12.06.2026
  */
@@ -19,5 +19,5 @@ namespace adam::gui
 {
     class gui_controller;
 
-    void draw_tab_management(gui_controller& ctrl, adam::language lang);
+    void draw_window_management(gui_controller& ctrl, adam::language lang);
 }

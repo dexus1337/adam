@@ -10,6 +10,7 @@ namespace adam::gui
         {
             configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_boolean>("show_log"_ct, true));
+            p.add(std::make_unique<configuration_parameter_boolean>("show_inspector"_ct, true));
             p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0));
             p.add(std::make_unique<configuration_parameter_integer>("fps_limit"_ct, 4));
             p.add(std::make_unique<configuration_parameter_boolean>("show_performance"_ct, false));
@@ -28,6 +29,12 @@ namespace adam::gui
             p.add(std::make_unique<configuration_parameter_integer>("log_level"_ct, 0));
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, 0));
             p.add(std::make_unique<configuration_parameter_integer>("connection_sort_mode"_ct, 3));
+            p.add(std::make_unique<configuration_parameter_integer>("log_sort_mode"_ct, 0));
+            p.add(std::make_unique<configuration_parameter_integer>("analysis_sort_mode"_ct, 4));
+            p.add(std::make_unique<configuration_parameter_string>("management_search"_ct, ""_ct));
+            p.add(std::make_unique<configuration_parameter_string>("log_search"_ct, ""_ct));
+            p.add(std::make_unique<configuration_parameter_string>("analysis_search"_ct, ""_ct));
+            p.add(std::make_unique<configuration_parameter_string>("docking_layout"_ct, ""_ct));
             return p;
         }();
         return params;

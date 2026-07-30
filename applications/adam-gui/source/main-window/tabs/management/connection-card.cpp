@@ -282,7 +282,7 @@ namespace adam::gui
         gui_controller& ctrl,
         adam::language lang,
         int& sort_mode,
-        bool& show_inspector
+        std::string& search_str
     )
     {
         float dpi_scale = ImGui::GetStyle()._MainScale;
@@ -307,17 +307,24 @@ namespace adam::gui
                 sort_mode_param->set_value(static_cast<int64_t>(sort_mode));
         }
 
-        const char* inspector_lbl = get_gui_string(gui_string_id::lbl_data_inspector, lang);
-        float right_align = ImGui::GetWindowWidth() - ImGui::CalcTextSize(inspector_lbl).x - ImGui::GetFrameHeight() - ImGui::GetStyle().WindowPadding.x * 2.0f;
-        if (right_align > ImGui::GetCursorPosX())
+        float center_pos = 0.0f;
+        float search_width = 0.0f;
+        get_search_bar_layout(lang, ImGui::GetContentRegionAvail().x, center_pos, search_width);
+        
+        if (center_pos < ImGui::GetCursorPosX()) center_pos = ImGui::GetCursorPosX() + ImGui::GetStyle().ItemSpacing.x;
+
+        ImGui::SameLine(center_pos);
+        ImGui::SetNextItemWidth(search_width);
+        char search_buf[256];
+        strncpy(search_buf, search_str.c_str(), sizeof(search_buf) - 1);
+        search_buf[sizeof(search_buf) - 1] = '\0';
+        if (ImGui::InputTextWithHint("##ManagementSearch", get_gui_string(gui_string_id::search_hint, lang), search_buf, sizeof(search_buf)))
         {
-            ImGui::SameLine(right_align);
+            search_str = search_buf;
+            auto* search_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("management_search"_ct));
+            if (search_param)
+                search_param->set_value(adam::string_hashed(search_str));
         }
-        else
-        {
-            ImGui::SameLine();
-        }
-        ImGui::Checkbox(inspector_lbl, &show_inspector);
     }
 
     void draw_connection_card_header

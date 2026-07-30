@@ -85,6 +85,8 @@ namespace adam::gui
     extern inspection_data g_inspection_data;
     extern ImFont* g_mono_font;
 
+    void get_search_bar_layout(adam::language lang, float window_avail_x, float& out_pos_x, float& out_width);
+
     class main_window 
     {
     public:
@@ -97,23 +99,18 @@ namespace adam::gui
 
     private:
         void draw_menu_bar(adam::language lang);
-        void draw_log_window
-        (
-            adam::language lang,
-            float& log_height_val,
-            float max_height,
-            float status_bar_height
-        );
         void draw_performance_overlay(adam::language lang);
 
         gui_controller& m_ctrl;
         SDL_Window* m_window;
 
         adam::configuration_parameter_boolean* m_p_show_log;
+        adam::configuration_parameter_boolean* m_p_show_inspector;
         adam::configuration_parameter_boolean* m_p_show_performance;
         adam::configuration_parameter_integer* m_p_gui_mode;
         adam::configuration_parameter_integer* m_p_fps_limit;
         adam::configuration_parameter_string*  m_p_theme;
+        adam::configuration_parameter_string*  m_p_docking_layout;
         adam::configuration_parameter_double*  m_p_font_scale;
         adam::configuration_parameter_double*  m_p_log_height;
         adam::configuration_parameter_integer* m_p_log_level;
