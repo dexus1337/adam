@@ -150,6 +150,8 @@ namespace adam::gui
         btn_clear_data,
         btn_clear_all_data,
         btn_clear_data_for,
+        btn_reattach,
+        btn_detach,
         col_index,
         col_timestamp,
         col_preview_hex,

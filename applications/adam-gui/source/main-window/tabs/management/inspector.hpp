@@ -16,6 +16,9 @@ namespace adam::gui
 
     void draw_inspector_view(gui_controller& ctrl, adam::language lang);
 
+    /** @brief Draws all active telemetry inspectors as standalone dockable ImGui windows */
+    void draw_dockable_inspector_windows(gui_controller& ctrl, adam::language lang);
+
     void draw_inspector_subwindow
     (
         gui_controller& ctrl,

@@ -8,6 +8,7 @@
 
 #include "window-about.hpp"
 #include "../main-window.hpp"
+#include "../../setup.hpp"
 #include <imgui.h>
 #include <version/version.hpp>
 #include <cstdio>
@@ -15,16 +16,15 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include <GL/gl.h>
 #include <vector>
 
-static GLuint g_logo_texture = 0;
+static ImTextureID g_logo_texture = (ImTextureID)0;
 static int g_logo_width = 0;
 static int g_logo_height = 0;
 
 static void load_logo_texture_once()
 {
-    if (g_logo_texture != 0) return;
+    if (g_logo_texture != (ImTextureID)0) return;
 
     HICON hIcon = (HICON)LoadImageA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(101), IMAGE_ICON, 256, 256, LR_CREATEDIBSECTION);
     if (!hIcon)
@@ -67,11 +67,7 @@ static void load_logo_texture_once()
         pixels[i * 4 + 2] = b;
     }
 
-    glGenTextures(1, &g_logo_texture);
-    glBindTexture(GL_TEXTURE_2D, g_logo_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_logo_width, g_logo_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    g_logo_texture = adam::gui::create_texture_rgba(g_logo_width, g_logo_height, pixels.data());
 
     DeleteObject(ii.hbmColor);
     DeleteObject(ii.hbmMask);
@@ -205,10 +201,10 @@ namespace adam::gui
         };
 
 #ifdef _WIN32
-        if (g_logo_texture) 
+        if (g_logo_texture != (ImTextureID)0) 
         {
             center_x(logo_display_size);
-            ImGui::Image((void*)(intptr_t)g_logo_texture, ImVec2(logo_display_size, logo_display_size));
+            ImGui::Image(g_logo_texture, ImVec2(logo_display_size, logo_display_size));
             ImGui::Spacing();
         }
 #endif

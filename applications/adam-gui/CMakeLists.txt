@@ -22,6 +22,10 @@ file(GLOB imgui_sources
     "${imgui_dir}/backends/imgui_impl_opengl3.cpp"
 )
 
+if(WIN32)
+    list(APPEND imgui_sources "${imgui_dir}/backends/imgui_impl_dx11.cpp")
+endif()
+
 
 # Grab all source files for the sdk and tests automatically
 file(GLOB_RECURSE adam_gui_app_source_files         "source/*cpp")
@@ -47,6 +51,10 @@ target_link_libraries(adam-gui PRIVATE
     SDL3::SDL3
     OpenGL::GL
 )
+
+if(WIN32)
+    target_link_libraries(adam-gui PRIVATE d3d11 dxgi d3dcompiler)
+endif()
 
 # Set the output directory for the executable
 set_target_properties(adam-gui PROPERTIES

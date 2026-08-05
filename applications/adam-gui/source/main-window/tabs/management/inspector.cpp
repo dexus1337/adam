@@ -475,7 +475,8 @@ namespace adam::gui
         float initial_height,
         float dpi_scale,
         adam::language lang,
-        uint64_t id_modifier
+        uint64_t id_modifier,
+        bool* is_detached = nullptr
     )
     {
         std::lock_guard<std::mutex> buffer_lock(adam::gui::g_inspection_data.mtx);
@@ -493,7 +494,8 @@ namespace adam::gui
 
         ImGui::PushID((const void*)(intptr_t)unique_id);
 
-        ImGui::BeginChild("##outer_child", ImVec2(0, current_height), true);
+        float outer_child_h = (is_detached && *is_detached) ? 0.0f : current_height;
+        ImGui::BeginChild("##outer_child", ImVec2(0, outer_child_h), true);
 
         bool has_analyzer = !port_data.analyzer_columns.empty();
 
@@ -504,7 +506,7 @@ namespace adam::gui
 
             auto setup_analyzer_columns = [&]()
             {
-                auto expandable_colum_width = 0;
+                float expandable_colum_width = 0.0f;
 
                 if (is_expandable) 
                 {
@@ -1029,7 +1031,7 @@ namespace adam::gui
         char clear_btn_text[512];
         snprintf(clear_btn_text, sizeof(clear_btn_text), get_gui_string(gui_string_id::btn_clear_data_for, lang), name);
 
-        if (ImGui::Button(clear_btn_text, ImVec2(-1.0f, 0.0f)))
+        auto clear_data_action = [&]() 
         {
             port_data.buffers.clear();
             port_data.data_pool.clear();
@@ -1037,25 +1039,52 @@ namespace adam::gui
             port_data.expanded_nodes.clear();
             port_data.parsed_data.clear();
             port_data.parsed_flat_rows.clear();
+        };
+
+        if (is_detached)
+        {
+            float spacing = ImGui::GetStyle().ItemSpacing.x;
+            float btn_width = (ImGui::GetContentRegionAvail().x - spacing) / 2.0f;
+            
+            const char* detach_btn_text = *is_detached ? get_gui_string(gui_string_id::btn_reattach, lang) : get_gui_string(gui_string_id::btn_detach, lang);
+            if (ImGui::Button(detach_btn_text, ImVec2(btn_width, 0.0f)))
+            {
+                *is_detached = !(*is_detached);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(clear_btn_text, ImVec2(btn_width, 0.0f)))
+            {
+                clear_data_action();
+            }
+        }
+        else
+        {
+            if (ImGui::Button(clear_btn_text, ImVec2(-1.0f, 0.0f)))
+            {
+                clear_data_action();
+            }
         }
 
         ImGui::EndChild(); // ##outer_child
 
         // Drag splitter to resize the inspector area
-        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
-        ImGui::Button("##hsplitter", ImVec2(-1.0f, 4.0f * dpi_scale));
-        ImGui::PopStyleColor(3);
+        if (!is_detached || !(*is_detached))
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+            ImGui::Button("##hsplitter", ImVec2(-1.0f, 4.0f * dpi_scale));
+            ImGui::PopStyleColor(3);
 
-        if (ImGui::IsItemActive())
-        {
-            current_height += ImGui::GetIO().MouseDelta.y;
-            if (current_height < 100.0f * dpi_scale) current_height = 100.0f * dpi_scale;
-        }
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+            if (ImGui::IsItemActive())
+            {
+                current_height += ImGui::GetIO().MouseDelta.y;
+                if (current_height < 100.0f * dpi_scale) current_height = 100.0f * dpi_scale;
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+            }
         }
 
         ImGui::Spacing();
@@ -1494,7 +1523,20 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, initial_inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL);
+                        
+                        bool is_detached = g_detached_inspector_connections_input.count(conn_hash) > 0;
+                        if (!is_detached)
+                        {
+                            bool detached_var = false;
+                            draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, initial_inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL, &detached_var);
+                            if (detached_var) g_detached_inspector_connections_input.insert(conn_hash);
+                        }
+                        else
+                        {
+                            ImGui::TextDisabled("Inspector is detached (see separate window)");
+                            ImGui::Spacing();
+                        }
+                        
                         conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
                         if (conn_table_open) setup_columns();
                     }
@@ -1586,7 +1628,20 @@ namespace adam::gui
                     if (node_open)
                     {
                         if (conn_table_open) ImGui::EndTable();
-                        draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, initial_inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL);
+                        
+                        bool is_detached = g_detached_inspector_connections_output.count(conn_hash) > 0;
+                        if (!is_detached)
+                        {
+                            bool detached_var = false;
+                            draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, initial_inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL, &detached_var);
+                            if (detached_var) g_detached_inspector_connections_output.insert(conn_hash);
+                        }
+                        else
+                        {
+                            ImGui::TextDisabled("Inspector is detached (see separate window)");
+                            ImGui::Spacing();
+                        }
+                        
                         if (!is_last_connection)
                         {
                             conn_table_open = ImGui::BeginTable("InspectorConnectionsTable", 7, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);
@@ -1757,7 +1812,18 @@ namespace adam::gui
                 {
                     if (table_open) ImGui::EndTable();
                     
-                    draw_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, initial_inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL);
+                    bool is_detached = g_detached_inspector_ports.count(port_hash) > 0;
+                    if (!is_detached)
+                    {
+                        bool detached_var = false;
+                        draw_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, initial_inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL, &detached_var);
+                        if (detached_var) g_detached_inspector_ports.insert(port_hash);
+                    }
+                    else
+                    {
+                        ImGui::TextDisabled("Inspector is detached (see separate window)");
+                        ImGui::Spacing();
+                    }
 
                     if (!is_last_port)
                     {
@@ -1834,5 +1900,116 @@ namespace adam::gui
         ImGui::BeginChild("InspectorRegion", ImVec2(0, content_h), false);
         draw_inspector_view(ctrl, lang);
         ImGui::EndChild();
+    }
+
+    void draw_dockable_inspector_windows(gui_controller& ctrl, adam::language lang)
+    {
+        if (!ctrl.is_commander_active())
+        {
+            return;
+        }
+
+        auto& cmdr = ctrl.commander();
+        auto& reg = cmdr.registry();
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+
+        // 1. Connection Input Inspectors
+        const auto& conn_in_inspectors = cmdr.get_connection_input_inspectors();
+
+        for (const auto& [conn_hash, p_inspector] : conn_in_inspectors)
+        {
+            if (g_detached_inspector_connections_input.count(conn_hash) == 0) continue;
+
+            const char* conn_name = "Unknown";
+            auto view_it = cmdr.registry().get_connections().find(conn_hash);
+            if (view_it != cmdr.registry().get_connections().end())
+            {
+                conn_name = view_it->second->name.c_str();
+            }
+
+            std::string title = std::string(conn_name) + " (Input)###ConnInInsp_" + std::to_string(conn_hash);
+            bool open = true;
+            ImGui::SetNextWindowSize(ImVec2(600 * dpi_scale, 400 * dpi_scale), ImGuiCond_FirstUseEver);
+
+            if (ImGui::Begin(title.c_str(), &open))
+            {
+                bool detached_var = true;
+                draw_inspector_frames_table(conn_name, conn_hash, adam::gui::g_inspection_data.connections_input, 400 * dpi_scale, dpi_scale, lang, 0x1111111111111111ULL, &detached_var);
+                if (!detached_var) g_detached_inspector_connections_input.erase(conn_hash);
+            }
+            ImGui::End();
+
+            if (!open) 
+            {
+                cmdr.request_connection_input_inspector_destroy(p_inspector);
+                g_detached_inspector_connections_input.erase(conn_hash);
+            }
+        }
+
+        // 2. Connection Output Inspectors
+        const auto& conn_out_inspectors = cmdr.get_connection_output_inspectors();
+
+        for (const auto& [conn_hash, p_inspector] : conn_out_inspectors)
+        {
+            if (g_detached_inspector_connections_output.count(conn_hash) == 0) continue;
+
+            const char* conn_name = "Unknown";
+            auto view_it = cmdr.registry().get_connections().find(conn_hash);
+            if (view_it != cmdr.registry().get_connections().end())
+            {
+                conn_name = view_it->second->name.c_str();
+            }
+
+            std::string title = std::string(conn_name) + " (Output)###ConnOutInsp_" + std::to_string(conn_hash);
+            bool open = true;
+            ImGui::SetNextWindowSize(ImVec2(600 * dpi_scale, 400 * dpi_scale), ImGuiCond_FirstUseEver);
+
+            if (ImGui::Begin(title.c_str(), &open))
+            {
+                bool detached_var = true;
+                draw_inspector_frames_table(conn_name, conn_hash, adam::gui::g_inspection_data.connections_output, 400 * dpi_scale, dpi_scale, lang, 0x2222222222222222ULL, &detached_var);
+                if (!detached_var) g_detached_inspector_connections_output.erase(conn_hash);
+            }
+            ImGui::End();
+
+            if (!open) 
+            {
+                cmdr.request_connection_output_inspector_destroy(p_inspector);
+                g_detached_inspector_connections_output.erase(conn_hash);
+            }
+        }
+
+        // 3. Port Inspectors
+        const auto& port_inspectors = cmdr.get_inspectors();
+
+        for (const auto& [port_hash, p_inspector] : port_inspectors)
+        {
+            if (g_detached_inspector_ports.count(port_hash) == 0) continue;
+
+            const char* port_name = "Unknown";
+            auto view_it = cmdr.registry().get_ports().find(port_hash);
+            if (view_it != cmdr.registry().get_ports().end())
+            {
+                port_name = view_it->second->name.c_str();
+            }
+
+            std::string title = std::string(port_name) + "###PortInsp_" + std::to_string(port_hash);
+            bool open = true;
+            ImGui::SetNextWindowSize(ImVec2(600 * dpi_scale, 400 * dpi_scale), ImGuiCond_FirstUseEver);
+
+            if (ImGui::Begin(title.c_str(), &open))
+            {
+                bool detached_var = true;
+                draw_inspector_frames_table(port_name, port_hash, adam::gui::g_inspection_data.ports, 400 * dpi_scale, dpi_scale, lang, 0x3333333333333333ULL, &detached_var);
+                if (!detached_var) g_detached_inspector_ports.erase(port_hash);
+            }
+            ImGui::End();
+
+            if (!open) 
+            {
+                cmdr.request_inspector_destroy(p_inspector);
+                g_detached_inspector_ports.erase(port_hash);
+            }
+        }
     }
 }

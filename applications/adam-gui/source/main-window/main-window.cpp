@@ -14,6 +14,7 @@
 #include "tabs/window-configuration.hpp"
 #include "tabs/window-analysis.hpp"
 #include "tabs/window-log.hpp"
+#include "tabs/management/inspector.hpp"
 #include "themes/themes.hpp"
 
 namespace adam::gui 
@@ -302,6 +303,13 @@ namespace adam::gui
         ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, viewport->WorkSize.y - bar_height));
         ImGui::SetNextWindowViewport(viewport->ID);
         
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBgActive));
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocused, ImGui::GetStyleColorVec4(ImGuiCol_Tab));
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImGui::GetStyleColorVec4(ImGuiCol_TabActive));
+        ImGui::PushStyleColor(ImGuiCol_TabDimmed, ImGui::GetStyleColorVec4(ImGuiCol_Tab));
+        ImGui::PushStyleColor(ImGuiCol_TabDimmedSelected, ImGui::GetStyleColorVec4(ImGuiCol_TabSelected));
+        ImGui::PushStyleColor(ImGuiCol_TabDimmedSelectedOverline, ImGui::GetStyleColorVec4(ImGuiCol_TabSelectedOverline));
+
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -330,7 +338,9 @@ namespace adam::gui
             ImGui::DockBuilderFinish(dockspace_id);
         }
         
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), 0);
+        ImGui::Spacing();
+
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f));
         ImGui::End();
 
         if (g_request_open_inspector)
@@ -339,40 +349,63 @@ namespace adam::gui
             g_request_open_inspector = false;
         }
 
-        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_management, lang)))
+        ImGuiWindowClass no_close_tab_class;
+        no_close_tab_class.DockNodeFlagsOverrideSet = (ImGuiDockNodeFlags)(1 << 15);
+        no_close_tab_class.TabItemFlagsOverrideSet = (ImGuiTabItemFlags)(1 << 20);
+
+        bool open_management = true;
+        ImGui::SetNextWindowClass(&no_close_tab_class);
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_management, lang), &open_management, ImGuiWindowFlags_NoCollapse))
         {
             draw_window_management(m_ctrl, lang);
         }
         ImGui::End();
+        if (!open_management) ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_management, lang), dockspace_id);
 
-        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_analysis, lang)))
+        bool open_analysis = true;
+        ImGui::SetNextWindowClass(&no_close_tab_class);
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_analysis, lang), &open_analysis, ImGuiWindowFlags_NoCollapse))
         {
             draw_window_analysis(m_ctrl, lang);
         }
         ImGui::End();
+        if (!open_analysis) ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_analysis, lang), dockspace_id);
 
-        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_configuration, lang)))
+        bool open_configuration = true;
+        ImGui::SetNextWindowClass(&no_close_tab_class);
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_configuration, lang), &open_configuration, ImGuiWindowFlags_NoCollapse))
         {
             draw_window_configuration(m_ctrl, lang);
         }
         ImGui::End();
+        if (!open_configuration) ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_configuration, lang), dockspace_id);
 
-        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_modules, lang)))
+        bool open_modules = true;
+        ImGui::SetNextWindowClass(&no_close_tab_class);
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_modules, lang), &open_modules, ImGuiWindowFlags_NoCollapse))
         {
             draw_window_modules(m_ctrl, lang, m_module_paths_table_id, m_modules_table_id);
         }
         ImGui::End();
+        if (!open_modules) ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_modules, lang), dockspace_id);
 
-        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_about, lang)))
+        bool open_about = true;
+        ImGui::SetNextWindowClass(&no_close_tab_class);
+        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_about, lang), &open_about, ImGuiWindowFlags_NoCollapse))
         {
             draw_window_about(m_ctrl, lang);
         }
         ImGui::End();
+        if (!open_about) ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_about, lang), dockspace_id);
 
         if (m_p_show_log->get_value())
         {
             draw_window_log(m_ctrl, lang, m_log_table_id);
         }
+
+        draw_dockable_inspector_windows(m_ctrl, lang);
+
+        ImGui::PopStyleColor(6);
 
         // Fixed status bar at bottom of viewport
         {
@@ -381,9 +414,9 @@ namespace adam::gui
                                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | 
                                             ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoDocking;
 
-            float bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
-            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x, viewport->WorkPos.y + viewport->WorkSize.y - bar_height));
-            ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, bar_height));
+            float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
+            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x, viewport->WorkPos.y + viewport->WorkSize.y - status_bar_height));
+            ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, status_bar_height));
 
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);

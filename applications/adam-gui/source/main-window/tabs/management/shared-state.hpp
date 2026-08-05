@@ -123,12 +123,15 @@ namespace adam::gui
     extern std::unordered_set<uint64_t> g_expanded_stats_nodes;
     extern std::unordered_set<adam::string_hash> g_expanded_inspector_ports;
     extern std::unordered_set<adam::string_hash> g_pending_inspector_ports;
+    extern std::unordered_set<adam::string_hash> g_detached_inspector_ports;
 
     extern std::unordered_set<adam::string_hash> g_expanded_inspector_connections_input;
     extern std::unordered_set<adam::string_hash> g_pending_inspector_connections_input;
+    extern std::unordered_set<adam::string_hash> g_detached_inspector_connections_input;
     
     extern std::unordered_set<adam::string_hash> g_expanded_inspector_connections_output;
     extern std::unordered_set<adam::string_hash> g_pending_inspector_connections_output;
+    extern std::unordered_set<adam::string_hash> g_detached_inspector_connections_output;
 
     extern std::unordered_map<uint64_t, float> g_expanded_node_heights;
     extern std::unordered_map<uint64_t, float> g_expanded_inspector_heights;

@@ -5,6 +5,13 @@
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
+
+#if defined(ADAM_PLATFORM_WINDOWS)
+#include <d3d11.h>
+#include <dxgi.h>
+#include <imgui_impl_dx11.h>
+#endif
+
 #include <filesystem>
 #include <cstdlib>
 #include <cstdio>
@@ -13,6 +20,7 @@
 namespace adam::gui 
 {
     static float g_current_dpi_scale = 0.0f;
+    static renderer_context* g_active_renderer_ctx = nullptr;
 
     float get_current_dpi_scale()
     {
@@ -63,59 +71,15 @@ namespace adam::gui
         g_current_dpi_scale = new_dpi_scale;
     }
 
-    bool initialize(SDL_Window*& window, SDL_GLContext& gl_context, const char*& glsl_version)
+    static void setup_fonts(SDL_Window* window)
     {
-        if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
-            return false;
-
-        #if defined(ADAM_PLATFORM_LINUX) || defined(ADAM_PLATFORM_WINDOWS)
-        glsl_version = "#version 130";
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-        #elif defined(__APPLE__)
-        glsl_version = "#version 150";
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // Always required on Mac
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-        #else
-        glsl_version = "#version 130";
-        #endif
-
-        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-        
-        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-        window = SDL_CreateWindow("ADAM GUI", static_cast<int>(window_min_size[0]), static_cast<int>(window_min_size[1]), window_flags);
-        if (!window) return false;
-
-        gl_context = SDL_GL_CreateContext(window);
-        if (!gl_context) return false;
-
-        SDL_GL_MakeCurrent(window, gl_context);
-        SDL_GL_SetSwapInterval(1); // Enable vsync
-
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-        // Disable the creation of imgui.ini, as we handle configuration saving ourselves
-        io.IniFilename = NULL;
-
-        // Execute the first DPI evaluation and Font Atlas building
         update_dpi_scale(window);
 
         io.Fonts->Clear();
 
         ImFont* default_font = nullptr;
 
-        // Load nicer system fonts instead of the default pixel font
         #if defined(ADAM_PLATFORM_WINDOWS)
         if (std::filesystem::exists("C:\\Windows\\Fonts\\tahoma.ttf"))
             default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f);
@@ -142,7 +106,6 @@ namespace adam::gui
         std::strncpy(mono_config.Name, "monospace", sizeof(mono_config.Name));
         mono_config.Name[sizeof(mono_config.Name) - 1] = '\0';
 
-        // Load monospace fonts for hex viewer
         if (std::filesystem::exists("font.ttf"))
             g_mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f);
         #if defined(ADAM_PLATFORM_WINDOWS)
@@ -167,21 +130,404 @@ namespace adam::gui
         #endif
 
         io.FontDefault = default_font;
+    }
 
-        ImGui_ImplSDL3_InitForOpenGL(window, gl_context);
-        ImGui_ImplOpenGL3_Init(glsl_version);
+#if defined(ADAM_PLATFORM_WINDOWS)
+    static bool create_render_target_d3d11(renderer_context& ctx)
+    {
+        if (!ctx.d3d_device || !ctx.swap_chain) return false;
 
+        ID3D11Device* pDevice = static_cast<ID3D11Device*>(ctx.d3d_device);
+        IDXGISwapChain* pSwapChain = static_cast<IDXGISwapChain*>(ctx.swap_chain);
+
+        ID3D11Texture2D* pBackBuffer = nullptr;
+        HRESULT hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+        if (FAILED(hr) || !pBackBuffer) return false;
+
+        ID3D11RenderTargetView* pRTV = nullptr;
+        hr = pDevice->CreateRenderTargetView(pBackBuffer, nullptr, &pRTV);
+        pBackBuffer->Release();
+
+        if (FAILED(hr)) return false;
+
+        ctx.main_render_target_view = pRTV;
         return true;
     }
 
-    void shutdown(SDL_Window* window, SDL_GLContext gl_context)
+    static void cleanup_render_target_d3d11(renderer_context& ctx)
     {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplSDL3_Shutdown();
-        ImGui::DestroyContext();
+        if (ctx.main_render_target_view)
+        {
+            ID3D11RenderTargetView* pRTV = static_cast<ID3D11RenderTargetView*>(ctx.main_render_target_view);
+            pRTV->Release();
+            ctx.main_render_target_view = nullptr;
+        }
+    }
 
-        SDL_GL_DestroyContext(gl_context);
-        SDL_DestroyWindow(window);
+    static bool create_device_d3d11(renderer_context& ctx)
+    {
+        if (!ctx.window) return false;
+
+        HWND hwnd = reinterpret_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(ctx.window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+        if (!hwnd) return false;
+
+        DXGI_SWAP_CHAIN_DESC sd;
+        std::memset(&sd, 0, sizeof(sd));
+        sd.BufferCount = 2;
+        sd.BufferDesc.Width = 0;
+        sd.BufferDesc.Height = 0;
+        sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        sd.BufferDesc.RefreshRate.Numerator = 60;
+        sd.BufferDesc.RefreshRate.Denominator = 1;
+        sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+        sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        sd.OutputWindow = hwnd;
+        sd.SampleDesc.Count = 1;
+        sd.SampleDesc.Quality = 0;
+        sd.Windowed = TRUE;
+        sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+
+        UINT createDeviceFlags = 0;
+        D3D_FEATURE_LEVEL featureLevel;
+        const D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0 };
+
+        ID3D11Device* pd3dDevice = nullptr;
+        ID3D11DeviceContext* pd3dDeviceContext = nullptr;
+        IDXGISwapChain* pSwapChain = nullptr;
+
+        HRESULT res = D3D11CreateDeviceAndSwapChain(
+            nullptr,
+            D3D_DRIVER_TYPE_HARDWARE,
+            nullptr,
+            createDeviceFlags,
+            featureLevelArray,
+            2,
+            D3D11_SDK_VERSION,
+            &sd,
+            &pSwapChain,
+            &pd3dDevice,
+            &featureLevel,
+            &pd3dDeviceContext
+        );
+
+        if (FAILED(res)) return false;
+
+        ctx.d3d_device = pd3dDevice;
+        ctx.d3d_device_context = pd3dDeviceContext;
+        ctx.swap_chain = pSwapChain;
+
+        return create_render_target_d3d11(ctx);
+    }
+
+    static void cleanup_device_d3d11(renderer_context& ctx)
+    {
+        cleanup_render_target_d3d11(ctx);
+
+        if (ctx.swap_chain)
+        {
+            static_cast<IDXGISwapChain*>(ctx.swap_chain)->Release();
+            ctx.swap_chain = nullptr;
+        }
+        if (ctx.d3d_device_context)
+        {
+            static_cast<ID3D11DeviceContext*>(ctx.d3d_device_context)->Release();
+            ctx.d3d_device_context = nullptr;
+        }
+        if (ctx.d3d_device)
+        {
+            static_cast<ID3D11Device*>(ctx.d3d_device)->Release();
+            ctx.d3d_device = nullptr;
+        }
+    }
+#endif
+
+    #include <string>
+
+    static void(*g_old_Platform_SetWindowTitle)(ImGuiViewport*, const char*) = nullptr;
+
+    static void setup_viewport_hooks()
+    {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        g_old_Platform_SetWindowTitle = platform_io.Platform_SetWindowTitle;
+        if (g_old_Platform_SetWindowTitle)
+        {
+            platform_io.Platform_SetWindowTitle = [](ImGuiViewport* vp, const char* str)
+            {
+                std::string new_title = "ADAM - ";
+                new_title += str;
+                g_old_Platform_SetWindowTitle(vp, new_title.c_str());
+            };
+        }
+    }
+
+    bool initialize(renderer_context& ctx)
+    {
+        g_active_renderer_ctx = &ctx;
+
+        if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
+            return false;
+
+#if defined(ADAM_PLATFORM_WINDOWS)
+        // Try DirectX 11 backend first on Windows
+        SDL_WindowFlags win_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        ctx.window = SDL_CreateWindow("ADAM GUI", static_cast<int>(window_min_size[0]), static_cast<int>(window_min_size[1]), win_flags);
+        
+        if (ctx.window && create_device_d3d11(ctx))
+        {
+            ctx.backend = gfx_backend::directx11;
+
+            IMGUI_CHECKVERSION();
+            ImGui::CreateContext();
+            ImGuiIO& io = ImGui::GetIO();
+            io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+            io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+            io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+            io.ConfigViewportsNoDecoration = false;
+            io.IniFilename = nullptr;
+
+            setup_fonts(ctx.window);
+
+            ImGui_ImplSDL3_InitForD3D(ctx.window);
+            ImGui_ImplDX11_Init(static_cast<ID3D11Device*>(ctx.d3d_device), static_cast<ID3D11DeviceContext*>(ctx.d3d_device_context));
+
+            setup_viewport_hooks();
+            return true;
+        }
+
+        // Cleanup temporary window if D3D11 initialization failed
+        if (ctx.window)
+        {
+            cleanup_device_d3d11(ctx);
+            SDL_DestroyWindow(ctx.window);
+            ctx.window = nullptr;
+        }
+#endif
+
+        // OpenGL 3 Fallback (Primary for Linux/macOS, fallback for Windows)
+        #if defined(ADAM_PLATFORM_LINUX) || defined(ADAM_PLATFORM_WINDOWS)
+        ctx.glsl_version = "#version 130";
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+        #elif defined(__APPLE__)
+        ctx.glsl_version = "#version 150";
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+        #else
+        ctx.glsl_version = "#version 130";
+        #endif
+
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+        SDL_WindowFlags gl_window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        ctx.window = SDL_CreateWindow("ADAM GUI", static_cast<int>(window_min_size[0]), static_cast<int>(window_min_size[1]), gl_window_flags);
+        if (!ctx.window) return false;
+
+        ctx.gl_context = SDL_GL_CreateContext(ctx.window);
+        if (!ctx.gl_context) return false;
+
+        SDL_GL_MakeCurrent(ctx.window, ctx.gl_context);
+        SDL_GL_SetSwapInterval(1);
+
+        ctx.backend = gfx_backend::opengl3;
+
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+        io.ConfigViewportsNoDecoration = false;
+        io.IniFilename = nullptr;
+
+        setup_fonts(ctx.window);
+
+        ImGui_ImplSDL3_InitForOpenGL(ctx.window, ctx.gl_context);
+        ImGui_ImplOpenGL3_Init(ctx.glsl_version);
+
+        setup_viewport_hooks();
+        return true;
+    }
+
+    void new_frame(renderer_context& ctx)
+    {
+        if (ctx.backend == gfx_backend::directx11)
+        {
+#if defined(ADAM_PLATFORM_WINDOWS)
+            ImGui_ImplDX11_NewFrame();
+            ImGui_ImplSDL3_NewFrame();
+            ImGui::NewFrame();
+#endif
+        }
+        else
+        {
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplSDL3_NewFrame();
+            ImGui::NewFrame();
+        }
+    }
+
+    void render_frame(renderer_context& ctx, bool vsync_enabled)
+    {
+        ImGui::Render();
+        ImGuiIO& io = ImGui::GetIO();
+
+        if (ctx.backend == gfx_backend::directx11)
+        {
+#if defined(ADAM_PLATFORM_WINDOWS)
+            ID3D11DeviceContext* pContext = static_cast<ID3D11DeviceContext*>(ctx.d3d_device_context);
+            ID3D11RenderTargetView* pRTV = static_cast<ID3D11RenderTargetView*>(ctx.main_render_target_view);
+            IDXGISwapChain* pSwapChain = static_cast<IDXGISwapChain*>(ctx.swap_chain);
+
+            const float clear_color[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
+            pContext->OMSetRenderTargets(1, &pRTV, nullptr);
+            pContext->ClearRenderTargetView(pRTV, clear_color);
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+            if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+            {
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
+            }
+
+            pSwapChain->Present(vsync_enabled ? 1 : 0, 0);
+#endif
+        }
+        else
+        {
+            glViewport(0, 0, static_cast<int>(io.DisplaySize.x * io.DisplayFramebufferScale.x), static_cast<int>(io.DisplaySize.y * io.DisplayFramebufferScale.y));
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+            if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+            {
+                SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
+                SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
+                SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
+            }
+
+            SDL_GL_SwapWindow(ctx.window);
+        }
+    }
+
+    void handle_resize(renderer_context& ctx)
+    {
+        if (ctx.backend == gfx_backend::directx11)
+        {
+#if defined(ADAM_PLATFORM_WINDOWS)
+            if (!ctx.swap_chain) return;
+
+            cleanup_render_target_d3d11(ctx);
+            static_cast<IDXGISwapChain*>(ctx.swap_chain)->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+            create_render_target_d3d11(ctx);
+#endif
+        }
+    }
+
+    void shutdown(renderer_context& ctx)
+    {
+        if (ctx.backend == gfx_backend::directx11)
+        {
+#if defined(ADAM_PLATFORM_WINDOWS)
+            ImGui_ImplDX11_Shutdown();
+            ImGui_ImplSDL3_Shutdown();
+            ImGui::DestroyContext();
+
+            cleanup_device_d3d11(ctx);
+            if (ctx.window)
+            {
+                SDL_DestroyWindow(ctx.window);
+                ctx.window = nullptr;
+            }
+#endif
+        }
+        else
+        {
+            ImGui_ImplOpenGL3_Shutdown();
+            ImGui_ImplSDL3_Shutdown();
+            ImGui::DestroyContext();
+
+            if (ctx.gl_context)
+            {
+                SDL_GL_DestroyContext(ctx.gl_context);
+                ctx.gl_context = nullptr;
+            }
+            if (ctx.window)
+            {
+                SDL_DestroyWindow(ctx.window);
+                ctx.window = nullptr;
+            }
+        }
+
+        g_active_renderer_ctx = nullptr;
         SDL_Quit();
+    }
+
+    ImTextureID create_texture_rgba(int width, int height, const uint8_t* pixels)
+    {
+        if (width <= 0 || height <= 0 || !pixels)
+            return (ImTextureID)0;
+
+#if defined(ADAM_PLATFORM_WINDOWS)
+        if (g_active_renderer_ctx && g_active_renderer_ctx->backend == gfx_backend::directx11)
+        {
+            ID3D11Device* pDevice = static_cast<ID3D11Device*>(g_active_renderer_ctx->d3d_device);
+            if (!pDevice)
+                return (ImTextureID)0;
+
+            D3D11_TEXTURE2D_DESC desc;
+            std::memset(&desc, 0, sizeof(desc));
+            desc.Width = width;
+            desc.Height = height;
+            desc.MipLevels = 1;
+            desc.ArraySize = 1;
+            desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            desc.SampleDesc.Count = 1;
+            desc.Usage = D3D11_USAGE_DEFAULT;
+            desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+            ID3D11Texture2D* pTexture = nullptr;
+            D3D11_SUBRESOURCE_DATA initData;
+            std::memset(&initData, 0, sizeof(initData));
+            initData.pSysMem = pixels;
+            initData.SysMemPitch = width * 4;
+
+            HRESULT hr = pDevice->CreateTexture2D(&desc, &initData, &pTexture);
+            if (FAILED(hr) || !pTexture)
+                return (ImTextureID)0;
+
+            D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+            std::memset(&srvDesc, 0, sizeof(srvDesc));
+            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+            srvDesc.Texture2D.MipLevels = 1;
+
+            ID3D11ShaderResourceView* pSRV = nullptr;
+            hr = pDevice->CreateShaderResourceView(pTexture, &srvDesc, &pSRV);
+            pTexture->Release();
+
+            if (FAILED(hr))
+                return (ImTextureID)0;
+
+            return (ImTextureID)pSRV;
+        }
+#endif
+
+        GLuint tex = 0;
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+        return (ImTextureID)(intptr_t)tex;
     }
 }

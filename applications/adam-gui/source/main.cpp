@@ -3,10 +3,8 @@
 #include "gui-controller.hpp"
 
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
-#include <imgui_impl_opengl3.h>
 #include <thread>
 #include <chrono>
 
@@ -22,11 +20,9 @@ int main(int, char**)
     g_gui_ctrl = std::make_unique<adam::gui::gui_controller>();
     auto& gui_ctrl = *g_gui_ctrl;
 
-    SDL_Window* window = nullptr;
-    SDL_GLContext gl_context = nullptr;
-    const char* glsl_version = nullptr;
+    adam::gui::renderer_context renderer_ctx;
 
-    if (!adam::gui::initialize(window, gl_context, glsl_version))
+    if (!adam::gui::initialize(renderer_ctx))
         return -1;
 
     gui_ctrl.set_redraw_callback([]() 
@@ -38,7 +34,7 @@ int main(int, char**)
     });
 
     gui_ctrl.start();
-    adam::gui::main_window ui_window(gui_ctrl, window);
+    adam::gui::main_window ui_window(gui_ctrl, renderer_ctx.window);
 
     bool done = false;
     int frames_to_render = event_redraw_count;
@@ -59,15 +55,22 @@ int main(int, char**)
             ImGui_ImplSDL3_ProcessEvent(&event);
             if (event.type == SDL_EVENT_QUIT)
                 done = true;
-            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(window))
+            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(renderer_ctx.window))
                 done = true;
-            if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
+            if (event.window.windowID == SDL_GetWindowID(renderer_ctx.window))
             {
-                adam::gui::update_dpi_scale(window);
-            }
-            if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_MAXIMIZED || event.type == SDL_EVENT_WINDOW_RESTORED)
-            {
-                ui_window.save_window_state();
+                if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
+                {
+                    adam::gui::update_dpi_scale(renderer_ctx.window);
+                }
+                if (event.type == SDL_EVENT_WINDOW_RESIZED)
+                {
+                    adam::gui::handle_resize(renderer_ctx);
+                }
+                if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_MAXIMIZED || event.type == SDL_EVENT_WINDOW_RESTORED)
+                {
+                    ui_window.save_window_state();
+                }
             }
         };
 
@@ -118,30 +121,13 @@ int main(int, char**)
             frames_to_render--;
 
         // Render ImGui Frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
+        adam::gui::new_frame(renderer_ctx);
 
         ui_window.draw();
 
-        // Swap Buffers
-        ImGui::Render();
-        ImGuiIO& io = ImGui::GetIO();
-        glViewport(0, 0, (int)(io.DisplaySize.x * io.DisplayFramebufferScale.x), (int)(io.DisplaySize.y * io.DisplayFramebufferScale.y));
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
-            SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
-        }
-
-        SDL_GL_SwapWindow(window);
+        // Render & Present
+        bool vsync_enabled = (p_immediate->get_value() == 1) ? (p_fps_limit && p_fps_limit->get_value() == 4) : true;
+        adam::gui::render_frame(renderer_ctx, vsync_enabled);
 
         if (p_immediate->get_value() == 1)
         {
@@ -184,7 +170,7 @@ int main(int, char**)
 
     ui_window.save_window_state();
     gui_ctrl.stop();
-    adam::gui::shutdown(window, gl_context);
+    adam::gui::shutdown(renderer_ctx);
 
     return 0;
 }
