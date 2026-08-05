@@ -3,7 +3,7 @@
 /**
  * @file    tile-engine.hpp
  * @author  dexus1337
- * @brief   Asynchronous raster tile loading, disk caching, and texture manager
+ * @brief   Asynchronous raster tile loading, disk caching, texture manager with center-prioritized fetching
  * @version 1.0
  * @date    05.08.2026
  */
@@ -16,7 +16,6 @@
 #include <unordered_map>
 #include <mutex>
 #include <thread>
-#include <queue>
 #include <atomic>
 #include <memory>
 
@@ -30,6 +29,16 @@ namespace adam::cop
         bool is_loading = false;
         bool failed = false;
         uint64_t last_accessed = 0;
+    };
+
+    struct fetch_request
+    {
+        std::string key;
+        tile_provider_type provider = tile_provider_type::cartodb_dark;
+        int z = 0;
+        int x = 0;
+        int y = 0;
+        float priority = 0.0f;
     };
 
     struct pending_gpu_upload
@@ -52,8 +61,8 @@ namespace adam::cop
         /** @brief Process main-thread pending GPU texture uploads */
         void update();
 
-        /** @brief Retrieves loaded GPU texture ID for a given tile. Returns 0 if loading. */
-        ImTextureID get_tile_texture(tile_provider_type provider, int z, int x, int y);
+        /** @brief Retrieves loaded GPU texture ID for a given tile. Returns 0 if loading. Accepts distance priority. */
+        ImTextureID get_tile_texture(tile_provider_type provider, int z, int x, int y, float priority = 0.0f);
 
         /** @brief Clears all cached disk and memory textures for specified or all providers */
         void clear_cache();
@@ -69,7 +78,7 @@ namespace adam::cop
         mutable std::mutex m_mutex;
         std::unordered_map<std::string, tile_texture_entry> m_cache;
 
-        std::queue<std::string> m_fetch_queue;
+        std::vector<fetch_request> m_fetch_requests;
         std::unordered_map<std::string, bool> m_in_fetch_queue;
 
         std::vector<pending_gpu_upload> m_pending_uploads;

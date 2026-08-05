@@ -219,7 +219,7 @@ namespace adam::cop
         }
     }
 
-    ImTextureID tile_engine::get_tile_texture(tile_provider_type provider, int z, int x, int y)
+    ImTextureID tile_engine::get_tile_texture(tile_provider_type provider, int z, int x, int y, float priority)
     {
         if (provider == tile_provider_type::vector_only)
         {
@@ -240,7 +240,7 @@ namespace adam::cop
             return it->second.texture_id;
         }
 
-        // Add placeholder entry and enqueue async fetch
+        // Add placeholder entry and enqueue async fetch with priority
         tile_texture_entry entry;
         entry.is_loading = true;
         entry.last_accessed = m_access_counter;
@@ -249,7 +249,19 @@ namespace adam::cop
         if (!m_in_fetch_queue[key])
         {
             m_in_fetch_queue[key] = true;
-            m_fetch_queue.push(key);
+            m_fetch_requests.push_back({ key, provider, z, x, y, priority });
+        }
+        else
+        {
+            // Update priority if closer to center
+            for (auto& req : m_fetch_requests)
+            {
+                if (req.key == key && priority < req.priority)
+                {
+                    req.priority = priority;
+                    break;
+                }
+            }
         }
 
         return (ImTextureID)0;
@@ -267,10 +279,7 @@ namespace adam::cop
         }
         m_cache.clear();
         m_in_fetch_queue.clear();
-        while (!m_fetch_queue.empty())
-        {
-            m_fetch_queue.pop();
-        }
+        m_fetch_requests.clear();
     }
 
     size_t tile_engine::get_loaded_texture_count() const
@@ -290,54 +299,54 @@ namespace adam::cop
     size_t tile_engine::get_pending_request_count() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        return m_fetch_queue.size();
+        return m_fetch_requests.size();
     }
 
     void tile_engine::worker_loop()
     {
         while (m_running.load())
         {
-            std::string key;
+            fetch_request req;
+            bool has_work = false;
+
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
-                if (!m_fetch_queue.empty())
+                if (!m_fetch_requests.empty())
                 {
-                    key = m_fetch_queue.front();
-                    m_fetch_queue.pop();
-                    m_in_fetch_queue.erase(key);
+                    // Sort by priority (descending so back element has smallest priority = closest to center)
+                    std::sort(m_fetch_requests.begin(), m_fetch_requests.end(), [](const fetch_request& a, const fetch_request& b)
+                    {
+                        return a.priority > b.priority;
+                    });
+
+                    req = m_fetch_requests.back();
+                    m_fetch_requests.pop_back();
+                    has_work = true;
                 }
             }
 
-            if (key.empty())
+            if (!has_work)
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                std::this_thread::sleep_for(std::chrono::milliseconds(15));
                 continue;
             }
 
-            int prov_idx = 0;
-            int z = 0;
-            int x = 0;
-            int y = 0;
-            if (std::sscanf(key.c_str(), "%d_%d_%d_%d", &prov_idx, &z, &x, &y) != 4)
-            {
-                continue;
-            }
-
-            tile_provider_type provider = static_cast<tile_provider_type>(prov_idx);
             std::vector<uint8_t> pixels;
             int width = 0;
             int height = 0;
 
-            bool success = fetch_and_decode_tile(provider, z, x, y, pixels, width, height);
+            bool success = fetch_and_decode_tile(req.provider, req.z, req.x, req.y, pixels, width, height);
+
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_in_fetch_queue.erase(req.key);
+
             if (success && !pixels.empty())
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                m_pending_uploads.push_back({ key, width, height, std::move(pixels) });
+                m_pending_uploads.push_back({ req.key, width, height, std::move(pixels) });
             }
             else
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                auto it = m_cache.find(key);
+                auto it = m_cache.find(req.key);
                 if (it != m_cache.end())
                 {
                     it->second.is_loading = false;

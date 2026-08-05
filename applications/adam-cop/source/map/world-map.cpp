@@ -365,7 +365,9 @@ namespace adam::cop
                 }
 
                 int wrapped_tx = ((tx % num_tiles) + num_tiles) % num_tiles;
-                ImTextureID tex_id = m_tile_engine.get_tile_texture(options.base_provider, z, wrapped_tx, ty);
+                float dist_to_center = std::abs(static_cast<float>(tx) - cam_tx) + std::abs(static_cast<float>(ty) - cam_ty);
+
+                ImTextureID tex_id = m_tile_engine.get_tile_texture(options.base_provider, z, wrapped_tx, ty, dist_to_center);
 
                 if (tex_id)
                 {
@@ -373,42 +375,29 @@ namespace adam::cop
                     continue;
                 }
 
-                // Fallback 1: Parent tile (z - 1)
-                if (z > 0)
+                // Recursive parent tile fallback search down to level 0
+                for (int pz = z - 1; pz >= 0; pz--)
                 {
-                    int parent_z = z - 1;
-                    int parent_tx = wrapped_tx / 2;
-                    int parent_ty = ty / 2;
+                    int level_diff = z - pz;
+                    int factor = 1 << level_diff;
+                    int p_tx = wrapped_tx / factor;
+                    int p_ty = ty / factor;
 
-                    ImTextureID parent_tex = m_tile_engine.get_tile_texture(options.base_provider, parent_z, parent_tx, parent_ty);
-                    if (parent_tex)
+                    float p_cam_tx = cam_tx / static_cast<float>(factor);
+                    float p_cam_ty = cam_ty / static_cast<float>(factor);
+                    float p_dist = std::abs(static_cast<float>(p_tx) - p_cam_tx) + std::abs(static_cast<float>(p_ty) - p_cam_ty);
+
+                    ImTextureID p_tex = m_tile_engine.get_tile_texture(options.base_provider, pz, p_tx, p_ty, p_dist);
+                    if (p_tex)
                     {
-                        float u0 = static_cast<float>(wrapped_tx % 2) * 0.5f;
-                        float u1 = u0 + 0.5f;
-                        float v0 = static_cast<float>(ty % 2) * 0.5f;
-                        float v1 = v0 + 0.5f;
+                        float f = static_cast<float>(factor);
+                        float u0 = static_cast<float>(wrapped_tx % factor) / f;
+                        float u1 = u0 + (1.0f / f);
+                        float v0 = static_cast<float>(ty % factor) / f;
+                        float v1 = v0 + (1.0f / f);
 
-                        draw_list->AddImage(parent_tex, ImVec2(p_tl_x, p_tl_y), ImVec2(p_br_x, p_br_y), ImVec2(u0, v0), ImVec2(u1, v1), tile_tint);
-                        continue;
-                    }
-                }
-
-                // Fallback 2: Grandparent tile (z - 2)
-                if (z > 1)
-                {
-                    int gp_z = z - 2;
-                    int gp_tx = wrapped_tx / 4;
-                    int gp_ty = ty / 4;
-
-                    ImTextureID gp_tex = m_tile_engine.get_tile_texture(options.base_provider, gp_z, gp_tx, gp_ty);
-                    if (gp_tex)
-                    {
-                        float u0 = static_cast<float>(wrapped_tx % 4) * 0.25f;
-                        float u1 = u0 + 0.25f;
-                        float v0 = static_cast<float>(ty % 4) * 0.25f;
-                        float v1 = v0 + 0.25f;
-
-                        draw_list->AddImage(gp_tex, ImVec2(p_tl_x, p_tl_y), ImVec2(p_br_x, p_br_y), ImVec2(u0, v0), ImVec2(u1, v1), tile_tint);
+                        draw_list->AddImage(p_tex, ImVec2(p_tl_x, p_tl_y), ImVec2(p_br_x, p_br_y), ImVec2(u0, v0), ImVec2(u1, v1), tile_tint);
+                        break;
                     }
                 }
             }
