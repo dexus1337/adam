@@ -9,7 +9,7 @@
 #include "connection-card.hpp"
 #include "shared-state.hpp"
 #include "node.hpp"
-#include "../../main-window.hpp"
+#include "../main-window.hpp"
 #include "controller/controller.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-double.hpp"
@@ -612,7 +612,8 @@ namespace adam::gui
         }
 
         auto* theme_param = dynamic_cast<adam::configuration_parameter_string*>(ctrl.get_parameters().get("theme"_ct));
-        bool is_light_theme = theme_param && theme_param->get_value() == "light"_ct;
+        adam::string_hash theme_hash = theme_param ? theme_param->get_value().get_hash() : "dark"_ct;
+        bool is_light_theme = theme_hash == "light"_ct;
 
         auto& stage_pins_in = is_drag_preview ? g_stage_pins_in_preview : g_stage_pins_in_normal;
         auto& stage_pins_out = is_drag_preview ? g_stage_pins_out_preview : g_stage_pins_out_normal;
@@ -632,8 +633,21 @@ namespace adam::gui
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f * dpi_scale);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * dpi_scale, 8.0f * dpi_scale));
             
-        ImVec4 bg = is_drag_preview ? get_gui_color(gui_color_id::node_connection_card_bg_drag_preview) : 
-                    (is_light_theme ? get_gui_color(gui_color_id::node_connection_card_bg_light) : get_gui_color(gui_color_id::node_connection_card_bg));
+        ImVec4 bg;
+        if (is_drag_preview)
+        {
+            bg = get_gui_color(gui_color_id::node_connection_card_bg_drag_preview);
+        }
+        else
+        {
+            switch (theme_hash)
+            {
+                case "light"_ct:      bg = get_gui_color(gui_color_id::node_connection_card_bg_light); break;
+                case "dark_navy"_ct:  bg = get_gui_color(gui_color_id::node_connection_card_bg_dark_navy); break;
+                case "dark"_ct:
+                default:              bg = get_gui_color(gui_color_id::node_connection_card_bg); break;
+            }
+        }
             
         if (conn->color != 0)
         {

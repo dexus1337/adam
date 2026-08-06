@@ -169,25 +169,6 @@ namespace adam::imgui_tools
         ImGuiStyle& style = ImGui::GetStyle();
         ImVec4* colors = style.Colors;
 
-        style.WindowRounding = 4.0f;
-        style.FrameRounding = 3.0f;
-        style.PopupRounding = 4.0f;
-        style.ScrollbarRounding = 4.0f;
-        style.GrabRounding = 3.0f;
-        style.TabRounding = 4.0f;
-        style.ChildRounding = 4.0f;
-
-        style.WindowPadding = ImVec2(8.0f, 8.0f);
-        style.FramePadding = ImVec2(6.0f, 4.0f);
-        style.ItemSpacing = ImVec2(6.0f, 4.0f);
-        style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
-
-        style.WindowMinSize = ImVec2(32.0f, 32.0f);
-
-        style.WindowBorderSize = 1.0f;
-        style.FrameBorderSize = 1.0f;
-        style.PopupBorderSize = 1.0f;
-
         // Dark Tactical Operator Palette (Navy / Charcoal / Cyan accents)
         colors[ImGuiCol_Text]                  = ImVec4(0.90f, 0.94f, 0.98f, 1.00f);
         colors[ImGuiCol_TextDisabled]          = ImVec4(0.40f, 0.48f, 0.55f, 1.00f);

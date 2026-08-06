@@ -8,7 +8,7 @@
 
 #include "modals.hpp"
 #include "shared-state.hpp"
-#include "../../main-window.hpp"
+#include "../main-window.hpp"
 #include "controller/controller.hpp"
 #include <algorithm>
 #include <vector>

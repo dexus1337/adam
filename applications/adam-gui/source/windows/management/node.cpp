@@ -8,7 +8,7 @@
 
 #include "node.hpp"
 #include "shared-state.hpp"
-#include "../../main-window.hpp"
+#include "../main-window.hpp"
 #include "controller/controller.hpp"
 #include <data/port-types/port-input-replay.hpp>
 #include <configuration/parameters/configuration-parameter-boolean.hpp>

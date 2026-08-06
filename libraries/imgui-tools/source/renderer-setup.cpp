@@ -14,10 +14,28 @@
 #include <filesystem>
 #include <cstdlib>
 #include <cstdio>
-#include <cstring>
+#include <stdexcept>
+#include <string>
 
 namespace adam::imgui_tools
 {
+    static void (*g_old_Platform_SetWindowTitle)(ImGuiViewport* vp, const char* str) = nullptr;
+
+    static void setup_viewport_hooks()
+    {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        g_old_Platform_SetWindowTitle = platform_io.Platform_SetWindowTitle;
+        if (g_old_Platform_SetWindowTitle)
+        {
+            platform_io.Platform_SetWindowTitle = [](ImGuiViewport* vp, const char* str)
+            {
+                std::string new_title = "ADAM GUI - ";
+                new_title += str;
+                g_old_Platform_SetWindowTitle(vp, new_title.c_str());
+            };
+        }
+    }
+
     static float g_current_dpi_scale = 0.0f;
     static renderer_context* g_active_renderer_ctx = nullptr;
 
@@ -322,6 +340,11 @@ namespace adam::imgui_tools
 
         g_active_renderer_ctx = &ctx;
 
+        if (config.enable_viewports)
+        {
+            setup_viewport_hooks();
+        }
+
         #if defined(ADAM_PLATFORM_WINDOWS)
         adam::imgui_tools::init_textures(ctx.backend == gfx_backend::directx11, ctx.d3d_device);
         #else
@@ -422,7 +445,8 @@ namespace adam::imgui_tools
         if (ctx.backend == gfx_backend::directx11)
         {
             #if defined(ADAM_PLATFORM_WINDOWS)
-            const float clear_color[4] = { 0.07f, 0.09f, 0.12f, 1.00f };
+            ImVec4 bg = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
+            const float clear_color[4] = { bg.x, bg.y, bg.z, bg.w };
             auto* d3d_context = (ID3D11DeviceContext*)ctx.d3d_device_context;
             auto* main_rtv = (ID3D11RenderTargetView*)ctx.main_render_target_view;
             auto* swap_chain = (IDXGISwapChain*)ctx.swap_chain;
@@ -446,7 +470,8 @@ namespace adam::imgui_tools
         else if (ctx.backend == gfx_backend::opengl3)
         {
             glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-            glClearColor(0.07f, 0.09f, 0.12f, 1.00f);
+            ImVec4 bg = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
+            glClearColor(bg.x, bg.y, bg.z, bg.w);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             

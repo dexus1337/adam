@@ -7,7 +7,7 @@
  */
 
 #include <renderer-setup.hpp>
-#include "main-window/main-window.hpp"
+#include "windows/main-window.hpp"
 #include "cop-controller.hpp"
 
 #include <SDL3/SDL.h>

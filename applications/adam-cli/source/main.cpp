@@ -530,7 +530,7 @@ int main()
                         }
                     }
                 }
-                else if (tokens[0] == "conn_inspect" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                else if (tokens[0] == "conn_analyze" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
                 {
                     std::string arg = (tokens.size() == 3) ? tokens[2] : "";
                     std::vector<std::string> candidates = {"in", "out"};

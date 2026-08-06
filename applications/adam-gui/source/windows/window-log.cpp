@@ -7,7 +7,7 @@
  */
 
 #include "window-log.hpp"
-#include "../main-window.hpp"
+#include "main-window.hpp"
 
 #include <imgui.h>
 #include <algorithm>

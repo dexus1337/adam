@@ -509,7 +509,7 @@ namespace adam::cli
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_port_inject, c.get_language()), std::cout); }
         });
 
-        db.register_command("port_inspect", cmd_string_id::desc_port_inspect, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        db.register_command("port_analyze", cmd_string_id::desc_port_inspect, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
             if (params.size() == 1) 
             {
@@ -855,7 +855,7 @@ namespace adam::cli
             else { std::lock_guard<std::mutex> lock(console_mutex); adam::stream_log(adam::log::warning, get_cli_string(cmd_string_id::usage_conn_set_fmt_out, c.get_language()), std::cout); }
         });
 
-        db.register_command("conn_inspect", cmd_string_id::desc_conn_inspect, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
+        db.register_command("conn_analyze", cmd_string_id::desc_conn_inspect, [](const std::vector<std::string>& params, adam::commander& c, std::mutex& console_mutex) 
         {
             if (params.size() == 2) 
             {

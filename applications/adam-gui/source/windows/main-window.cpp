@@ -8,15 +8,15 @@
 #include <unordered_map>
 #include <array>
 #include <algorithm>
-#include "tabs/window-management.hpp"
-#include "tabs/window-modules.hpp"
-#include "tabs/window-about.hpp"
-#include "tabs/window-configuration.hpp"
-#include "tabs/window-analysis.hpp"
-#include "tabs/window-log.hpp"
-#include "tabs/management/inspector.hpp"
+#include "window-management.hpp"
+#include "window-modules.hpp"
+#include "window-about.hpp"
+#include "window-configuration.hpp"
+#include "window-analysis.hpp"
+#include "window-log.hpp"
+#include "management/inspector.hpp"
 #include "main-window.hpp"
-#include "gui-strings.hpp"
+#include "../gui-strings.hpp"
 #include <imgui-tools.hpp>
 
 namespace adam::gui 
@@ -44,6 +44,7 @@ namespace adam::gui
             ImColor(0xFF, 0xFF, 0xFF, 0x50), // #FFFFFF node_connection_line_invalid_light
             ImColor(0x33, 0x33, 0x33, 0xFF), // #333333 node_connection_card_bg
             ImColor(0xAD, 0xAD, 0xAD, 0xFF), // #adadadff node_connection_card_bg_light
+            ImColor(0x1F, 0x2A, 0x3A, 0xFF), // #1F2A3A node_connection_card_bg_dark_navy
             ImColor(0x33, 0x33, 0x33, 0xE6), // #333333 node_connection_card_bg_drag_preview
             ImColor(0x28, 0xBC, 0x28, 0xFF)  // #28bc28 node_pin_active (Darker green, 100% Alpha)
         };

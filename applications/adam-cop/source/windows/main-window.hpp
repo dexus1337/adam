@@ -11,7 +11,7 @@
 #include <adam-sdk.hpp>
 #include "../cop-controller.hpp"
 #include "../map/world-map.hpp"
-#include "cop-strings.hpp"
+#include "../cop-strings.hpp"
 
 struct SDL_Window;
 

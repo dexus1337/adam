@@ -7,7 +7,7 @@
  */
 
 #include "shared-state.hpp"
-#include "../../main-window.hpp"
+#include "../main-window.hpp"
 #include "controller/controller.hpp"
 #include "data/analyzer.hpp"
 #include <mutex>

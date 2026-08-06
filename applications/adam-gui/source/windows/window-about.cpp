@@ -7,7 +7,7 @@
  */
 
 #include "window-about.hpp"
-#include "../main-window.hpp"
+#include "main-window.hpp"
 #include <renderer-setup.hpp>
 #include <adam-sdk.hpp>
 #include <imgui-tools.hpp>

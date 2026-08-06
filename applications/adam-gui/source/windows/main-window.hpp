@@ -2,7 +2,7 @@
 
 #include <adam-sdk.hpp>
 #include "../gui-controller.hpp"
-#include "gui-strings.hpp"
+#include "../gui-strings.hpp"
 
 struct SDL_Window;
 struct ImVec4;
@@ -32,6 +32,7 @@ namespace adam::gui
         node_connection_line_invalid_light,
         node_connection_card_bg,
         node_connection_card_bg_light,
+        node_connection_card_bg_dark_navy,
         node_connection_card_bg_drag_preview,
         node_pin_active,
         count
@@ -71,6 +72,7 @@ namespace adam::gui
 
         std::set<size_t>                                expanded_nodes;
         bool                                            was_at_bottom = true;
+        bool                                            force_scroll_top = false;
     };
 
     struct inspection_data

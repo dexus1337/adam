@@ -9,7 +9,7 @@
 #include "inspector.hpp"
 #include "imgui.h"
 #include "shared-state.hpp"
-#include "../../main-window.hpp"
+#include "../main-window.hpp"
 #include "controller/controller.hpp"
 #include "module/module.hpp"
 #include "data/format.hpp"
@@ -523,7 +523,14 @@ namespace adam::gui
             };
 
             float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
-            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false, 0);
+            
+            if (port_data.force_scroll_top)
+            {
+                ImGui::SetScrollY(0.0f);
+                port_data.force_scroll_top = false;
+            }
+            
             float inner_avail_w = ImGui::GetContentRegionAvail().x;
 
             bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
@@ -868,7 +875,14 @@ namespace adam::gui
             };
 
             float inner_scroll_h = -(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y);
-            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            ImGui::BeginChild("##inner_child", ImVec2(0, inner_scroll_h), false, 0);
+            
+            if (port_data.force_scroll_top)
+            {
+                ImGui::SetScrollY(0.0f);
+                port_data.force_scroll_top = false;
+            }
+            
             float inner_avail_w = ImGui::GetContentRegionAvail().x;
 
             bool active_user_scrolling = ImGui::GetIO().MouseWheel != 0.0f || 
@@ -1039,6 +1053,7 @@ namespace adam::gui
             port_data.expanded_nodes.clear();
             port_data.parsed_data.clear();
             port_data.parsed_flat_rows.clear();
+            port_data.force_scroll_top = true;
         };
 
         if (is_detached)
@@ -1085,9 +1100,9 @@ namespace adam::gui
             {
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
             }
+            ImGui::Spacing();
         }
 
-        ImGui::Spacing();
         ImGui::PopID();
     }
 
@@ -1913,6 +1928,19 @@ namespace adam::gui
         auto& reg = cmdr.registry();
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
+        static std::vector<adam::data_inspector*> s_conn_in_to_destroy;
+        static std::vector<adam::data_inspector*> s_conn_out_to_destroy;
+        static std::vector<adam::data_inspector*> s_port_to_destroy;
+
+        for (auto p : s_conn_in_to_destroy) cmdr.request_connection_input_inspector_destroy(p);
+        s_conn_in_to_destroy.clear();
+
+        for (auto p : s_conn_out_to_destroy) cmdr.request_connection_output_inspector_destroy(p);
+        s_conn_out_to_destroy.clear();
+
+        for (auto p : s_port_to_destroy) cmdr.request_inspector_destroy(p);
+        s_port_to_destroy.clear();
+
         // 1. Connection Input Inspectors
         const auto& conn_in_inspectors = cmdr.get_connection_input_inspectors();
 
@@ -1941,7 +1969,7 @@ namespace adam::gui
 
             if (!open) 
             {
-                cmdr.request_connection_input_inspector_destroy(p_inspector);
+                s_conn_in_to_destroy.push_back(p_inspector);
                 g_detached_inspector_connections_input.erase(conn_hash);
             }
         }
@@ -1974,7 +2002,7 @@ namespace adam::gui
 
             if (!open) 
             {
-                cmdr.request_connection_output_inspector_destroy(p_inspector);
+                s_conn_out_to_destroy.push_back(p_inspector);
                 g_detached_inspector_connections_output.erase(conn_hash);
             }
         }
@@ -2007,7 +2035,7 @@ namespace adam::gui
 
             if (!open) 
             {
-                cmdr.request_inspector_destroy(p_inspector);
+                s_port_to_destroy.push_back(p_inspector);
                 g_detached_inspector_ports.erase(port_hash);
             }
         }

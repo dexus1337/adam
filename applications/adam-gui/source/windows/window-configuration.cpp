@@ -7,7 +7,7 @@
  */
 
 #include "window-configuration.hpp"
-#include "../main-window.hpp"
+#include "main-window.hpp"
 
 #include <imgui.h>
 #include <unordered_map>
@@ -210,14 +210,17 @@ namespace adam::gui
 
                 // Name
                 ImGui::TableSetColumnIndex(0);
+                ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted(cfg.name.c_str());
 
                 // Filename
                 ImGui::TableSetColumnIndex(1);
+                ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted(cfg.filename.c_str());
 
                 // Description
                 ImGui::TableSetColumnIndex(2);
+                ImGui::AlignTextToFramePadding();
                 if (cfg.description.empty())
                     ImGui::TextDisabled("%s", get_gui_string(gui_string_id::lbl_no_description, lang));
                 else
@@ -225,6 +228,7 @@ namespace adam::gui
 
                 // Created Timestamp
                 ImGui::TableSetColumnIndex(3);
+                ImGui::AlignTextToFramePadding();
                 if (cfg.created > 0)
                 {
                     std::time_t t = static_cast<std::time_t>(cfg.created / 1000);
@@ -239,6 +243,7 @@ namespace adam::gui
 
                 // Modified Timestamp
                 ImGui::TableSetColumnIndex(4);
+                ImGui::AlignTextToFramePadding();
                 if (cfg.modified > 0)
                 {
                     std::time_t t = static_cast<std::time_t>(cfg.modified / 1000);
@@ -253,6 +258,7 @@ namespace adam::gui
 
                 // Counts (Conns/Ports/Procs)
                 ImGui::TableSetColumnIndex(5);
+                ImGui::AlignTextToFramePadding();
                 ImGui::Text("%llu/%llu/%llu", static_cast<unsigned long long>(cfg.connection_count), static_cast<unsigned long long>(cfg.port_count), static_cast<unsigned long long>(cfg.processor_count));
 
                 // Actions Column (Load, Export, Delete)
