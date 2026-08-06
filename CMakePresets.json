@@ -268,27 +268,181 @@
                 "ADAM_NO_GUI": "ON",
                 "ADAM_NO_TESTS": "ON"
             }
+        },
+        {
+            "name": "windows-x64-no-tests-debug",
+            "displayName": "windows-x64-no-tests-debug",
+            "inherits": "windows-x64-debug",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-x64-no-tests-release",
+            "displayName": "windows-x64-no-tests-release",
+            "inherits": "windows-x64-release",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-x64-no-tests-rwdi",
+            "displayName": "windows-x64-no-tests-rwdi",
+            "inherits": "windows-x64-rwdi",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-mingw-no-tests-debug",
+            "displayName": "windows-mingw-no-tests-debug",
+            "inherits": "windows-mingw-debug",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-mingw-no-tests-release",
+            "displayName": "windows-mingw-no-tests-release",
+            "inherits": "windows-mingw-release",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-mingw-no-tests-rwdi",
+            "displayName": "windows-mingw-no-tests-rwdi",
+            "inherits": "windows-mingw-rwdi",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-arm64-no-tests-debug",
+            "displayName": "windows-arm64-no-tests-debug",
+            "inherits": "windows-arm64-debug",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-arm64-no-tests-release",
+            "displayName": "windows-arm64-no-tests-release",
+            "inherits": "windows-arm64-release",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "windows-arm64-no-tests-rwdi",
+            "displayName": "windows-arm64-no-tests-rwdi",
+            "inherits": "windows-arm64-rwdi",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "linux-x64-no-tests-debug",
+            "displayName": "linux-x64-no-tests-debug",
+            "inherits": "linux-x64-debug",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "linux-x64-no-tests-release",
+            "displayName": "linux-x64-no-tests-release",
+            "inherits": "linux-x64-release",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "linux-x64-no-tests-rwdi",
+            "displayName": "linux-x64-no-tests-rwdi",
+            "inherits": "linux-x64-rwdi",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON", "ADAM_NO_TESTS": "ON" }
+        },
+        {
+            "name": "linux-arm64-no-tests-debug",
+            "displayName": "linux-arm64-no-tests-debug",
+            "inherits": "linux-arm64-debug",
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -march=armv8-a",
+                "ADAM_NO_TESTS": "ON"
+            }
+        },
+        {
+            "name": "linux-arm64-no-tests-release",
+            "displayName": "linux-arm64-no-tests-release",
+            "inherits": "linux-arm64-release",
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -march=armv8-a -O3",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
+                "ADAM_NO_TESTS": "ON"
+            }
+        },
+        {
+            "name": "linux-arm64-no-tests-rwdi",
+            "displayName": "linux-arm64-no-tests-rwdi",
+            "inherits": "linux-arm64-rwdi",
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -march=armv8-a -O3",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
+                "ADAM_NO_TESTS": "ON"
+            }
+        },
+        {
+            "name": "linux-pi64-no-tests-debug",
+            "displayName": "linux-pi64-no-tests-debug",
+            "inherits": "linux-pi64-debug",
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX",
+                "ADAM_NO_TESTS": "ON"
+            }
+        },
+        {
+            "name": "linux-pi64-no-tests-release",
+            "displayName": "linux-pi64-no-tests-release",
+            "inherits": "linux-pi64-release",
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -O3",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
+                "ADAM_NO_TESTS": "ON"
+            }
+        },
+        {
+            "name": "linux-pi64-no-tests-rwdi",
+            "displayName": "linux-pi64-no-tests-rwdi",
+            "inherits": "linux-pi64-rwdi",
+            "cacheVariables": { 
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -fPIC -DADAM_PLATFORM_LINUX -O3",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
+                "ADAM_NO_TESTS": "ON"
+            }
         }
     ],
     "buildPresets": [
         { "name": "windows-x64-debug", "displayName": "windows-x64-debug", "configurePreset": "windows-x64-debug" },
         { "name": "windows-x64-release", "displayName": "windows-x64-release", "configurePreset": "windows-x64-release" },
         { "name": "windows-x64-rwdi", "displayName": "windows-x64-rwdi", "configurePreset": "windows-x64-rwdi" },
+        { "name": "windows-x64-no-tests-debug", "displayName": "windows-x64-no-tests-debug", "configurePreset": "windows-x64-no-tests-debug" },
+        { "name": "windows-x64-no-tests-release", "displayName": "windows-x64-no-tests-release", "configurePreset": "windows-x64-no-tests-release" },
+        { "name": "windows-x64-no-tests-rwdi", "displayName": "windows-x64-no-tests-rwdi", "configurePreset": "windows-x64-no-tests-rwdi" },
         { "name": "windows-mingw-debug", "displayName": "windows-mingw-debug", "configurePreset": "windows-mingw-debug" },
         { "name": "windows-mingw-release", "displayName": "windows-mingw-release", "configurePreset": "windows-mingw-release" },
         { "name": "windows-mingw-rwdi", "displayName": "windows-mingw-rwdi", "configurePreset": "windows-mingw-rwdi" },
+        { "name": "windows-mingw-no-tests-debug", "displayName": "windows-mingw-no-tests-debug", "configurePreset": "windows-mingw-no-tests-debug" },
+        { "name": "windows-mingw-no-tests-release", "displayName": "windows-mingw-no-tests-release", "configurePreset": "windows-mingw-no-tests-release" },
+        { "name": "windows-mingw-no-tests-rwdi", "displayName": "windows-mingw-no-tests-rwdi", "configurePreset": "windows-mingw-no-tests-rwdi" },
         { "name": "windows-arm64-debug", "displayName": "windows-arm64-debug", "configurePreset": "windows-arm64-debug" },
         { "name": "windows-arm64-release", "displayName": "windows-arm64-release", "configurePreset": "windows-arm64-release" },
         { "name": "windows-arm64-rwdi", "displayName": "windows-arm64-rwdi", "configurePreset": "windows-arm64-rwdi" },
+        { "name": "windows-arm64-no-tests-debug", "displayName": "windows-arm64-no-tests-debug", "configurePreset": "windows-arm64-no-tests-debug" },
+        { "name": "windows-arm64-no-tests-release", "displayName": "windows-arm64-no-tests-release", "configurePreset": "windows-arm64-no-tests-release" },
+        { "name": "windows-arm64-no-tests-rwdi", "displayName": "windows-arm64-no-tests-rwdi", "configurePreset": "windows-arm64-no-tests-rwdi" },
         { "name": "linux-x64-debug", "displayName": "linux-x64-debug", "configurePreset": "linux-x64-debug" },
         { "name": "linux-x64-release", "displayName": "linux-x64-release", "configurePreset": "linux-x64-release" },
         { "name": "linux-x64-rwdi", "displayName": "linux-x64-rwdi", "configurePreset": "linux-x64-rwdi" },
+        { "name": "linux-x64-no-tests-debug", "displayName": "linux-x64-no-tests-debug", "configurePreset": "linux-x64-no-tests-debug" },
+        { "name": "linux-x64-no-tests-release", "displayName": "linux-x64-no-tests-release", "configurePreset": "linux-x64-no-tests-release" },
+        { "name": "linux-x64-no-tests-rwdi", "displayName": "linux-x64-no-tests-rwdi", "configurePreset": "linux-x64-no-tests-rwdi" },
         { "name": "linux-arm64-debug", "displayName": "linux-arm64-debug", "configurePreset": "linux-arm64-debug" },
         { "name": "linux-arm64-release", "displayName": "linux-arm64-release", "configurePreset": "linux-arm64-release" },
         { "name": "linux-arm64-rwdi", "displayName": "linux-arm64-rwdi", "configurePreset": "linux-arm64-rwdi" },
+        { "name": "linux-arm64-no-tests-debug", "displayName": "linux-arm64-no-tests-debug", "configurePreset": "linux-arm64-no-tests-debug" },
+        { "name": "linux-arm64-no-tests-release", "displayName": "linux-arm64-no-tests-release", "configurePreset": "linux-arm64-no-tests-release" },
+        { "name": "linux-arm64-no-tests-rwdi", "displayName": "linux-arm64-no-tests-rwdi", "configurePreset": "linux-arm64-no-tests-rwdi" },
         { "name": "linux-pi64-debug", "displayName": "linux-pi64-debug", "configurePreset": "linux-pi64-debug" },
         { "name": "linux-pi64-release", "displayName": "linux-pi64-release", "configurePreset": "linux-pi64-release" },
         { "name": "linux-pi64-rwdi", "displayName": "linux-pi64-rwdi", "configurePreset": "linux-pi64-rwdi" },
+        { "name": "linux-pi64-no-tests-debug", "displayName": "linux-pi64-no-tests-debug", "configurePreset": "linux-pi64-no-tests-debug" },
+        { "name": "linux-pi64-no-tests-release", "displayName": "linux-pi64-no-tests-release", "configurePreset": "linux-pi64-no-tests-release" },
+        { "name": "linux-pi64-no-tests-rwdi", "displayName": "linux-pi64-no-tests-rwdi", "configurePreset": "linux-pi64-no-tests-rwdi" },
         { "name": "linux-pi64-nogui-debug", "displayName": "linux-pi64-nogui-debug", "configurePreset": "linux-pi64-nogui-debug" },
         { "name": "linux-pi64-nogui-release", "displayName": "linux-pi64-nogui-release", "configurePreset": "linux-pi64-nogui-release" },
         { "name": "linux-pi64-nogui-rwdi", "displayName": "linux-pi64-nogui-rwdi", "configurePreset": "linux-pi64-nogui-rwdi" }

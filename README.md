@@ -12,7 +12,7 @@ The system is highly extensible, allowing developers to dynamically load modules
 
 ## 🏗️ System Architecture
 
-ADAM splits functionality into a Core Service, a lightweight SDK for external applications and modules, and Client Applications for administration and telemetry.
+ADAM splits functionality into a Core Service, a lightweight SDK for external applications and modules, Shared Libraries for common functionality, and Client Applications for administration, telemetry, and situational awareness.
 
 ```mermaid
 graph TD
@@ -22,6 +22,13 @@ graph TD
         Types[Lock-free & CT Types]
         Mem[IPC Memory Gateway]
         ParseFrame[Parsing & Serialization Framework]
+    end
+
+    subgraph Libraries["Shared Libraries"]
+        direction LR
+        imgui_tools["adam-imgui-tools"]
+        network_tools["adam-network-tools"]
+        image_tools["adam-image-tools"]
     end
 
     subgraph CoreService["ADAM Service Daemon"]
@@ -45,7 +52,8 @@ graph TD
     subgraph Clients["Client Applications"]
         direction LR
         cli[adam-cli]
-        gui["adam-gui (ImGui/SDL2)"]
+        gui["adam-gui (ImGui/SDL3)"]
+        cop["adam-cop (ImGui/SDL3)"]
     end
 
     %% Communications
@@ -53,6 +61,7 @@ graph TD
     Loader -.->|Loads DLL/SO| Plugins
     Plugins -.->|Register Factory / Format| Reg
     BufMgr <==>|Zero-Copy Handles| Clients
+    Libraries -.->|Rendering, Themes, Networking| Clients
 ```
 
 ---
@@ -244,6 +253,18 @@ The repository features the following built-in modules:
 
 ---
 
+## 📚 Shared Libraries
+
+ADAM separates reusable, application-agnostic functionality into shared static libraries used by both `adam-gui` and `adam-cop`.
+
+| Library | Description |
+| :--- | :--- |
+| **`adam-imgui-tools`** | Unified ImGui/SDL3 renderer abstraction. Handles window creation, graphics backend initialization (DirectX 11 on Windows, OpenGL 3 on Linux/macOS), DPI scaling, theme management, font loading, and frame lifecycle. |
+| **`adam-network-tools`** | Cross-platform HTTP download utility. Uses WinINet on Windows and libcurl on Linux for tile/resource fetching. |
+| **`adam-image-tools`** | Image decoding utilities (PNG/JPEG) for loading textures from memory into GPU-compatible formats. |
+
+---
+
 ## 💻 Applications
 
 ### ⚙️ `adam` (Daemon)
@@ -256,12 +277,28 @@ A feature-rich command-line administrative interface.
 * **Dual-Language Configuration**: Supports runtime translation switching (English/German) for all diagnostic screens, commands, and warning output logs.
 
 ### 📊 `adam-gui`
-A hardware-accelerated desktop telemetry dashboard built using **Dear ImGui** backed by **SDL2** and **OpenGL 3**.
+A hardware-accelerated desktop telemetry dashboard built using **Dear ImGui** (docking branch) backed by **SDL3** and **DirectX 11** (Windows) or **OpenGL 3** (Linux/macOS).
+* **Dockable Window Layout**: Features a fully dockable workspace powered by ImGui's docking API. Management, Analysis, Configuration, and Modules panels can be freely rearranged, tabbed, and split.
 * **Visual Connections Manager**: Allows administrators to view, create, configure, start, and stop connections and ports using interactive ImGui windows.
-* **Data Inspector View**: Features a powerful real-time interface to inspect live telemetry. Allows administrators to tap into connection inputs/outputs or raw ports, showing a dual hex-dump and ASCII live preview of intercepted messages.
+* **Data Inspector View**: Features a powerful real-time interface to inspect live telemetry. Allows administrators to tap into connection inputs/outputs or raw ports, showing a dual hex-dump and ASCII live preview of intercepted messages. Inspector windows can be detached into their own dockable panels.
 * **High-Performance Rendering**: Integrates a chunked `ImGuiListClipper` to render massive numbers of frames/messages smoothly without UI stutter, reusing vertical screen real estate.
-* **Theme Customization**: Offers standard light and dark mode toggles with customizable font scales.
-* **Performance Telemetry Overlay**: Renders dynamic FPS, CPU, and RAM overlays, which can be configured to snap to any corner of the screen.
+* **Theme Customization**: Offers Dark, Light, and Dark Navy themes with customizable font scales.
+* **Performance Telemetry Overlay**: Renders dynamic FPS, CPU, and RAM overlays, with configurable position (corner snap or free-drag) and content toggles.
+* **Configuration Manager**: Save, load, and delete named system configurations. Supports import/export to persistent binary configuration files.
+* **Status Bar**: Persistent bottom status bar displaying commander connection state and quick language toggle (EN/DE).
+
+### 🗺️ `adam-cop` (Common Operational Picture)
+A hardware-accelerated geospatial situational awareness application built using **Dear ImGui** (docking branch) backed by **SDL3** and **DirectX 11** (Windows) or **OpenGL 3** (Linux/macOS).
+* **Interactive World Map**: Zoomable and pannable map canvas with smooth mouse wheel zoom and click-drag panning.
+* **Multiple Map Tile Providers**: Supports CartoDB Dark Matter, OpenStreetMap, Esri World Imagery, OpenTopoMap, and a vector-only fallback mode. Tiles are fetched asynchronously with an LRU disk and memory cache.
+* **High-Accuracy Vector Coastlines**: Embeds ~18,000-point coastline data derived from the Natural Earth 50m public domain dataset, with proper antimeridian crossing handling for features like Antarctica.
+* **Dual Map Projections**: Supports both Equirectangular and Web Mercator projections with real-time switching.
+* **Tactical Grid Overlay**: Adaptive latitude/longitude grid with automatic density scaling based on zoom level (from 30° down to 0.0005° steps).
+* **Tactical Markers**: Click-to-place reticle markers with callout boxes showing lat/lon coordinates, clearable via the control panel.
+* **Control Panel**: Dockable settings panel for base map provider, map opacity, projection mode, overlay toggles (grid, coastlines, land fill, scale bar, compass), cache statistics, marker management, and jump-to-coordinates.
+* **Theme & Settings**: Shares the same theme engine (Dark, Light, Dark Navy), GUI mode (Default/Immediate), FPS limit, font scale, and language settings as `adam-gui`. Settings persist to a `.adamcopcfg` configuration file.
+* **Status Bar**: Persistent bottom bar showing system connection status, cursor coordinates, map center, zoom level, and language toggle.
+* **Performance Overlay**: Same configurable FPS/CPU/RAM overlay as `adam-gui`.
 
 ---
 
@@ -270,22 +307,52 @@ A hardware-accelerated desktop telemetry dashboard built using **Dear ImGui** ba
 ### Requirements
 * C++23 Compiler (GCC 13+, Clang 16+, MSVC 19.38+)
 * CMake 3.25+
-* SDL2 (Required for `adam-gui`)
-* OpenGL 3 (Required for `adam-gui`)
-* Dear ImGui (Provide path via `$ENV{IMGUI_ROOT}`)
+* Ninja (recommended build system)
+* SDL3 (Required for `adam-gui` and `adam-cop`)
+* DirectX 11 SDK (Windows, auto-detected) or OpenGL 3 (Linux/macOS)
+* Dear ImGui — **docking branch** (Provide path via `$ENV{IMGUI_ROOT}`)
+* libcurl (Required on Linux for `adam-network-tools`)
 
 ### Build Procedure
-Ensure all dependencies are met, then configure the build using CMake Presets or traditional builds:
+ADAM uses **CMake Presets** for reproducible cross-platform builds. All presets use the Ninja generator.
 
 ```bash
-# Configure the build system
-cmake -B out -DCMAKE_BUILD_TYPE=Release
+# List available configure presets
+cmake --list-presets
 
-# Build the applications and modules
-cmake --build out --config Release
+# Configure and build (example: Windows x64 Debug)
+cmake --preset windows-x64-debug
+cmake --build --preset windows-x64-debug
+
+# Configure and build (example: Linux x64 Release)
+cmake --preset linux-x64-release
+cmake --build --preset linux-x64-release
 ```
 
-The resulting binaries will be populated inside `out/bin`. Run `adam` first to spawn the main IPC server, then connect using `adam-cli` or `adam-gui`.
+### Available Presets
+
+| Platform | Debug | Release | RelWithDebInfo |
+| :--- | :--- | :--- | :--- |
+| Windows x64 (MSVC) | `windows-x64-debug` | `windows-x64-release` | `windows-x64-rwdi` |
+| Windows x64 (MinGW) | `windows-mingw-debug` | `windows-mingw-release` | `windows-mingw-rwdi` |
+| Windows ARM64 | `windows-arm64-debug` | `windows-arm64-release` | `windows-arm64-rwdi` |
+| Linux x64 | `linux-x64-debug` | `linux-x64-release` | `linux-x64-rwdi` |
+| Linux ARM64 | `linux-arm64-debug` | `linux-arm64-release` | `linux-arm64-rwdi` |
+| Linux Pi64 (cross) | `linux-pi64-debug` | `linux-pi64-release` | `linux-pi64-rwdi` |
+
+Every preset above also has a **`-no-tests`** variant (e.g., `windows-x64-no-tests-debug`) that sets `ADAM_NO_TESTS=ON` to skip building test executables.
+
+Additional specialized presets:
+* **`linux-pi64-nogui-*`**: Cross-compilation for Raspberry Pi without GUI applications (`ADAM_NO_GUI=ON`, `ADAM_NO_TESTS=ON`).
+
+### CMake Options
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `ADAM_NO_TESTS` | `OFF` | Skip building test executables |
+| `ADAM_NO_GUI` | `OFF` | Skip building GUI applications (`adam-gui`, `adam-cop`) |
+
+The resulting binaries will be populated inside `out/build/<preset>/bin`. Run `adam` first to spawn the main IPC server, then connect using `adam-cli`, `adam-gui`, or `adam-cop`.
 
 ---
 

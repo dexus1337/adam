@@ -27,7 +27,6 @@ std::unique_ptr<adam::cop::cop_controller> g_cop_ctrl;
 int main(int, char**)
 {
     g_cop_ctrl = std::make_unique<adam::cop::cop_controller>();
-    auto& cop_ctrl = *g_cop_ctrl;
 
     adam::imgui_tools::renderer_context renderer_ctx;
 
@@ -40,7 +39,7 @@ int main(int, char**)
         return -1;
     }
 
-    cop_ctrl.set_redraw_callback([]()
+    g_cop_ctrl->set_redraw_callback([]()
     {
         SDL_Event event;
         SDL_zerop(&event);
@@ -48,14 +47,14 @@ int main(int, char**)
         SDL_PushEvent(&event);
     });
 
-    cop_ctrl.start();
-    adam::cop::main_window ui_window(cop_ctrl, renderer_ctx.window);
+    g_cop_ctrl->start();
+    adam::cop::main_window ui_window(*g_cop_ctrl, renderer_ctx.window);
 
     bool done = false;
     int frames_to_render = event_redraw_count;
 
-    auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(cop_ctrl.get_parameters().get("show_performance"_ct));
-    auto* p_fps_limit = dynamic_cast<adam::configuration_parameter_integer*>(cop_ctrl.get_parameters().get("fps_limit"_ct));
+    auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(g_cop_ctrl->get_parameters().get("show_performance"_ct));
+    auto* p_fps_limit = dynamic_cast<adam::configuration_parameter_integer*>(g_cop_ctrl->get_parameters().get("fps_limit"_ct));
 
     auto last_frame_time = std::chrono::steady_clock::now();
 
@@ -196,7 +195,7 @@ int main(int, char**)
     }
 
     ui_window.save_window_state();
-    cop_ctrl.stop();
+    g_cop_ctrl->stop();
     adam::imgui_tools::shutdown(renderer_ctx);
 
     return 0;
