@@ -9,11 +9,14 @@
 #include "main-window.hpp"
 #include <SDL3/SDL.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui-tools.hpp>
 #include <cstdio>
 #include <SDL3/SDL_opengl.h>
 #include "../setup.hpp"
 #include <vector>
+#include <array>
+#include <os/os.hpp>
 #include <version/version.hpp>
 
 #ifdef _WIN32
@@ -24,10 +27,20 @@ using namespace adam::string_hashed_ct_literals;
 
 namespace adam::cop
 {
+    const ImVec4& get_cop_color(cop_color_id id)
+    {
+        static const std::array<ImVec4, static_cast<size_t>(cop_color_id::count)> colors =
+        {
+            ImColor(0x26, 0xA6, 0x26), // #26A626 commander_connected
+            ImColor(0xD9, 0x33, 0x33)  // #D93333 commander_disconnected
+        };
+        return colors[static_cast<size_t>(id)];
+    }
+
     main_window::main_window(cop_controller& ctrl, SDL_Window* window)
         : m_ctrl(ctrl)
         , m_window(window)
-        , m_last_lang(adam::language_english)
+        , m_last_lang(static_cast<adam::language>(255))
     {
         auto& params = m_ctrl.get_parameters();
         m_p_base_provider  = dynamic_cast<adam::configuration_parameter_integer*>(params.get("base_provider"_ct));
@@ -38,8 +51,12 @@ namespace adam::cop
         m_p_show_land_fill  = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_land_fill"_ct));
         m_p_show_scale_bar  = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_scale_bar"_ct));
         m_p_show_performance = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
-        m_p_fps_limit      = dynamic_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
-        m_p_language       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("language"_ct));
+        m_p_perf_ovly_location = dynamic_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"_ct));
+        m_p_perf_ovly_x      = dynamic_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"_ct));
+        m_p_perf_ovly_y      = dynamic_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
+        m_p_perf_ovly_content= dynamic_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_content"_ct));
+        m_p_fps_limit       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
+        m_p_language        = dynamic_cast<adam::configuration_parameter_integer*>(params.get("language"_ct));
         m_p_theme          = dynamic_cast<adam::configuration_parameter_string*>(params.get("theme"_ct));
         m_p_gui_mode       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
         m_p_font_scale     = dynamic_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
@@ -152,7 +169,11 @@ namespace adam::cop
         {
             lang = static_cast<adam::language>(m_p_language->get_value());
         }
-        m_last_lang = lang;
+        if (m_last_lang != lang)
+        {
+            m_last_lang = lang;
+            SDL_SetWindowTitle(m_window, get_cop_string(cop_main_title, lang));
+        }
         
         adam::imgui_tools::gui_theme active_theme = adam::imgui_tools::parse_theme(m_p_theme->get_value().get_hash());
         adam::imgui_tools::apply_theme(active_theme);
@@ -162,10 +183,12 @@ namespace adam::cop
             ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::cop::get_current_dpi_scale();
         }
 
+        float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
+        
         // Setup Main Dockspace Viewport
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
-        ImGui::SetNextWindowSize(viewport->WorkSize);
+        ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, viewport->WorkSize.y - status_bar_height));
         ImGui::SetNextWindowViewport(viewport->ID);
 
         ImGuiWindowFlags host_flags = ImGuiWindowFlags_MenuBar |
@@ -184,10 +207,25 @@ namespace adam::cop
         ImGui::PopStyleVar(3);
 
         ImGuiID dockspace_id = ImGui::GetID("COP_Dockspace");
+        
+        if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+        {
+            ImGui::DockBuilderRemoveNode(dockspace_id);
+            ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+            ImGui::DockBuilderSetNodeSize(dockspace_id, ImVec2(viewport->WorkSize.x, viewport->WorkSize.y - status_bar_height));
+
+            ImGuiID dock_main_id = dockspace_id;
+            ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, nullptr, &dock_main_id);
+
+            // Need a dummy string before ### to dock correctly if we don't know the localized prefix
+            ImGui::DockBuilderDockWindow("Settings###ControlPanel", dock_id_left);
+            ImGui::DockBuilderDockWindow("World Map Overview###MapWindow", dock_main_id);
+            ImGui::DockBuilderFinish(dockspace_id);
+        }
+
         ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 
         draw_menu_bar(lang);
-        draw_status_bar(lang);
 
         if (m_show_control_panel)
         {
@@ -202,6 +240,13 @@ namespace adam::cop
         }
 
         ImGui::End();
+        
+        draw_status_bar(lang);
+        
+        if (m_p_show_performance && m_p_show_performance->get_value())
+        {
+            draw_performance_overlay(lang);
+        }
     }
 
     void main_window::draw_menu_bar(adam::language lang)
@@ -419,21 +464,26 @@ namespace adam::cop
     void main_window::draw_status_bar(adam::language lang)
     {
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        float height = 24.0f;
-        ImVec2 status_pos = ImVec2(viewport->WorkPos.x, viewport->WorkPos.y + viewport->WorkSize.y - height);
-        ImVec2 status_size = ImVec2(viewport->WorkSize.x, height);
+        ImGuiWindowFlags status_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | 
+                                        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | 
+                                        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | 
+                                        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoDocking;
 
-        ImGui::SetNextWindowPos(status_pos);
-        ImGui::SetNextWindowSize(status_size);
-        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
+        float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
+        ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x, viewport->WorkPos.y + viewport->WorkSize.y - status_bar_height));
+        ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x, status_bar_height));
 
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 2.0f));
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.06f, 0.08f, 0.11f, 1.00f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(ImGui::GetStyle().WindowPadding.x, ImGui::GetStyle().FramePadding.y));
 
-        if (ImGui::Begin("COP_StatusBar", nullptr, flags))
+        if (ImGui::Begin("##MainStatusBar", nullptr, status_flags))
         {
-            ImVec4 status_col = m_ctrl.is_commander_active() ? ImVec4(0.00f, 0.85f, 0.40f, 1.00f) : ImVec4(0.00f, 0.75f, 0.95f, 1.00f);
-            ImGui::TextColored(status_col, "[%s]", get_cop_string(lbl_status_online, lang));
+            ImGui::Separator();
+            if (m_ctrl.is_commander_active())
+                ImGui::TextColored(get_cop_color(cop_color_id::commander_connected), "%s", get_cop_string(lbl_status_online, lang));
+            else
+                ImGui::TextColored(get_cop_color(cop_color_id::commander_disconnected), "%s", get_cop_string(lbl_status_offline, lang));
 
             ImGui::SameLine(0, 20.0f);
             if (m_map.is_hovered())
@@ -458,22 +508,31 @@ namespace adam::cop
 
             ImGui::SameLine(0, 20.0f);
             ImGui::Text("%s %.1fx", get_cop_string(lbl_zoom_level, lang), m_map.get_zoom());
-
-            ImGui::SameLine(ImGui::GetWindowWidth() - 100.0f);
-            ImGui::Text("%s %.1f", get_cop_string(lbl_fps, lang), ImGui::GetIO().Framerate);
-
-            ImGui::End();
+            
+            const char* lang_short = (lang == adam::language_german) ? "DE" : "EN";
+            float lang_width = ImGui::CalcTextSize(lang_short).x;
+            ImGui::SameLine(ImGui::GetWindowWidth() - lang_width - ImGui::GetStyle().WindowPadding.x * 2.0f);
+            ImGui::TextUnformatted(lang_short);
+            if (ImGui::IsItemHovered())
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            if (ImGui::IsItemClicked())
+            {
+                adam::language new_lang = (lang == adam::language_english) ? adam::language_german : adam::language_english;
+                if (m_ctrl.is_commander_active())
+                    m_ctrl.commander().request_language_change(new_lang);
+                m_p_language->set_value(static_cast<int64_t>(new_lang));
+            }
         }
-
-        ImGui::PopStyleColor();
-        ImGui::PopStyleVar();
+        ImGui::End();
+        ImGui::PopStyleVar(3);
     }
 
     void main_window::draw_control_panel(adam::language lang)
     {
         ImGui::SetNextWindowSize(ImVec2(340.0f, 550.0f), ImGuiCond_FirstUseEver);
 
-        if (!ImGui::Begin(get_cop_string(lbl_layers_panel, lang), &m_show_control_panel))
+        std::string panel_title = std::string(get_cop_string(lbl_layers_panel, lang)) + "###ControlPanel";
+        if (!ImGui::Begin(panel_title.c_str(), &m_show_control_panel))
         {
             ImGui::End();
             return;
@@ -636,7 +695,7 @@ namespace adam::cop
         (void)lang;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-        ImGui::Begin("World Map Overview", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::Begin("World Map Overview###MapWindow", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
         ImVec2 avail = ImGui::GetContentRegionAvail();
 
@@ -889,5 +948,109 @@ namespace adam::cop
 
             ImGui::EndPopup();
         }
+    }
+
+    void main_window::draw_performance_overlay(adam::language lang)
+    {
+        int location = static_cast<int>(m_p_perf_ovly_location->get_value());
+        static bool custom_pos_initialized = false;
+        
+        ImGuiWindowFlags overlay_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+        
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        
+        if (location >= 0)
+        {
+            float pad = 10.0f * ImGui::GetStyle()._MainScale;
+            ImVec2 work_pos = viewport->WorkPos;
+            ImVec2 work_size = viewport->WorkSize;
+            ImVec2 window_pos, window_pos_pivot;
+            float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
+            
+            window_pos.x = (location & 1) ? (work_pos.x + work_size.x - pad) : (work_pos.x + pad);
+            window_pos.y = (location & 2) ? (work_pos.y + work_size.y - pad - status_bar_height) : (work_pos.y + ImGui::GetFrameHeight() + pad);
+            window_pos_pivot.x = (location & 1) ? 1.0f : 0.0f;
+            window_pos_pivot.y = (location & 2) ? 1.0f : 0.0f;
+            
+            ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+            custom_pos_initialized = false;
+        }
+        else
+        {
+            float custom_x = static_cast<float>(m_p_perf_ovly_x->get_value());
+            float custom_y = static_cast<float>(m_p_perf_ovly_y->get_value());
+            
+            if (!custom_pos_initialized && custom_x >= 0.0f && custom_y >= 0.0f)
+            {
+                ImGui::SetNextWindowPos(ImVec2(custom_x, custom_y), ImGuiCond_Always);
+                custom_pos_initialized = true;
+            }
+        }
+        
+        ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+        
+        if (ImGui::Begin(get_cop_string(lbl_performance_overlay, lang), nullptr, overlay_flags))
+        {
+            if (location == -1)
+            {
+                static bool is_dragging = false;
+                if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                    is_dragging = true;
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+                    is_dragging = false;
+
+                if (is_dragging)
+                {
+                    ImVec2 pos = ImGui::GetWindowPos();
+                    ImVec2 delta = ImGui::GetIO().MouseDelta;
+                    ImGui::SetWindowPos(ImVec2(pos.x + delta.x, pos.y + delta.y));
+                }
+
+                ImVec2 pos = ImGui::GetWindowPos();
+                if (pos.x != static_cast<float>(m_p_perf_ovly_x->get_value()) || 
+                    pos.y != static_cast<float>(m_p_perf_ovly_y->get_value()))
+                {
+                    m_p_perf_ovly_x->set_value(static_cast<double>(pos.x));
+                    m_p_perf_ovly_y->set_value(static_cast<double>(pos.y));
+                }
+            }
+
+            int content = static_cast<int>(m_p_perf_ovly_content->get_value());
+            if ((content & 1) && m_p_gui_mode && m_p_gui_mode->get_value() == 1) ImGui::Text(get_cop_string(lbl_fps, lang), ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+            if (content & 2) ImGui::Text(get_cop_string(lbl_cpu, lang), adam::os::get_cpu_usage());
+            if (content & 4)
+            {
+                float used_mb, avail_mb;
+                adam::os::get_ram_usage_mb(used_mb, avail_mb);
+                float used_gb = used_mb / 1024.0f;
+                float total_gb = (used_mb + avail_mb) / 1024.0f;
+                float percentage = (used_mb + avail_mb > 0.0f) ? (used_mb / (used_mb + avail_mb) * 100.0f) : 0.0f;
+                ImGui::Text(get_cop_string(lbl_ram, lang), used_gb, total_gb, percentage);
+            }
+
+            if (ImGui::BeginPopupContextWindow("PerformanceOverlayPopup"))
+            {
+                if (ImGui::BeginMenu(get_cop_string(menu_overlay_position, lang)))
+                {
+                    auto update_loc = [&](int loc) { m_p_perf_ovly_location->set_value(static_cast<int64_t>(loc)); };
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_custom, lang),       nullptr, location == -1)) update_loc(-1);
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_top_left, lang),     nullptr, location == 0)) update_loc(0);
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_top_right, lang),    nullptr, location == 1)) update_loc(1);
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_bottom_left, lang),  nullptr, location == 2)) update_loc(2);
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_bottom_right, lang), nullptr, location == 3)) update_loc(3);
+                    ImGui::EndMenu();
+                }
+                if (ImGui::BeginMenu(get_cop_string(menu_overlay_content, lang)))
+                {
+                    bool show_fps = (content & 1) != 0, show_cpu = (content & 2) != 0, show_ram = (content & 4) != 0;
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_show_fps, lang), nullptr, &show_fps)) m_p_perf_ovly_content->set_value((content & ~1) | (show_fps ? 1 : 0));
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_show_cpu, lang), nullptr, &show_cpu)) m_p_perf_ovly_content->set_value((content & ~2) | (show_cpu ? 2 : 0));
+                    if (ImGui::MenuItem(get_cop_string(menu_overlay_show_ram, lang), nullptr, &show_ram)) m_p_perf_ovly_content->set_value((content & ~4) | (show_ram ? 4 : 0));
+                    ImGui::EndMenu();
+                }
+                ImGui::EndPopup();
+            }
+        }
+        ImGui::End();
     }
 }

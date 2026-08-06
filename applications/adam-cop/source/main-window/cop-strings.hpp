@@ -78,7 +78,20 @@ namespace adam::cop
         combo_theme,
         theme_dark,
         theme_light,
-        theme_dark_navy
+        theme_dark_navy,
+        lbl_performance_overlay,
+        lbl_cpu,
+        lbl_ram,
+        menu_overlay_position,
+        menu_overlay_custom,
+        menu_overlay_top_left,
+        menu_overlay_top_right,
+        menu_overlay_bottom_left,
+        menu_overlay_bottom_right,
+        menu_overlay_content,
+        menu_overlay_show_fps,
+        menu_overlay_show_cpu,
+        menu_overlay_show_ram
     };
 
     const char* get_cop_string(cop_string_id id, adam::language lang);

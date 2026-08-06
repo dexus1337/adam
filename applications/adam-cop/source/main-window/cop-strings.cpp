@@ -81,7 +81,20 @@ namespace adam::cop
             { combo_theme, { "Theme", "Design" } },
             { theme_dark, { "Dark", "Dunkel" } },
             { theme_light, { "Light", "Hell" } },
-            { theme_dark_navy, { "Dark Navy", "Dunkelblau" } }
+            { theme_dark_navy, { "Dark Navy", "Dunkelblau" } },
+            { lbl_performance_overlay, { "Performance Overlay", "Leistungsübersicht" } },
+            { lbl_cpu, { "CPU: %.1f%%", "CPU: %.1f%%" } },
+            { lbl_ram, { "RAM: %.1f GB / %.1f GB (%.1f%%)", "RAM: %.1f GB / %.1f GB (%.1f%%)" } },
+            { menu_overlay_position, { "Position", "Position" } },
+            { menu_overlay_custom, { "Custom", "Benutzerdefiniert" } },
+            { menu_overlay_top_left, { "Top-Left", "Oben links" } },
+            { menu_overlay_top_right, { "Top-Right", "Oben rechts" } },
+            { menu_overlay_bottom_left, { "Bottom-Left", "Unten links" } },
+            { menu_overlay_bottom_right, { "Bottom-Right", "Unten rechts" } },
+            { menu_overlay_content, { "Content", "Inhalt" } },
+            { menu_overlay_show_fps, { "Show FPS", "FPS anzeigen" } },
+            { menu_overlay_show_cpu, { "Show CPU Usage", "CPU-Auslastung anzeigen" } },
+            { menu_overlay_show_ram, { "Show RAM Usage", "RAM-Auslastung anzeigen" } }
         };
 
         auto it = translations.find(id);

@@ -18,6 +18,10 @@ namespace adam::cop
         {
             configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_boolean>("show_performance"_ct, false));
+            p.add(std::make_unique<configuration_parameter_integer>("perf_ovly_location"_ct, 1));
+            p.add(std::make_unique<configuration_parameter_double>("perf_ovly_x"_ct, -1.0));
+            p.add(std::make_unique<configuration_parameter_double>("perf_ovly_y"_ct, -1.0));
+            p.add(std::make_unique<configuration_parameter_integer>("perf_ovly_content"_ct, 7));
             p.add(std::make_unique<configuration_parameter_integer>("fps_limit"_ct, 2)); // 60 FPS default
             p.add(std::make_unique<configuration_parameter_integer>("map_projection"_ct, 0)); // 0 = Equirectangular, 1 = Mercator
             p.add(std::make_unique<configuration_parameter_boolean>("show_grid"_ct, true));
@@ -46,10 +50,12 @@ namespace adam::cop
         , m_running(false)
         , m_commander_active(false)
     {
+        load("adam-cop-config.adamcopcfg");
     }
 
     cop_controller::~cop_controller()
     {
+        save("adam-cop-config.adamcopcfg");
         stop();
     }
 

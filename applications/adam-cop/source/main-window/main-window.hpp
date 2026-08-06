@@ -17,6 +17,15 @@ struct SDL_Window;
 
 namespace adam::cop
 {
+    enum class cop_color_id : size_t
+    {
+        commander_connected = 0,
+        commander_disconnected,
+        count
+    };
+
+    const ImVec4& get_cop_color(cop_color_id id);
+
     class main_window
     {
     public:
@@ -32,6 +41,7 @@ namespace adam::cop
         void draw_control_panel(adam::language lang);
         void draw_map_window(adam::language lang);
         void draw_about_dialog(adam::language lang);
+        void draw_performance_overlay(adam::language lang);
 
         cop_controller& m_ctrl;
         SDL_Window* m_window;
@@ -47,6 +57,10 @@ namespace adam::cop
         adam::configuration_parameter_boolean* m_p_show_land_fill;
         adam::configuration_parameter_boolean* m_p_show_scale_bar;
         adam::configuration_parameter_boolean* m_p_show_performance;
+        adam::configuration_parameter_integer* m_p_perf_ovly_location;
+        adam::configuration_parameter_double*  m_p_perf_ovly_x;
+        adam::configuration_parameter_double*  m_p_perf_ovly_y;
+        adam::configuration_parameter_integer* m_p_perf_ovly_content;
         adam::configuration_parameter_integer* m_p_fps_limit;
         adam::configuration_parameter_integer* m_p_language;
         adam::configuration_parameter_string*  m_p_theme;
