@@ -9,6 +9,7 @@
 #include "main-window.hpp"
 #include <SDL3/SDL.h>
 #include <imgui.h>
+#include <imgui-tools.hpp>
 #include <cstdio>
 
 using namespace adam::string_hashed_ct_literals;
@@ -31,6 +32,7 @@ namespace adam::cop
         m_p_show_performance = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
         m_p_fps_limit      = dynamic_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
         m_p_language       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("language"_ct));
+        m_p_theme          = dynamic_cast<adam::configuration_parameter_string*>(params.get("theme"_ct));
     }
 
     void main_window::save_window_state()
@@ -46,6 +48,9 @@ namespace adam::cop
             lang = static_cast<adam::language>(m_p_language->get_value());
         }
         m_last_lang = lang;
+        
+        adam::imgui_tools::gui_theme active_theme = adam::imgui_tools::parse_theme(m_p_theme->get_value().get_hash());
+        adam::imgui_tools::apply_theme(active_theme);
 
         // Setup Main Dockspace Viewport
         ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -120,6 +125,40 @@ namespace adam::cop
                     m_p_show_performance->set_value(show_perf);
                 }
             }
+            
+            ImGui::Separator();
+            
+            adam::string_hashed current_theme_str = m_p_theme->get_value();
+            adam::imgui_tools::gui_theme current_theme = adam::imgui_tools::parse_theme(current_theme_str.get_hash());
+            
+            auto get_theme_str_id = [](adam::imgui_tools::gui_theme t) {
+                switch (t) {
+                    case adam::imgui_tools::gui_theme::light: return theme_light;
+                    case adam::imgui_tools::gui_theme::dark_navy: return theme_dark_navy;
+                    case adam::imgui_tools::gui_theme::dark: default: return theme_dark;
+                }
+            };
+            
+            const char* preview_value = get_cop_string(get_theme_str_id(current_theme), lang);
+            
+            if (ImGui::BeginCombo(get_cop_string(combo_theme, lang), preview_value))
+            {
+                for (std::size_t i = 0; i < adam::imgui_tools::c_themes_count; ++i)
+                {
+                    auto theme_val = static_cast<adam::imgui_tools::gui_theme>(i);
+                    bool is_selected = (current_theme == theme_val);
+                    
+                    if (ImGui::Selectable(get_cop_string(get_theme_str_id(theme_val), lang), is_selected))
+                    {
+                        m_p_theme->set_value(adam::imgui_tools::theme_to_string(theme_val));
+                        adam::imgui_tools::apply_theme(theme_val);
+                    }
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+                }
+                
+                ImGui::EndCombo();
+            }
+            
             ImGui::EndMenu();
         }
 

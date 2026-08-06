@@ -48,6 +48,7 @@ target_include_directories(adam-gui PRIVATE
 
 target_link_libraries(adam-gui PRIVATE
     adam-sdk
+    adam-imgui-tools
     SDL3::SDL3
     OpenGL::GL
 )

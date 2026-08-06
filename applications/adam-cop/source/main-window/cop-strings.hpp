@@ -60,7 +60,11 @@ namespace adam::cop
         wnd_asterix_connections,
         wnd_about,
         msg_cop_description,
-        msg_cop_copyright
+        msg_cop_copyright,
+        combo_theme,
+        theme_dark,
+        theme_light,
+        theme_dark_navy
     };
 
     const char* get_cop_string(cop_string_id id, adam::language lang);

@@ -9,6 +9,10 @@
 #include "tile-engine.hpp"
 #include "../setup.hpp"
 
+#include <adam-sdk.hpp>
+#include <imgui.h>
+#include <imgui-tools.hpp>
+
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
 #include <wininet.h>
@@ -187,7 +191,7 @@ namespace adam::cop
         {
             if (pair.second.texture_id)
             {
-                destroy_texture(pair.second.texture_id);
+                adam::imgui_tools::destroy_texture(pair.second.texture_id);
                 pair.second.texture_id = (ImTextureID)0;
             }
         }
@@ -204,7 +208,7 @@ namespace adam::cop
 
         for (auto& item : uploads)
         {
-            ImTextureID tex_id = create_texture_rgba(item.width, item.height, item.pixels.data());
+            ImTextureID tex_id = adam::imgui_tools::create_texture_rgba(item.width, item.height, item.pixels.data());
 
             std::lock_guard<std::mutex> lock(m_mutex);
             auto it = m_cache.find(item.key);
@@ -274,7 +278,7 @@ namespace adam::cop
         {
             if (pair.second.texture_id)
             {
-                destroy_texture(pair.second.texture_id);
+                adam::imgui_tools::destroy_texture(pair.second.texture_id);
             }
         }
         m_cache.clear();

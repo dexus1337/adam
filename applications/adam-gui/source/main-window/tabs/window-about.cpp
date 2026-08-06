@@ -9,6 +9,8 @@
 #include "window-about.hpp"
 #include "../main-window.hpp"
 #include "../../setup.hpp"
+#include <adam-sdk.hpp>
+#include <imgui-tools.hpp>
 #include <imgui.h>
 #include <version/version.hpp>
 #include <cstdio>
@@ -67,7 +69,7 @@ static void load_logo_texture_once()
         pixels[i * 4 + 2] = b;
     }
 
-    g_logo_texture = adam::gui::create_texture_rgba(g_logo_width, g_logo_height, pixels.data());
+    g_logo_texture = adam::imgui_tools::create_texture_rgba(g_logo_width, g_logo_height, pixels.data());
 
     DeleteObject(ii.hbmColor);
     DeleteObject(ii.hbmMask);

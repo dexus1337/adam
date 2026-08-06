@@ -49,6 +49,7 @@ namespace adam::cop
         adam::configuration_parameter_boolean* m_p_show_performance;
         adam::configuration_parameter_integer* m_p_fps_limit;
         adam::configuration_parameter_integer* m_p_language;
+        adam::configuration_parameter_string*  m_p_theme;
 
         float m_jump_lat = 0.0f;
         float m_jump_lon = 0.0f;

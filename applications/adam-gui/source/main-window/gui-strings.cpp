@@ -37,6 +37,7 @@ namespace adam::gui
             { gui_string_id::combo_theme,                 { "Theme###Theme", "Design###Theme" } },
             { gui_string_id::theme_dark,                  { "Dark", "Dunkel" } },
             { gui_string_id::theme_light,                 { "Light", "Hell" } },
+            { gui_string_id::theme_dark_navy,             { "Dark Navy", "Dunkelblau" } },
             { gui_string_id::btn_clear_log,               { "Clear Log###ClearLog", "Protokoll leeren###ClearLog" } },
             { gui_string_id::lbl_commander_connected,     { "Connected to ADAM", "Verbunden mit ADAM" } },
             { gui_string_id::lbl_commander_disconnected,  { "Disconnected from ADAM", "Nicht verbunden mit ADAM" } },

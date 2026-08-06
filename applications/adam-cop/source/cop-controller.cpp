@@ -26,6 +26,7 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_integer>("base_provider"_ct, 0)); // 0 = CartoDB Dark, 1 = OSM, 2 = Satellite, 3 = Topo, 4 = Vector
             p.add(std::make_unique<configuration_parameter_double>("map_opacity"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, static_cast<int>(adam::language_english)));
+            p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "dark_navy"));
             return p;
         }();
         return params;

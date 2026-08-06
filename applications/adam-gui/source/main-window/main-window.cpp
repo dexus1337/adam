@@ -15,7 +15,9 @@
 #include "tabs/window-analysis.hpp"
 #include "tabs/window-log.hpp"
 #include "tabs/management/inspector.hpp"
-#include "themes/themes.hpp"
+#include "main-window.hpp"
+#include "gui-strings.hpp"
+#include <imgui-tools.hpp>
 
 namespace adam::gui 
 {
@@ -177,9 +179,8 @@ namespace adam::gui
             SDL_MaximizeWindow(m_window);
 
         ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::gui::get_current_dpi_scale();
-        
-        adam::gui::themes::gui_theme active_theme = adam::gui::themes::parse_theme(m_p_theme->get_value());
-        adam::gui::themes::apply_theme(active_theme);
+                adam::imgui_tools::gui_theme active_theme = adam::imgui_tools::parse_theme(m_p_theme->get_value().get_hash());
+        adam::imgui_tools::apply_theme(active_theme);
 
         // Initialize VSync swap interval
         if (m_p_gui_mode->get_value() == 1)
@@ -553,22 +554,30 @@ namespace adam::gui
             }
 
             ImGui::Separator();
-            
             adam::string_hashed current_theme_str = m_p_theme->get_value();
-            adam::gui::themes::gui_theme current_theme = adam::gui::themes::parse_theme(current_theme_str);
-            const char* preview_value = adam::gui::themes::get_theme_name(current_theme, lang);
+            adam::imgui_tools::gui_theme current_theme = adam::imgui_tools::parse_theme(current_theme_str.get_hash());
+            
+            auto get_theme_str_id = [](adam::imgui_tools::gui_theme t) {
+                switch (t) {
+                    case adam::imgui_tools::gui_theme::light: return gui_string_id::theme_light;
+                    case adam::imgui_tools::gui_theme::dark_navy: return gui_string_id::theme_dark_navy;
+                    case adam::imgui_tools::gui_theme::dark: default: return gui_string_id::theme_dark;
+                }
+            };
+            
+            const char* preview_value = get_gui_string(get_theme_str_id(current_theme), lang);
             
             if (ImGui::BeginCombo(get_gui_string(gui_string_id::combo_theme, lang), preview_value))
             {
-                for (std::size_t i = 0; i < adam::gui::themes::c_themes_count; ++i)
+                for (std::size_t i = 0; i < adam::imgui_tools::c_themes_count; ++i)
                 {
-                    auto theme_val = static_cast<adam::gui::themes::gui_theme>(i);
+                    auto theme_val = static_cast<adam::imgui_tools::gui_theme>(i);
                     bool is_selected = (current_theme == theme_val);
                     
-                    if (ImGui::Selectable(adam::gui::themes::get_theme_name(theme_val, lang), is_selected))
+                    if (ImGui::Selectable(get_gui_string(get_theme_str_id(theme_val), lang), is_selected))
                     {
-                        m_p_theme->set_value(adam::gui::themes::theme_to_string(theme_val));
-                        adam::gui::themes::apply_theme(theme_val);
+                        m_p_theme->set_value(adam::imgui_tools::theme_to_string(theme_val));
+                        adam::imgui_tools::apply_theme(theme_val);
                     }
                     if (is_selected) ImGui::SetItemDefaultFocus();
                 }

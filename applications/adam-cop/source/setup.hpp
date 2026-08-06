@@ -56,10 +56,4 @@ namespace adam::cop
 
     /** @brief Retrieves active DPI scale factor */
     float get_current_dpi_scale();
-
-    /** @brief Creates a backend-agnostic ImGui texture from RGBA pixel buffer */
-    ImTextureID create_texture_rgba(int width, int height, const uint8_t* pixels);
-
-    /** @brief Destroys a created ImGui texture */
-    void destroy_texture(ImTextureID texture_id);
 }

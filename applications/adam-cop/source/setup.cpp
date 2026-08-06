@@ -12,6 +12,7 @@
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
+#include <imgui-tools.hpp>
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <d3d11.h>
@@ -87,68 +88,6 @@ namespace adam::cop
         g_current_dpi_scale = new_dpi_scale;
     }
 
-    static void setup_c2_theme()
-    {
-        ImGuiStyle& style = ImGui::GetStyle();
-        ImVec4* colors = style.Colors;
-
-        // Dark Tactical Operator Palette (Navy / Charcoal / Cyan accents)
-        colors[ImGuiCol_Text]                  = ImVec4(0.90f, 0.94f, 0.98f, 1.00f);
-        colors[ImGuiCol_TextDisabled]          = ImVec4(0.40f, 0.48f, 0.55f, 1.00f);
-        colors[ImGuiCol_WindowBg]              = ImVec4(0.07f, 0.09f, 0.12f, 0.98f);
-        colors[ImGuiCol_ChildBg]               = ImVec4(0.09f, 0.11f, 0.15f, 0.95f);
-        colors[ImGuiCol_PopupBg]               = ImVec4(0.08f, 0.10f, 0.14f, 0.98f);
-        colors[ImGuiCol_Border]                = ImVec4(0.18f, 0.25f, 0.32f, 0.70f);
-        colors[ImGuiCol_BorderShadow]          = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-        colors[ImGuiCol_FrameBg]               = ImVec4(0.12f, 0.16f, 0.22f, 1.00f);
-        colors[ImGuiCol_FrameBgHovered]        = ImVec4(0.18f, 0.24f, 0.32f, 1.00f);
-        colors[ImGuiCol_FrameBgActive]         = ImVec4(0.22f, 0.30f, 0.40f, 1.00f);
-        colors[ImGuiCol_TitleBg]               = ImVec4(0.06f, 0.08f, 0.11f, 1.00f);
-        colors[ImGuiCol_TitleBgActive]         = ImVec4(0.10f, 0.14f, 0.20f, 1.00f);
-        colors[ImGuiCol_TitleBgCollapsed]      = ImVec4(0.05f, 0.07f, 0.09f, 1.00f);
-        colors[ImGuiCol_MenuBarBg]             = ImVec4(0.08f, 0.10f, 0.14f, 1.00f);
-        colors[ImGuiCol_ScrollbarBg]           = ImVec4(0.06f, 0.08f, 0.10f, 0.80f);
-        colors[ImGuiCol_ScrollbarGrab]         = ImVec4(0.18f, 0.25f, 0.32f, 1.00f);
-        colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4(0.25f, 0.35f, 0.45f, 1.00f);
-        colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4(0.00f, 0.60f, 0.80f, 1.00f);
-        colors[ImGuiCol_CheckMark]             = ImVec4(0.00f, 0.75f, 0.95f, 1.00f);
-        colors[ImGuiCol_SliderGrab]            = ImVec4(0.00f, 0.65f, 0.85f, 1.00f);
-        colors[ImGuiCol_SliderGrabActive]      = ImVec4(0.00f, 0.85f, 1.00f, 1.00f);
-        colors[ImGuiCol_Button]                = ImVec4(0.14f, 0.20f, 0.28f, 1.00f);
-        colors[ImGuiCol_ButtonHovered]         = ImVec4(0.20f, 0.30f, 0.42f, 1.00f);
-        colors[ImGuiCol_ButtonActive]          = ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
-        colors[ImGuiCol_Header]                = ImVec4(0.14f, 0.20f, 0.28f, 1.00f);
-        colors[ImGuiCol_HeaderHovered]         = ImVec4(0.20f, 0.30f, 0.42f, 1.00f);
-        colors[ImGuiCol_HeaderActive]          = ImVec4(0.00f, 0.55f, 0.75f, 1.00f);
-        colors[ImGuiCol_Separator]             = ImVec4(0.18f, 0.25f, 0.32f, 0.70f);
-        colors[ImGuiCol_SeparatorHovered]      = ImVec4(0.00f, 0.60f, 0.80f, 1.00f);
-        colors[ImGuiCol_SeparatorActive]       = ImVec4(0.00f, 0.80f, 1.00f, 1.00f);
-        colors[ImGuiCol_ResizeGrip]            = ImVec4(0.14f, 0.20f, 0.28f, 0.50f);
-        colors[ImGuiCol_ResizeGripHovered]     = ImVec4(0.00f, 0.60f, 0.80f, 0.78f);
-        colors[ImGuiCol_ResizeGripActive]      = ImVec4(0.00f, 0.80f, 1.00f, 1.00f);
-        colors[ImGuiCol_Tab]                   = ImVec4(0.10f, 0.14f, 0.20f, 1.00f);
-        colors[ImGuiCol_TabHovered]            = ImVec4(0.20f, 0.30f, 0.42f, 1.00f);
-        colors[ImGuiCol_TabActive]             = ImVec4(0.16f, 0.24f, 0.34f, 1.00f);
-        colors[ImGuiCol_TabUnfocused]          = ImVec4(0.08f, 0.10f, 0.14f, 1.00f);
-        colors[ImGuiCol_TabUnfocusedActive]    = ImVec4(0.12f, 0.16f, 0.22f, 1.00f);
-        colors[ImGuiCol_DockingPreview]        = ImVec4(0.00f, 0.60f, 0.80f, 0.70f);
-        colors[ImGuiCol_DockingEmptyBg]        = ImVec4(0.05f, 0.06f, 0.08f, 1.00f);
-        colors[ImGuiCol_PlotLines]             = ImVec4(0.00f, 0.75f, 0.95f, 1.00f);
-        colors[ImGuiCol_PlotLinesHovered]      = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
-        colors[ImGuiCol_PlotHistogram]         = ImVec4(0.00f, 0.60f, 0.80f, 1.00f);
-        colors[ImGuiCol_PlotHistogramHovered]  = ImVec4(0.00f, 0.80f, 1.00f, 1.00f);
-        colors[ImGuiCol_TableHeaderBg]         = ImVec4(0.10f, 0.14f, 0.20f, 1.00f);
-        colors[ImGuiCol_TableBorderStrong]     = ImVec4(0.18f, 0.25f, 0.32f, 1.00f);
-        colors[ImGuiCol_TableBorderLight]      = ImVec4(0.14f, 0.18f, 0.24f, 1.00f);
-        colors[ImGuiCol_TableRowBg]            = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-        colors[ImGuiCol_TableRowBgAlt]         = ImVec4(1.00f, 1.00f, 1.00f, 0.02f);
-        colors[ImGuiCol_TextSelectedBg]        = ImVec4(0.00f, 0.50f, 0.75f, 0.35f);
-        colors[ImGuiCol_DragDropTarget]        = ImVec4(1.00f, 0.80f, 0.00f, 0.90f);
-        colors[ImGuiCol_NavHighlight]          = ImVec4(0.00f, 0.60f, 0.80f, 1.00f);
-        colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
-        colors[ImGuiCol_NavWindowingDimBg]     = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
-        colors[ImGuiCol_ModalWindowDimBg]      = ImVec4(0.00f, 0.00f, 0.00f, 0.60f);
-    }
 
     static void setup_fonts(SDL_Window* window)
     {
@@ -349,7 +288,6 @@ namespace adam::cop
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-        setup_c2_theme();
         setup_fonts(ctx.window);
 
         ImGui_ImplSDL3_InitForOther(ctx.window);
@@ -367,6 +305,9 @@ namespace adam::cop
         }
 
         g_active_renderer_ctx = &ctx;
+        
+        adam::imgui_tools::init_textures(ctx.backend == gfx_backend::directx11, ctx.d3d_device);
+        
         return true;
     }
 
@@ -486,93 +427,5 @@ namespace adam::cop
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             SDL_GL_SwapWindow(ctx.window);
         }
-    }
-
-    ImTextureID create_texture_rgba(int width, int height, const uint8_t* pixels)
-    {
-        if (width <= 0 || height <= 0 || !pixels)
-        {
-            return (ImTextureID)0;
-        }
-
-#if defined(ADAM_PLATFORM_WINDOWS)
-        if (g_active_renderer_ctx && g_active_renderer_ctx->backend == gfx_backend::directx11)
-        {
-            ID3D11Device* pDevice = static_cast<ID3D11Device*>(g_active_renderer_ctx->d3d_device);
-            if (!pDevice)
-            {
-                return (ImTextureID)0;
-            }
-
-            D3D11_TEXTURE2D_DESC desc;
-            std::memset(&desc, 0, sizeof(desc));
-            desc.Width = width;
-            desc.Height = height;
-            desc.MipLevels = 1;
-            desc.ArraySize = 1;
-            desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-            desc.SampleDesc.Count = 1;
-            desc.Usage = D3D11_USAGE_DEFAULT;
-            desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-            ID3D11Texture2D* pTexture = nullptr;
-            D3D11_SUBRESOURCE_DATA initData;
-            std::memset(&initData, 0, sizeof(initData));
-            initData.pSysMem = pixels;
-            initData.SysMemPitch = width * 4;
-
-            HRESULT hr = pDevice->CreateTexture2D(&desc, &initData, &pTexture);
-            if (FAILED(hr) || !pTexture)
-            {
-                return (ImTextureID)0;
-            }
-
-            D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-            std::memset(&srvDesc, 0, sizeof(srvDesc));
-            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-            srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-            srvDesc.Texture2D.MipLevels = 1;
-
-            ID3D11ShaderResourceView* pSRV = nullptr;
-            hr = pDevice->CreateShaderResourceView(pTexture, &srvDesc, &pSRV);
-            pTexture->Release();
-
-            if (FAILED(hr))
-            {
-                return (ImTextureID)0;
-            }
-
-            return (ImTextureID)pSRV;
-        }
-#endif
-
-        GLuint tex = 0;
-        glGenTextures(1, &tex);
-        glBindTexture(GL_TEXTURE_2D, tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-
-        return (ImTextureID)(uintptr_t)tex;
-    }
-
-    void destroy_texture(ImTextureID texture_id)
-    {
-        if (!texture_id)
-        {
-            return;
-        }
-
-#if defined(ADAM_PLATFORM_WINDOWS)
-        if (g_active_renderer_ctx && g_active_renderer_ctx->backend == gfx_backend::directx11)
-        {
-            ID3D11ShaderResourceView* pSRV = reinterpret_cast<ID3D11ShaderResourceView*>(texture_id);
-            pSRV->Release();
-            return;
-        }
-#endif
-
-        GLuint tex = static_cast<GLuint>((uintptr_t)texture_id);
-        glDeleteTextures(1, &tex);
     }
 }

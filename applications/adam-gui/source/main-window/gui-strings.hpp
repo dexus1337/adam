@@ -34,6 +34,7 @@ namespace adam::gui
         combo_theme,
         theme_dark,
         theme_light,
+        theme_dark_navy,
         btn_clear_log,
         lbl_commander_connected,
         lbl_commander_disconnected,

@@ -49,6 +49,4 @@ namespace adam::gui
     /** @brief Retrieves the currently evaluated OS DPI scale */
     float get_current_dpi_scale();
 
-    /** @brief Creates a backend-agnostic ImGui texture (D3D11 ShaderResourceView or OpenGL Texture) from RGBA pixel buffer */
-    ImTextureID create_texture_rgba(int width, int height, const uint8_t* pixels);
 }
