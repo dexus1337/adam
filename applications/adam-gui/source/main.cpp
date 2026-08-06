@@ -1,4 +1,4 @@
-#include "setup.hpp"
+#include <renderer-setup.hpp>
 #include "main-window/main-window.hpp"
 #include "gui-controller.hpp"
 
@@ -20,9 +20,13 @@ int main(int, char**)
     g_gui_ctrl = std::make_unique<adam::gui::gui_controller>();
     auto& gui_ctrl = *g_gui_ctrl;
 
-    adam::gui::renderer_context renderer_ctx;
+    adam::imgui_tools::renderer_context renderer_ctx;
 
-    if (!adam::gui::initialize(renderer_ctx))
+    adam::imgui_tools::renderer_config config;
+    config.window_title = "ADAM GUI";
+    config.enable_viewports = true;
+
+    if (!adam::imgui_tools::initialize(renderer_ctx, config))
         return -1;
 
     gui_ctrl.set_redraw_callback([]() 
@@ -61,11 +65,11 @@ int main(int, char**)
             {
                 if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
                 {
-                    adam::gui::update_dpi_scale(renderer_ctx.window);
+                    adam::imgui_tools::update_dpi_scale(renderer_ctx.window);
                 }
                 if (event.type == SDL_EVENT_WINDOW_RESIZED)
                 {
-                    adam::gui::handle_resize(renderer_ctx);
+                    adam::imgui_tools::handle_resize(renderer_ctx);
                 }
                 if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_MAXIMIZED || event.type == SDL_EVENT_WINDOW_RESTORED)
                 {
@@ -121,13 +125,13 @@ int main(int, char**)
             frames_to_render--;
 
         // Render ImGui Frame
-        adam::gui::new_frame(renderer_ctx);
+        adam::imgui_tools::new_frame(renderer_ctx);
 
         ui_window.draw();
 
         // Render & Present
         bool vsync_enabled = (p_immediate->get_value() == 1) ? (p_fps_limit && p_fps_limit->get_value() == 4) : true;
-        adam::gui::render_frame(renderer_ctx, vsync_enabled);
+        adam::imgui_tools::render_frame(renderer_ctx, vsync_enabled);
 
         if (p_immediate->get_value() == 1)
         {
@@ -170,7 +174,7 @@ int main(int, char**)
 
     ui_window.save_window_state();
     gui_ctrl.stop();
-    adam::gui::shutdown(renderer_ctx);
+    adam::imgui_tools::shutdown(renderer_ctx);
 
     return 0;
 }

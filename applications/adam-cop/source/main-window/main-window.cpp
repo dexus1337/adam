@@ -13,7 +13,7 @@
 #include <imgui-tools.hpp>
 #include <cstdio>
 #include <SDL3/SDL_opengl.h>
-#include "../setup.hpp"
+#include <renderer-setup.hpp>
 #include <vector>
 #include <array>
 #include <os/os.hpp>
@@ -180,7 +180,7 @@ namespace adam::cop
 
         if (m_p_font_scale)
         {
-            ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::cop::get_current_dpi_scale();
+            ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
         }
 
         float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
@@ -256,26 +256,15 @@ namespace adam::cop
             return;
         }
 
-        if (ImGui::BeginMenu(get_cop_string(menu_file, lang)))
-        {
-            if (ImGui::MenuItem(get_cop_string(menu_exit, lang), "Alt+F4"))
-            {
-                SDL_Event quit_ev;
-                SDL_zerop(&quit_ev);
-                quit_ev.type = SDL_EVENT_QUIT;
-                SDL_PushEvent(&quit_ev);
-            }
-            ImGui::EndMenu();
-        }
-
         if (ImGui::BeginMenu(get_cop_string(menu_view, lang)))
         {
-            ImGui::MenuItem(get_cop_string(lbl_layers_panel, lang), nullptr, &m_show_control_panel);
+            std::string layers_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(lbl_layers_panel, lang));
+            ImGui::MenuItem(layers_str.c_str(), nullptr, &m_show_control_panel);
 
             if (m_p_show_performance)
             {
                 bool show_perf = m_p_show_performance->get_value();
-                if (ImGui::MenuItem("Performance Overlay", nullptr, &show_perf))
+                if (ImGui::MenuItem(get_cop_string(menu_show_performance, lang), nullptr, &show_perf))
                 {
                     m_p_show_performance->set_value(show_perf);
                 }
@@ -373,7 +362,7 @@ namespace adam::cop
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit())
                 {
-                    ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::cop::get_current_dpi_scale();
+                    ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
                 }
             }
 
@@ -793,7 +782,7 @@ namespace adam::cop
         ImGui::OpenPopup(get_cop_string(wnd_about, lang));
 
         ImGui::SetNextWindowSize(ImVec2(600, 480), ImGuiCond_FirstUseEver);
-        if (ImGui::BeginPopupModal(get_cop_string(wnd_about, lang), &m_show_about, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize))
+        if (ImGui::BeginPopupModal(get_cop_string(wnd_about, lang), &m_show_about, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking))
         {
             ImVec2 avail = ImGui::GetContentRegionAvail();
             float wrap_width = avail.x * 0.8f;
@@ -1016,7 +1005,7 @@ namespace adam::cop
             }
 
             int content = static_cast<int>(m_p_perf_ovly_content->get_value());
-            if ((content & 1) && m_p_gui_mode && m_p_gui_mode->get_value() == 1) ImGui::Text(get_cop_string(lbl_fps, lang), ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+            if (content & 1) ImGui::Text("%s %.1f (%.3f ms)", get_cop_string(lbl_fps, lang), ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
             if (content & 2) ImGui::Text(get_cop_string(lbl_cpu, lang), adam::os::get_cpu_usage());
             if (content & 4)
             {

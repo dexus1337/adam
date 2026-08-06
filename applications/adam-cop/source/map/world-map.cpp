@@ -527,6 +527,8 @@ namespace adam::cop
             screen_pts.clear();
             screen_pts.reserve(poly.points.size());
 
+            bool broke_at_antimeridian = false;
+
             float curr_rel_lon = poly.points[0].lon - m_center_lon;
             while (curr_rel_lon > 180.0f)
             {
@@ -543,6 +545,19 @@ namespace adam::cop
                 if (i > 0)
                 {
                     float dlon = pt.lon - poly.points[i - 1].lon;
+
+                    // Detect antimeridian crossing (raw delta > 90° means the polygon wraps around ±180°)
+                    if (std::abs(dlon) > 90.0f)
+                    {
+                        // Flush accumulated segment
+                        if (screen_pts.size() >= 2)
+                        {
+                            draw_list->AddPolyline(screen_pts.data(), static_cast<int>(screen_pts.size()), col_coast, 0, 1.5f);
+                        }
+                        screen_pts.clear();
+                        broke_at_antimeridian = true;
+                    }
+
                     while (dlon > 180.0f)
                     {
                         dlon -= 360.0f;
@@ -575,7 +590,8 @@ namespace adam::cop
 
             if (screen_pts.size() >= 2)
             {
-                draw_list->AddPolyline(screen_pts.data(), static_cast<int>(screen_pts.size()), col_coast, poly.is_closed ? ImDrawFlags_Closed : 0, 1.5f);
+                ImDrawFlags flags = (poly.is_closed && !broke_at_antimeridian) ? ImDrawFlags_Closed : 0;
+                draw_list->AddPolyline(screen_pts.data(), static_cast<int>(screen_pts.size()), col_coast, flags, 1.5f);
             }
         }
     }

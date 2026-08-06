@@ -1,5 +1,5 @@
 #include "main-window.hpp"
-#include "../setup.hpp"
+#include <renderer-setup.hpp>
 
 
 #include <imgui.h>
@@ -178,7 +178,7 @@ namespace adam::gui
         if (maximized)
             SDL_MaximizeWindow(m_window);
 
-        ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::gui::get_current_dpi_scale();
+        ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
                 adam::imgui_tools::gui_theme active_theme = adam::imgui_tools::parse_theme(m_p_theme->get_value().get_hash());
         adam::imgui_tools::apply_theme(active_theme);
 
@@ -545,7 +545,7 @@ namespace adam::gui
             }
             if (ImGui::IsItemDeactivatedAfterEdit())
             {
-                ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::gui::get_current_dpi_scale();
+                ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
             }
 
             ImGui::Separator();

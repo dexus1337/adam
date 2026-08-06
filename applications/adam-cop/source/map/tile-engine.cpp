@@ -7,7 +7,7 @@
  */
 
 #include "tile-engine.hpp"
-#include "../setup.hpp"
+#include <renderer-setup.hpp>
 
 #include <adam-sdk.hpp>
 #include <imgui.h>

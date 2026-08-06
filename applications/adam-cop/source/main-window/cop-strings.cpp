@@ -61,7 +61,7 @@ namespace adam::cop
             { lbl_status_offline, { "DISCONNECTED", "GETRENNT" } },
             { wnd_log_console, { "System Log Console", "Systemprotokoll" } },
             { wnd_asterix_connections, { "ASTERIX Sources & Multi-Sensor Tracking", "ASTERIX Quellen & Multi-Sensor Tracking" } },
-            { wnd_about, { "About adam-cop", "Über adam-cop" } },
+            { wnd_about, { "About###WndAbout", "Über###WndAbout" } },
             { msg_cop_description, { "ADAM Common Operational Picture (COP) for ASTERIX multi-sensor tracking and map overview.", "ADAM Common Operational Picture (COP) für ASTERIX Multi-Sensor Tracking und Lagebilddarstellung." } },
             { msg_cop_copyright, { "© 2026 dexus1337. All rights reserved.", "© 2026 dexus1337. Alle Rechte vorbehalten." } },
             { menu_settings, { "Settings", "Einstellungen" } },

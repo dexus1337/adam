@@ -6,7 +6,7 @@
  * @date    05.08.2026
  */
 
-#include "setup.hpp"
+#include <renderer-setup.hpp>
 #include "main-window/main-window.hpp"
 #include "cop-controller.hpp"
 
@@ -29,9 +29,13 @@ int main(int, char**)
     g_cop_ctrl = std::make_unique<adam::cop::cop_controller>();
     auto& cop_ctrl = *g_cop_ctrl;
 
-    adam::cop::renderer_context renderer_ctx;
+    adam::imgui_tools::renderer_context renderer_ctx;
 
-    if (!adam::cop::initialize(renderer_ctx))
+    adam::imgui_tools::renderer_config config;
+    config.window_title = "ADAM COP";
+    config.enable_viewports = false;
+
+    if (!adam::imgui_tools::initialize(renderer_ctx, config))
     {
         return -1;
     }
@@ -78,12 +82,12 @@ int main(int, char**)
             {
                 if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
                 {
-                    adam::cop::update_dpi_scale(renderer_ctx.window);
+                    adam::imgui_tools::update_dpi_scale(renderer_ctx.window);
                 }
 
                 if (event.type == SDL_EVENT_WINDOW_RESIZED)
                 {
-                    adam::cop::handle_resize(renderer_ctx);
+                    adam::imgui_tools::handle_resize(renderer_ctx);
                 }
 
                 if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_RESIZED ||
@@ -151,12 +155,12 @@ int main(int, char**)
         }
 
         // Render Frame
-        adam::cop::new_frame(renderer_ctx);
+        adam::imgui_tools::new_frame(renderer_ctx);
 
         ui_window.draw();
 
         bool vsync_enabled = p_fps_limit && (p_fps_limit->get_value() == 4);
-        adam::cop::render_frame(renderer_ctx, vsync_enabled);
+        adam::imgui_tools::render_frame(renderer_ctx, vsync_enabled);
 
         int limit_setting = p_fps_limit ? static_cast<int>(p_fps_limit->get_value()) : 2;
         double target_fps = 60.0;
@@ -193,7 +197,7 @@ int main(int, char**)
 
     ui_window.save_window_state();
     cop_ctrl.stop();
-    adam::cop::shutdown(renderer_ctx);
+    adam::imgui_tools::shutdown(renderer_ctx);
 
     return 0;
 }

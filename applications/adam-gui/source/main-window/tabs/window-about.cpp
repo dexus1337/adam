@@ -8,7 +8,7 @@
 
 #include "window-about.hpp"
 #include "../main-window.hpp"
-#include "../../setup.hpp"
+#include <renderer-setup.hpp>
 #include <adam-sdk.hpp>
 #include <imgui-tools.hpp>
 #include <imgui.h>
@@ -101,7 +101,7 @@ namespace adam::gui
         ImGui::OpenPopup(get_gui_string(gui_string_id::wnd_about, lang));
         
         ImGui::SetNextWindowSize(ImVec2(600, 480), ImGuiCond_FirstUseEver);
-        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::wnd_about, lang), &show_about, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize))
+        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::wnd_about, lang), &show_about, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking))
         {
             ImVec2 avail = ImGui::GetContentRegionAvail();
             float wrap_width = avail.x * 0.8f;

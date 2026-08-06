@@ -1,18 +1,9 @@
-/**
- * @file    setup.cpp
- * @author  dexus1337
- * @brief   Renderer context and ImGui setup implementation for adam-cop
- * @version 1.0
- * @date    05.08.2026
- */
-
-#include "setup.hpp"
+#include "renderer-setup.hpp"
 
 #include <SDL3/SDL_opengl.h>
-#include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
-#include <imgui-tools.hpp>
+#include "imgui-tools.hpp"
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <d3d11.h>
@@ -25,7 +16,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace adam::cop
+namespace adam::imgui_tools
 {
     static float g_current_dpi_scale = 0.0f;
     static renderer_context* g_active_renderer_ctx = nullptr;
@@ -35,64 +26,59 @@ namespace adam::cop
         return g_current_dpi_scale;
     }
 
-    void update_dpi_scale(SDL_Window* window)
+    void update_dpi_scale(SDL_Window* window, std::function<void()> style_cb)
     {
-        if (!window)
-        {
-            return;
-        }
-
+        if (!window) return;
+        
         float new_dpi_scale = SDL_GetWindowDisplayScale(window);
-        if (new_dpi_scale <= 0.0f)
-        {
-            new_dpi_scale = 1.0f;
-        }
+        if (new_dpi_scale <= 0.0f) new_dpi_scale = 1.0f;
 
-        if (new_dpi_scale == g_current_dpi_scale)
-        {
-            return;
-        }
+        if (new_dpi_scale == g_current_dpi_scale) 
+            return; // No DPI change
 
         ImGuiStyle default_style;
         ImGuiStyle& style = ImGui::GetStyle();
-
+        
         for (int i = 0; i < ImGuiCol_COUNT; i++)
-        {
             default_style.Colors[i] = style.Colors[i];
-        }
-
+            
         style = default_style;
 
-        // Tactical C2 Operator Theme Styling
-        style.WindowRounding = 4.0f;
-        style.FrameRounding = 3.0f;
-        style.PopupRounding = 4.0f;
-        style.ScrollbarRounding = 4.0f;
-        style.GrabRounding = 3.0f;
-        style.TabRounding = 4.0f;
-        style.ChildRounding = 4.0f;
+        if (style_cb)
+        {
+            style_cb(); // Allow applications to inject custom styles
+        }
+        else
+        {
+            // Default Modern Dark Theme Styling
+            style.WindowRounding = 8.0f;
+            style.FrameRounding = 6.0f;
+            style.PopupRounding = 8.0f;
+            style.ScrollbarRounding = 6.0f;
+            style.GrabRounding = 6.0f;
+            style.TabRounding = 6.0f;
+            style.ChildRounding = 6.0f;
 
-        style.WindowPadding = ImVec2(8.0f, 8.0f);
-        style.FramePadding = ImVec2(6.0f, 4.0f);
-        style.ItemSpacing = ImVec2(6.0f, 4.0f);
-        style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
+            style.WindowPadding = ImVec2(10.0f, 10.0f);
+            style.FramePadding = ImVec2(8.0f, 4.0f);
+            style.ItemSpacing = ImVec2(8.0f, 6.0f);
+            style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
 
-        style.WindowMinSize = ImVec2(32.0f, 32.0f);
+            style.WindowMinSize = ImVec2(32.0f, 32.0f);
 
-        style.WindowBorderSize = 1.0f;
-        style.FrameBorderSize = 1.0f;
-        style.PopupBorderSize = 1.0f;
+            style.WindowBorderSize = 1.0f;
+            style.FrameBorderSize = 1.0f;
+            style.PopupBorderSize = 1.0f;
+        }
 
         style.ScaleAllSizes(new_dpi_scale);
-
         g_current_dpi_scale = new_dpi_scale;
     }
 
-
-    static void setup_fonts(SDL_Window* window)
+    static void setup_fonts(SDL_Window* window, std::function<void()> style_cb)
     {
         ImGuiIO& io = ImGui::GetIO();
-        update_dpi_scale(window);
+        update_dpi_scale(window, style_cb);
 
         io.Fonts->Clear();
 
@@ -100,38 +86,63 @@ namespace adam::cop
 
         #if defined(ADAM_PLATFORM_WINDOWS)
         if (std::filesystem::exists("C:\\Windows\\Fonts\\tahoma.ttf"))
-        {
             default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f);
-        }
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
-        {
             default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 16.0f);
-        }
         #elif defined(ADAM_PLATFORM_LINUX)
         if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSans.ttf"))
-        {
             default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f);
-        }
         else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
-        {
             default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f);
-        }
+        else if (std::filesystem::exists("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf"))
+            default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf", 16.0f);
+        else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
+            default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationSans-Regular.ttf", 16.0f);
+        #elif defined(__APPLE__)
+        if (std::filesystem::exists("/System/Library/Fonts/Helvetica.ttc"))
+            default_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
         #endif
 
         if (!default_font)
-        {
-            io.Fonts->AddFontDefault();
-        }
+            default_font = io.Fonts->AddFontDefault();
+
+        ImFontConfig mono_config;
+        std::strncpy(mono_config.Name, "monospace", sizeof(mono_config.Name));
+        mono_config.Name[sizeof(mono_config.Name) - 1] = '\0';
+
+        ImFont* g_mono_font = nullptr;
+
+        if (std::filesystem::exists("font.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f);
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        else if (std::filesystem::exists("C:\\Windows\\Fonts\\consola.ttf")) 
+            g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("C:\\Windows\\Fonts\\cour.ttf")) 
+            g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\cour.ttf", 16.0f, &mono_config);
+        #elif defined(ADAM_PLATFORM_LINUX)
+        else if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSansMono.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationMono-Regular.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationMono-Regular.ttf", 16.0f, &mono_config);
+        #elif defined(__APPLE__)
+        if (std::filesystem::exists("/System/Library/Fonts/Menlo.ttc"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/System/Library/Fonts/Monaco.ttf"))
+            g_mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Monaco.ttf", 16.0f, &mono_config);
+        #endif
+
+        io.FontDefault = default_font;
     }
 
     #if defined(ADAM_PLATFORM_WINDOWS)
     static bool init_d3d11(renderer_context& ctx)
     {
         HWND hwnd = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(ctx.window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
-        if (!hwnd)
-        {
-            return false;
-        }
+        if (!hwnd) return false;
 
         DXGI_SWAP_CHAIN_DESC sd;
         ZeroMemory(&sd, sizeof(sd));
@@ -163,10 +174,7 @@ namespace adam::cop
             &d3d_device, &featureLevel, &d3d_context
         );
 
-        if (FAILED(hr))
-        {
-            return false;
-        }
+        if (FAILED(hr)) return false;
 
         ctx.d3d_device = d3d_device;
         ctx.d3d_device_context = d3d_context;
@@ -210,8 +218,10 @@ namespace adam::cop
     }
     #endif
 
-    bool initialize(renderer_context& ctx)
+    bool initialize(renderer_context& ctx, const renderer_config& config)
     {
+        ctx.config = config;
+
         if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
         {
             return false;
@@ -223,18 +233,19 @@ namespace adam::cop
             display_scale = 1.0f;
         }
 
-        int window_w = static_cast<int>(window_min_size.x * display_scale);
-        int window_h = static_cast<int>(window_min_size.y * display_scale);
+        int window_w = static_cast<int>(config.window_min_size.x * display_scale);
+        int window_h = static_cast<int>(config.window_min_size.y * display_scale);
 
         SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 
         #if defined(ADAM_PLATFORM_WINDOWS)
         ctx.backend = gfx_backend::directx11;
-        ctx.window = SDL_CreateWindow("adam-cop (Common Operational Picture)", window_w, window_h, window_flags);
+        ctx.window = SDL_CreateWindow(config.window_title, window_w, window_h, window_flags);
         if (!ctx.window || !init_d3d11(ctx))
         {
             if (ctx.window)
             {
+                cleanup_d3d11(ctx);
                 SDL_DestroyWindow(ctx.window);
                 ctx.window = nullptr;
             }
@@ -262,11 +273,8 @@ namespace adam::cop
             SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
             window_flags = (SDL_WindowFlags)(window_flags | SDL_WINDOW_OPENGL);
-            ctx.window = SDL_CreateWindow("adam-cop (Common Operational Picture)", window_w, window_h, window_flags);
-            if (!ctx.window)
-            {
-                return false;
-            }
+            ctx.window = SDL_CreateWindow(config.window_title, window_w, window_h, window_flags);
+            if (!ctx.window) return false;
 
             ctx.gl_context = SDL_GL_CreateContext(ctx.window);
             if (!ctx.gl_context)
@@ -274,11 +282,12 @@ namespace adam::cop
                 SDL_DestroyWindow(ctx.window);
                 return false;
             }
+
             SDL_GL_MakeCurrent(ctx.window, ctx.gl_context);
             SDL_GL_SetSwapInterval(1);
         }
 
-        SDL_SetWindowMinimumSize(ctx.window, static_cast<int>(window_min_size.x), static_cast<int>(window_min_size.y));
+        SDL_SetWindowMinimumSize(ctx.window, static_cast<int>(config.window_min_size.x), static_cast<int>(config.window_min_size.y));
         SDL_SetWindowPosition(ctx.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
         SDL_ShowWindow(ctx.window);
 
@@ -287,9 +296,16 @@ namespace adam::cop
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        
+        if (config.enable_viewports)
+        {
+            io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+            io.ConfigViewportsNoDecoration = false;
+        }
+
         io.IniFilename = nullptr;
 
-        setup_fonts(ctx.window);
+        setup_fonts(ctx.window, config.on_style_setup);
 
         if (ctx.backend == gfx_backend::directx11)
         {
@@ -305,13 +321,13 @@ namespace adam::cop
         }
 
         g_active_renderer_ctx = &ctx;
-        
+
         #if defined(ADAM_PLATFORM_WINDOWS)
         adam::imgui_tools::init_textures(ctx.backend == gfx_backend::directx11, ctx.d3d_device);
         #else
         adam::imgui_tools::init_textures();
         #endif
-        
+
         return true;
     }
 
@@ -356,10 +372,7 @@ namespace adam::cop
 
     void handle_resize(renderer_context& ctx)
     {
-        if (!ctx.window)
-        {
-            return;
-        }
+        if (!ctx.window) return;
 
         #if defined(ADAM_PLATFORM_WINDOWS)
         if (ctx.backend == gfx_backend::directx11 && ctx.swap_chain && ctx.d3d_device)
@@ -404,6 +417,7 @@ namespace adam::cop
     void render_frame(renderer_context& ctx, bool vsync_enabled)
     {
         ImGui::Render();
+        ImGuiIO& io = ImGui::GetIO();
 
         if (ctx.backend == gfx_backend::directx11)
         {
@@ -418,17 +432,33 @@ namespace adam::cop
                 d3d_context->OMSetRenderTargets(1, &main_rtv, NULL);
                 d3d_context->ClearRenderTargetView(main_rtv, clear_color);
                 ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+                
+                if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+                {
+                    ImGui::UpdatePlatformWindows();
+                    ImGui::RenderPlatformWindowsDefault();
+                }
+
                 swap_chain->Present(vsync_enabled ? 1 : 0, 0);
             }
             #endif
         }
         else if (ctx.backend == gfx_backend::opengl3)
         {
-            ImGuiIO& io = ImGui::GetIO();
             glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
             glClearColor(0.07f, 0.09f, 0.12f, 1.00f);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            
+            if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+            {
+                SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
+                SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
+                SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
+            }
+
             SDL_GL_SwapWindow(ctx.window);
         }
     }
