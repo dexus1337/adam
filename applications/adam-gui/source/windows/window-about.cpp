@@ -100,8 +100,9 @@ namespace adam::gui
 
         ImGui::OpenPopup(get_gui_string(gui_string_id::wnd_about, lang));
         
-        ImGui::SetNextWindowSize(ImVec2(600, 480), ImGuiCond_FirstUseEver);
-        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::wnd_about, lang), &show_about, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking))
+        float dpi_scale = ImGui::GetStyle()._MainScale;
+        ImGui::SetNextWindowSize(ImVec2(600 * dpi_scale, 480 * dpi_scale), ImGuiCond_Appearing);
+        if (ImGui::BeginPopupModal(get_gui_string(gui_string_id::wnd_about, lang), &show_about, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
         {
             ImVec2 avail = ImGui::GetContentRegionAvail();
             float wrap_width = avail.x * 0.8f;
