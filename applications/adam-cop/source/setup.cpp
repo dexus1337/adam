@@ -291,11 +291,10 @@ namespace adam::cop
 
         setup_fonts(ctx.window);
 
-        ImGui_ImplSDL3_InitForOther(ctx.window);
-
         if (ctx.backend == gfx_backend::directx11)
         {
 #if defined(ADAM_PLATFORM_WINDOWS)
+            ImGui_ImplSDL3_InitForOther(ctx.window);
             ImGui_ImplDX11_Init((ID3D11Device*)ctx.d3d_device, (ID3D11DeviceContext*)ctx.d3d_device_context);
 #endif
         }
