@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file    world-map-data.hpp
+ * @file    coastlines.hpp
  * @author  dexus1337
  * @brief   Embedded vector coastline and landmass coordinate datasets
  * @version 1.0
@@ -26,5 +26,5 @@ namespace adam::cop
     };
 
     /** @brief Retrieves the static global vector map dataset */
-    const std::vector<map_polyline>& get_world_map_vector_data();
+    const std::vector<map_polyline>& get_coastlines_vector_data();
 }

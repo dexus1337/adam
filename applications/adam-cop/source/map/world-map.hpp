@@ -8,7 +8,7 @@
  * @date    05.08.2026
  */
 
-#include "world-map-data.hpp"
+#include "coastlines.hpp"
 #include "tile-engine.hpp"
 #include "tile-provider.hpp"
 #include <imgui.h>

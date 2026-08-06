@@ -509,7 +509,7 @@ namespace adam::cop
 
     void world_map::render_vector_land(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options)
     {
-        const auto& polylines = get_world_map_vector_data();
+        const auto& polylines = get_coastlines_vector_data();
         ImU32 col_coast = ImGui::ColorConvertFloat4ToU32(options.coastline_color);
 
         float map_base_scale = size.x / 360.0f;
