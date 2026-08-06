@@ -170,6 +170,7 @@ int main(int, char**)
             case 2: target_fps = 60.0; break;
             case 3: target_fps = 120.0; break;
             case 4: target_fps = 0.0; break; // VSync
+            case 5: target_fps = 0.0; break; // Unlimited
         }
 
         if (target_fps > 0.0)

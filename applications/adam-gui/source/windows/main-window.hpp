@@ -107,7 +107,6 @@ namespace adam::gui
         SDL_Window* m_window;
 
         adam::configuration_parameter_boolean* m_p_show_log;
-        adam::configuration_parameter_boolean* m_p_show_inspector;
         adam::configuration_parameter_boolean* m_p_show_performance;
         adam::configuration_parameter_integer* m_p_gui_mode;
         adam::configuration_parameter_integer* m_p_fps_limit;

@@ -91,7 +91,6 @@ namespace adam::gui
         auto& params = m_ctrl.get_parameters();
 
         m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"_ct));
-        m_p_show_inspector      = static_cast<adam::configuration_parameter_boolean*>(params.get("show_inspector"_ct));
         m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
         m_p_gui_mode            = static_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
         m_p_fps_limit           = static_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
@@ -345,10 +344,7 @@ namespace adam::gui
         ImGui::End();
 
         if (g_request_open_inspector)
-        {
-            m_p_show_inspector->set_value(true);
             g_request_open_inspector = false;
-        }
 
         ImGuiWindowClass no_close_tab_class;
         no_close_tab_class.DockNodeFlagsOverrideSet = (ImGuiDockNodeFlags)(1 << 15);

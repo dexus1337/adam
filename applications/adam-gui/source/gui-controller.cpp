@@ -10,7 +10,6 @@ namespace adam::gui
         {
             configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_boolean>("show_log"_ct, true));
-            p.add(std::make_unique<configuration_parameter_boolean>("show_inspector"_ct, true));
             p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0));
             p.add(std::make_unique<configuration_parameter_integer>("fps_limit"_ct, 4));
             p.add(std::make_unique<configuration_parameter_boolean>("show_performance"_ct, false));
