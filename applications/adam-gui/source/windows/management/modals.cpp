@@ -502,7 +502,7 @@ namespace adam::gui
             g_request_port_popup = false;
         }
 
-        ImGui::SetNextWindowSize(ImVec2(1200.0f * dpi_scale, 600.0f * dpi_scale), ImGuiCond_Appearing);
+        ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x * 0.75f, ImGui::GetMainViewport()->Size.y * 0.75f), ImGuiCond_Appearing);
         if (!ImGui::BeginPopupModal(g_port_popup_title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
         {
             return;
@@ -827,7 +827,7 @@ namespace adam::gui
             g_request_processor_popup = false;
         }
 
-        ImGui::SetNextWindowSize(ImVec2(1200.0f * dpi_scale, 600.0f * dpi_scale), ImGuiCond_Appearing);
+        ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x * 0.75f, ImGui::GetMainViewport()->Size.y * 0.75f), ImGuiCond_Appearing);
         if (!ImGui::BeginPopupModal(g_processor_popup_title, nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
         {
             return;

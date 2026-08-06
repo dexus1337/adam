@@ -183,14 +183,16 @@ namespace adam::gui
             float start_cursor_y = ImGui::GetCursorPosY();
             float start_cursor_x = ImGui::GetCursorPosX();
 
-            total_height += title_size.y + large_spacing;
-            total_height += item_spacing;
-            total_height += version_size.y + large_spacing;
+            total_height += title_size.y + item_spacing * 2.0f;
+            total_height += item_spacing * 2.0f;
+            total_height += version_size.y + item_spacing + large_spacing;
             total_height += desc_size.y + large_spacing;
             total_height += cpy1_size.y + item_spacing;
-            total_height += cpy2_size.y;
+            total_height += cpy2_size.y + item_spacing;
+            total_height += item_spacing * 2.0f;
+            total_height += ImGui::GetFrameHeight();
 
-            float start_y = (avail.y - total_height) * 0.5f - ImGui::GetFrameHeight() * 1.5f;
+            float start_y = (avail.y - total_height) * 0.5f;
             if (start_y > 0.0f) 
             {
                 ImGui::SetCursorPosY(start_cursor_y + start_y);
