@@ -522,7 +522,7 @@ namespace adam::modules::asterix
 
             uint32_t block_end_raw = block_start_raw + block_len;
 
-            // At this point we have a valid block. No need to count blocks (for now) since we already did that in the guess_internal_buffer_size function
+            // At this point we have a valid block. No need to count blocks (for now) since we already did that in the prepass_blocks function
 
             // Reserve space for block
             uint32_t block_offset = out_offset;
@@ -554,7 +554,7 @@ namespace adam::modules::asterix
                 
                     if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns))
                     {
-                        // Log FSPEC invalid, move to next block
+                        // TODO: Log FSPEC invalid, move to next block
                         raw_offset = block_end_raw; break;
                     }
 
@@ -565,19 +565,13 @@ namespace adam::modules::asterix
                     const uap* active_uap = raw_rec_head->retrieve_uap(raw_block_head, fspec_size, raw_length);
                     if (!active_uap)
                     {
-                        // Log UAP not available, move to next block
+                        // TODO: Log UAP not available, move to next block
                         raw_offset = block_end_raw; break;
                     }
                     
                     // Set possible remaining active_frns to false
                     if (resolved_frns < active_uap->get_highest_frn())
                         std::memset(active_frns + resolved_frns + 1, 0, active_uap->get_highest_frn() - resolved_frns);
-
-                    if (internal_data->get_capacity() < out_offset + sizeof(record))
-                    {
-                        // Out buffer too small for additional record, move to next block
-                        raw_offset = block_end_raw; break;
-                    }
 
                     // At this point we have a valid record
                     record_count++;

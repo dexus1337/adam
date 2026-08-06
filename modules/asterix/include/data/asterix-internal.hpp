@@ -69,6 +69,51 @@
 
 namespace adam::modules::asterix
 {
+    /**
+     * @enum    item_type
+     * @brief   The type of an asterix item.
+     */
+    enum item_type : uint8_t
+    {
+        item_type_fixed,
+        item_type_variable,
+        item_type_repetetive,
+        item_type_compound,
+        item_type_explicit
+    };
+
+    enum item_flag : uint8_t
+    {
+        item_flag_none      = 0,
+        item_flag_populated = 1 << 0,
+        item_flag_child     = 1 << 1,
+        item_flag_modified  = 1 << 2
+    };
+    enable_enum_bit_operations(item_flag);
+
+    enum record_flag : uint8_t
+    {
+        record_flag_none     = 0,
+        record_flag_modified = 1 << 0,
+        record_flag_has_next = 1 << 1
+    };
+    enable_enum_bit_operations(record_flag);
+
+    enum block_flag : uint8_t
+    {
+        block_flag_none     = 0,
+        block_flag_modified = 1 << 0,
+        block_flag_has_next = 1 << 1
+    };
+    enable_enum_bit_operations(block_flag);
+
+    enum frame_flag : uint8_t
+    {
+        frame_flag_none     = 0,
+        frame_flag_modified = 1 << 0
+    };
+    enable_enum_bit_operations(frame_flag);
+
     class uap;
 
     struct item;
@@ -116,51 +161,6 @@ namespace adam::modules::asterix
     private:
         pointer m_ptr;
     };
-
-    /**
-     * @enum    item_type
-     * @brief   The type of an asterix item.
-     */
-    enum item_type : uint8_t
-    {
-        item_type_fixed,
-        item_type_variable,
-        item_type_repetetive,
-        item_type_compound,
-        item_type_explicit
-    };
-
-    enum item_flag : uint8_t
-    {
-        item_flag_none      = 0,
-        item_flag_populated = 1 << 0,
-        item_flag_child     = 1 << 1,
-        item_flag_modified  = 1 << 2
-    };
-    enable_enum_bit_operations(item_flag);
-
-    enum record_flag : uint8_t
-    {
-        record_flag_none     = 0,
-        record_flag_modified = 1 << 0,
-        record_flag_has_next = 1 << 1
-    };
-    enable_enum_bit_operations(record_flag);
-
-    enum block_flag : uint8_t
-    {
-        block_flag_none     = 0,
-        block_flag_modified = 1 << 0,
-        block_flag_has_next = 1 << 1
-    };
-    enable_enum_bit_operations(block_flag);
-
-    enum frame_flag : uint8_t
-    {
-        frame_flag_none     = 0,
-        frame_flag_modified = 1 << 0
-    };
-    enable_enum_bit_operations(frame_flag);
 
     #pragma pack(push, 1)
 
@@ -250,9 +250,9 @@ namespace adam::modules::asterix
         }
 
         inline bool has_next() const { return flags & record_flag_has_next; }
-        inline void set_has_next(bool hash = true)
+        inline void set_has_next(bool has = true)
         {
-            if (hash)
+            if (has)
                 flags |= record_flag_has_next;
             else
                 flags &= ~record_flag_has_next;
