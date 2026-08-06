@@ -6,7 +6,7 @@
 namespace adam::imgui_tools
 {
     /** @brief Initializes the texture manager with the active graphics backend */
-    void init_textures(bool is_directx11, void* d3d_device = nullptr);
+    void init_textures(bool is_directx11 = false, void* d3d_device = nullptr);
 
     /** @brief Creates a backend-agnostic ImGui texture (D3D11 ShaderResourceView or OpenGL Texture) from RGBA pixel buffer */
     ImTextureID create_texture_rgba(int width, int height, const uint8_t* pixels);
