@@ -10,7 +10,7 @@
 
 namespace adam::network_tools
 {
-#if defined(ADAM_PLATFORM_WINDOWS)
+    #if defined(ADAM_PLATFORM_WINDOWS)
     bool download_file(const std::string& url, const std::string& user_agent, std::vector<uint8_t>& out_bytes)
     {
         if (url.empty()) return false;
@@ -43,7 +43,7 @@ namespace adam::network_tools
 
         return !out_bytes.empty();
     }
-#else
+    #else
     static size_t curl_write_callback(void* contents, size_t size, size_t nmemb, void* userp)
     {
         size_t total_size = size * nmemb;
@@ -73,5 +73,5 @@ namespace adam::network_tools
 
         return (res == CURLE_OK && !out_bytes.empty());
     }
-#endif
+    #endif
 }

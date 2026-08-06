@@ -30,7 +30,7 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_integer>("base_provider"_ct, 0)); // 0 = CartoDB Dark, 1 = OSM, 2 = Satellite, 3 = Topo, 4 = Vector
             p.add(std::make_unique<configuration_parameter_double>("map_opacity"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, static_cast<int>(adam::language_english)));
-            p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "dark_navy"));
+            p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "dark_navy"_ct));
             p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0)); // 0 = Default, 1 = Immediate
             p.add(std::make_unique<configuration_parameter_double>("font_scale"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_integer>("window_x"_ct, -1));
@@ -38,7 +38,7 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_integer>("window_w"_ct, 1280));
             p.add(std::make_unique<configuration_parameter_integer>("window_h"_ct, 720));
             p.add(std::make_unique<configuration_parameter_boolean>("window_maximized"_ct, false));
-            p.add(std::make_unique<configuration_parameter_string>("docking_layout"_ct, ""));
+            p.add(std::make_unique<configuration_parameter_string>("docking_layout"_ct, ""_ct));
             return p;
         }();
         return params;

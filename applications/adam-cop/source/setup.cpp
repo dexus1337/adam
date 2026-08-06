@@ -98,7 +98,7 @@ namespace adam::cop
 
         ImFont* default_font = nullptr;
 
-#if defined(ADAM_PLATFORM_WINDOWS)
+        #if defined(ADAM_PLATFORM_WINDOWS)
         if (std::filesystem::exists("C:\\Windows\\Fonts\\tahoma.ttf"))
         {
             default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f);
@@ -107,7 +107,7 @@ namespace adam::cop
         {
             default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 16.0f);
         }
-#elif defined(ADAM_PLATFORM_LINUX)
+        #elif defined(ADAM_PLATFORM_LINUX)
         if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSans.ttf"))
         {
             default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f);
@@ -116,7 +116,7 @@ namespace adam::cop
         {
             default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f);
         }
-#endif
+        #endif
 
         if (!default_font)
         {
@@ -124,7 +124,7 @@ namespace adam::cop
         }
     }
 
-#if defined(ADAM_PLATFORM_WINDOWS)
+    #if defined(ADAM_PLATFORM_WINDOWS)
     static bool init_d3d11(renderer_context& ctx)
     {
         HWND hwnd = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(ctx.window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
@@ -208,7 +208,7 @@ namespace adam::cop
             ctx.d3d_device = nullptr;
         }
     }
-#endif
+    #endif
 
     bool initialize(renderer_context& ctx)
     {
@@ -228,7 +228,7 @@ namespace adam::cop
 
         SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 
-#if defined(ADAM_PLATFORM_WINDOWS)
+        #if defined(ADAM_PLATFORM_WINDOWS)
         ctx.backend = gfx_backend::directx11;
         ctx.window = SDL_CreateWindow("adam-cop (Common Operational Picture)", window_w, window_h, window_flags);
         if (!ctx.window || !init_d3d11(ctx))
@@ -240,23 +240,23 @@ namespace adam::cop
             }
             ctx.backend = gfx_backend::opengl3;
         }
-#endif
+        #endif
 
         if (ctx.backend == gfx_backend::opengl3)
         {
-#if defined(ADAM_PLATFORM_APPLE)
+            #if defined(ADAM_PLATFORM_APPLE)
             ctx.glsl_version = "#version 150";
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-#else
+            #else
             ctx.glsl_version = "#version 130";
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#endif
+            #endif
             SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
             SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
             SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
@@ -295,9 +295,9 @@ namespace adam::cop
 
         if (ctx.backend == gfx_backend::directx11)
         {
-#if defined(ADAM_PLATFORM_WINDOWS)
+            #if defined(ADAM_PLATFORM_WINDOWS)
             ImGui_ImplDX11_Init((ID3D11Device*)ctx.d3d_device, (ID3D11DeviceContext*)ctx.d3d_device_context);
-#endif
+            #endif
         }
         else if (ctx.backend == gfx_backend::opengl3)
         {
@@ -307,7 +307,11 @@ namespace adam::cop
 
         g_active_renderer_ctx = &ctx;
         
+        #if defined(ADAM_PLATFORM_WINDOWS)
         adam::imgui_tools::init_textures(ctx.backend == gfx_backend::directx11, ctx.d3d_device);
+        #else
+        adam::imgui_tools::init_textures();
+        #endif
         
         return true;
     }
@@ -316,9 +320,9 @@ namespace adam::cop
     {
         if (ctx.backend == gfx_backend::directx11)
         {
-#if defined(ADAM_PLATFORM_WINDOWS)
+            #if defined(ADAM_PLATFORM_WINDOWS)
             ImGui_ImplDX11_Shutdown();
-#endif
+            #endif
         }
         else if (ctx.backend == gfx_backend::opengl3)
         {
@@ -328,12 +332,12 @@ namespace adam::cop
         ImGui_ImplSDL3_Shutdown();
         ImGui::DestroyContext();
 
-#if defined(ADAM_PLATFORM_WINDOWS)
+        #if defined(ADAM_PLATFORM_WINDOWS)
         if (ctx.backend == gfx_backend::directx11)
         {
             cleanup_d3d11(ctx);
         }
-#endif
+        #endif
 
         if (ctx.gl_context)
         {
@@ -358,7 +362,7 @@ namespace adam::cop
             return;
         }
 
-#if defined(ADAM_PLATFORM_WINDOWS)
+        #if defined(ADAM_PLATFORM_WINDOWS)
         if (ctx.backend == gfx_backend::directx11 && ctx.swap_chain && ctx.d3d_device)
         {
             if (ctx.main_render_target_view)
@@ -378,16 +382,16 @@ namespace adam::cop
                 ctx.main_render_target_view = main_rtv;
             }
         }
-#endif
+        #endif
     }
 
     void new_frame(renderer_context& ctx)
     {
         if (ctx.backend == gfx_backend::directx11)
         {
-#if defined(ADAM_PLATFORM_WINDOWS)
+            #if defined(ADAM_PLATFORM_WINDOWS)
             ImGui_ImplDX11_NewFrame();
-#endif
+            #endif
         }
         else if (ctx.backend == gfx_backend::opengl3)
         {
@@ -404,7 +408,7 @@ namespace adam::cop
 
         if (ctx.backend == gfx_backend::directx11)
         {
-#if defined(ADAM_PLATFORM_WINDOWS)
+            #if defined(ADAM_PLATFORM_WINDOWS)
             const float clear_color[4] = { 0.07f, 0.09f, 0.12f, 1.00f };
             auto* d3d_context = (ID3D11DeviceContext*)ctx.d3d_device_context;
             auto* main_rtv = (ID3D11RenderTargetView*)ctx.main_render_target_view;
@@ -417,7 +421,7 @@ namespace adam::cop
                 ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
                 swap_chain->Present(vsync_enabled ? 1 : 0, 0);
             }
-#endif
+            #endif
         }
         else if (ctx.backend == gfx_backend::opengl3)
         {
