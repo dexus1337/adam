@@ -213,7 +213,8 @@ namespace adam::gui
             { gui_string_id::sort_analysis_mirror,        { "Mirror Management", "Verwaltung spiegeln" } },
             { gui_string_id::msg_about_description,       { "Advanced Data Analysis and Management (ADAM) is a modular, high-performance platform for routing, analyzing, and processing real-time data streams.", "Advanced Data Analysis and Management (ADAM) ist eine modulare Hochleistungsplattform für das Routing, die Analyse und die Verarbeitung von Echtzeit-Datenströmen." } },
             { gui_string_id::msg_about_copyright1,        { "Copyright (c) 2026 dexus1337.", "Copyright (c) 2026 dexus1337." } },
-            { gui_string_id::msg_about_copyright2,        { "All rights reserved.", "Alle Rechte vorbehalten." } }
+            { gui_string_id::msg_about_copyright2,        { "All rights reserved.", "Alle Rechte vorbehalten." } },
+            { gui_string_id::menu_help,                   { "Help", "Hilfe" } }
         };
 
         auto it = translations.find(id);

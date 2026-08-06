@@ -212,7 +212,8 @@ namespace adam::gui
         sort_analysis_mirror,
         msg_about_description,
         msg_about_copyright1,
-        msg_about_copyright2
+        msg_about_copyright2,
+        menu_help
     };
 
     const char* get_gui_string(gui_string_id id, adam::language lang);

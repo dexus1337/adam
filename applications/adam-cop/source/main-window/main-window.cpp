@@ -11,6 +11,14 @@
 #include <imgui.h>
 #include <imgui-tools.hpp>
 #include <cstdio>
+#include <SDL3/SDL_opengl.h>
+#include "../setup.hpp"
+#include <vector>
+#include <version/version.hpp>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 using namespace adam::string_hashed_ct_literals;
 
@@ -33,11 +41,108 @@ namespace adam::cop
         m_p_fps_limit      = dynamic_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
         m_p_language       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("language"_ct));
         m_p_theme          = dynamic_cast<adam::configuration_parameter_string*>(params.get("theme"_ct));
+        m_p_gui_mode       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
+        m_p_font_scale     = dynamic_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
+        m_p_docking_layout = dynamic_cast<adam::configuration_parameter_string*>(params.get("docking_layout"_ct));
+        
+        if (m_p_docking_layout && !m_p_docking_layout->get_value().empty())
+        {
+            std::string layout_data = m_p_docking_layout->get_value().data();
+            ImGui::LoadIniSettingsFromMemory(layout_data.c_str(), layout_data.size());
+        }
+
+        int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
+        int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
+        int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->get_value_as<int>();
+        int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->get_value_as<int>();
+        bool maximized = static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->get_value();
+        if (x != -1 && y != -1)
+        {
+            bool pos_valid = false;
+            int num_displays = 0;
+            SDL_DisplayID* displays = SDL_GetDisplays(&num_displays);
+            if (displays)
+            {
+                for (int i = 0; i < num_displays; ++i)
+                {
+                    SDL_Rect bounds;
+                    if (SDL_GetDisplayBounds(displays[i], &bounds) == 0)
+                    {
+                        int center_x = x + w / 2;
+                        int center_y = y + h / 2;
+                        if (center_x >= bounds.x && center_x < bounds.x + bounds.w &&
+                            center_y >= bounds.y && center_y < bounds.y + bounds.h)
+                        {
+                            pos_valid = true;
+                            break;
+                        }
+                    }
+                }
+                SDL_free(displays);
+            }
+            
+            if (!pos_valid)
+            {
+                x = SDL_WINDOWPOS_CENTERED;
+                y = SDL_WINDOWPOS_CENTERED;
+            }
+            
+            SDL_SetWindowPosition(m_window, x, y);
+        }
+            
+        if (w > 0 && h > 0)
+        {
+            SDL_SetWindowSize(m_window, w, h);
+        }
+            
+        if (maximized)
+        {
+            SDL_MaximizeWindow(m_window);
+        }
+        
+        if (m_p_gui_mode && m_p_gui_mode->get_value() == 1)
+        {
+            SDL_GL_SetSwapInterval((m_p_fps_limit && m_p_fps_limit->get_value() == 4) ? 1 : 0);
+        }
+        else
+        {
+            SDL_GL_SetSwapInterval(1);
+        }
     }
 
     void main_window::save_window_state()
     {
-        // Saved automatically via ImGui ini / parameter backend
+        if (m_window)
+        {
+            int x, y, w, h;
+            SDL_GetWindowPosition(m_window, &x, &y);
+            SDL_GetWindowSize(m_window, &w, &h);
+            SDL_WindowFlags flags = SDL_GetWindowFlags(m_window);
+            auto& params = m_ctrl.get_parameters();
+            bool is_maximized = (flags & SDL_WINDOW_MAXIMIZED) != 0;
+            bool is_minimized = (flags & SDL_WINDOW_MINIMIZED) != 0;
+            bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+
+            if (!is_maximized && !is_minimized && !is_fullscreen)
+            {
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->set_value(static_cast<int64_t>(x));
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->set_value(static_cast<int64_t>(y));
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->set_value(static_cast<int64_t>(w));
+                static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->set_value(static_cast<int64_t>(h));
+            }
+            
+            if (!is_minimized)
+            {
+                static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->set_value(is_maximized);
+            }
+
+            size_t ini_size = 0;
+            const char* ini_data = ImGui::SaveIniSettingsToMemory(&ini_size);
+            if (ini_data && ini_size > 0 && m_p_docking_layout)
+            {
+                m_p_docking_layout->set_value(adam::string_hashed(std::string_view(ini_data, ini_size)));
+            }
+        }
     }
 
     void main_window::draw()
@@ -51,6 +156,11 @@ namespace adam::cop
         
         adam::imgui_tools::gui_theme active_theme = adam::imgui_tools::parse_theme(m_p_theme->get_value().get_hash());
         adam::imgui_tools::apply_theme(active_theme);
+
+        if (m_p_font_scale)
+        {
+            ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::cop::get_current_dpi_scale();
+        }
 
         // Setup Main Dockspace Viewport
         ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -126,37 +236,135 @@ namespace adam::cop
                 }
             }
             
-            ImGui::Separator();
-            
-            adam::string_hashed current_theme_str = m_p_theme->get_value();
-            adam::imgui_tools::gui_theme current_theme = adam::imgui_tools::parse_theme(current_theme_str.get_hash());
-            
-            auto get_theme_str_id = [](adam::imgui_tools::gui_theme t) {
-                switch (t) {
-                    case adam::imgui_tools::gui_theme::light: return theme_light;
-                    case adam::imgui_tools::gui_theme::dark_navy: return theme_dark_navy;
-                    case adam::imgui_tools::gui_theme::dark: default: return theme_dark;
-                }
-            };
-            
-            const char* preview_value = get_cop_string(get_theme_str_id(current_theme), lang);
-            
-            if (ImGui::BeginCombo(get_cop_string(combo_theme, lang), preview_value))
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu(get_cop_string(menu_settings, lang)))
+        {
+            const char* preview_mode = (m_p_gui_mode && m_p_gui_mode->get_value() == 1) ? get_cop_string(gui_mode_immediate, lang) : get_cop_string(gui_mode_default, lang);
+            if (ImGui::BeginCombo(get_cop_string(menu_gui_mode, lang), preview_mode))
             {
-                for (std::size_t i = 0; i < adam::imgui_tools::c_themes_count; ++i)
+                if (ImGui::Selectable(get_cop_string(gui_mode_default, lang), m_p_gui_mode && m_p_gui_mode->get_value() == 0))
                 {
-                    auto theme_val = static_cast<adam::imgui_tools::gui_theme>(i);
-                    bool is_selected = (current_theme == theme_val);
-                    
-                    if (ImGui::Selectable(get_cop_string(get_theme_str_id(theme_val), lang), is_selected))
-                    {
-                        m_p_theme->set_value(adam::imgui_tools::theme_to_string(theme_val));
-                        adam::imgui_tools::apply_theme(theme_val);
-                    }
-                    if (is_selected) ImGui::SetItemDefaultFocus();
+                    if (m_p_gui_mode) m_p_gui_mode->set_value(0);
+                    SDL_GL_SetSwapInterval(1);
                 }
-                
+                if (ImGui::Selectable(get_cop_string(gui_mode_immediate, lang), m_p_gui_mode && m_p_gui_mode->get_value() == 1))
+                {
+                    if (m_p_gui_mode) m_p_gui_mode->set_value(1);
+                    SDL_GL_SetSwapInterval((m_p_fps_limit && m_p_fps_limit->get_value() == 4) ? 1 : 0);
+                    m_ctrl.request_redraw();
+                }
                 ImGui::EndCombo();
+            }
+
+            if (m_p_gui_mode && m_p_gui_mode->get_value() == 1 && m_p_fps_limit)
+            {
+                int current_fps_limit = static_cast<int>(m_p_fps_limit->get_value());
+                const char* preview_fps = "";
+                switch (current_fps_limit) {
+                    case 0: preview_fps = get_cop_string(fps_10, lang); break;
+                    case 1: preview_fps = get_cop_string(fps_30, lang); break;
+                    case 2: preview_fps = get_cop_string(fps_60, lang); break;
+                    case 3: preview_fps = get_cop_string(fps_120, lang); break;
+                    case 4: preview_fps = get_cop_string(fps_vsync, lang); break;
+                    case 5: preview_fps = get_cop_string(fps_unlimited, lang); break;
+                }
+
+                if (ImGui::BeginCombo(get_cop_string(menu_fps_limit, lang), preview_fps))
+                {
+                    auto do_selectable = [&](int val, cop_string_id id) {
+                        if (ImGui::Selectable(get_cop_string(id, lang), current_fps_limit == val))
+                        {
+                            m_p_fps_limit->set_value(val);
+                            SDL_GL_SetSwapInterval((val == 4) ? 1 : 0);
+                        }
+                    };
+                    
+                    do_selectable(0, fps_10);
+                    do_selectable(1, fps_30);
+                    do_selectable(2, fps_60);
+                    do_selectable(3, fps_120);
+                    do_selectable(4, fps_vsync);
+                    do_selectable(5, fps_unlimited);
+                    
+                    ImGui::EndCombo();
+                }
+            }
+            
+            ImGui::Separator();
+            if (m_p_language)
+            {
+                if (ImGui::BeginCombo(get_cop_string(combo_language, lang), adam::language_strings::language_name(lang, lang).data()))
+                {
+                    uint64_t available_langs = ((1ULL << static_cast<int>(adam::language_english)) | (1ULL << static_cast<int>(adam::language_german)));
+                    
+                    for (int i = 0; i < static_cast<int>(adam::languages_count); ++i)
+                    {
+                        if (!(available_langs & (1ULL << i)))
+                            continue;
+                            
+                        adam::language avail_lang = static_cast<adam::language>(i);
+                        bool is_selected = (lang == avail_lang);
+                        if (ImGui::Selectable(adam::language_strings::language_name(avail_lang, lang).data(), is_selected))
+                        {
+                            m_p_language->set_value(static_cast<int64_t>(avail_lang));
+                        }
+                        if (is_selected)
+                        {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
+
+            if (m_p_font_scale)
+            {
+                float font_scale_val = static_cast<float>(m_p_font_scale->get_value());
+                if (ImGui::SliderFloat(get_cop_string(slider_font_scale, lang), &font_scale_val, 0.5f, 3.0f, "%.2f"))
+                {
+                    m_p_font_scale->set_value(static_cast<double>(font_scale_val));
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                {
+                    ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::cop::get_current_dpi_scale();
+                }
+            }
+
+            ImGui::Separator();
+            if (m_p_theme)
+            {
+                adam::string_hashed current_theme_str = m_p_theme->get_value();
+                adam::imgui_tools::gui_theme current_theme = adam::imgui_tools::parse_theme(current_theme_str.get_hash());
+                
+                auto get_theme_str_id = [](adam::imgui_tools::gui_theme t) {
+                    switch (t) {
+                        case adam::imgui_tools::gui_theme::light: return theme_light;
+                        case adam::imgui_tools::gui_theme::dark_navy: return theme_dark_navy;
+                        case adam::imgui_tools::gui_theme::dark: default: return theme_dark;
+                    }
+                };
+                
+                const char* preview_value = get_cop_string(get_theme_str_id(current_theme), lang);
+                
+                if (ImGui::BeginCombo(get_cop_string(combo_theme, lang), preview_value))
+                {
+                    for (std::size_t i = 0; i < adam::imgui_tools::c_themes_count; ++i)
+                    {
+                        auto theme_val = static_cast<adam::imgui_tools::gui_theme>(i);
+                        bool is_selected = (current_theme == theme_val);
+                        
+                        if (ImGui::Selectable(get_cop_string(get_theme_str_id(theme_val), lang), is_selected))
+                        {
+                            m_p_theme->set_value(adam::imgui_tools::theme_to_string(theme_val));
+                            adam::imgui_tools::apply_theme(theme_val);
+                        }
+                        if (is_selected) ImGui::SetItemDefaultFocus();
+                    }
+                    
+                    ImGui::EndCombo();
+                }
             }
             
             ImGui::EndMenu();
@@ -448,24 +656,237 @@ namespace adam::cop
         ImGui::PopStyleVar();
     }
 
+#ifdef _WIN32
+    static ImTextureID g_logo_texture = (ImTextureID)0;
+    static int g_logo_width = 0;
+    static int g_logo_height = 0;
+
+    static void load_logo_texture_once()
+    {
+        if (g_logo_texture != (ImTextureID)0) return;
+
+        HICON hIcon = (HICON)LoadImageA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(101), IMAGE_ICON, 256, 256, LR_CREATEDIBSECTION);
+        if (!hIcon)
+        {
+            hIcon = (HICON)LoadImageA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(101), IMAGE_ICON, 0, 0, LR_CREATEDIBSECTION | LR_DEFAULTSIZE);
+        }
+        if (!hIcon) return;
+
+        ICONINFO ii;
+        if (!GetIconInfo(hIcon, &ii))
+        {
+            DestroyIcon(hIcon);
+            return;
+        }
+
+        BITMAP bmp;
+        GetObject(ii.hbmColor, sizeof(BITMAP), &bmp);
+
+        g_logo_width = bmp.bmWidth;
+        g_logo_height = bmp.bmHeight;
+
+        HDC hdc = GetDC(NULL);
+        BITMAPINFO bmi = {0};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = g_logo_width;
+        bmi.bmiHeader.biHeight = -g_logo_height; // top-down
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+
+        std::vector<uint8_t> pixels(g_logo_width * g_logo_height * 4);
+        GetDIBits(hdc, ii.hbmColor, 0, g_logo_height, pixels.data(), &bmi, DIB_RGB_COLORS);
+
+        for (int i = 0; i < g_logo_width * g_logo_height; i++)
+        {
+            uint8_t b = pixels[i * 4 + 0];
+            uint8_t r = pixels[i * 4 + 2];
+            pixels[i * 4 + 0] = r;
+            pixels[i * 4 + 2] = b;
+        }
+
+        g_logo_texture = adam::imgui_tools::create_texture_rgba(g_logo_width, g_logo_height, pixels.data());
+
+        DeleteObject(ii.hbmColor);
+        DeleteObject(ii.hbmMask);
+        ReleaseDC(NULL, hdc);
+        DestroyIcon(hIcon);
+    }
+#endif
+
     void main_window::draw_about_dialog(adam::language lang)
     {
+#ifdef _WIN32
+        load_logo_texture_once();
+#endif
+
+        const char* title_text = "ADAM COP";
+        
+        char version_text[128];
+        auto ver = adam::decode_version(adam::sdk_version);
+        snprintf(version_text, sizeof(version_text), "v%d.%d.%d", 
+                 ver.major, ver.minor, ver.patch);
+
+        const char* desc_text = get_cop_string(msg_cop_description, lang);
+        const char* cpy1_text = "© 2026 dexus1337.";
+        const char* cpy2_text = "All rights reserved.";
+
         ImGui::OpenPopup(get_cop_string(wnd_about, lang));
 
-        if (ImGui::BeginPopupModal(get_cop_string(wnd_about, lang), &m_show_about, ImGuiWindowFlags_AlwaysAutoResize))
+        ImGui::SetNextWindowSize(ImVec2(600, 480), ImGuiCond_FirstUseEver);
+        if (ImGui::BeginPopupModal(get_cop_string(wnd_about, lang), &m_show_about, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize))
         {
-            ImGui::TextUnformatted("ADAM - COP");
-            ImGui::Separator();
-            ImGui::TextWrapped("%s", get_cop_string(msg_cop_description, lang));
+            ImVec2 avail = ImGui::GetContentRegionAvail();
+            float wrap_width = avail.x * 0.8f;
+            if (wrap_width < 300.0f) wrap_width = avail.x;
+
+            float item_spacing = ImGui::GetStyle().ItemSpacing.y;
+            float large_spacing = item_spacing * 2.0f;
+
+            float total_height = 0.0f;
+            
+            float logo_display_size = 96.0f * ImGui::GetStyle()._MainScale;
+#ifdef _WIN32
+            if (g_logo_texture) total_height += logo_display_size + item_spacing;
+#endif
+
+            ImVec2 title_size = ImVec2(ImGui::CalcTextSize(title_text).x * 2.0f, ImGui::CalcTextSize(title_text).y * 2.0f);
+            ImVec2 version_size = ImGui::CalcTextSize(version_text);
+
+            auto measure_or_draw_centered_text = [&](const char* text, float max_w, bool do_draw)
+            {
+                ImVec2 total_size(0.0f, 0.0f);
+                const char* text_end = text + strlen(text);
+                const char* s = text;
+                while (s < text_end)
+                {
+                    const char* line_end = s;
+                    while (line_end < text_end && *line_end != '\n') line_end++;
+                    
+                    const char* line_p = s;
+                    while (line_p < line_end)
+                    {
+                        const char* word_end = line_p;
+                        while (word_end < line_end && *word_end != ' ') word_end++;
+                        
+                        const char* next_word = word_end;
+                        while (next_word < line_end && *next_word == ' ') next_word++;
+                        
+                        float line_w = ImGui::CalcTextSize(s, word_end).x;
+                        
+                        if (line_w > max_w && line_p > s)
+                        {
+                            if (do_draw)
+                            {
+                                ImVec2 line_sz = ImGui::CalcTextSize(s, line_p - 1);
+                                float x = ImGui::GetCursorPosX() + (avail.x - line_sz.x) * 0.5f;
+                                ImGui::SetCursorPosX(x);
+                                ImGui::TextUnformatted(s, line_p - 1);
+                            }
+                            else
+                            {
+                                total_size.y += ImGui::GetTextLineHeightWithSpacing();
+                            }
+                            s = line_p;
+                        }
+                        line_p = next_word;
+                    }
+                    
+                    if (do_draw)
+                    {
+                        ImVec2 line_sz = ImGui::CalcTextSize(s, line_end);
+                        float x = ImGui::GetCursorPosX() + (avail.x - line_sz.x) * 0.5f;
+                        ImGui::SetCursorPosX(x);
+                        ImGui::TextUnformatted(s, line_end);
+                    }
+                    else
+                    {
+                        total_size.y += ImGui::GetTextLineHeightWithSpacing();
+                    }
+
+                    s = line_end + 1;
+                }
+                return total_size;
+            };
+
+            ImVec2 desc_size = measure_or_draw_centered_text(desc_text, wrap_width, false);
+            ImVec2 cpy1_size = ImGui::CalcTextSize(cpy1_text);
+            ImVec2 cpy2_size = ImGui::CalcTextSize(cpy2_text);
+
+            float start_cursor_y = ImGui::GetCursorPosY();
+            float start_cursor_x = ImGui::GetCursorPosX();
+
+            total_height += title_size.y + large_spacing;
+            total_height += item_spacing;
+            total_height += version_size.y + large_spacing;
+            total_height += desc_size.y + large_spacing;
+            total_height += cpy1_size.y + item_spacing;
+            total_height += cpy2_size.y;
+
+            float start_y = (avail.y - total_height) * 0.5f - ImGui::GetFrameHeight() * 1.5f;
+            if (start_y > 0.0f) 
+            {
+                ImGui::SetCursorPosY(start_cursor_y + start_y);
+            }
+
+            auto center_x = [&](float width) 
+            {
+                float x = (avail.x - width) * 0.5f;
+                if (x > 0.0f) 
+                {
+                    ImGui::SetCursorPosX(start_cursor_x + x);
+                }
+            };
+
+#ifdef _WIN32
+            if (g_logo_texture != (ImTextureID)0) 
+            {
+                center_x(logo_display_size);
+                ImGui::Image(g_logo_texture, ImVec2(logo_display_size, logo_display_size));
+                ImGui::Spacing();
+            }
+#endif
+
+            center_x(title_size.x);
+            ImGui::SetWindowFontScale(2.0f);
+            ImGui::TextUnformatted(title_text);
+            ImGui::SetWindowFontScale(1.0f);
+
             ImGui::Spacing();
-            ImGui::TextDisabled("%s", get_cop_string(msg_cop_copyright, lang));
+            
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            float sep_width = wrap_width;
+            float sep_start_x = p.x + (avail.x - sep_width) * 0.5f;
+            ImGui::GetWindowDrawList()->AddLine(ImVec2(sep_start_x, p.y), ImVec2(sep_start_x + sep_width, p.y), ImGui::GetColorU32(ImGuiCol_Separator));
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + item_spacing);
+
             ImGui::Spacing();
 
-            if (ImGui::Button("OK", ImVec2(120.0f, 0.0f)))
+            center_x(version_size.x);
+            ImGui::TextUnformatted(version_text);
+            
+            ImGui::Dummy(ImVec2(0.0f, large_spacing - item_spacing));
+
+            measure_or_draw_centered_text(desc_text, wrap_width, true);
+
+            ImGui::Dummy(ImVec2(0.0f, large_spacing - item_spacing));
+
+            center_x(cpy1_size.x);
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%s", cpy1_text);
+            center_x(cpy2_size.x);
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%s", cpy2_text);
+
+            ImGui::Spacing();
+            ImGui::Spacing();
+
+            float btn_w = 120.0f;
+            ImGui::SetCursorPosX((avail.x - btn_w) * 0.5f);
+            if (ImGui::Button("OK", ImVec2(btn_w, 0)))
             {
                 m_show_about = false;
                 ImGui::CloseCurrentPopup();
             }
+
             ImGui::EndPopup();
         }
     }

@@ -6,7 +6,7 @@ namespace adam
      :  memory(name),
         #ifdef ADAM_PLATFORM_LINUX
         m_sem(nullptr)
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         m_handle(nullptr)
         #endif
     {
@@ -35,7 +35,7 @@ namespace adam
             memory::destroy();
             return false;
         }
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         std::string event_name = std::string(get_name().c_str()) + "_signal";
         m_handle = CreateEventA(NULL, FALSE, FALSE, event_name.c_str());
         if (m_handle == NULL)
@@ -55,7 +55,7 @@ namespace adam
 
         #ifdef   ADAM_PLATFORM_LINUX
         m_sem = reinterpret_cast<sem_t*>(m_shared_memory_base);
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         std::string event_name = std::string(get_name().c_str()) + "_signal";
         m_handle = OpenEventA(EVENT_ALL_ACCESS, FALSE, event_name.c_str());
         if (m_handle == NULL)
@@ -81,7 +81,7 @@ namespace adam
         if (m_sem && is_owner())
             result &= (sem_destroy(m_sem) == 0);
         m_sem = nullptr;
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         if (m_handle)
             result &= static_cast<bool>(CloseHandle(m_handle));
         m_handle = nullptr;
@@ -98,7 +98,7 @@ namespace adam
         #ifdef   ADAM_PLATFORM_LINUX
         if (!m_sem) return false;
         return sem_post(m_sem) == 0;
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         if (!m_handle) return false;
         return SetEvent(m_handle) != 0;
         #endif

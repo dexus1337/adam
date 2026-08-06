@@ -127,5 +127,6 @@ namespace adam::gui
         int            m_modules_table_id;
         int            m_log_table_id;
         int            m_module_paths_table_id;
+        bool           m_show_about = false;
     };
 }

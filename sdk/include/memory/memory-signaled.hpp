@@ -15,7 +15,7 @@
 
 #ifdef   ADAM_PLATFORM_LINUX
 #include <semaphore.h>
-#elifdef ADAM_PLATFORM_WINDOWS
+#elif defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
 #endif
 #include <chrono>
@@ -61,7 +61,7 @@ namespace adam
 
         #ifdef   ADAM_PLATFORM_LINUX
         sem_t* m_sem;
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         HANDLE m_handle;
         #endif
 

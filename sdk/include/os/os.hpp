@@ -17,7 +17,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <sys/types.h>
-#elifdef    ADAM_PLATFORM_WINDOWS
+#elif defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
 #endif
 
@@ -67,7 +67,7 @@ namespace adam::os
     {
         #ifdef      ADAM_PLATFORM_LINUX
         return static_cast<thread_id>(syscall(SYS_gettid));
-        #elifdef    ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         return static_cast<thread_id>(GetCurrentThreadId());
         #else
         return 0;
@@ -78,7 +78,7 @@ namespace adam::os
     {
         #ifdef      ADAM_PLATFORM_LINUX
         return static_cast<process_id>(syscall(SYS_getpid));
-        #elifdef    ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         return static_cast<process_id>(GetCurrentProcessId());
         #else
         return 0;

@@ -50,6 +50,9 @@ namespace adam::cop
         adam::configuration_parameter_integer* m_p_fps_limit;
         adam::configuration_parameter_integer* m_p_language;
         adam::configuration_parameter_string*  m_p_theme;
+        adam::configuration_parameter_integer* m_p_gui_mode;
+        adam::configuration_parameter_double*  m_p_font_scale;
+        adam::configuration_parameter_string*  m_p_docking_layout;
 
         float m_jump_lat = 0.0f;
         float m_jump_lon = 0.0f;

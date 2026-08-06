@@ -333,7 +333,6 @@ namespace adam::gui
             ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_analysis, lang), dock_main_id);
             ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_configuration, lang), dock_main_id);
             ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_modules, lang), dock_main_id);
-            ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_about, lang), dock_main_id);
             ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_log_console, lang), dock_bottom_id);
 
             ImGui::DockBuilderFinish(dockspace_id);
@@ -390,14 +389,10 @@ namespace adam::gui
         ImGui::End();
         if (!open_modules) ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_modules, lang), dockspace_id);
 
-        bool open_about = true;
-        ImGui::SetNextWindowClass(&no_close_tab_class);
-        if (ImGui::Begin(get_gui_string(gui_string_id::wnd_about, lang), &open_about, ImGuiWindowFlags_NoCollapse))
+        if (m_show_about)
         {
-            draw_window_about(m_ctrl, lang);
+            draw_about_dialog(m_ctrl, lang, m_show_about);
         }
-        ImGui::End();
-        if (!open_about) ImGui::DockBuilderDockWindow(get_gui_string(gui_string_id::wnd_about, lang), dockspace_id);
 
         if (m_p_show_log->get_value())
         {
@@ -583,6 +578,15 @@ namespace adam::gui
                 }
                 
                 ImGui::EndCombo();
+            }
+            ImGui::EndMenu();
+        }
+        
+        if (ImGui::BeginMenu(get_gui_string(gui_string_id::menu_help, lang)))
+        {
+            if (ImGui::MenuItem(get_gui_string(gui_string_id::wnd_about, lang)))
+            {
+                m_show_about = true;
             }
             ImGui::EndMenu();
         }

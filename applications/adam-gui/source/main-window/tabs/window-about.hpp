@@ -13,5 +13,5 @@
 namespace adam::gui 
 {
     class gui_controller;
-    void draw_window_about(gui_controller& ctrl, adam::language lang);
+    void draw_about_dialog(gui_controller& ctrl, adam::language lang, bool& show_about);
 }

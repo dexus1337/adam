@@ -4,6 +4,7 @@
 
 **/.vs/
 /out/*
+/build/*
 /.qtcreator/*
 .clangd/*
 adam-config.bin

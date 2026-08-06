@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <dlfcn.h>
-#elifdef    ADAM_PLATFORM_WINDOWS
+#elif defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
 #endif
 
@@ -147,7 +147,7 @@ namespace adam::os
     {
         #ifdef ADAM_PLATFORM_LINUX
         return dlopen(path, RTLD_LAZY);
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         return LoadLibraryA(path);
         #else
         return nullptr;
@@ -159,7 +159,7 @@ namespace adam::os
         if (!handle) return false;
         #ifdef ADAM_PLATFORM_LINUX
         return dlclose(handle) == 0;
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         return FreeLibrary(reinterpret_cast<HMODULE>(handle)) != 0;
         #else
         return false;
@@ -171,7 +171,7 @@ namespace adam::os
         if (!handle || !symbol) return nullptr;
         #ifdef ADAM_PLATFORM_LINUX
         return dlsym(handle, symbol);
-        #elifdef ADAM_PLATFORM_WINDOWS
+        #elif defined(ADAM_PLATFORM_WINDOWS)
         return reinterpret_cast<void*>(GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol));
         #else
         return nullptr;

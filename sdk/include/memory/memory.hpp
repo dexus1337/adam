@@ -12,13 +12,14 @@
  
 #include <cstdint>
 
+#include "api/api-sdk.hpp"
+
 #ifdef   ADAM_PLATFORM_WINDOWS
 #include <windows.h>
-#elifdef ADAM_PLATFORM_LINUX
+#elif defined(ADAM_PLATFORM_LINUX)
 #include <semaphore>
 #endif
 
-#include "api/api-sdk.hpp"
 #include "types/string-hashed.hpp"
 #include "types/enum-bit-operations.hpp"
 
