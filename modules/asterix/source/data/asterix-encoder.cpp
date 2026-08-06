@@ -215,7 +215,6 @@ namespace adam::modules::asterix
         if (!frm->is_modified() && ref_buf)
         {
             buf = ref_buf;
-            buf->add_ref();
             return true;
         }
 

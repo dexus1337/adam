@@ -246,8 +246,8 @@ The repository features the following built-in modules:
 | :--- | :--- | :--- | :--- |
 | **`essential`** | Core static internal module containing essential formats, ports, and processors. | `internal` | `transparent` format, `frame_aligner` filter. |
 | **`recrep`** | Handles recording and replaying streams. | `replay` (Ingress), `recording` (Egress) | Data-format independent stream serializations. |
-| **`asterix`** | Aviation radar formatting. Parser & Encoder supporting structured metadata overlays. | N/A (Format module) | Eurocontrol ASTERIX parsing/converters/encoders. |
-| **`can`** | CAN bus serial handling. | `can` port | Custom CAN frame mapping converters. |
+| **`asterix`** | Eurocontrol ASTERIX aviation radar data format. Parser & Encoder supporting structured metadata overlays. | N/A (Format module) | ASTERIX parser/encoder, converters (e.g., ASTERIX-to-text), filters (e.g., SAC/SIC replacer). |
+| **`can`** | CAN bus data format. Parser supporting structured CAN frame metadata overlays. | N/A (Format module) | CAN frame parser, filters (e.g., CAN message filter). |
 | **`network`** | TCP/UDP socket management. | Socket Ingress / Egress | Transparent stream routing. |
 | **`serial`** | RS-232 / RS-485 serial communications. | `serial` port | Parity, baud rate, and flow control parameter mapping. |
 
