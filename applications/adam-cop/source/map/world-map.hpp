@@ -11,6 +11,7 @@
 #include "coastlines.hpp"
 #include "tile-engine.hpp"
 #include "tile-provider.hpp"
+#include "../data/waypoint.hpp"
 #include <imgui.h>
 
 #include <vector>
@@ -25,14 +26,6 @@ namespace adam::cop
         mercator
     };
 
-    struct map_marker
-    {
-        uint32_t id = 0;
-        float lat = 0.0f;
-        float lon = 0.0f;
-        std::string label;
-        ImVec4 color = ImVec4(1.00f, 0.35f, 0.10f, 1.00f);
-    };
 
     struct map_render_options
     {
@@ -54,9 +47,15 @@ namespace adam::cop
     public:
         world_map();
         ~world_map() = default;
-
-        /** @brief Renders the interactive map within the current ImGui window region */
-        void draw(const ImVec2& size, const map_render_options& options);
+        /**
+         * @brief Renders the map and handles all internal interactions.
+         * 
+         * @param size              The size of the map area.
+         * @param options           Configuration struct defining visualization details.
+         * @param waypoints         The list of tactical waypoints to render.
+         * @param add_waypoint_text Localized text for the context menu.
+         */
+        void draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const char* add_waypoint_text = "Add Waypoint Here");
 
         /** @brief Resets map view to default origin and zoom level */
         void reset_view();
@@ -67,15 +66,6 @@ namespace adam::cop
         /** @brief Adjusts zoom level */
         void set_zoom(float zoom);
 
-        /** @brief Adds a new tactical marker at lat/lon */
-        void add_marker(float lat, float lon, const std::string& label = "");
-
-        /** @brief Removes all tactical markers */
-        void clear_markers();
-
-        /** @brief Removes a marker by ID */
-        void remove_marker(uint32_t id);
-
         float get_center_lat() const { return m_center_lat; }
         float get_center_lon() const { return m_center_lon; }
         float get_zoom()       const { return m_zoom; }
@@ -84,7 +74,6 @@ namespace adam::cop
         float get_hover_lon()  const { return m_hover_lon; }
         bool  is_hovered()     const { return m_is_hovered; }
 
-        const std::vector<map_marker>& get_markers() const { return m_markers; }
         tile_engine& get_tile_engine() { return m_tile_engine; }
 
         /** @brief Converts latitude and longitude to screen space pixel coordinates */
@@ -93,12 +82,17 @@ namespace adam::cop
         /** @brief Converts screen pixel coordinates to latitude and longitude */
         geo_point screen_to_geo(const ImVec2& screen_pos, const ImVec2& canvas_pos, const ImVec2& canvas_size, projection_type proj) const;
 
+        bool consume_context_add_waypoint_request(float& out_lat, float& out_lon);
+
     private:
+        bool  m_context_add_waypoint_requested = false;
+        float m_context_waypoint_lat = 0.0f;
+        float m_context_waypoint_lon = 0.0f;
         void render_ocean(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_tiles(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_grid(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_vector_land(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
-        void render_markers(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
+        void render_waypoints(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints);
         void render_scale_bar(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_compass(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
 
@@ -112,7 +106,5 @@ namespace adam::cop
         float m_hover_lon = 0.0f;
         bool  m_is_hovered = false;
 
-        std::vector<map_marker> m_markers;
-        uint32_t m_next_marker_id = 1;
     };
 }

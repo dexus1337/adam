@@ -62,44 +62,7 @@ namespace adam::cop
         m_zoom = std::clamp(zoom, 0.5f, 500000.0f);
     }
 
-    void world_map::add_marker(float lat, float lon, const std::string& label)
-    {
-        map_marker m;
-        m.id = m_next_marker_id++;
-        m.lat = std::clamp(lat, -85.0f, 85.0f);
-        m.lon = std::clamp(lon, -180.0f, 180.0f);
 
-        if (label.empty())
-        {
-            char tag[32];
-            std::snprintf(tag, sizeof(tag), "MARKER #%u", m.id);
-            m.label = tag;
-        }
-        else
-        {
-            m.label = label;
-        }
-
-        m_markers.push_back(m);
-    }
-
-    void world_map::clear_markers()
-    {
-        m_markers.clear();
-    }
-
-    void world_map::remove_marker(uint32_t id)
-    {
-        auto it = std::remove_if(m_markers.begin(), m_markers.end(), [id](const map_marker& m)
-        {
-            return m.id == id;
-        });
-
-        if (it != m_markers.end())
-        {
-            m_markers.erase(it, m_markers.end());
-        }
-    }
 
     ImVec2 world_map::geo_to_screen(float lat, float lon, const ImVec2& canvas_pos, const ImVec2& canvas_size, projection_type proj) const
     {
@@ -170,7 +133,7 @@ namespace adam::cop
         return { lat, lon };
     }
 
-    void world_map::draw(const ImVec2& size, const map_render_options& options)
+    void world_map::draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const char* add_waypoint_text)
     {
         m_tile_engine.update();
 
@@ -181,7 +144,6 @@ namespace adam::cop
         {
             return;
         }
-
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
         // Canvas Input Handling
@@ -195,14 +157,8 @@ namespace adam::cop
             m_hover_lat = hover_pt.lat;
             m_hover_lon = hover_pt.lon;
 
-            // Click on map to place marker
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
-            {
-                add_marker(m_hover_lat, m_hover_lon);
-            }
-
-            // Pan control via right mouse drag
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right))
+            // Pan control via right mouse drag (only if NOT holding Shift)
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right) && !io.KeyShift)
             {
                 ImVec2 delta = io.MouseDelta;
                 float scaled_w = canvas_size.x * m_zoom;
@@ -247,6 +203,28 @@ namespace adam::cop
                     m_center_lat = std::clamp(m_center_lat, -85.0f, 85.0f);
                 }
             }
+            
+            // Context menu logic
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && io.KeyShift)
+            {
+                ImGui::OpenPopup("MapContextMenu");
+            }
+        }
+
+        if (ImGui::BeginPopup("MapContextMenu"))
+        {
+            static geo_point click_geo = {0.0f, 0.0f};
+            if (ImGui::IsWindowAppearing())
+            {
+                click_geo = screen_to_geo(io.MousePos, canvas_pos, canvas_size, options.projection);
+            }
+            if (ImGui::MenuItem(add_waypoint_text))
+            {
+                m_context_add_waypoint_requested = true;
+                m_context_waypoint_lat = click_geo.lat;
+                m_context_waypoint_lon = click_geo.lon;
+            }
+            ImGui::EndPopup();
         }
 
         // Render Base Ocean Background
@@ -270,10 +248,10 @@ namespace adam::cop
             render_vector_land(draw_list, canvas_pos, canvas_size, options);
         }
 
-        // Render Tactical Markers
+        // Render Tactical Waypoints
         if (options.show_markers)
         {
-            render_markers(draw_list, canvas_pos, canvas_size, options);
+            render_waypoints(draw_list, canvas_pos, canvas_size, options, waypoints);
         }
 
         // Render Scale Bar
@@ -596,11 +574,13 @@ namespace adam::cop
         }
     }
 
-    void world_map::render_markers(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options)
+    void world_map::render_waypoints(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints)
     {
-        for (const auto& marker : m_markers)
+        for (const auto& wp : waypoints)
         {
-            ImVec2 screen_pt = geo_to_screen(marker.lat, marker.lon, pos, size, options.projection);
+            if (!wp->is_enabled()) continue;
+
+            ImVec2 screen_pt = geo_to_screen(wp->get_lat(), wp->get_lon(), pos, size, options.projection);
 
             // Frustum culling check
             if (screen_pt.x < pos.x - 150.0f || screen_pt.x > pos.x + size.x + 150.0f ||
@@ -609,7 +589,8 @@ namespace adam::cop
                 continue;
             }
 
-            ImU32 col_primary = ImGui::ColorConvertFloat4ToU32(marker.color);
+            uint32_t c = wp->get_color();
+            ImU32 col_primary = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
             ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(ImVec4(0.06f, 0.08f, 0.12f, 0.90f));
             ImU32 col_text = ImGui::ColorConvertFloat4ToU32(ImVec4(0.95f, 0.98f, 1.00f, 1.00f));
             ImU32 col_subtext = ImGui::ColorConvertFloat4ToU32(ImVec4(0.00f, 0.85f, 1.00f, 1.00f));
@@ -628,8 +609,8 @@ namespace adam::cop
             // Callout Box
             char lat_str[32];
             char lon_str[32];
-            std::snprintf(lat_str, sizeof(lat_str), "Lat: %.4f°%c", std::abs(marker.lat), marker.lat >= 0 ? 'N' : 'S');
-            std::snprintf(lon_str, sizeof(lon_str), "Lon: %.4f°%c", std::abs(marker.lon), marker.lon >= 0 ? 'E' : 'W');
+            std::snprintf(lat_str, sizeof(lat_str), "Lat: %.4f°%c", std::abs(wp->get_lat()), wp->get_lat() >= 0 ? 'N' : 'S');
+            std::snprintf(lon_str, sizeof(lon_str), "Lon: %.4f°%c", std::abs(wp->get_lon()), wp->get_lon() >= 0 ? 'E' : 'W');
 
             ImVec2 tag_pos = ImVec2(screen_pt.x + r + 8.0f, screen_pt.y - 22.0f);
             float box_w = 145.0f;
@@ -638,7 +619,7 @@ namespace adam::cop
             draw_list->AddRectFilled(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_bg, 4.0f);
             draw_list->AddRect(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_primary, 4.0f, 0, 1.2f);
 
-            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 3.0f), col_text, marker.label.c_str());
+            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 3.0f), col_text, wp->get_label().c_str());
             draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 16.0f), col_subtext, lat_str);
             draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 28.0f), col_subtext, lon_str);
         }
@@ -712,5 +693,17 @@ namespace adam::cop
         draw_list->AddTriangleFilled(p_s1, p_n2, p_n3, col_south);
 
         draw_list->AddText(ImVec2(center.x - 4.0f, center.y - radius - 14.0f), col_north, "N");
+    }
+
+    bool world_map::consume_context_add_waypoint_request(float& out_lat, float& out_lon)
+    {
+        if (m_context_add_waypoint_requested)
+        {
+            out_lat = m_context_waypoint_lat;
+            out_lon = m_context_waypoint_lon;
+            m_context_add_waypoint_requested = false;
+            return true;
+        }
+        return false;
     }
 }

@@ -9,6 +9,7 @@
  */
 
 #include <adam-sdk.hpp>
+#include "data/waypoint.hpp"
 
 #include <vector>
 #include <string>
@@ -52,7 +53,17 @@ namespace adam::cop
 
         void enqueue_commander_action(std::function<void()> action);
 
+        void add_waypoint(std::unique_ptr<waypoint> wp);
+        void remove_waypoint(adam::string_hash item_hash);
+        void clear_waypoints();
+        const std::vector<std::unique_ptr<waypoint>>& get_waypoints() const { return m_waypoints; }
+        std::vector<std::unique_ptr<waypoint>>& waypoints() { return m_waypoints; }
+
+        void save_config();
+
     private:
+        void load_waypoints_from_config();
+        void sync_waypoints_to_config();
         void update_loop();
 
         adam::commander        m_commander;
@@ -68,5 +79,7 @@ namespace adam::cop
         std::atomic<bool>      m_running;
         std::atomic<bool>      m_commander_active;
         std::thread            m_worker_thread;
+        std::vector<std::unique_ptr<waypoint>> m_waypoints;
+        uint32_t               m_next_wp_id = 1;
     };
 }

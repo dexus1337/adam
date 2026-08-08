@@ -206,7 +206,7 @@ namespace adam::cop
         ImGui::Begin("COP_Dockspace_Host", nullptr, host_flags);
         ImGui::PopStyleVar(3);
 
-        ImGuiID dockspace_id = ImGui::GetID("COP_Dockspace");
+        ImGuiID dockspace_id = ImGui::GetID("COP_Dockspace_v5");
         
         if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
         {
@@ -215,11 +215,20 @@ namespace adam::cop
             ImGui::DockBuilderSetNodeSize(dockspace_id, ImVec2(viewport->WorkSize.x, viewport->WorkSize.y - status_bar_height));
 
             ImGuiID dock_main_id = dockspace_id;
-            ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, nullptr, &dock_main_id);
+            ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.25f, nullptr, &dock_main_id);
+            
+            ImGuiID dock_left_bottom = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.15f, nullptr, &dock_id_left);
+            ImGuiID dock_left_mid3 = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.20f, nullptr, &dock_id_left);
+            ImGuiID dock_left_mid2 = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.20f, nullptr, &dock_id_left);
+            ImGuiID dock_left_mid1 = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.40f, nullptr, &dock_id_left);
 
             // Need a dummy string before ### to dock correctly if we don't know the localized prefix
-            ImGui::DockBuilderDockWindow("Settings###ControlPanel", dock_id_left);
             ImGui::DockBuilderDockWindow("World Map Overview###MapWindow", dock_main_id);
+            ImGui::DockBuilderDockWindow("Layers###ControlPanel", dock_id_left);
+            ImGui::DockBuilderDockWindow("Waypoints###Waypoints", dock_left_mid1);
+            ImGui::DockBuilderDockWindow("Cache###CacheStats", dock_left_mid2);
+            ImGui::DockBuilderDockWindow("Asterix###Asterix", dock_left_mid3);
+            ImGui::DockBuilderDockWindow("Jump###JumpCoords", dock_left_bottom);
             ImGui::DockBuilderFinish(dockspace_id);
         }
 
@@ -227,10 +236,7 @@ namespace adam::cop
 
         draw_menu_bar(lang);
 
-        if (m_show_control_panel)
-        {
-            draw_control_panel(lang);
-        }
+        draw_panels(lang);
 
         draw_map_window(lang);
 
@@ -404,39 +410,6 @@ namespace adam::cop
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu(get_cop_string(menu_map, lang)))
-        {
-            if (ImGui::MenuItem(get_cop_string(menu_reset_view, lang)))
-            {
-                m_map.reset_view();
-            }
-
-            if (ImGui::MenuItem(get_cop_string(menu_center_origin, lang)))
-            {
-                m_map.set_center(0.0f, 0.0f);
-            }
-
-            if (ImGui::MenuItem(get_cop_string(btn_clear_markers, lang)))
-            {
-                m_map.clear_markers();
-            }
-
-            ImGui::Separator();
-
-            if (m_p_map_projection)
-            {
-                int current_proj = static_cast<int>(m_p_map_projection->get_value());
-                if (ImGui::RadioButton(get_cop_string(proj_equirectangular, lang), &current_proj, 0))
-                {
-                    m_p_map_projection->set_value(0);
-                }
-                if (ImGui::RadioButton(get_cop_string(proj_mercator, lang), &current_proj, 1))
-                {
-                    m_p_map_projection->set_value(1);
-                }
-            }
-            ImGui::EndMenu();
-        }
 
         if (ImGui::BeginMenu(get_cop_string(menu_help, lang)))
         {
@@ -516,175 +489,274 @@ namespace adam::cop
         ImGui::PopStyleVar(3);
     }
 
-    void main_window::draw_control_panel(adam::language lang)
+    void main_window::draw_panels(adam::language lang)
     {
-        ImGui::SetNextWindowSize(ImVec2(340.0f, 550.0f), ImGuiCond_FirstUseEver);
-
-        std::string panel_title = std::string(get_cop_string(lbl_layers_panel, lang)) + "###ControlPanel";
-        if (!ImGui::Begin(panel_title.c_str(), &m_show_control_panel))
+        if (m_show_control_panel)
         {
+            ImGui::SetNextWindowSize(ImVec2(340.0f, 250.0f), ImGuiCond_FirstUseEver);
+            std::string panel_title = std::string(get_cop_string(lbl_layers_panel, lang)) + "###ControlPanel";
+            if (ImGui::Begin(panel_title.c_str(), &m_show_control_panel))
+            {
+                if (m_p_base_provider)
+                {
+                    int current_prov = static_cast<int>(m_p_base_provider->get_value());
+                    const char* items[] = {
+                        get_cop_string(provider_cartodb, lang),
+                        get_cop_string(provider_osm, lang),
+                        get_cop_string(provider_esri, lang),
+                        get_cop_string(provider_opentopo, lang),
+                        get_cop_string(provider_vector, lang)
+                    };
+
+                    if (ImGui::Combo("Map Provider", &current_prov, items, IM_ARRAYSIZE(items)))
+                    {
+                        m_p_base_provider->set_value(current_prov);
+                    }
+                }
+
+                if (m_p_map_opacity)
+                {
+                    float opacity = static_cast<float>(m_p_map_opacity->get_value());
+                    if (ImGui::SliderFloat(get_cop_string(lbl_map_opacity, lang), &opacity, 0.1f, 1.0f, "%.2f"))
+                    {
+                        m_p_map_opacity->set_value(static_cast<double>(opacity));
+                    }
+                }
+
+                if (m_p_map_projection)
+                {
+                    int current_proj = static_cast<int>(m_p_map_projection->get_value());
+                    if (ImGui::RadioButton(get_cop_string(proj_mercator, lang), current_proj == 1))
+                    {
+                        m_p_map_projection->set_value(1);
+                    }
+                    if (ImGui::RadioButton(get_cop_string(proj_equirectangular, lang), current_proj == 0))
+                    {
+                        m_p_map_projection->set_value(0);
+                    }
+                }
+
+                if (m_p_show_grid)
+                {
+                    bool v = m_p_show_grid->get_value();
+                    if (ImGui::Checkbox(get_cop_string(lbl_grid_toggle, lang), &v))
+                    {
+                        m_p_show_grid->set_value(v);
+                    }
+                }
+
+                if (m_p_show_coastlines)
+                {
+                    bool v = m_p_show_coastlines->get_value();
+                    if (ImGui::Checkbox(get_cop_string(lbl_coastlines_toggle, lang), &v))
+                    {
+                        m_p_show_coastlines->set_value(v);
+                    }
+                }
+
+                if (m_p_show_scale_bar)
+                {
+                    bool v = m_p_show_scale_bar->get_value();
+                    if (ImGui::Checkbox(get_cop_string(lbl_scale_bar_toggle, lang), &v))
+                    {
+                        m_p_show_scale_bar->set_value(v);
+                    }
+                }
+
+                ImGui::Checkbox(get_cop_string(lbl_compass_toggle, lang), &m_map_options.show_compass);
+            }
             ImGui::End();
-            return;
         }
 
-        if (ImGui::CollapsingHeader(get_cop_string(lbl_base_map_layer, lang), ImGuiTreeNodeFlags_DefaultOpen))
+        if (m_show_waypoints)
         {
-            if (m_p_base_provider)
+            std::string title = std::string(get_cop_string(wnd_waypoints, lang)) + "###Waypoints";
+            if (ImGui::Begin(title.c_str(), &m_show_waypoints))
             {
-                int current_prov = static_cast<int>(m_p_base_provider->get_value());
-                const char* items[] = {
-                    get_cop_string(provider_cartodb, lang),
-                    get_cop_string(provider_osm, lang),
-                    get_cop_string(provider_esri, lang),
-                    get_cop_string(provider_opentopo, lang),
-                    get_cop_string(provider_vector, lang)
-                };
+                static float new_wp_lat = 0.0f;
+                static float new_wp_lon = 0.0f;
+                static char new_wp_label[64] = "";
+                static ImVec4 new_wp_color = ImVec4(0.0f, 0.85f, 1.0f, 1.0f);
 
-                if (ImGui::Combo("Map Provider", &current_prov, items, IM_ARRAYSIZE(items)))
+                ImGui::PushItemWidth(80.0f);
+                ImGui::InputFloat("Lat", &new_wp_lat, 0.0f, 0.0f, "%.4f");
+                ImGui::SameLine();
+                ImGui::InputFloat("Lon", &new_wp_lon, 0.0f, 0.0f, "%.4f");
+                ImGui::SameLine();
+                ImGui::PopItemWidth();
+                
+                float add_btn_width = ImGui::CalcTextSize("Add").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                float color_edit_width = ImGui::GetFrameHeight();
+                float right_space = add_btn_width + color_edit_width + ImGui::GetStyle().ItemSpacing.x * 2.0f;
+                
+                ImGui::PushItemWidth(-right_space);
+                ImGui::InputText("##WpLabel", new_wp_label, IM_ARRAYSIZE(new_wp_label));
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Waypoint Name");
+                ImGui::PopItemWidth();
+                
+                ImGui::SameLine();
+                ImGui::ColorEdit4("##WpColor", (float*)&new_wp_color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+                
+                ImGui::SameLine();
+                if (ImGui::Button("Add"))
                 {
-                    m_p_base_provider->set_value(current_prov);
-                }
-            }
+                    uint32_t c = ImGui::ColorConvertFloat4ToU32(new_wp_color);
+                    // ImU32 uses ABGR in memory, so we shift properly
+                    c = ((c & 0xFF000000) >> 24) | ((c & 0x00FF0000) >> 8) | ((c & 0x0000FF00) << 8) | ((c & 0x000000FF) << 24);
+                    // wait, adam colors are RGB.
+                    uint32_t rgb = (static_cast<uint32_t>(new_wp_color.x * 255.0f) << 16) |
+                                   (static_cast<uint32_t>(new_wp_color.y * 255.0f) << 8) |
+                                   (static_cast<uint32_t>(new_wp_color.z * 255.0f));
 
-            if (m_p_map_opacity)
-            {
-                float opacity = static_cast<float>(m_p_map_opacity->get_value());
-                if (ImGui::SliderFloat(get_cop_string(lbl_map_opacity, lang), &opacity, 0.1f, 1.0f, "%.2f"))
-                {
-                    m_p_map_opacity->set_value(static_cast<double>(opacity));
-                }
-            }
-        }
-
-        if (ImGui::CollapsingHeader(get_cop_string(lbl_projection, lang), ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (m_p_map_projection)
-            {
-                int current_proj = static_cast<int>(m_p_map_projection->get_value());
-                if (ImGui::RadioButton(get_cop_string(proj_mercator, lang), current_proj == 1))
-                {
-                    m_p_map_projection->set_value(1);
-                }
-                if (ImGui::RadioButton(get_cop_string(proj_equirectangular, lang), current_proj == 0))
-                {
-                    m_p_map_projection->set_value(0);
-                }
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Overlays & Tactical Graphics", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (m_p_show_grid)
-            {
-                bool v = m_p_show_grid->get_value();
-                if (ImGui::Checkbox(get_cop_string(lbl_grid_toggle, lang), &v))
-                {
-                    m_p_show_grid->set_value(v);
-                }
-            }
-
-            if (m_p_show_coastlines)
-            {
-                bool v = m_p_show_coastlines->get_value();
-                if (ImGui::Checkbox(get_cop_string(lbl_coastlines_toggle, lang), &v))
-                {
-                    m_p_show_coastlines->set_value(v);
-                }
-            }
-
-            if (m_p_show_scale_bar)
-            {
-                bool v = m_p_show_scale_bar->get_value();
-                if (ImGui::Checkbox(get_cop_string(lbl_scale_bar_toggle, lang), &v))
-                {
-                    m_p_show_scale_bar->set_value(v);
-                }
-            }
-
-            ImGui::Checkbox(get_cop_string(lbl_compass_toggle, lang), &m_map_options.show_compass);
-        }
-
-        if (ImGui::CollapsingHeader(get_cop_string(lbl_placed_markers, lang), ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            const auto& markers = m_map.get_markers();
-            if (markers.empty())
-            {
-                ImGui::TextDisabled("%s", get_cop_string(lbl_no_markers, lang));
-            }
-            else
-            {
-                for (const auto& m : markers)
-                {
-                    ImGui::PushID(static_cast<int>(m.id));
-                    ImGui::BulletText("%s: Lat %.4f°, Lon %.4f°", m.label.c_str(), m.lat, m.lon);
-
-                    ImGui::SameLine(ImGui::GetWindowWidth() - 70.0f);
-                    if (ImGui::SmallButton("Jump"))
+                    std::string label = new_wp_label;
+                    if (label.empty())
                     {
-                        m_map.set_center(m.lat, m.lon);
+                        static uint32_t auto_wp_id = 1;
+                        char tag[32];
+                        snprintf(tag, sizeof(tag), "WP #%u", auto_wp_id++);
+                        label = tag;
                     }
 
-                    ImGui::SameLine();
-                    if (ImGui::SmallButton("X"))
+                    auto wp = std::make_unique<waypoint>(adam::string_hashed(label));
+                    wp->set_lat(new_wp_lat);
+                    wp->set_lon(new_wp_lon);
+                    wp->set_color(rgb);
+                    m_ctrl.add_waypoint(std::move(wp));
+                }
+
+                ImGui::Separator();
+
+                const auto& waypoints = m_ctrl.get_waypoints();
+                if (waypoints.empty())
+                {
+                    ImGui::TextDisabled("%s", get_cop_string(lbl_no_markers, lang));
+                }
+                else
+                {
+                    for (const auto& wp : waypoints)
                     {
-                        m_map.remove_marker(m.id);
+                        ImGui::PushID(static_cast<int>(wp->get_name().get_hash()));
+                        
+                        bool enabled = wp->is_enabled();
+                        if (ImGui::Checkbox("##enabled", &enabled))
+                        {
+                            wp->set_enabled(enabled);
+                            m_ctrl.save_config();
+                        }
+                        ImGui::SameLine();
+                        
+                        uint32_t c = wp->get_color();
+                        ImVec4 c4 = ImVec4(((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, 1.0f);
+                        if (ImGui::ColorEdit4("##Color", (float*)&c4, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel))
+                        {
+                            uint32_t rgb = (static_cast<uint32_t>(c4.x * 255.0f) << 16) | (static_cast<uint32_t>(c4.y * 255.0f) << 8) | (static_cast<uint32_t>(c4.z * 255.0f));
+                            wp->set_color(rgb);
+                            m_ctrl.save_config();
+                        }
+                        ImGui::SameLine();
+                        
+                        char lat_lon_text[64];
+                        snprintf(lat_lon_text, sizeof(lat_lon_text), "Lat %.4f°, Lon %.4f°", wp->get_lat(), wp->get_lon());
+                        float lat_lon_width = ImGui::CalcTextSize(lat_lon_text).x;
+                        float btn_jump_width = ImGui::CalcTextSize("Jump").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        float btn_x_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        float list_right_space = lat_lon_width + btn_jump_width + btn_x_width + ImGui::GetStyle().ItemSpacing.x * 3.0f;
+
+                        char label[64];
+                        snprintf(label, sizeof(label), "%s", wp->get_label().c_str());
+                        ImGui::PushItemWidth(-list_right_space);
+                        if (ImGui::InputText("##Label", label, sizeof(label)))
+                        {
+                            wp->set_label(label);
+                            m_ctrl.save_config();
+                        }
+                        ImGui::PopItemWidth();
+                        
+                        ImGui::SameLine();
+                        ImGui::Text("%s", lat_lon_text);
+
+                        ImGui::SameLine();
+                        if (ImGui::Button("Jump"))
+                        {
+                            m_map.set_center(wp->get_lat(), wp->get_lon());
+                        }
+
+                        ImGui::SameLine();
+                        if (ImGui::Button("X"))
+                        {
+                            m_ctrl.remove_waypoint(wp->get_name().get_hash());
+                            ImGui::PopID();
+                            break;
+                        }
                         ImGui::PopID();
-                        break;
                     }
-                    ImGui::PopID();
-                }
 
-                ImGui::Spacing();
-                if (ImGui::Button(get_cop_string(btn_clear_markers, lang), ImVec2(-1.0f, 0.0f)))
+                    ImGui::Spacing();
+                    if (ImGui::Button(get_cop_string(btn_clear_markers, lang), ImVec2(-1.0f, 0.0f)))
+                    {
+                        m_ctrl.clear_waypoints();
+                    }
+                }
+            }
+            ImGui::End();
+        }
+
+        if (m_show_cache_stats)
+        {
+            std::string title_cache = std::string(get_cop_string(lbl_cache_stats, lang)) + "###CacheStats";
+            if (ImGui::Begin(title_cache.c_str(), &m_show_cache_stats))
+            {
+                auto& engine = m_map.get_tile_engine();
+                ImGui::Text("GPU Loaded Textures: %zu", engine.get_loaded_texture_count());
+                ImGui::Text("Pending HTTP Requests: %zu", engine.get_pending_request_count());
+
+                if (ImGui::Button(get_cop_string(btn_clear_tile_cache, lang), ImVec2(-1.0f, 0.0f)))
                 {
-                    m_map.clear_markers();
+                    engine.clear_cache();
                 }
             }
+            ImGui::End();
         }
 
-        if (ImGui::CollapsingHeader(get_cop_string(lbl_cache_stats, lang)))
+        if (m_show_jump_coords)
         {
-            auto& engine = m_map.get_tile_engine();
-            ImGui::Text("GPU Loaded Textures: %zu", engine.get_loaded_texture_count());
-            ImGui::Text("Pending HTTP Requests: %zu", engine.get_pending_request_count());
-
-            if (ImGui::Button(get_cop_string(btn_clear_tile_cache, lang), ImVec2(-1.0f, 0.0f)))
+            std::string title_jump = std::string(get_cop_string(lbl_jump_to_coordinates, lang)) + "###JumpCoords";
+            if (ImGui::Begin(title_jump.c_str(), &m_show_jump_coords))
             {
-                engine.clear_cache();
+                ImGui::InputFloat(get_cop_string(lbl_lat, lang), &m_jump_lat, 1.0f, 5.0f, "%.4f");
+                ImGui::InputFloat(get_cop_string(lbl_lon, lang), &m_jump_lon, 1.0f, 5.0f, "%.4f");
+
+                if (ImGui::Button(get_cop_string(btn_jump, lang), ImVec2(-1.0f, 0.0f)))
+                {
+                    m_map.set_center(m_jump_lat, m_jump_lon);
+                }
+
+                if (ImGui::Button(get_cop_string(btn_reset_camera, lang), ImVec2(-1.0f, 0.0f)))
+                {
+                    m_map.reset_view();
+                }
             }
+            ImGui::End();
         }
 
-        if (ImGui::CollapsingHeader(get_cop_string(lbl_jump_to_coordinates, lang)))
+        if (m_show_asterix)
         {
-            ImGui::InputFloat(get_cop_string(lbl_lat, lang), &m_jump_lat, 1.0f, 5.0f, "%.4f");
-            ImGui::InputFloat(get_cop_string(lbl_lon, lang), &m_jump_lon, 1.0f, 5.0f, "%.4f");
-
-            if (ImGui::Button(get_cop_string(btn_jump, lang), ImVec2(-1.0f, 0.0f)))
+            std::string title_asterix = std::string(get_cop_string(wnd_asterix_connections, lang)) + "###Asterix";
+            if (ImGui::Begin(title_asterix.c_str(), &m_show_asterix))
             {
-                m_map.set_center(m_jump_lat, m_jump_lon);
+                ImGui::TextDisabled("No active ASTERIX data feeds connected.");
+                ImGui::TextWrapped("Select ASTERIX radar sources in adam to begin multi-sensor air object tracking.");
             }
-
-            if (ImGui::Button(get_cop_string(btn_reset_camera, lang), ImVec2(-1.0f, 0.0f)))
-            {
-                m_map.reset_view();
-            }
+            ImGui::End();
         }
-
-        if (ImGui::CollapsingHeader(get_cop_string(wnd_asterix_connections, lang), ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::TextDisabled("No active ASTERIX data feeds connected.");
-            ImGui::TextWrapped("Select ASTERIX radar sources in adam to begin multi-sensor air object tracking.");
-        }
-
-        ImGui::End();
     }
 
     void main_window::draw_map_window(adam::language lang)
     {
-        (void)lang;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-        ImGui::Begin("World Map Overview###MapWindow", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        std::string map_title = std::string(get_cop_string(wnd_world_map, lang)) + "###MapWindow";
+        ImGui::Begin(map_title.c_str(), nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
         ImVec2 avail = ImGui::GetContentRegionAvail();
 
@@ -698,7 +770,21 @@ namespace adam::cop
         m_map_options.show_scale_bar = m_p_show_scale_bar ? m_p_show_scale_bar->get_value() : true;
         m_map_options.show_markers = true;
 
-        m_map.draw(avail, m_map_options);
+        m_map.draw(avail, m_map_options, m_ctrl.get_waypoints(), get_cop_string(menu_add_waypoint_here, lang));
+
+        float add_lat, add_lon;
+        if (m_map.consume_context_add_waypoint_request(add_lat, add_lon))
+        {
+            static uint32_t auto_wp_id = 1;
+            char tag[32];
+            snprintf(tag, sizeof(tag), "WP #%u", auto_wp_id++);
+            auto wp = std::make_unique<waypoint>(adam::string_hashed(std::string(tag)));
+            wp->set_lat(add_lat);
+            wp->set_lon(add_lon);
+            wp->set_color(0x00D9FF);
+            m_ctrl.add_waypoint(std::move(wp));
+            m_show_waypoints = true;
+        }
 
         ImGui::End();
         ImGui::PopStyleVar();
@@ -779,10 +865,11 @@ namespace adam::cop
         const char* cpy1_text = "© 2026 dexus1337.";
         const char* cpy2_text = "All rights reserved.";
 
-        ImGui::OpenPopup(get_cop_string(wnd_about, lang));
+        std::string title_about = std::string(get_cop_string(wnd_about, lang)) + "###AboutDialog";
+        ImGui::OpenPopup(title_about.c_str());
 
         ImGui::SetNextWindowSize(ImVec2(600, 480), ImGuiCond_FirstUseEver);
-        if (ImGui::BeginPopupModal(get_cop_string(wnd_about, lang), &m_show_about, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking))
+        if (ImGui::BeginPopupModal(title_about.c_str(), &m_show_about, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking))
         {
             ImVec2 avail = ImGui::GetContentRegionAvail();
             float wrap_width = avail.x * 0.8f;
@@ -978,7 +1065,8 @@ namespace adam::cop
         
         ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
         
-        if (ImGui::Begin(get_cop_string(lbl_performance_overlay, lang), nullptr, overlay_flags))
+        std::string title_perf = std::string(get_cop_string(lbl_performance_overlay, lang)) + "###PerfOverlay";
+        if (ImGui::Begin(title_perf.c_str(), nullptr, overlay_flags))
         {
             if (location == -1)
             {

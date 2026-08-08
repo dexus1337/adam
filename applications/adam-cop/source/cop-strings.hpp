@@ -91,7 +91,11 @@ namespace adam::cop
         menu_overlay_content,
         menu_overlay_show_fps,
         menu_overlay_show_cpu,
-        menu_overlay_show_ram
+        menu_overlay_show_ram,
+        wnd_waypoints,
+        wnd_world_map,
+        wnd_settings,
+        menu_add_waypoint_here
     };
 
     const char* get_cop_string(cop_string_id id, adam::language lang);

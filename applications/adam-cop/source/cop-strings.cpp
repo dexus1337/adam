@@ -94,7 +94,11 @@ namespace adam::cop
             { menu_overlay_content, { "Content", "Inhalt" } },
             { menu_overlay_show_fps, { "Show FPS", "FPS anzeigen" } },
             { menu_overlay_show_cpu, { "Show CPU Usage", "CPU-Auslastung anzeigen" } },
-            { menu_overlay_show_ram, { "Show RAM Usage", "RAM-Auslastung anzeigen" } }
+            { menu_overlay_show_ram, { "Show RAM Usage", "RAM-Auslastung anzeigen" } },
+            { wnd_waypoints, { "Waypoints", "Wegpunkte" } },
+            { wnd_world_map, { "World Map Overview", "Weltkarte Übersicht" } },
+            { wnd_settings, { "Settings", "Einstellungen" } },
+            { menu_add_waypoint_here, { "Add Waypoint Here", "Wegpunkt hier hinzufügen" } }
         };
 
         auto it = translations.find(id);
