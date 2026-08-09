@@ -67,6 +67,9 @@ namespace adam::cop
         adam::configuration_parameter_integer* m_p_gui_mode;
         adam::configuration_parameter_double*  m_p_font_scale;
         adam::configuration_parameter_string*  m_p_docking_layout;
+        adam::configuration_parameter_double*  m_p_map_lat;
+        adam::configuration_parameter_double*  m_p_map_lon;
+        adam::configuration_parameter_double*  m_p_map_zoom;
 
         float m_jump_lat = 0.0f;
         float m_jump_lon = 0.0f;

@@ -84,10 +84,9 @@ namespace adam::cop
 
         bool consume_context_add_waypoint_request(float& out_lat, float& out_lon);
 
+        void clear_measurements() { m_measurement_points.clear(); }
+
     private:
-        bool  m_context_add_waypoint_requested = false;
-        float m_context_waypoint_lat = 0.0f;
-        float m_context_waypoint_lon = 0.0f;
         void render_ocean(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_tiles(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_grid(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
@@ -95,9 +94,14 @@ namespace adam::cop
         void render_waypoints(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints);
         void render_scale_bar(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_compass(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
+        void render_measurements(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
 
         tile_engine m_tile_engine;
 
+        bool  m_context_add_waypoint_requested = false;
+        float m_context_waypoint_lat = 0.0f;
+        float m_context_waypoint_lon = 0.0f;
+        
         float m_center_lat = 20.0f;
         float m_center_lon = 10.0f;
         float m_zoom = 1.0f;
@@ -105,6 +109,8 @@ namespace adam::cop
         float m_hover_lat = 0.0f;
         float m_hover_lon = 0.0f;
         bool  m_is_hovered = false;
+        
+        std::vector<geo_point> m_measurement_points;
 
     };
 }

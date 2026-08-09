@@ -18,6 +18,11 @@ namespace adam::cop
         {
             configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_boolean>("show_performance"_ct, false));
+            p.add(std::make_unique<configuration_parameter_boolean>("show_control_panel"_ct, true));
+            p.add(std::make_unique<configuration_parameter_boolean>("show_waypoints"_ct, true));
+            p.add(std::make_unique<configuration_parameter_boolean>("show_cache_stats"_ct, true));
+            p.add(std::make_unique<configuration_parameter_boolean>("show_jump_coords"_ct, true));
+            p.add(std::make_unique<configuration_parameter_boolean>("show_asterix"_ct, true));
             p.add(std::make_unique<configuration_parameter_integer>("perf_ovly_location"_ct, 1));
             p.add(std::make_unique<configuration_parameter_double>("perf_ovly_x"_ct, -1.0));
             p.add(std::make_unique<configuration_parameter_double>("perf_ovly_y"_ct, -1.0));
@@ -27,6 +32,7 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_boolean>("show_grid"_ct, true));
             p.add(std::make_unique<configuration_parameter_boolean>("show_coastlines"_ct, true));
             p.add(std::make_unique<configuration_parameter_boolean>("show_land_fill"_ct, true));
+            p.add(std::make_unique<configuration_parameter_boolean>("show_scale_bar"_ct, true));
             p.add(std::make_unique<configuration_parameter_integer>("base_provider"_ct, 0)); // 0 = CartoDB Dark, 1 = OSM, 2 = Satellite, 3 = Topo, 4 = Vector
             p.add(std::make_unique<configuration_parameter_double>("map_opacity"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, static_cast<int>(adam::language_english)));
@@ -39,6 +45,9 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_integer>("window_h"_ct, 720));
             p.add(std::make_unique<configuration_parameter_boolean>("window_maximized"_ct, false));
             p.add(std::make_unique<configuration_parameter_string>("docking_layout"_ct, ""_ct));
+            p.add(std::make_unique<configuration_parameter_double>("map_lat"_ct, 20.0));
+            p.add(std::make_unique<configuration_parameter_double>("map_lon"_ct, 10.0));
+            p.add(std::make_unique<configuration_parameter_double>("map_zoom"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_list_sorted>("waypoints"_ct));
             return p;
         }();
@@ -192,10 +201,16 @@ namespace adam::cop
         if (!wp_list) return;
 
         wp_list->clear();
+        uint32_t wp_id = 0;
         for (const auto& wp : m_waypoints)
         {
             auto p = wp->get_parameters().clone();
-            p->set_name(wp->get_name());
+            
+            // Generate a unique ID to guarantee they don't overwrite each other in the config list
+            char id_str[128];
+            snprintf(id_str, sizeof(id_str), "wp_%u_%f_%f", ++wp_id, wp->get_lat(), wp->get_lon());
+            p->set_name(adam::string_hashed(&id_str[0]));
+            
             wp_list->add(std::move(p));
         }
     }

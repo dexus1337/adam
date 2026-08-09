@@ -39,6 +39,17 @@ namespace adam::cop
         return radians_to_degrees(2.0f * std::atan(std::exp(y)) - M_PI_F / 2.0f);
     }
 
+    static float calculate_haversine_distance_km(float lat1, float lon1, float lat2, float lon2)
+    {
+        float dlat = degrees_to_radians(lat2 - lat1);
+        float dlon = degrees_to_radians(lon2 - lon1);
+        float a = std::sin(dlat / 2.0f) * std::sin(dlat / 2.0f) +
+                  std::cos(degrees_to_radians(lat1)) * std::cos(degrees_to_radians(lat2)) *
+                  std::sin(dlon / 2.0f) * std::sin(dlon / 2.0f);
+        float c = 2.0f * std::atan2(std::sqrt(a), std::sqrt(1.0f - a));
+        return 6371.0f * c;
+    }
+
     world_map::world_map()
     {
         reset_view();
@@ -157,6 +168,15 @@ namespace adam::cop
             m_hover_lat = hover_pt.lat;
             m_hover_lon = hover_pt.lon;
 
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                m_measurement_points.push_back({m_hover_lat, m_hover_lon});
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+            {
+                clear_measurements();
+            }
+
             // Pan control via right mouse drag (only if NOT holding Shift)
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Right) && !io.KeyShift)
             {
@@ -211,6 +231,7 @@ namespace adam::cop
             }
         }
 
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
         if (ImGui::BeginPopup("MapContextMenu"))
         {
             static geo_point click_geo = {0.0f, 0.0f};
@@ -218,14 +239,19 @@ namespace adam::cop
             {
                 click_geo = screen_to_geo(io.MousePos, canvas_pos, canvas_size, options.projection);
             }
-            if (ImGui::MenuItem(add_waypoint_text))
+            if (ImGui::MenuItem(add_waypoint_text, "Shift+RClick"))
             {
                 m_context_add_waypoint_requested = true;
                 m_context_waypoint_lat = click_geo.lat;
                 m_context_waypoint_lon = click_geo.lon;
             }
+            if (ImGui::MenuItem("Clear Measurements", "Esc", false, !m_measurement_points.empty()))
+            {
+                clear_measurements();
+            }
             ImGui::EndPopup();
         }
+        ImGui::PopStyleVar();
 
         // Render Base Ocean Background
         render_ocean(draw_list, canvas_pos, canvas_size, options);
@@ -253,6 +279,8 @@ namespace adam::cop
         {
             render_waypoints(draw_list, canvas_pos, canvas_size, options, waypoints);
         }
+
+        render_measurements(draw_list, canvas_pos, canvas_size, options);
 
         // Render Scale Bar
         if (options.show_scale_bar)
@@ -591,9 +619,11 @@ namespace adam::cop
 
             uint32_t c = wp->get_color();
             ImU32 col_primary = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
-            ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(ImVec4(0.06f, 0.08f, 0.12f, 0.90f));
-            ImU32 col_text = ImGui::ColorConvertFloat4ToU32(ImVec4(0.95f, 0.98f, 1.00f, 1.00f));
-            ImU32 col_subtext = ImGui::ColorConvertFloat4ToU32(ImVec4(0.00f, 0.85f, 1.00f, 1.00f));
+            
+            ImVec4 bg_color = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
+            bg_color.w = std::min(bg_color.w, 0.90f); // Make sure it's slightly transparent if the theme is opaque
+            ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(bg_color);
+            ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
 
             // Reticle Target Icon
             float r = 12.0f;
@@ -606,56 +636,102 @@ namespace adam::cop
             draw_list->AddLine(ImVec2(screen_pt.x, screen_pt.y - r - 6.0f), ImVec2(screen_pt.x, screen_pt.y - 4.0f), col_primary, 1.8f);
             draw_list->AddLine(ImVec2(screen_pt.x, screen_pt.y + 4.0f), ImVec2(screen_pt.x, screen_pt.y + r + 6.0f), col_primary, 1.8f);
 
-            // Callout Box
-            char lat_str[32];
-            char lon_str[32];
-            std::snprintf(lat_str, sizeof(lat_str), "Lat: %.4f°%c", std::abs(wp->get_lat()), wp->get_lat() >= 0 ? 'N' : 'S');
-            std::snprintf(lon_str, sizeof(lon_str), "Lon: %.4f°%c", std::abs(wp->get_lon()), wp->get_lon() >= 0 ? 'E' : 'W');
-
-            ImVec2 tag_pos = ImVec2(screen_pt.x + r + 8.0f, screen_pt.y - 22.0f);
-            float box_w = 145.0f;
-            float box_h = 44.0f;
+            // Callout Box (Label only)
+            ImVec2 label_size = ImGui::CalcTextSize(wp->get_label().c_str());
+            float box_w = label_size.x + 12.0f;
+            float box_h = label_size.y + 8.0f;
+            
+            ImVec2 tag_pos = ImVec2(screen_pt.x + r + 8.0f, screen_pt.y - box_h * 0.5f);
 
             draw_list->AddRectFilled(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_bg, 4.0f);
             draw_list->AddRect(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_primary, 4.0f, 0, 1.2f);
 
-            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 3.0f), col_text, wp->get_label().c_str());
-            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 16.0f), col_subtext, lat_str);
-            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 28.0f), col_subtext, lon_str);
+            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 4.0f), col_text, wp->get_label().c_str());
+        }
+    }
+
+    void world_map::render_measurements(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options)
+    {
+        if (m_measurement_points.empty()) return;
+
+        ImU32 col_line = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.65f, 0.0f, 0.8f));
+        ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
+        ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(ImVec4(0.06f, 0.08f, 0.12f, 0.7f));
+        
+        float total_dist_km = 0.0f;
+        
+        for (size_t i = 0; i < m_measurement_points.size(); ++i)
+        {
+            ImVec2 p1 = geo_to_screen(m_measurement_points[i].lat, m_measurement_points[i].lon, pos, size, options.projection);
+            
+            // Frustum culling check
+            bool p1_visible = !(p1.x < pos.x - 50.0f || p1.x > pos.x + size.x + 50.0f || p1.y < pos.y - 50.0f || p1.y > pos.y + size.y + 50.0f);
+            
+            if (p1_visible)
+            {
+                draw_list->AddCircleFilled(p1, 5.0f, col_line);
+                draw_list->AddCircle(p1, 7.0f, ImGui::GetColorU32(ImGuiCol_WindowBg), 0, 1.5f);
+            }
+            
+            if (i > 0)
+            {
+                ImVec2 p0 = geo_to_screen(m_measurement_points[i - 1].lat, m_measurement_points[i - 1].lon, pos, size, options.projection);
+                
+                float dist_km = calculate_haversine_distance_km(m_measurement_points[i - 1].lat, m_measurement_points[i - 1].lon, m_measurement_points[i].lat, m_measurement_points[i].lon);
+                total_dist_km += dist_km;
+                
+                bool p0_visible = !(p0.x < pos.x - 50.0f || p0.x > pos.x + size.x + 50.0f || p0.y < pos.y - 50.0f || p0.y > pos.y + size.y + 50.0f);
+                if (p0_visible || p1_visible)
+                {
+                    draw_list->AddLine(p0, p1, col_line, 2.5f);
+                    
+                    char label[64];
+                    if (dist_km < 1.0f) std::snprintf(label, sizeof(label), "%.0f m", dist_km * 1000.0f);
+                    else std::snprintf(label, sizeof(label), "%.1f km", dist_km);
+                    
+                    ImVec2 mid = ImVec2((p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f);
+                    ImVec2 text_size = ImGui::CalcTextSize(label);
+                    
+                    draw_list->AddRectFilled(ImVec2(mid.x - text_size.x * 0.5f - 4.0f, mid.y - text_size.y * 0.5f - 2.0f), 
+                                             ImVec2(mid.x + text_size.x * 0.5f + 4.0f, mid.y + text_size.y * 0.5f + 2.0f), col_bg, 3.0f);
+                    draw_list->AddText(ImVec2(mid.x - text_size.x * 0.5f, mid.y - text_size.y * 0.5f), col_text, label);
+                }
+            }
+        }
+        
+        if (m_measurement_points.size() > 1)
+        {
+            ImVec2 last_p = geo_to_screen(m_measurement_points.back().lat, m_measurement_points.back().lon, pos, size, options.projection);
+            char label[64];
+            if (total_dist_km < 1.0f) std::snprintf(label, sizeof(label), "Total: %.0f m", total_dist_km * 1000.0f);
+            else std::snprintf(label, sizeof(label), "Total: %.1f km", total_dist_km);
+            
+            ImVec2 text_size = ImGui::CalcTextSize(label);
+            draw_list->AddRectFilled(ImVec2(last_p.x + 10.0f, last_p.y - text_size.y * 0.5f - 2.0f), 
+                                     ImVec2(last_p.x + 10.0f + text_size.x + 8.0f, last_p.y + text_size.y * 0.5f + 2.0f), col_bg, 3.0f);
+            draw_list->AddText(ImVec2(last_p.x + 14.0f, last_p.y - text_size.y * 0.5f), col_text, label);
         }
     }
 
     void world_map::render_scale_bar(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options)
     {
-        ImVec2 bar_pos = ImVec2(pos.x + 20.0f, pos.y + size.y - 40.0f);
+        ImVec2 bar_pos = ImVec2(pos.x + 30.0f, pos.y + size.y - 30.0f);
         float bar_width_px = 120.0f;
 
         geo_point g1 = screen_to_geo(bar_pos, pos, size, options.projection);
         geo_point g2 = screen_to_geo(ImVec2(bar_pos.x + bar_width_px, bar_pos.y), pos, size, options.projection);
 
         // Haversine distance in KM
-        float dlat = degrees_to_radians(g2.lat - g1.lat);
-        float dlon = degrees_to_radians(g2.lon - g1.lon);
-        float a = std::sin(dlat / 2.0f) * std::sin(dlat / 2.0f) +
-                  std::cos(degrees_to_radians(g1.lat)) * std::cos(degrees_to_radians(g2.lat)) *
-                  std::sin(dlon / 2.0f) * std::sin(dlon / 2.0f);
-        float c = 2.0f * std::atan2(std::sqrt(a), std::sqrt(1.0f - a));
-        float dist_km = 6371.0f * c;
+        float dist_km = calculate_haversine_distance_km(g1.lat, g1.lon, g2.lat, g2.lon);
         float dist_nm = dist_km * 0.539957f;
 
-        ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(ImVec4(0.06f, 0.08f, 0.12f, 0.85f));
-        ImU32 col_border = ImGui::ColorConvertFloat4ToU32(ImVec4(0.00f, 0.60f, 0.80f, 0.80f));
-        ImU32 col_text = ImGui::ColorConvertFloat4ToU32(ImVec4(0.90f, 0.94f, 0.98f, 1.00f));
-
-        draw_list->AddRectFilled(ImVec2(bar_pos.x - 8.0f, bar_pos.y - 20.0f), ImVec2(bar_pos.x + bar_width_px + 8.0f, bar_pos.y + 15.0f), col_bg, 4.0f);
-        draw_list->AddRect(ImVec2(bar_pos.x - 8.0f, bar_pos.y - 20.0f), ImVec2(bar_pos.x + bar_width_px + 8.0f, bar_pos.y + 15.0f), col_border, 4.0f);
-
-        draw_list->AddLine(ImVec2(bar_pos.x, bar_pos.y), ImVec2(bar_pos.x + bar_width_px, bar_pos.y), col_text, 2.0f);
-        draw_list->AddLine(ImVec2(bar_pos.x, bar_pos.y - 4.0f), ImVec2(bar_pos.x, bar_pos.y + 4.0f), col_text, 2.0f);
-        draw_list->AddLine(ImVec2(bar_pos.x + bar_width_px, bar_pos.y - 4.0f), ImVec2(bar_pos.x + bar_width_px, bar_pos.y + 4.0f), col_text, 2.0f);
-
         char label[64];
-        if (dist_km >= 10.0f)
+        if (dist_km < 1.0f)
+        {
+            float dist_m = dist_km * 1000.0f;
+            std::snprintf(label, sizeof(label), "%.0f m / %.2f NM", dist_m, dist_nm);
+        }
+        else if (dist_km >= 10.0f)
         {
             std::snprintf(label, sizeof(label), "%.0f km / %.0f NM", dist_km, dist_nm);
         }
@@ -664,7 +740,50 @@ namespace adam::cop
             std::snprintf(label, sizeof(label), "%.1f km / %.1f NM", dist_km, dist_nm);
         }
 
-        draw_list->AddText(ImVec2(bar_pos.x, bar_pos.y - 18.0f), col_text, label);
+        ImVec2 text_size = ImGui::CalcTextSize(label);
+        
+        float padding_x = 12.0f;
+        float padding_y = 8.0f;
+        float line_margin_top = 4.0f;
+        float line_tick_h = 4.0f;
+        
+        float bg_width = std::max(bar_width_px + padding_x * 2.0f, text_size.x + padding_x * 2.0f);
+        float bg_height = text_size.y + line_margin_top + line_tick_h * 2.0f + padding_y * 2.0f;
+        
+        float center_x = bar_pos.x + bar_width_px * 0.5f;
+        ImVec2 bg_p0 = ImVec2(center_x - bg_width * 0.5f, bar_pos.y - bg_height);
+        ImVec2 bg_p1 = ImVec2(bg_p0.x + bg_width, bg_p0.y + bg_height);
+
+        ImVec4 theme_bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+        theme_bg.w = 0.85f; // Keep it semi-transparent
+        
+        ImU32 col_shadow = IM_COL32(0, 0, 0, 160);
+        ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(theme_bg);
+        ImU32 col_border = ImGui::GetColorU32(ImGuiCol_Border);
+        ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
+        ImU32 col_line = ImGui::GetColorU32(ImGuiCol_Text);
+
+        // Shadow
+        draw_list->AddRectFilled(ImVec2(bg_p0.x + 3.0f, bg_p0.y + 3.0f), ImVec2(bg_p1.x + 3.0f, bg_p1.y + 3.0f), col_shadow, 6.0f);
+        // Background
+        draw_list->AddRectFilled(bg_p0, bg_p1, col_bg, 6.0f);
+        // Border
+        draw_list->AddRect(bg_p0, bg_p1, col_border, 6.0f, 0, 1.5f);
+
+        // Text
+        ImVec2 text_pos = ImVec2(center_x - text_size.x * 0.5f, bg_p0.y + padding_y);
+        draw_list->AddText(text_pos, col_text, label);
+
+        // Line
+        float line_y = bg_p1.y - padding_y - line_tick_h;
+        ImVec2 line_start = ImVec2(bar_pos.x, line_y);
+        ImVec2 line_end = ImVec2(bar_pos.x + bar_width_px, line_y);
+        draw_list->AddLine(line_start, line_end, col_line, 2.0f);
+        draw_list->AddLine(ImVec2(line_start.x, line_start.y - line_tick_h), ImVec2(line_start.x, line_start.y + line_tick_h), col_line, 2.0f);
+        draw_list->AddLine(ImVec2(line_end.x, line_end.y - line_tick_h), ImVec2(line_end.x, line_end.y + line_tick_h), col_line, 2.0f);
+        
+        // Add middle tick
+        draw_list->AddLine(ImVec2(center_x, line_y - line_tick_h * 0.5f), ImVec2(center_x, line_y + line_tick_h * 0.5f), col_line, 1.5f);
     }
 
     void world_map::render_compass(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options)

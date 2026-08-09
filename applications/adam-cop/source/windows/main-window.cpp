@@ -61,12 +61,24 @@ namespace adam::cop
         m_p_gui_mode       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
         m_p_font_scale     = dynamic_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
         m_p_docking_layout = dynamic_cast<adam::configuration_parameter_string*>(params.get("docking_layout"_ct));
+        m_p_map_lat        = dynamic_cast<adam::configuration_parameter_double*>(params.get("map_lat"_ct));
+        m_p_map_lon        = dynamic_cast<adam::configuration_parameter_double*>(params.get("map_lon"_ct));
+        m_p_map_zoom       = dynamic_cast<adam::configuration_parameter_double*>(params.get("map_zoom"_ct));
         
-        if (m_p_docking_layout && !m_p_docking_layout->get_value().empty())
+        if (!m_p_docking_layout->get_value().empty())
         {
             std::string layout_data = m_p_docking_layout->get_value().data();
             ImGui::LoadIniSettingsFromMemory(layout_data.c_str(), layout_data.size());
         }
+        
+        m_map.set_center(static_cast<float>(m_p_map_lat->get_value()), static_cast<float>(m_p_map_lon->get_value()));
+        m_map.set_zoom(static_cast<float>(m_p_map_zoom->get_value()));
+
+        m_show_control_panel = static_cast<adam::configuration_parameter_boolean*>(params.get("show_control_panel"_ct))->get_value();
+        m_show_waypoints = static_cast<adam::configuration_parameter_boolean*>(params.get("show_waypoints"_ct))->get_value();
+        m_show_cache_stats = static_cast<adam::configuration_parameter_boolean*>(params.get("show_cache_stats"_ct))->get_value();
+        m_show_jump_coords = static_cast<adam::configuration_parameter_boolean*>(params.get("show_jump_coords"_ct))->get_value();
+        m_show_asterix = static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->get_value();
 
         int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
         int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
@@ -153,12 +165,22 @@ namespace adam::cop
                 static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->set_value(is_maximized);
             }
 
+            static_cast<adam::configuration_parameter_boolean*>(params.get("show_control_panel"_ct))->set_value(m_show_control_panel);
+            static_cast<adam::configuration_parameter_boolean*>(params.get("show_waypoints"_ct))->set_value(m_show_waypoints);
+            static_cast<adam::configuration_parameter_boolean*>(params.get("show_cache_stats"_ct))->set_value(m_show_cache_stats);
+            static_cast<adam::configuration_parameter_boolean*>(params.get("show_jump_coords"_ct))->set_value(m_show_jump_coords);
+            static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->set_value(m_show_asterix);
+
             size_t ini_size = 0;
             const char* ini_data = ImGui::SaveIniSettingsToMemory(&ini_size);
             if (ini_data && ini_size > 0 && m_p_docking_layout)
             {
                 m_p_docking_layout->set_value(adam::string_hashed(std::string_view(ini_data, ini_size)));
             }
+
+            if (m_p_map_lat) m_p_map_lat->set_value(static_cast<double>(m_map.get_center_lat()));
+            if (m_p_map_lon) m_p_map_lon->set_value(static_cast<double>(m_map.get_center_lon()));
+            if (m_p_map_zoom) m_p_map_zoom->set_value(static_cast<double>(m_map.get_zoom()));
         }
     }
 
@@ -266,6 +288,18 @@ namespace adam::cop
         {
             std::string layers_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(lbl_layers_panel, lang));
             ImGui::MenuItem(layers_str.c_str(), nullptr, &m_show_control_panel);
+
+            std::string waypoints_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(wnd_waypoints, lang));
+            ImGui::MenuItem(waypoints_str.c_str(), nullptr, &m_show_waypoints);
+            
+            std::string cache_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(lbl_cache_stats, lang));
+            ImGui::MenuItem(cache_str.c_str(), nullptr, &m_show_cache_stats);
+            
+            std::string asterix_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(wnd_asterix_connections, lang));
+            ImGui::MenuItem(asterix_str.c_str(), nullptr, &m_show_asterix);
+            
+            std::string jump_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(lbl_jump_to_coordinates, lang));
+            ImGui::MenuItem(jump_str.c_str(), nullptr, &m_show_jump_coords);
 
             if (m_p_show_performance)
             {
@@ -635,7 +669,7 @@ namespace adam::cop
                 {
                     for (const auto& wp : waypoints)
                     {
-                        ImGui::PushID(static_cast<int>(wp->get_name().get_hash()));
+                        ImGui::PushID(wp.get());
                         
                         bool enabled = wp->is_enabled();
                         if (ImGui::Checkbox("##enabled", &enabled))
@@ -657,8 +691,9 @@ namespace adam::cop
                         
                         char lat_lon_text[64];
                         snprintf(lat_lon_text, sizeof(lat_lon_text), "Lat %.4f°, Lon %.4f°", wp->get_lat(), wp->get_lon());
-                        float lat_lon_width = ImGui::CalcTextSize(lat_lon_text).x;
-                        float btn_jump_width = ImGui::CalcTextSize("Jump").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                        // Use a fixed maximum text length to ensure all input boxes align equally
+                        float lat_lon_width = ImGui::CalcTextSize("Lat -180.0000°, Lon -180.0000°").x;
+                        float btn_jump_width = ImGui::CalcTextSize("Go to").x + ImGui::GetStyle().FramePadding.x * 2.0f;
                         float btn_x_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
                         float list_right_space = lat_lon_width + btn_jump_width + btn_x_width + ImGui::GetStyle().ItemSpacing.x * 3.0f;
 
@@ -676,7 +711,9 @@ namespace adam::cop
                         ImGui::Text("%s", lat_lon_text);
 
                         ImGui::SameLine();
-                        if (ImGui::Button("Jump"))
+                        float target_x = ImGui::GetWindowContentRegionMax().x - btn_jump_width - btn_x_width - ImGui::GetStyle().ItemSpacing.x;
+                        ImGui::SetCursorPosX(target_x);
+                        if (ImGui::Button("Go to"))
                         {
                             m_map.set_center(wp->get_lat(), wp->get_lon());
                         }
@@ -1093,7 +1130,7 @@ namespace adam::cop
             }
 
             int content = static_cast<int>(m_p_perf_ovly_content->get_value());
-            if (content & 1) ImGui::Text("%s %.1f (%.3f ms)", get_cop_string(lbl_fps, lang), ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+            if ((content & 1) && m_p_gui_mode && m_p_gui_mode->get_value() == 1) ImGui::Text("%s %.1f (%.3f ms)", get_cop_string(lbl_fps, lang), ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
             if (content & 2) ImGui::Text(get_cop_string(lbl_cpu, lang), adam::os::get_cpu_usage());
             if (content & 4)
             {
