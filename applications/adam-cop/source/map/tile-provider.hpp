@@ -18,8 +18,7 @@ namespace adam::cop
         cartodb_dark = 0,
         openstreetmap,
         esri_satellite,
-        opentopomap,
-        vector_only
+        opentopomap
     };
 
     struct tile_provider_info

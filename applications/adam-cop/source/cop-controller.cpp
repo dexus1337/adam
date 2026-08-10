@@ -33,8 +33,23 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_boolean>("show_coastlines"_ct, true));
             p.add(std::make_unique<configuration_parameter_boolean>("show_land_fill"_ct, true));
             p.add(std::make_unique<configuration_parameter_boolean>("show_scale_bar"_ct, true));
-            p.add(std::make_unique<configuration_parameter_integer>("base_provider"_ct, 0)); // 0 = CartoDB Dark, 1 = OSM, 2 = Satellite, 3 = Topo, 4 = Vector
-            p.add(std::make_unique<configuration_parameter_double>("map_opacity"_ct, 1.0));
+            p.add(std::make_unique<configuration_parameter_integer>("map_layer_0_provider"_ct, 0));
+            p.add(std::make_unique<configuration_parameter_double>("map_layer_0_opacity"_ct, 1.0));
+            p.add(std::make_unique<configuration_parameter_boolean>("map_layer_0_visible"_ct, true));
+
+            p.add(std::make_unique<configuration_parameter_integer>("map_layer_1_provider"_ct, 1));
+            p.add(std::make_unique<configuration_parameter_double>("map_layer_1_opacity"_ct, 1.0));
+            p.add(std::make_unique<configuration_parameter_boolean>("map_layer_1_visible"_ct, false));
+
+            p.add(std::make_unique<configuration_parameter_integer>("map_layer_2_provider"_ct, 2));
+            p.add(std::make_unique<configuration_parameter_double>("map_layer_2_opacity"_ct, 1.0));
+            p.add(std::make_unique<configuration_parameter_boolean>("map_layer_2_visible"_ct, false));
+
+            p.add(std::make_unique<configuration_parameter_integer>("map_layer_3_provider"_ct, 3));
+            p.add(std::make_unique<configuration_parameter_double>("map_layer_3_opacity"_ct, 1.0));
+            p.add(std::make_unique<configuration_parameter_boolean>("map_layer_3_visible"_ct, false));
+
+
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, static_cast<int>(adam::language_english)));
             p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "dark"_ct));
             p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0)); // 0 = Default, 1 = Immediate

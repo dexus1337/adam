@@ -26,6 +26,13 @@ namespace adam::cop
 
     const ImVec4& get_cop_color(cop_color_id id);
 
+    struct map_layer_config_params
+    {
+        adam::configuration_parameter_integer* provider;
+        adam::configuration_parameter_double* opacity;
+        adam::configuration_parameter_boolean* visible;
+    };
+
     class main_window
     {
     public:
@@ -49,8 +56,7 @@ namespace adam::cop
         world_map m_map;
         map_render_options m_map_options;
 
-        adam::configuration_parameter_integer* m_p_base_provider;
-        adam::configuration_parameter_double*  m_p_map_opacity;
+        std::array<map_layer_config_params, 4> m_p_map_layer_params;
         adam::configuration_parameter_integer* m_p_map_projection;
         adam::configuration_parameter_boolean* m_p_show_grid;
         adam::configuration_parameter_boolean* m_p_show_coastlines;

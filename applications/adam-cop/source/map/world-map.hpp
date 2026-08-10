@@ -15,6 +15,7 @@
 #include <imgui.h>
 
 #include <vector>
+#include <array>
 #include <string>
 #include <cstdint>
 
@@ -27,16 +28,22 @@ namespace adam::cop
     };
 
 
+    struct map_layer
+    {
+        tile_provider_type provider = tile_provider_type::cartodb_dark;
+        float opacity = 1.0f;
+        bool visible = true;
+    };
+
     struct map_render_options
     {
         projection_type projection = projection_type::mercator;
-        tile_provider_type base_provider = tile_provider_type::cartodb_dark;
+        std::array<map_layer, 4> tile_layers;
         bool show_grid = true;
         bool show_coastlines = true;
         bool show_scale_bar = true;
         bool show_compass = true;
         bool show_markers = true;
-        float map_opacity = 1.0f;
         ImVec4 coastline_color = ImVec4(0.00f, 0.75f, 0.95f, 0.90f);
         ImVec4 grid_color = ImVec4(0.20f, 0.30f, 0.40f, 0.45f);
         ImVec4 ocean_bg_color = ImVec4(0.06f, 0.08f, 0.12f, 1.00f);

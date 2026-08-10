@@ -16,6 +16,7 @@
 #include <renderer-setup.hpp>
 #include <vector>
 #include <array>
+#include <algorithm>
 #include <os/os.hpp>
 #include <version/version.hpp>
 
@@ -43,8 +44,7 @@ namespace adam::cop
         , m_last_lang(static_cast<adam::language>(255))
     {
         auto& params = m_ctrl.get_parameters();
-        m_p_base_provider  = dynamic_cast<adam::configuration_parameter_integer*>(params.get("base_provider"_ct));
-        m_p_map_opacity    = dynamic_cast<adam::configuration_parameter_double*>(params.get("map_opacity"_ct));
+
         m_p_map_projection = dynamic_cast<adam::configuration_parameter_integer*>(params.get("map_projection"_ct));
         m_p_show_grid      = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_grid"_ct));
         m_p_show_coastlines = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_coastlines"_ct));
@@ -70,7 +70,35 @@ namespace adam::cop
             std::string layout_data = m_p_docking_layout->get_value().data();
             ImGui::LoadIniSettingsFromMemory(layout_data.c_str(), layout_data.size());
         }
+
+        const adam::string_hashed param_names_provider[4] = { "map_layer_0_provider"_ct, "map_layer_1_provider"_ct, "map_layer_2_provider"_ct, "map_layer_3_provider"_ct };
+        const adam::string_hashed param_names_opacity[4]  = { "map_layer_0_opacity"_ct,  "map_layer_1_opacity"_ct,  "map_layer_2_opacity"_ct,  "map_layer_3_opacity"_ct };
+        const adam::string_hashed param_names_visible[4]  = { "map_layer_0_visible"_ct,  "map_layer_1_visible"_ct,  "map_layer_2_visible"_ct,  "map_layer_3_visible"_ct };
+
+        for (int i = 0; i < 4; ++i)
+        {
+            m_p_map_layer_params[i].provider = dynamic_cast<adam::configuration_parameter_integer*>(params.get(param_names_provider[i]));
+            m_p_map_layer_params[i].opacity = dynamic_cast<adam::configuration_parameter_double*>(params.get(param_names_opacity[i]));
+            m_p_map_layer_params[i].visible = dynamic_cast<adam::configuration_parameter_boolean*>(params.get(param_names_visible[i]));
+
+            if (m_p_map_layer_params[i].provider && m_p_map_layer_params[i].opacity && m_p_map_layer_params[i].visible)
+            {
+                int64_t provider_val = m_p_map_layer_params[i].provider->get_value();
+                if (provider_val < 0 || provider_val > 3)
+                {
+                    provider_val = i;
+                }
+                m_map_options.tile_layers[i].provider = static_cast<tile_provider_type>(provider_val);
+                m_map_options.tile_layers[i].opacity = static_cast<float>(m_p_map_layer_params[i].opacity->get_value());
+                m_map_options.tile_layers[i].visible = m_p_map_layer_params[i].visible->get_value();
+            }
+            else
+            {
+                m_map_options.tile_layers[i] = { static_cast<tile_provider_type>(i), 1.0f, (i == 0) };
+            }
+        }
         
+
         m_map.set_center(static_cast<float>(m_p_map_lat->get_value()), static_cast<float>(m_p_map_lon->get_value()));
         m_map.set_zoom(static_cast<float>(m_p_map_zoom->get_value()));
 
@@ -245,7 +273,7 @@ namespace adam::cop
             ImGuiID dock_left_mid1 = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.40f, nullptr, &dock_id_left);
 
             // Need a dummy string before ### to dock correctly if we don't know the localized prefix
-            ImGui::DockBuilderDockWindow("World Map Overview###MapWindow", dock_main_id);
+            ImGui::DockBuilderDockWindow("World Overview###MapWindow", dock_main_id);
             ImGui::DockBuilderDockWindow("Layers###ControlPanel", dock_id_left);
             ImGui::DockBuilderDockWindow("Waypoints###Waypoints", dock_left_mid1);
             ImGui::DockBuilderDockWindow("Cache###CacheStats", dock_left_mid2);
@@ -531,31 +559,129 @@ namespace adam::cop
             std::string panel_title = std::string(get_cop_string(lbl_layers_panel, lang)) + "###ControlPanel";
             if (ImGui::Begin(panel_title.c_str(), &m_show_control_panel))
             {
-                if (m_p_base_provider)
+                auto save_map_layers = [&]() 
                 {
-                    int current_prov = static_cast<int>(m_p_base_provider->get_value());
-                    const char* items[] = {
-                        get_cop_string(provider_cartodb, lang),
-                        get_cop_string(provider_osm, lang),
-                        get_cop_string(provider_esri, lang),
-                        get_cop_string(provider_opentopo, lang),
-                        get_cop_string(provider_vector, lang)
-                    };
-
-                    if (ImGui::Combo("Map Provider", &current_prov, items, IM_ARRAYSIZE(items)))
+                    for (size_t i = 0; i < 4; ++i)
                     {
-                        m_p_base_provider->set_value(current_prov);
+                        if (m_p_map_layer_params[i].provider && m_p_map_layer_params[i].opacity && m_p_map_layer_params[i].visible)
+                        {
+                            m_p_map_layer_params[i].provider->set_value(static_cast<int64_t>(m_map_options.tile_layers[i].provider));
+                            m_p_map_layer_params[i].opacity->set_value(static_cast<double>(m_map_options.tile_layers[i].opacity));
+                            m_p_map_layer_params[i].visible->set_value(m_map_options.tile_layers[i].visible);
+                        }
                     }
+                };
+
+                const char* provider_items[] = 
+                {
+                    get_cop_string(provider_cartodb, lang),
+                    get_cop_string(provider_osm, lang),
+                    get_cop_string(provider_esri, lang),
+                    get_cop_string(provider_opentopo, lang)
+                };
+
+                ImGui::SeparatorText("Layers");
+
+                bool layers_changed = false;
+
+                if (ImGui::BeginTable("##LayersTable", 3, ImGuiTableFlags_BordersInnerH))
+                {
+                    ImGui::TableSetupColumn("##drag", ImGuiTableColumnFlags_WidthFixed);
+                    ImGui::TableSetupColumn("##layer", ImGuiTableColumnFlags_WidthFixed);
+                    ImGui::TableSetupColumn("##opac_col", ImGuiTableColumnFlags_WidthStretch);
+
+                    for (int i = static_cast<int>(m_map_options.tile_layers.size()) - 1; i >= 0; --i)
+                    {
+                        ImGui::PushID(i);
+                        auto& layer = m_map_options.tile_layers[i];
+                        bool drag_drop_finished = false;
+
+                        ImGui::TableNextRow();
+
+                        ImGui::TableNextColumn();
+                        ImVec2 pos = ImGui::GetCursorPos();
+                        
+                        ImGui::Selectable("##row", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap, ImVec2(0, ImGui::GetFrameHeight()));
+                        
+                        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+                        {
+                            ImGui::SetDragDropPayload("DND_MAP_LAYER", &i, sizeof(int));
+                            ImGui::Text("Move %s", provider_items[static_cast<int>(layer.provider)]);
+                            ImGui::EndDragDropSource();
+                        }
+                        if (ImGui::BeginDragDropTarget())
+                        {
+                            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_MAP_LAYER", ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+                            {
+                                if (payload->IsPreview())
+                                {
+                                    ImGui::GetWindowDrawList()->AddRectFilled(
+                                        ImGui::GetItemRectMin(), 
+                                        ImVec2(ImGui::GetItemRectMax().x, ImGui::GetItemRectMin().y + 2.0f), 
+                                        IM_COL32(255, 255, 0, 255));
+                                }
+                                if (payload->IsDelivery())
+                                {
+                                    int src = *(const int*)payload->Data;
+                                    int dst = i;
+                                    if (src != dst)
+                                    {
+                                        if (src < dst)
+                                        {
+                                            std::rotate(m_map_options.tile_layers.begin() + src, m_map_options.tile_layers.begin() + src + 1, m_map_options.tile_layers.begin() + dst + 1);
+                                        }
+                                        else
+                                        {
+                                            std::rotate(m_map_options.tile_layers.begin() + dst, m_map_options.tile_layers.begin() + src, m_map_options.tile_layers.begin() + src + 1);
+                                        }
+                                        layers_changed = true;
+                                        drag_drop_finished = true;
+                                    }
+                                }
+                            }
+                            ImGui::EndDragDropTarget();
+                        }
+                        
+                        ImGui::SetCursorPos(pos);
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::TextDisabled("(=)");
+                        
+                        if (ImGui::IsItemHovered())
+                        {
+                            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                        }
+
+                        ImGui::TableNextColumn();
+                        if (ImGui::Checkbox("##vis", &layer.visible))
+                        {
+                            layers_changed = true;
+                        }
+                        ImGui::SameLine();
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::TextUnformatted(provider_items[static_cast<int>(layer.provider)]);
+
+                        ImGui::TableNextColumn();
+                        ImGui::SetNextItemWidth(-FLT_MIN);
+                        if (ImGui::SliderFloat("##opac", &layer.opacity, 0.0f, 1.0f, "%.2f"))
+                        {
+                            layers_changed = true;
+                        }
+
+                        ImGui::PopID();
+                        if (drag_drop_finished)
+                        {
+                            break;
+                        }
+                    }
+                    ImGui::EndTable();
                 }
 
-                if (m_p_map_opacity)
+                if (layers_changed)
                 {
-                    float opacity = static_cast<float>(m_p_map_opacity->get_value());
-                    if (ImGui::SliderFloat(get_cop_string(lbl_map_opacity, lang), &opacity, 0.1f, 1.0f, "%.2f"))
-                    {
-                        m_p_map_opacity->set_value(static_cast<double>(opacity));
-                    }
+                    save_map_layers();
                 }
+
+                ImGui::SeparatorText("Projection");
 
                 if (m_p_map_projection)
                 {
@@ -569,6 +695,8 @@ namespace adam::cop
                         m_p_map_projection->set_value(0);
                     }
                 }
+
+                ImGui::SeparatorText("Overlays");
 
                 if (m_p_show_grid)
                 {
@@ -797,8 +925,6 @@ namespace adam::cop
 
         ImVec2 avail = ImGui::GetContentRegionAvail();
 
-        m_map_options.base_provider = m_p_base_provider ? static_cast<tile_provider_type>(m_p_base_provider->get_value()) : tile_provider_type::cartodb_dark;
-        m_map_options.map_opacity = m_p_map_opacity ? static_cast<float>(m_p_map_opacity->get_value()) : 1.0f;
         m_map_options.projection = (m_p_map_projection && m_p_map_projection->get_value() == 1)
                                    ? projection_type::mercator
                                    : projection_type::equirectangular;

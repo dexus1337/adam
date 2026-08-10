@@ -89,37 +89,6 @@ namespace adam::gui
         ImGui::PopID();
     }
 
-    // Helper for drawing an inspect checkbox
-    static void draw_inspect_checkbox(
-        gui_controller& ctrl,
-        adam::language lang,
-        adam::string_hash conn_hash,
-        bool is_input
-    )
-    {
-        const char* inspect_lbl = get_gui_string(gui_string_id::lbl_inspect, lang);
-        bool has_inspector = is_input ?
-            (ctrl.commander().get_connection_input_inspectors().find(conn_hash) != ctrl.commander().get_connection_input_inspectors().end()) :
-            (ctrl.commander().get_connection_output_inspectors().find(conn_hash) != ctrl.commander().get_connection_output_inspectors().end());
-
-        bool toggle_inspect = false;
-
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(inspect_lbl);
-        if (ImGui::IsItemClicked())
-        {
-            toggle_inspect = true;
-            has_inspector = !has_inspector;
-        }
-
-        ImGui::SameLine();
-        ImGui::PushID(is_input ? "conn_input_inspect" : "conn_output_inspect");
-        if (ImGui::Checkbox("##inspect_cb", &has_inspector) || toggle_inspect)
-        {
-            toggle_connection_inspector(ctrl, conn_hash, is_input, has_inspector);
-        }
-        ImGui::PopID();
-    }
 
     void draw_connection_name_and_color
     (
@@ -356,7 +325,7 @@ namespace adam::gui
         // Left column: Add Input button "+", Input Format combo, and Inspect checkbox
         float btn_w = ImGui::GetFrameHeight();
         float cb_size = ImGui::GetFrameHeight();
-        float inspect_w = ImGui::CalcTextSize(get_gui_string(gui_string_id::lbl_inspect, lang)).x + cb_size + ImGui::GetStyle().ItemInnerSpacing.x;
+        float inspect_w = ImGui::CalcTextSize("F").x + ImGui::GetStyle().FramePadding.x * 2.0f;
         float combo_w = port_w - btn_w - inspect_w - spacing_x * 2.0f; // Calculate combo width
         ImGui::SetCursorPosX(pad_x);
         ImGui::BeginGroup();
@@ -371,7 +340,7 @@ namespace adam::gui
         draw_format_selection_combo(ctrl, lang, hash, conn->input_format, conn->input_format_module, available_formats, true, input_missing, combo_w);
 
         ImGui::SameLine(); // After combo
-        draw_inspect_checkbox(ctrl, lang, hash, true);
+        ImGui::Button("F##format_in");
         ImGui::EndGroup();
         
         // Middle column: Centered connection controls (color, name, start, stop, delete, add processor)
@@ -409,7 +378,7 @@ namespace adam::gui
         ImGui::SameLine(pad_x + avail_x - port_w);
         ImGui::BeginGroup();
 
-        draw_inspect_checkbox(ctrl, lang, hash, false);
+        ImGui::Button("F##format_out");
 
         ImGui::SameLine(); // After checkbox
         draw_format_selection_combo(ctrl, lang, hash, conn->output_format, conn->output_format_module, available_formats, false, output_missing, combo_w);

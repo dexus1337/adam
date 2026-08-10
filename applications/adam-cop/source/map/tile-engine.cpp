@@ -87,10 +87,6 @@ namespace adam::cop
 
     ImTextureID tile_engine::get_tile_texture(tile_provider_type provider, int z, int x, int y, float priority)
     {
-        if (provider == tile_provider_type::vector_only)
-        {
-            return (ImTextureID)0;
-        }
 
         char key_buf[128];
         std::snprintf(key_buf, sizeof(key_buf), "%d_%d_%d_%d", static_cast<int>(provider), z, x, y);

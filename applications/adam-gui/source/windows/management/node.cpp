@@ -1362,40 +1362,7 @@ namespace adam::gui
                 is_expanded = !is_expanded;
             }
 
-            // Handle Right Click -> Inspect
-            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-            {
-                if (!is_drag_preview && ctrl.is_commander_active())
-                {
-                    auto it = ctrl.commander().get_inspectors().find(port_hash);
-                    if (it == ctrl.commander().get_inspectors().end())
-                    {
-                        g_request_open_inspector = true;
-                        g_port_to_expand_in_inspector = port_hash;
-                        g_pending_inspector_ports.insert(port_hash);
-                    }
-                    else
-                    {
-                        g_expanded_inspector_ports.erase(port_hash);
-                        g_pending_inspector_ports.erase(port_hash);
-                    }
 
-                    ctrl.enqueue_commander_action([&ctrl, port_hash]() 
-                    {
-                        auto& cmdr = ctrl.commander();
-                        auto it = cmdr.inspectors().find(port_hash);
-                        if (it == cmdr.inspectors().end())
-                        {
-                            adam::data_inspector* new_inspector = nullptr;
-                            cmdr.request_inspector_create(port_hash, make_inspector_buffer_callback(port_hash), new_inspector);
-                        }
-                        else
-                        {
-                            cmdr.request_inspector_destroy(it->second);
-                        }
-                    });
-                }
-            }
         }
         ImGui::PopID();
         

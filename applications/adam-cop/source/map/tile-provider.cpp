@@ -27,6 +27,7 @@ namespace adam::cop
                     19
                 };
             case tile_provider_type::openstreetmap:
+            default:
                 return {
                     tile_provider_type::openstreetmap,
                     "OpenStreetMap Standard",
@@ -52,16 +53,6 @@ namespace adam::cop
                     "adam-cop/1.0",
                     "opentopomap",
                     17
-                };
-            case tile_provider_type::vector_only:
-            default:
-                return {
-                    tile_provider_type::vector_only,
-                    "Vector Grid Only",
-                    "",
-                    "",
-                    "vector_only",
-                    20
                 };
         }
     }

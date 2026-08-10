@@ -257,10 +257,7 @@ namespace adam::cop
         render_ocean(draw_list, canvas_pos, canvas_size, options);
 
         // Render Raster Map Tiles
-        if (options.base_provider != tile_provider_type::vector_only)
-        {
-            render_tiles(draw_list, canvas_pos, canvas_size, options);
-        }
+        render_tiles(draw_list, canvas_pos, canvas_size, options);
 
         // Render Tactical Grid
         if (options.show_grid)
@@ -302,108 +299,125 @@ namespace adam::cop
 
     void world_map::render_tiles(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options)
     {
-        tile_provider_info info = get_tile_provider_info(options.base_provider);
-        if (info.max_zoom <= 0)
+        if (options.tile_layers.empty())
         {
             return;
         }
 
         float canvas_ratio = std::max(size.x, 256.0f) / 256.0f;
-        int z = static_cast<int>(std::round(std::log2(m_zoom * canvas_ratio)));
-        z = std::clamp(z, 0, info.max_zoom);
-
-        int num_tiles = 1 << z;
-        float scaled_w = size.x * m_zoom;
-        float tile_px_w = scaled_w / static_cast<float>(num_tiles);
-
-        float cam_tx = (m_center_lon + 180.0f) / 360.0f * static_cast<float>(num_tiles);
+        float un_clamped_z_float = std::log2(m_zoom * canvas_ratio);
+        float scaled_w_base = size.x * m_zoom;
 
         float lat_rad = degrees_to_radians(std::clamp(m_center_lat, -85.0f, 85.0f));
-        float cam_ty = (1.0f - std::log(std::tan(lat_rad) + 1.0f / std::cos(lat_rad)) / M_PI_F) / 2.0f * static_cast<float>(num_tiles);
+        float cam_ty_base = (1.0f - std::log(std::tan(lat_rad) + 1.0f / std::cos(lat_rad)) / M_PI_F) / 2.0f;
+        float cam_tx_base = (m_center_lon + 180.0f) / 360.0f;
 
-        float half_tiles_x = (size.x * 0.5f) / tile_px_w + 1.5f;
-        float half_tiles_y = (size.y * 0.5f) / tile_px_w + 1.5f;
-
-        int start_x = static_cast<int>(std::floor(cam_tx - half_tiles_x));
-        int end_x   = static_cast<int>(std::ceil(cam_tx + half_tiles_x));
-
-        int start_y = static_cast<int>(std::floor(cam_ty - half_tiles_y));
-        int end_y   = static_cast<int>(std::ceil(cam_ty + half_tiles_y));
-
-        start_y = std::clamp(start_y, 0, num_tiles - 1);
-        end_y   = std::clamp(end_y, 0, num_tiles - 1);
-
-        auto tile_y_to_lat_f = [num_tiles](float ty) -> float
+        auto tile_y_to_lat_f = [](float ty, int num_tiles) -> float
         {
             float n = M_PI_F - 2.0f * M_PI_F * ty / static_cast<float>(num_tiles);
             return radians_to_degrees(std::atan(0.5f * (std::exp(n) - std::exp(-n))));
         };
 
-        ImU32 tile_tint = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, std::clamp(options.map_opacity, 0.1f, 1.0f)));
-
-        for (int ty = start_y; ty <= end_y; ty++)
+        for (const auto& layer : options.tile_layers)
         {
-            float p_tl_y = 0.0f;
-            float p_br_y = 0.0f;
-
-            if (options.projection == projection_type::mercator)
+            if (!layer.visible)
             {
-                p_tl_y = pos.y + size.y * 0.5f + (static_cast<float>(ty) - cam_ty) * tile_px_w;
-                p_br_y = p_tl_y + tile_px_w;
-            }
-            else
-            {
-                float lat_top = tile_y_to_lat_f(static_cast<float>(ty));
-                float lat_bot = tile_y_to_lat_f(static_cast<float>(ty + 1));
-
-                p_tl_y = pos.y + size.y * 0.5f - ((lat_top - m_center_lat) / 180.0f) * (scaled_w * 0.5f);
-                p_br_y = pos.y + size.y * 0.5f - ((lat_bot - m_center_lat) / 180.0f) * (scaled_w * 0.5f);
+                continue;
             }
 
-            for (int tx = start_x; tx <= end_x; tx++)
+            tile_provider_info info = get_tile_provider_info(layer.provider);
+            if (info.max_zoom <= 0)
             {
-                float p_tl_x = pos.x + size.x * 0.5f + (static_cast<float>(tx) - cam_tx) * tile_px_w;
-                float p_br_x = p_tl_x + tile_px_w;
+                continue;
+            }
 
-                if (p_br_x < pos.x || p_tl_x > pos.x + size.x || p_br_y < pos.y || p_tl_y > pos.y + size.y)
+            int z = static_cast<int>(std::round(un_clamped_z_float));
+            z = std::clamp(z, 0, info.max_zoom);
+
+            int num_tiles = 1 << z;
+            float scaled_w = scaled_w_base;
+            float tile_px_w = scaled_w / static_cast<float>(num_tiles);
+
+            float cam_tx = cam_tx_base * static_cast<float>(num_tiles);
+            float cam_ty = cam_ty_base * static_cast<float>(num_tiles);
+
+            float half_tiles_x = (size.x * 0.5f) / tile_px_w + 1.5f;
+            float half_tiles_y = (size.y * 0.5f) / tile_px_w + 1.5f;
+
+            int start_x = static_cast<int>(std::floor(cam_tx - half_tiles_x));
+            int end_x   = static_cast<int>(std::ceil(cam_tx + half_tiles_x));
+
+            int start_y = static_cast<int>(std::floor(cam_ty - half_tiles_y));
+            int end_y   = static_cast<int>(std::ceil(cam_ty + half_tiles_y));
+
+            start_y = std::clamp(start_y, 0, num_tiles - 1);
+            end_y   = std::clamp(end_y, 0, num_tiles - 1);
+
+            ImU32 tile_tint = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, std::clamp(layer.opacity, 0.0f, 1.0f)));
+
+            for (int ty = start_y; ty <= end_y; ty++)
+            {
+                float p_tl_y = 0.0f;
+                float p_br_y = 0.0f;
+
+                if (options.projection == projection_type::mercator)
                 {
-                    continue;
+                    p_tl_y = pos.y + size.y * 0.5f + (static_cast<float>(ty) - cam_ty) * tile_px_w;
+                    p_br_y = p_tl_y + tile_px_w;
+                }
+                else
+                {
+                    float lat_top = tile_y_to_lat_f(static_cast<float>(ty), num_tiles);
+                    float lat_bot = tile_y_to_lat_f(static_cast<float>(ty + 1), num_tiles);
+
+                    p_tl_y = pos.y + size.y * 0.5f - ((lat_top - m_center_lat) / 180.0f) * (scaled_w * 0.5f);
+                    p_br_y = pos.y + size.y * 0.5f - ((lat_bot - m_center_lat) / 180.0f) * (scaled_w * 0.5f);
                 }
 
-                int wrapped_tx = ((tx % num_tiles) + num_tiles) % num_tiles;
-                float dist_to_center = std::abs(static_cast<float>(tx) - cam_tx) + std::abs(static_cast<float>(ty) - cam_ty);
-
-                ImTextureID tex_id = m_tile_engine.get_tile_texture(options.base_provider, z, wrapped_tx, ty, dist_to_center);
-
-                if (tex_id)
+                for (int tx = start_x; tx <= end_x; tx++)
                 {
-                    draw_list->AddImage(tex_id, ImVec2(p_tl_x, p_tl_y), ImVec2(p_br_x, p_br_y), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), tile_tint);
-                    continue;
-                }
+                    float p_tl_x = pos.x + size.x * 0.5f + (static_cast<float>(tx) - cam_tx) * tile_px_w;
+                    float p_br_x = p_tl_x + tile_px_w;
 
-                // Recursive parent tile fallback search down to level 0
-                for (int pz = z - 1; pz >= 0; pz--)
-                {
-                    int level_diff = z - pz;
-                    int factor = 1 << level_diff;
-                    int p_tx = wrapped_tx / factor;
-                    int p_ty = ty / factor;
-
-                    float p_cam_tx = cam_tx / static_cast<float>(factor);
-                    float p_cam_ty = cam_ty / static_cast<float>(factor);
-                    float p_dist = std::abs(static_cast<float>(p_tx) - p_cam_tx) + std::abs(static_cast<float>(p_ty) - p_cam_ty);
-
-                    ImTextureID p_tex = m_tile_engine.get_tile_texture(options.base_provider, pz, p_tx, p_ty, p_dist);
-                    if (p_tex)
+                    if (p_br_x < pos.x || p_tl_x > pos.x + size.x || p_br_y < pos.y || p_tl_y > pos.y + size.y)
                     {
-                        float f = static_cast<float>(factor);
-                        float u0 = static_cast<float>(wrapped_tx % factor) / f;
-                        float u1 = u0 + (1.0f / f);
-                        float v0 = static_cast<float>(ty % factor) / f;
-                        float v1 = v0 + (1.0f / f);
+                        continue;
+                    }
 
-                        draw_list->AddImage(p_tex, ImVec2(p_tl_x, p_tl_y), ImVec2(p_br_x, p_br_y), ImVec2(u0, v0), ImVec2(u1, v1), tile_tint);
-                        break;
+                    int wrapped_tx = ((tx % num_tiles) + num_tiles) % num_tiles;
+                    float dist_to_center = std::abs(static_cast<float>(tx) - cam_tx) + std::abs(static_cast<float>(ty) - cam_ty);
+
+                    ImTextureID tex_id = m_tile_engine.get_tile_texture(layer.provider, z, wrapped_tx, ty, dist_to_center);
+
+                    if (tex_id)
+                    {
+                        draw_list->AddImage(tex_id, ImVec2(p_tl_x, p_tl_y), ImVec2(p_br_x, p_br_y), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), tile_tint);
+                        continue;
+                    }
+
+                    for (int pz = z - 1; pz >= 0; pz--)
+                    {
+                        int level_diff = z - pz;
+                        int factor = 1 << level_diff;
+                        int p_tx = wrapped_tx / factor;
+                        int p_ty = ty / factor;
+
+                        float p_cam_tx = cam_tx / static_cast<float>(factor);
+                        float p_cam_ty = cam_ty / static_cast<float>(factor);
+                        float p_dist = std::abs(static_cast<float>(p_tx) - p_cam_tx) + std::abs(static_cast<float>(p_ty) - p_cam_ty);
+
+                        ImTextureID p_tex = m_tile_engine.get_tile_texture(layer.provider, pz, p_tx, p_ty, p_dist);
+                        if (p_tex)
+                        {
+                            float f = static_cast<float>(factor);
+                            float u0 = static_cast<float>(wrapped_tx % factor) / f;
+                            float u1 = u0 + (1.0f / f);
+                            float v0 = static_cast<float>(ty % factor) / f;
+                            float v1 = v0 + (1.0f / f);
+
+                            draw_list->AddImage(p_tex, ImVec2(p_tl_x, p_tl_y), ImVec2(p_br_x, p_br_y), ImVec2(u0, v0), ImVec2(u1, v1), tile_tint);
+                            break;
+                        }
                     }
                 }
             }

@@ -189,6 +189,7 @@ namespace adam::imgui_tools
         colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4(0.25f, 0.35f, 0.45f, 1.00f);
         colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4(0.00f, 0.60f, 0.80f, 1.00f);
         colors[ImGuiCol_CheckMark]             = ImVec4(0.00f, 0.75f, 0.95f, 1.00f);
+        colors[ImGuiCol_CheckboxSelectedBg]    = ImVec4(0.12f, 0.16f, 0.22f, 1.00f);
         colors[ImGuiCol_SliderGrab]            = ImVec4(0.00f, 0.65f, 0.85f, 1.00f);
         colors[ImGuiCol_SliderGrabActive]      = ImVec4(0.00f, 0.85f, 1.00f, 1.00f);
         colors[ImGuiCol_Button]                = ImVec4(0.14f, 0.20f, 0.28f, 1.00f);
