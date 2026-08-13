@@ -8,6 +8,10 @@ namespace adam::modules::asterix::cat034
 {
     using namespace adam::string_hashed_ct_literals;
 
+    // Forward declarations
+    extern uap cat034_050_uap;
+    extern uap cat034_060_uap;
+
     extern uap::type_getter_function cat034_type_getter_fn;
 
     // Fill the type database or this Category
@@ -38,8 +42,8 @@ namespace adam::modules::asterix::cat034
         {  3, item_type_fixed,       0,      3, "I034/030 Time-of-Day"                                                 },
         {  4, item_type_fixed,       0,      1, "I034/020 Sector Number"                                               },
         {  5, item_type_fixed,       0,      2, "I034/041 Antenna Rotation Period"                                     },
-        {  6, item_type_variable,    1,      1, "I034/050 System Configuration and Status"                             },
-        {  7, item_type_variable,    1,      1, "I034/060 System Processing Mode"                                      },
+        {  6, item_type_compound,    0,      0, "I034/050 System Configuration and Status",             &cat034_050_uap},
+        {  7, item_type_compound,    0,      0, "I034/060 System Processing Mode",                      &cat034_060_uap},
 
         // FSPEC Byte 2
         {  8, item_type_repetetive,  1,      2, "I034/070 Message Count Values"                                        },
@@ -50,6 +54,34 @@ namespace adam::modules::asterix::cat034
         { 13, item_type_explicit,    0,      0, "RE Reserved Expansion Field"                                          },
         { 14, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
+
+    // -------------------------------------------------------------------------------------------------------------- //
+    // Sub-UAP for I034/050 System Configuration and Status (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
+    const auto cat034_050_items = std::to_array<const field_spec>
+    ({
+        {  1, item_type_fixed,       0,      1, "COM - Common Part"                                                    },
+        // FRN 2 is not used
+        {  2, item_type_fixed,       0,      1, "PSR - Specific Status for PSR Sensor"                                 },
+        {  3, item_type_fixed,       0,      1, "SSR - Specific Status for SSR Sensor"                                 },
+        {  4, item_type_fixed,       0,      2, "MDS - Specific Status for Mode S Sensor"                              }
+    });
+
+    uap cat034_050_uap(34, "CAT034 I021/050 " CAT034_VERSION ""_ct, cat034_050_items.data(), cat034_050_items.size());
+
+    // -------------------------------------------------------------------------------------------------------------- //
+    // Sub-UAP for I034/060 System Processing Mode (Compound)
+    // -------------------------------------------------------------------------------------------------------------- //
+    const auto cat034_060_items = std::to_array<const field_spec>
+    ({
+        {  1, item_type_fixed,       0,      1, "COM - Common Part"                                                    },
+        // FRN 2 is not used
+        {  2, item_type_fixed,       0,      1, "PSR - Specific Processing Mode information for PSR Sensor"            },
+        {  3, item_type_fixed,       0,      1, "SSR - Specific Processing Mode information for SSR Sensor"            },
+        {  4, item_type_fixed,       0,      1, "MDS - Specific Processing Mode information for Mode S Sensor"         }
+    });
+
+    uap cat034_060_uap(34, "CAT034 I021/060 " CAT034_VERSION ""_ct, cat034_060_items.data(), cat034_060_items.size());
 
     // -------------------------------------------------------------------------------------------------------------- //
     // CAT034 Type Getter Function
@@ -71,19 +103,19 @@ namespace adam::modules::asterix::cat034
         return *data;
     };
 
-    uap cat034_uap
-    (
-        34,                             /**< CAT Number.          */
-        "CAT034 " CAT034_VERSION ""_ct, /**< CAT Names.           */
-        cat034_items.data(),            /**< Items Array start.   */
-        cat034_items.size(),            /**< Items Array length.  */
-        1,                              /**< SAC/SIC FRN.         */
-        get_cat034_types(),             /**< Type Database.       */
-        cat034_type_getter_fn           /**< Type Getter Function */
-    );
-
     uap& get_uap()
     {
+        static uap cat034_uap
+        (
+            34,                             /**< CAT Number.          */
+            "CAT034 " CAT034_VERSION ""_ct, /**< CAT Names.           */
+            cat034_items.data(),            /**< Items Array start.   */
+            cat034_items.size(),            /**< Items Array length.  */
+            1,                              /**< SAC/SIC FRN.         */
+            get_cat034_types(),             /**< Type Database.       */
+            cat034_type_getter_fn           /**< Type Getter Function */
+        );
+
         return cat034_uap;
     }
 }

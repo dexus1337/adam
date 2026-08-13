@@ -8,7 +8,6 @@
  * @date    30.06.2026
  */
 
-#include "data/asterix-uap.hpp"
 #include "api/api-asterix.hpp"
 
 namespace adam::modules::asterix::cat007

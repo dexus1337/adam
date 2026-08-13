@@ -1,5 +1,8 @@
 #include "data/categories/062/cat062-uap.hpp"
 
+#include <array>
+
+#include "data/categories/062/cat062-structs.hpp"
 #include "data/categories/062/cat062-uap-ref.hpp"
 
 namespace adam::modules::asterix::cat062
@@ -14,6 +17,21 @@ namespace adam::modules::asterix::cat062
     extern uap cat062_380_uap;
     extern uap cat062_390_uap;
     extern uap cat062_500_uap;
+
+    extern uap::type_getter_function cat062_type_getter_fn;
+
+    // Fill the type database or this Category
+    const uap::type_names_database& get_cat062_types() 
+    {
+        static const uap::type_names_database table = 
+        {
+            {cat062::message_type_multisensor_confirmed,    "Multisensor (Confirmed)"   },
+            {cat062::message_type_monosensor_confirmed,     "Monosensor (Confirmed)"    },
+            {cat062::message_type_mulisensor_tentative,     "Multisensor (Tentative)"   },
+            {cat062::message_type_monosensor_tentative,     "Monosensor (Tentative)"    }
+        };
+        return table;
+    }
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Main UAP for CAT062
@@ -61,8 +79,6 @@ namespace adam::modules::asterix::cat062
         { 34, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()},
         { 35, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
-
-    uap cat062_uap(62, "CAT062 " CAT062_VERSION ""_ct, cat062_items.data(), cat062_items.size(), 1);
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I062/110 Mode 5 Data reports & Extended Mode 1 Code (Compound)
@@ -235,8 +251,39 @@ namespace adam::modules::asterix::cat062
 
     uap cat062_500_uap(62, "CAT062 I062/500 " CAT062_VERSION ""_ct, cat062_500_items.data(), cat062_500_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
+    // CAT062 Type Getter Function
+    //
+    // Reads (parsed) I048/080 (Track Status) to extract the type and return the corresponding enum entry.
+    // -------------------------------------------------------------------------------------------------------------- //
+    uap::type_getter_function cat062_type_getter_fn = [](const record* rec, const adam::buffer* buf) -> uint8_t
+    {
+        auto* trd_itm = rec->get_item(13);
+
+        if (!trd_itm->is_populated())
+            return 0xff;
+
+        auto* data = trd_itm->get_data_as<const cat062::track_status>(buf);
+
+        if (!data)
+            return 0xff;
+
+        return data->get_message_type();
+    };
+
     uap& get_uap()
     {
+        static uap cat062_uap
+        (
+            62,                             /**< CAT Number.          */
+            "CAT062 " CAT062_VERSION ""_ct, /**< CAT Names.           */
+            cat062_items.data(),            /**< Items Array start.   */
+            cat062_items.size(),            /**< Items Array length.  */
+            1,                              /**< SAC/SIC FRN.         */
+            get_cat062_types(),             /**< Type Database.       */
+            cat062_type_getter_fn           /**< Type Getter Function */
+        );
+
         return cat062_uap;
     }
 }

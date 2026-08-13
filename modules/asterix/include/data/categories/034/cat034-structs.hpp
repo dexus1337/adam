@@ -1,14 +1,13 @@
 #pragma once
 
 /**
- * @file    cat034-uap.hpp
+ * @file    cat034-structs.hpp
  * @author  dexus1337
  * @brief   Defines structs for ASTERIX CAT034
  * @version 1.0
  * @date    15.06.2026
  */
 
-#include "data/asterix-uap.hpp"
 #include "api/api-asterix.hpp"
 
 namespace adam::modules::asterix::cat034

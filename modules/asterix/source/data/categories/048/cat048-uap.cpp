@@ -1,5 +1,8 @@
 #include "data/categories/048/cat048-uap.hpp"
 
+#include <array>
+
+#include "data/categories/048/cat048-structs.hpp"
 #include "data/categories/048/cat048-uap-ref.hpp"
 
 namespace adam::modules::asterix::cat048
@@ -9,6 +12,25 @@ namespace adam::modules::asterix::cat048
     // Forward declarations for sub-UAPs so the main UAPs can sit at the top
     extern uap cat048_130_uap;
     extern uap cat048_120_uap;
+
+    extern uap::type_getter_function cat048_type_getter_fn;
+
+    // Fill the type database or this Category
+    const uap::type_names_database& get_cat048_types() 
+    {
+        static const uap::type_names_database table = 
+        {
+            {cat048::message_type_no_detection,             "No detection"              },
+            {cat048::message_type_single_psr,               "Single PSR"                },
+            {cat048::message_type_single_ssr,               "Single SSR"                },
+            {cat048::message_type_ssr_and_psr,              "SSR + PSR"                 },
+            {cat048::message_type_single_mode_s_all_call,   "Single ModeS All-Call"     },
+            {cat048::message_type_single_mode_s_roll_call,  "Single ModeS Roll-Call"    },
+            {cat048::message_type_mode_s_all_call,          "ModeS All-Call + PSR"      },
+            {cat048::message_type_mode_s_roll_call,         "ModeS Roll-Call +PSR"      },
+        };
+        return table;
+    }
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Main UAP for CAT048
@@ -52,8 +74,6 @@ namespace adam::modules::asterix::cat048
         { 28, item_type_explicit,    0,      0, "RE Reserved Expansion Field",                          &ref::get_uap()},
     });
 
-    uap cat048_uap(48, "CAT048 " CAT048_VERSION ""_ct, cat048_items.data(), cat048_items.size(), 1);
-
     // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I048/130 Radar Plot Characteristics (Compound)
     // -------------------------------------------------------------------------------------------------------------- //
@@ -81,8 +101,39 @@ namespace adam::modules::asterix::cat048
 
     uap cat048_120_uap(48, "CAT048 I048/120 " CAT048_VERSION ""_ct,  cat048_120_items.data(), cat048_120_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
+    // CAT048 Type Getter Function
+    //
+    // Reads (parsed) I048/020 (Target Report Descriptor) to extract the type and return the corresponding enum entry.
+    // -------------------------------------------------------------------------------------------------------------- //
+    uap::type_getter_function cat048_type_getter_fn = [](const record* rec, const adam::buffer* buf) -> uint8_t
+    {
+        auto* trd_itm = rec->get_item(3);
+
+        if (!trd_itm->is_populated())
+            return 0xff;
+
+        auto* data = trd_itm->get_data_as<const cat048::target_report_descriptor>(buf);
+
+        if (!data)
+            return 0xff;
+
+        return data->msg_type;
+    };
+
     uap& get_uap()
     {
+        static uap cat048_uap
+        (
+            48,                             /**< CAT Number.          */
+            "CAT048 " CAT048_VERSION ""_ct, /**< CAT Names.           */
+            cat048_items.data(),            /**< Items Array start.   */
+            cat048_items.size(),            /**< Items Array length.  */
+            1,                              /**< SAC/SIC FRN.         */
+            get_cat048_types(),             /**< Type Database.       */
+            cat048_type_getter_fn           /**< Type Getter Function */
+        );
+
         return cat048_uap;
     }
 }

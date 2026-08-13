@@ -251,9 +251,9 @@ inline std::vector<uint8_t> build_cat048_message()
     raw[1] = static_cast<uint8_t>(block_len >> 8);
     raw[2] = static_cast<uint8_t>(block_len & 0xFF);
 
-    for (int i = 0; i < raw.size(); i+= 16)
+    for (size_t i = 0; i < raw.size(); i+= 16)
     {
-        for (int n = 0; n < 16; n++)
+        for (size_t n = 0; n < 16; n++)
         {
             if (i+n >= raw.size()) continue;
 
