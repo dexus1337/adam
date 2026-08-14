@@ -50,7 +50,7 @@ namespace adam::gui
         ImGui::Text("%zu B", static_cast<size_t>(ib.size));
 
         ImGui::TableSetColumnIndex(4);
-        if (g_mono_font) ImGui::PushFont(g_mono_font);
+        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
 
         char preview_hex[64];
         char preview_ascii[32];
@@ -62,7 +62,7 @@ namespace adam::gui
         ImGui::TableSetColumnIndex(5);
         ImGui::TextUnformatted(preview_ascii);
         
-        if (g_mono_font) ImGui::PopFont();
+        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
 
         if (node_open)
         {
@@ -88,9 +88,9 @@ namespace adam::gui
         size_t display_len = size;
         size_t num_rows = (display_len + 15) / 16;
 
-        if (g_mono_font) ImGui::PushFont(g_mono_font);
+        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
         float line_h = ImGui::GetTextLineHeightWithSpacing();
-        if (g_mono_font) ImGui::PopFont();
+        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
 
         float window_border_size = ImGui::GetStyle().WindowBorderSize;
 
@@ -189,7 +189,7 @@ namespace adam::gui
 
             if (ImGui::BeginChild("##hex_child", ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
             {
-                if (g_mono_font) ImGui::PushFont(g_mono_font);
+                if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
 
                 static constexpr const char* dummy_line = "0000:  00 11 22 33 44 55 66 77  88 99 AA BB CC DD EE FF   |0123456789ABCDEF|";
                 float text_w = ImGui::CalcTextSize(dummy_line).x;
@@ -354,7 +354,7 @@ namespace adam::gui
                     }
                 }
 
-                if (g_mono_font) ImGui::PopFont();
+                if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
             }
             ImGui::EndChild();
             ImGui::PopStyleVar();
@@ -670,8 +670,8 @@ namespace adam::gui
                             if (c < port_data.analyzer_column_fonts.size())
                                 c_font = port_data.analyzer_column_fonts[c];
 
-                            if (c_font == adam::analyzer::column_font_mono && g_mono_font)
-                                ImGui::PushFont(g_mono_font);
+                            if (c_font == adam::analyzer::column_font_mono && ImGui::GetIO().Fonts->Fonts[1])
+                                ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
 
                             if (c_type == adam::analyzer::column_frame_id)
                             {
@@ -691,7 +691,7 @@ namespace adam::gui
                                 text_idx++;
                             }
                             
-                            if (c_font == adam::analyzer::column_font_mono && g_mono_font)
+                            if (c_font == adam::analyzer::column_font_mono && ImGui::GetIO().Fonts->Fonts[1])
                                 ImGui::PopFont();
                         }
                     }
@@ -768,11 +768,11 @@ namespace adam::gui
                                 ImGui::PushID((int)exp_idx);
                                 if (exp.data_type == adam::analyzer::expanded_data::type_text)
                                 {
-                                    if (g_mono_font) ImGui::PushFont(g_mono_font);
+                                    if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
                                     ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + exp_table_w);
                                     ImGui::TextWrapped("%s", exp.text_content.c_str());
                                     ImGui::PopTextWrapPos();
-                                    if (g_mono_font) ImGui::PopFont();
+                                    if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
                                 }
                                 else if (exp.data_type == adam::analyzer::expanded_data::type_table)
                                 {
@@ -799,9 +799,9 @@ namespace adam::gui
                                             {
                                                 ImGui::TableSetColumnIndex((int)c);
                                                 
-                                                bool usemonofont = (ext_cols_fonts[c] == adam::analyzer::column_font_mono) && g_mono_font;
+                                                bool usemonofont = (ext_cols_fonts[c] == adam::analyzer::column_font_mono) && ImGui::GetIO().Fonts->Fonts[1];
 
-                                                if (usemonofont) ImGui::PushFont(g_mono_font);
+                                                if (usemonofont) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
                                                 ImGui::TextUnformatted(row_v.columns[c].c_str());
                                                 if (usemonofont) ImGui::PopFont();
                                             }

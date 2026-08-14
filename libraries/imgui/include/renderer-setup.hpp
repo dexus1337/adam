@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include <functional>
 
-namespace adam::imgui_tools 
+namespace adam::lib::imgui 
 {
     enum class gfx_backend
     {
@@ -29,13 +29,14 @@ namespace adam::imgui_tools
         SDL_GLContext gl_context = nullptr;
         const char* glsl_version = nullptr;
         renderer_config config;
+        ImFont* mono_font;
 
-#if defined(ADAM_PLATFORM_WINDOWS)
+        #if defined(ADAM_PLATFORM_WINDOWS)
         void* d3d_device = nullptr;                  // ID3D11Device*
         void* d3d_device_context = nullptr;          // ID3D11DeviceContext*
         void* swap_chain = nullptr;                  // IDXGISwapChain*
         void* main_render_target_view = nullptr;     // ID3D11RenderTargetView*
-#endif
+        #endif
     };
 
     /** @brief Initializes SDL3, graphics context (DX11 or OpenGL3 fallback), and Dear ImGui */

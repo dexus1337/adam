@@ -10,7 +10,6 @@
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <imgui-tools.hpp>
 #include <cstdio>
 #include <SDL3/SDL_opengl.h>
 #include <renderer-setup.hpp>
@@ -19,6 +18,8 @@
 #include <algorithm>
 #include <os/os.hpp>
 #include <version/version.hpp>
+
+#include <lib-imgui.hpp>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -225,12 +226,12 @@ namespace adam::cop
             SDL_SetWindowTitle(m_window, get_cop_string(cop_main_title, lang));
         }
         
-        adam::imgui_tools::gui_theme active_theme = adam::imgui_tools::parse_theme(m_p_theme->get_value().get_hash());
-        adam::imgui_tools::apply_theme(active_theme);
+        adam::lib::imgui::gui_theme active_theme = adam::lib::imgui::parse_theme(m_p_theme->get_value().get_hash());
+        adam::lib::imgui::apply_theme(active_theme);
 
         if (m_p_font_scale)
         {
-            ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
+            ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::lib::imgui::get_current_dpi_scale();
         }
 
         float status_bar_height = ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
@@ -430,7 +431,7 @@ namespace adam::cop
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit())
                 {
-                    ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
+                    ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::lib::imgui::get_current_dpi_scale();
                 }
             }
 
@@ -438,13 +439,13 @@ namespace adam::cop
             if (m_p_theme)
             {
                 adam::string_hashed current_theme_str = m_p_theme->get_value();
-                adam::imgui_tools::gui_theme current_theme = adam::imgui_tools::parse_theme(current_theme_str.get_hash());
+                adam::lib::imgui::gui_theme current_theme = adam::lib::imgui::parse_theme(current_theme_str.get_hash());
                 
-                auto get_theme_str_id = [](adam::imgui_tools::gui_theme t) {
+                auto get_theme_str_id = [](adam::lib::imgui::gui_theme t) {
                     switch (t) {
-                        case adam::imgui_tools::gui_theme::light: return theme_light;
-                        case adam::imgui_tools::gui_theme::dark_navy: return theme_dark_navy;
-                        case adam::imgui_tools::gui_theme::dark: default: return theme_dark;
+                        case adam::lib::imgui::gui_theme::light: return theme_light;
+                        case adam::lib::imgui::gui_theme::dark_navy: return theme_dark_navy;
+                        case adam::lib::imgui::gui_theme::dark: default: return theme_dark;
                     }
                 };
                 
@@ -452,15 +453,15 @@ namespace adam::cop
                 
                 if (ImGui::BeginCombo(get_cop_string(combo_theme, lang), preview_value))
                 {
-                    for (std::size_t i = 0; i < adam::imgui_tools::c_themes_count; ++i)
+                    for (std::size_t i = 0; i < adam::lib::imgui::c_themes_count; ++i)
                     {
-                        auto theme_val = static_cast<adam::imgui_tools::gui_theme>(i);
+                        auto theme_val = static_cast<adam::lib::imgui::gui_theme>(i);
                         bool is_selected = (current_theme == theme_val);
                         
                         if (ImGui::Selectable(get_cop_string(get_theme_str_id(theme_val), lang), is_selected))
                         {
-                            m_p_theme->set_value(adam::imgui_tools::theme_to_string(theme_val));
-                            adam::imgui_tools::apply_theme(theme_val);
+                            m_p_theme->set_value(adam::lib::imgui::theme_to_string(theme_val));
+                            adam::lib::imgui::apply_theme(theme_val);
                         }
                         if (is_selected) ImGui::SetItemDefaultFocus();
                     }
@@ -1002,7 +1003,7 @@ namespace adam::cop
             pixels[i * 4 + 2] = b;
         }
 
-        g_logo_texture = adam::imgui_tools::create_texture_rgba(g_logo_width, g_logo_height, pixels.data());
+        g_logo_texture = adam::lib::imgui::create_texture_rgba(g_logo_width, g_logo_height, pixels.data());
 
         DeleteObject(ii.hbmColor);
         DeleteObject(ii.hbmMask);

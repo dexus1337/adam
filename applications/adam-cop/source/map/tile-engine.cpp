@@ -11,10 +11,10 @@
 
 #include <adam-sdk.hpp>
 #include <imgui.h>
-#include <imgui-tools.hpp>
 
-#include <network-tools.hpp>
-#include <image-tools.hpp>
+#include <lib-imgui.hpp>
+#include <lib-network.hpp>
+#include <lib-image.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -53,7 +53,7 @@ namespace adam::cop
         {
             if (pair.second.texture_id)
             {
-                adam::imgui_tools::destroy_texture(pair.second.texture_id);
+                adam::lib::imgui::destroy_texture(pair.second.texture_id);
                 pair.second.texture_id = (ImTextureID)0;
             }
         }
@@ -70,7 +70,7 @@ namespace adam::cop
 
         for (auto& item : uploads)
         {
-            ImTextureID tex_id = adam::imgui_tools::create_texture_rgba(item.width, item.height, item.pixels.data());
+            ImTextureID tex_id = adam::lib::imgui::create_texture_rgba(item.width, item.height, item.pixels.data());
 
             std::lock_guard<std::mutex> lock(m_mutex);
             auto it = m_cache.find(item.key);
@@ -136,7 +136,7 @@ namespace adam::cop
         {
             if (pair.second.texture_id)
             {
-                adam::imgui_tools::destroy_texture(pair.second.texture_id);
+                adam::lib::imgui::destroy_texture(pair.second.texture_id);
             }
         }
         m_cache.clear();
@@ -246,7 +246,7 @@ namespace adam::cop
             std::string url = build_tile_url(provider, z, x, y);
             tile_provider_info info = get_tile_provider_info(provider);
 
-            if (!adam::network_tools::download_file(url, info.user_agent, file_bytes))
+            if (!adam::lib::network::download_file(url, info.user_agent, file_bytes))
             {
                 return false;
             }
@@ -276,6 +276,6 @@ namespace adam::cop
             return false;
         }
 
-        return adam::image_tools::decode_image(file_bytes.data(), file_bytes.size(), out_pixels, out_w, out_h);
+        return adam::lib::image::decode_image(file_bytes.data(), file_bytes.size(), out_pixels, out_w, out_h);
     }
 }

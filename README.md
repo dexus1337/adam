@@ -26,9 +26,9 @@ graph TD
 
     subgraph Libraries["Shared Libraries"]
         direction LR
-        imgui_tools["adam-imgui-tools"]
-        network_tools["adam-network-tools"]
-        image_tools["adam-image-tools"]
+        imgui_tools["adam-imgui"]
+        network_tools["adam-network"]
+        image_tools["adam-image"]
     end
 
     subgraph CoreService["ADAM Service Daemon"]
@@ -259,9 +259,9 @@ ADAM separates reusable, application-agnostic functionality into shared static l
 
 | Library | Description |
 | :--- | :--- |
-| **`adam-imgui-tools`** | Unified ImGui/SDL3 renderer abstraction. Handles window creation, graphics backend initialization (DirectX 11 on Windows, OpenGL 3 on Linux/macOS), DPI scaling, theme management, font loading, and frame lifecycle. |
-| **`adam-network-tools`** | Cross-platform HTTP download utility. Uses WinINet on Windows and libcurl on Linux for tile/resource fetching. |
-| **`adam-image-tools`** | Image decoding utilities (PNG/JPEG) for loading textures from memory into GPU-compatible formats. |
+| **`adam-imgui`** | Unified ImGui/SDL3 renderer abstraction. Handles window creation, graphics backend initialization (DirectX 11 on Windows, OpenGL 3 on Linux/macOS), DPI scaling, theme management, font loading, and frame lifecycle. |
+| **`adam-network`** | Cross-platform HTTP download utility. Uses WinINet on Windows and libcurl on Linux for tile/resource fetching. |
+| **`adam-image`** | Image decoding utilities (PNG/JPEG) for loading textures from memory into GPU-compatible formats. |
 
 ---
 
@@ -311,7 +311,7 @@ A hardware-accelerated geospatial situational awareness application built using 
 * SDL3 (Required for `adam-gui` and `adam-cop`)
 * DirectX 11 SDK (Windows, auto-detected) or OpenGL 3 (Linux/macOS)
 * Dear ImGui — **docking branch** (Provide path via `$ENV{IMGUI_ROOT}`)
-* libcurl (Required on Linux for `adam-network-tools`)
+* libcurl (Required on Linux for `adam-network`)
 
 ### Build Procedure
 ADAM uses **CMake Presets** for reproducible cross-platform builds. All presets use the Ninja generator.

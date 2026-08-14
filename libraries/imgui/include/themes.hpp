@@ -3,7 +3,7 @@
 #include <adam-sdk.hpp>
 #include <cstdint>
 
-namespace adam::imgui_tools
+namespace adam::lib::imgui
 {
     enum class gui_theme : std::uint8_t
     {

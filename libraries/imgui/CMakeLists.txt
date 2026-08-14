@@ -1,4 +1,4 @@
-# CMakeLists.txt for imgui-tools static library
+# CMakeLists.txt for imgui static library
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,22 +14,22 @@ find_package(OpenGL REQUIRED)
 
 file(GLOB_RECURSE imgui_tools_source_files "source/*.cpp")
 
-add_library(adam-imgui-tools STATIC ${imgui_tools_source_files})
+add_library(adam-imgui STATIC ${imgui_tools_source_files})
 
 
 
-target_include_directories(adam-imgui-tools PUBLIC
+target_include_directories(adam-imgui PUBLIC
     "include"
     "${imgui_dir}"
     "${imgui_dir}/backends"
 )
 
-target_link_libraries(adam-imgui-tools PUBLIC
+target_link_libraries(adam-imgui PUBLIC
     adam-sdk
     SDL3::SDL3
     OpenGL::GL
 )
 
 if(WIN32)
-    target_link_libraries(adam-imgui-tools PRIVATE d3d11 dxgi d3dcompiler)
+    target_link_libraries(adam-imgui PRIVATE d3d11 dxgi d3dcompiler)
 endif()

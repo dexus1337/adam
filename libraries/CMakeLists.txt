@@ -1,3 +1,3 @@
-add_subdirectory(imgui-tools)
-add_subdirectory(network-tools)
-add_subdirectory(image-tools)
+add_subdirectory(imgui)
+add_subdirectory(network)
+add_subdirectory(image)

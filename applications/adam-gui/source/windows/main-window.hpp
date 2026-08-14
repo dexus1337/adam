@@ -85,7 +85,6 @@ namespace adam::gui
     };
 
     extern inspection_data g_inspection_data;
-    extern ImFont* g_mono_font;
 
     void get_search_bar_layout(adam::language lang, float window_avail_x, float& out_pos_x, float& out_width);
 

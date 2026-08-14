@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <adam-sdk.hpp>
 
-namespace adam::network_tools
+namespace adam::lib::network
 {
     /**
      * @brief Downloads a file over HTTP(S).

@@ -8,7 +8,7 @@
 #include <curl/curl.h>
 #endif
 
-namespace adam::network_tools
+namespace adam::lib::network
 {
     #if defined(ADAM_PLATFORM_WINDOWS)
     bool download_file(const std::string& url, const std::string& user_agent, std::vector<uint8_t>& out_bytes)

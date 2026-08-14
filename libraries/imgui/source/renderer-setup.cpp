@@ -3,7 +3,6 @@
 #include <SDL3/SDL_opengl.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
-#include "imgui-tools.hpp"
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <d3d11.h>
@@ -14,10 +13,13 @@
 #include <filesystem>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
-namespace adam::imgui_tools
+#include "textures.hpp"
+
+namespace adam::lib::imgui
 {
     static void (*g_old_Platform_SetWindowTitle)(ImGuiViewport* vp, const char* str) = nullptr;
 
@@ -128,32 +130,34 @@ namespace adam::imgui_tools
         std::strncpy(mono_config.Name, "monospace", sizeof(mono_config.Name));
         mono_config.Name[sizeof(mono_config.Name) - 1] = '\0';
 
-        ImFont* g_mono_font = nullptr;
+        ImFont* mono_font = nullptr;
 
         if (std::filesystem::exists("font.ttf"))
-            g_mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f);
+            mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f);
         #if defined(ADAM_PLATFORM_WINDOWS)
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\consola.ttf")) 
-            g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\cour.ttf")) 
-            g_mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\cour.ttf", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\cour.ttf", 16.0f, &mono_config);
         #elif defined(ADAM_PLATFORM_LINUX)
         else if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSansMono.ttf"))
-            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"))
-            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf"))
-            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("/usr/share/fonts/liberation/LiberationMono-Regular.ttf"))
-            g_mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationMono-Regular.ttf", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation/LiberationMono-Regular.ttf", 16.0f, &mono_config);
         #elif defined(__APPLE__)
         if (std::filesystem::exists("/System/Library/Fonts/Menlo.ttc"))
-            g_mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 16.0f, &mono_config);
         else if (std::filesystem::exists("/System/Library/Fonts/Monaco.ttf"))
-            g_mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Monaco.ttf", 16.0f, &mono_config);
+            mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Monaco.ttf", 16.0f, &mono_config);
         #endif
 
-        io.FontDefault = default_font;
+        io.FontDefault      = default_font;
+
+        io.Fonts->Fonts[1]  = mono_font;
     }
 
     #if defined(ADAM_PLATFORM_WINDOWS)
@@ -346,9 +350,9 @@ namespace adam::imgui_tools
         }
 
         #if defined(ADAM_PLATFORM_WINDOWS)
-        adam::imgui_tools::init_textures(ctx.backend == gfx_backend::directx11, ctx.d3d_device);
+        adam::lib::imgui::init_textures(ctx.backend == gfx_backend::directx11, ctx.d3d_device);
         #else
-        adam::imgui_tools::init_textures();
+        adam::lib::imgui::init_textures();
         #endif
 
         return true;
@@ -465,6 +469,8 @@ namespace adam::imgui_tools
 
                 swap_chain->Present(vsync_enabled ? 1 : 0, 0);
             }
+            #else
+            (void)vsync_enabled;
             #endif
         }
         else if (ctx.backend == gfx_backend::opengl3)

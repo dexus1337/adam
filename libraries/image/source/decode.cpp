@@ -5,7 +5,7 @@
 #define STBI_ONLY_JPEG
 #include "stb_image.h"
 
-namespace adam::image_tools
+namespace adam::lib::image
 {
     bool decode_image(const uint8_t* encoded_data, size_t encoded_size, std::vector<uint8_t>& out_pixels, int& out_w, int& out_h)
     {

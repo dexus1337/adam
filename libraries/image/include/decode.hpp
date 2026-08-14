@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <adam-sdk.hpp>
 
-namespace adam::image_tools
+namespace adam::lib::image
 {
     /**
      * @brief Decodes an image from memory.

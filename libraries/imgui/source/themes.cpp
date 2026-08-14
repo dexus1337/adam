@@ -1,10 +1,11 @@
-#include "imgui-tools.hpp"
+#include "themes.hpp"
+
 #include <imgui.h>
 #include <cstring>
 
 using namespace adam::string_hashed_ct_literals;
 
-namespace adam::imgui_tools
+namespace adam::lib::imgui
 {
     static void setup_dark_style()
     {

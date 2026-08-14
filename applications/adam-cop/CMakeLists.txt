@@ -41,9 +41,9 @@ target_include_directories(adam-cop PRIVATE
 
 target_link_libraries(adam-cop PRIVATE
     adam-sdk
-    adam-imgui-tools
-    adam-network-tools
-    adam-image-tools
+    adam-imgui
+    adam-network
+    adam-image
     SDL3::SDL3
     OpenGL::GL
 )

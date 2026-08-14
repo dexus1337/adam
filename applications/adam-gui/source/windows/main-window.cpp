@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include <array>
 #include <algorithm>
+
+#include <lib-imgui.hpp>
+
 #include "window-management.hpp"
 #include "window-modules.hpp"
 #include "window-about.hpp"
@@ -17,13 +20,10 @@
 #include "management/inspector.hpp"
 #include "main-window.hpp"
 #include "../gui-strings.hpp"
-#include <imgui-tools.hpp>
 
 namespace adam::gui 
 {
     inspection_data g_inspection_data;
-    ImFont* g_mono_font = nullptr;
-
 
     const ImVec4& get_gui_color(gui_color_id id)
     {
@@ -178,9 +178,9 @@ namespace adam::gui
         if (maximized)
             SDL_MaximizeWindow(m_window);
 
-        ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
-                adam::imgui_tools::gui_theme active_theme = adam::imgui_tools::parse_theme(m_p_theme->get_value().get_hash());
-        adam::imgui_tools::apply_theme(active_theme);
+        ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::lib::imgui::get_current_dpi_scale();
+                adam::lib::imgui::gui_theme active_theme = adam::lib::imgui::parse_theme(m_p_theme->get_value().get_hash());
+        adam::lib::imgui::apply_theme(active_theme);
 
         // Initialize VSync swap interval
         if (m_p_gui_mode->get_value() == 1)
@@ -542,18 +542,18 @@ namespace adam::gui
             }
             if (ImGui::IsItemDeactivatedAfterEdit())
             {
-                ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::imgui_tools::get_current_dpi_scale();
+                ImGui::GetIO().FontGlobalScale = static_cast<float>(m_p_font_scale->get_value()) * adam::lib::imgui::get_current_dpi_scale();
             }
 
             ImGui::Separator();
             adam::string_hashed current_theme_str = m_p_theme->get_value();
-            adam::imgui_tools::gui_theme current_theme = adam::imgui_tools::parse_theme(current_theme_str.get_hash());
+            adam::lib::imgui::gui_theme current_theme = adam::lib::imgui::parse_theme(current_theme_str.get_hash());
             
-            auto get_theme_str_id = [](adam::imgui_tools::gui_theme t) {
+            auto get_theme_str_id = [](adam::lib::imgui::gui_theme t) {
                 switch (t) {
-                    case adam::imgui_tools::gui_theme::light: return gui_string_id::theme_light;
-                    case adam::imgui_tools::gui_theme::dark_navy: return gui_string_id::theme_dark_navy;
-                    case adam::imgui_tools::gui_theme::dark: default: return gui_string_id::theme_dark;
+                    case adam::lib::imgui::gui_theme::light: return gui_string_id::theme_light;
+                    case adam::lib::imgui::gui_theme::dark_navy: return gui_string_id::theme_dark_navy;
+                    case adam::lib::imgui::gui_theme::dark: default: return gui_string_id::theme_dark;
                 }
             };
             
@@ -561,15 +561,15 @@ namespace adam::gui
             
             if (ImGui::BeginCombo(get_gui_string(gui_string_id::combo_theme, lang), preview_value))
             {
-                for (std::size_t i = 0; i < adam::imgui_tools::c_themes_count; ++i)
+                for (std::size_t i = 0; i < adam::lib::imgui::c_themes_count; ++i)
                 {
-                    auto theme_val = static_cast<adam::imgui_tools::gui_theme>(i);
+                    auto theme_val = static_cast<adam::lib::imgui::gui_theme>(i);
                     bool is_selected = (current_theme == theme_val);
                     
                     if (ImGui::Selectable(get_gui_string(get_theme_str_id(theme_val), lang), is_selected))
                     {
-                        m_p_theme->set_value(adam::imgui_tools::theme_to_string(theme_val));
-                        adam::imgui_tools::apply_theme(theme_val);
+                        m_p_theme->set_value(adam::lib::imgui::theme_to_string(theme_val));
+                        adam::lib::imgui::apply_theme(theme_val);
                     }
                     if (is_selected) ImGui::SetItemDefaultFocus();
                 }

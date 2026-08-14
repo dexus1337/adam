@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <imgui.h>
 
-namespace adam::imgui_tools
+namespace adam::lib::imgui
 {
     /** @brief Initializes the texture manager with the active graphics backend */
     void init_textures(bool is_directx11 = false, void* d3d_device = nullptr);

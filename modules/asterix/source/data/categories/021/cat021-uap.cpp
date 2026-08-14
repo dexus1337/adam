@@ -1,7 +1,11 @@
 #include "data/categories/021/cat021-uap.hpp"
-#include "data/categories/021/cat021-uap-ref.hpp"
+
 
 #include <array>
+
+#include "data/categories/021/cat021-structs.hpp"
+#include "data/categories/021/cat021-uap-ref.hpp"
+
 
 namespace adam::modules::asterix::cat021
 {
@@ -11,6 +15,21 @@ namespace adam::modules::asterix::cat021
     extern uap cat021_110_uap;
     extern uap cat021_220_uap;
     extern uap cat021_295_uap;
+
+    extern uap::type_getter_function cat021_type_getter_fn;
+
+    // Fill the type database or this Category
+    const uap::type_names_database& get_cat021_types() 
+    {
+        static const uap::type_names_database table = 
+        {
+            {cat021::address_type_type_icao,        "ICAO"      },
+            {cat021::address_type_type_duplicate,   "Duplicate" },
+            {cat021::address_type_type_surface,     "Surface"   },
+            {cat021::address_type_type_anonymous,   "Anonymous" },
+        };
+        return table;
+    }
 
     // -------------------------------------------------------------------------------------------------------------- //
     // Standard UAP for ADS-B Target Reports
@@ -77,8 +96,6 @@ namespace adam::modules::asterix::cat021
         { 49, item_type_explicit,    0,      0, "SP Special Purpose Field"                                             },
     });
 
-    uap cat021_uap(21, "CAT021 " CAT021_VERSION ""_ct, cat021_items.data(), cat021_items.size(), 1);
-
     // -------------------------------------------------------------------------------------------------------------- //
     // Sub-UAP for I021/110 Trajectory Intent (Compound)
     // -------------------------------------------------------------------------------------------------------------- //
@@ -135,8 +152,40 @@ namespace adam::modules::asterix::cat021
 
     uap cat021_295_uap(21, "CAT021 I021/295 " CAT021_VERSION ""_ct, cat021_295_items.data(), cat021_295_items.size());
 
+    // -------------------------------------------------------------------------------------------------------------- //
+    // CAT021 Type Getter Function
+    //
+    // Reads (parsed) I021/040 (Target Report Descriptor) to extract the (address)- type and 
+    // return the corresponding enum entry.
+    // -------------------------------------------------------------------------------------------------------------- //
+    uap::type_getter_function cat021_type_getter_fn = [](const record* rec, const adam::buffer* buf) -> uint8_t
+    {
+        auto* trd_itm = rec->get_item(2);
+
+        if (!trd_itm->is_populated())
+            return 0xff;
+
+        auto* data = trd_itm->get_data_as<const cat021::target_report_descriptor>(buf);
+
+        if (!data)
+            return 0xff;
+
+        return data->atp;
+    };
+
     uap& get_uap()
     {
+        static uap cat021_uap
+        (
+            21,                             /**< CAT Number.          */
+            "CAT021 " CAT021_VERSION ""_ct, /**< CAT Names.           */
+            cat021_items.data(),            /**< Items Array start.   */
+            cat021_items.size(),            /**< Items Array length.  */
+            1,                              /**< SAC/SIC FRN.         */
+            get_cat021_types(),             /**< Type Database.       */
+            cat021_type_getter_fn           /**< Type Getter Function */
+        );
+
         return cat021_uap;
     }
 }

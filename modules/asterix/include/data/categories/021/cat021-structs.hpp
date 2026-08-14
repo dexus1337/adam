@@ -40,7 +40,7 @@ namespace adam::modules::asterix::cat021
         bool                fx_0    : 1;
         rab_type            rab     : 1;
         bool                rc      : 1;
-        arc_type            arc     : 3;
+        arc_type            arc     : 2;
         address_type        atp     : 3;
     };
 }

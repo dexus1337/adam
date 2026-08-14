@@ -1,4 +1,4 @@
-#include "imgui-tools.hpp"
+#include "textures.hpp"
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <d3d11.h>
@@ -10,15 +10,15 @@
 #include <GL/gl.h>
 #endif
 
-namespace adam::imgui_tools
+namespace adam::lib::imgui
 {
     static bool g_is_directx11 = false;
     static void* g_d3d_device = nullptr;
 
     void init_textures(bool is_directx11, void* d3d_device)
     {
-        g_is_directx11 = is_directx11;
-        g_d3d_device = d3d_device;
+        g_is_directx11  = is_directx11;
+        g_d3d_device    = d3d_device;
     }
 
     ImTextureID create_texture_rgba(int width, int height, const uint8_t* pixels)
@@ -28,7 +28,7 @@ namespace adam::imgui_tools
             return (ImTextureID)0;
         }
 
-#if defined(ADAM_PLATFORM_WINDOWS)
+        #if defined(ADAM_PLATFORM_WINDOWS)
         if (g_is_directx11)
         {
             ID3D11Device* pDevice = static_cast<ID3D11Device*>(g_d3d_device);
