@@ -19,8 +19,8 @@
 
 using namespace adam::string_hashed_ct_literals;
 
-static ADAM_CONSTEXPR int event_redraw_count       = 3;
-static ADAM_CONSTEXPR int perf_overlay_redraw_time = 2000;
+static ADAM_CONSTEXPR int event_redraw_count            = 3;
+static ADAM_CONSTEXPR int default_gui_mode_redraw_time  = 1000;
 
 std::unique_ptr<adam::cop::cop_controller> g_cop_ctrl;
 
@@ -53,7 +53,7 @@ int main(int, char**)
     bool done = false;
     int frames_to_render = event_redraw_count;
 
-    auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(g_cop_ctrl->get_parameters().get("show_performance"_ct));
+    auto* p_immediate = dynamic_cast<adam::configuration_parameter_integer*>(g_cop_ctrl->get_parameters().get("gui_mode"_ct));
     auto* p_fps_limit = dynamic_cast<adam::configuration_parameter_integer*>(g_cop_ctrl->get_parameters().get("fps_limit"_ct));
 
     auto last_frame_time = std::chrono::steady_clock::now();
@@ -61,7 +61,7 @@ int main(int, char**)
     while (!done)
     {
         SDL_Event event;
-        bool needs_redraw = (frames_to_render > 0);
+        bool needs_redraw = (p_immediate && p_immediate->get_value() == 1) || (frames_to_render > 0);
 
         auto process_events = [&]()
         {
@@ -107,15 +107,7 @@ int main(int, char**)
         }
         else
         {
-            bool has_event = false;
-            if (p_show_perf && p_show_perf->get_value())
-            {
-                has_event = SDL_WaitEventTimeout(&event, perf_overlay_redraw_time);
-            }
-            else
-            {
-                has_event = SDL_WaitEvent(&event);
-            }
+            bool has_event = SDL_WaitEventTimeout(&event, default_gui_mode_redraw_time);
 
             if (has_event)
             {
@@ -128,7 +120,7 @@ int main(int, char**)
                 }
                 while (SDL_PollEvent(&event));
             }
-            else if (p_show_perf && p_show_perf->get_value())
+            else
             {
                 frames_to_render = 1;
                 needs_redraw = true;
@@ -158,40 +150,43 @@ int main(int, char**)
 
         ui_window.draw();
 
-        bool vsync_enabled = p_fps_limit && (p_fps_limit->get_value() == 4);
+        bool vsync_enabled = (p_immediate && p_immediate->get_value() == 1) ? (p_fps_limit && p_fps_limit->get_value() == 4) : true;
         adam::lib::imgui::render_frame(renderer_ctx, vsync_enabled);
 
-        int limit_setting = p_fps_limit ? static_cast<int>(p_fps_limit->get_value()) : 2;
-        double target_fps = 60.0;
-        switch (limit_setting)
+        if (p_immediate && p_immediate->get_value() == 1)
         {
-            case 0: target_fps = 10.0; break;
-            case 1: target_fps = 30.0; break;
-            case 2: target_fps = 60.0; break;
-            case 3: target_fps = 120.0; break;
-            case 4: target_fps = 0.0; break; // VSync
-            case 5: target_fps = 0.0; break; // Unlimited
-        }
-
-        if (target_fps > 0.0)
-        {
-            auto target_frame_duration = std::chrono::duration<double>(1.0 / target_fps);
-            auto next_frame_time = last_frame_time + std::chrono::duration_cast<std::chrono::steady_clock::duration>(target_frame_duration);
-            std::this_thread::sleep_until(next_frame_time);
-
-            auto now = std::chrono::steady_clock::now();
-            if (now - last_frame_time > target_frame_duration * 2.0)
+            int limit_setting = p_fps_limit ? static_cast<int>(p_fps_limit->get_value()) : 4;
+            double target_fps = 0.0;
+            switch (limit_setting)
             {
-                last_frame_time = now;
+                case 0: target_fps = 10.0; break;
+                case 1: target_fps = 30.0; break;
+                case 2: target_fps = 60.0; break;
+                case 3: target_fps = 120.0; break;
+                case 4: target_fps = 0.0; break; // VSync
+                case 5: target_fps = 0.0; break; // Unlimited
+            }
+
+            if (target_fps > 0.0)
+            {
+                auto target_frame_duration = std::chrono::duration<double>(1.0 / target_fps);
+                auto next_frame_time = last_frame_time + std::chrono::duration_cast<std::chrono::steady_clock::duration>(target_frame_duration);
+                std::this_thread::sleep_until(next_frame_time);
+
+                auto now = std::chrono::steady_clock::now();
+                if (now - last_frame_time > target_frame_duration * 2.0)
+                {
+                    last_frame_time = now;
+                }
+                else
+                {
+                    last_frame_time = next_frame_time;
+                }
             }
             else
             {
-                last_frame_time = next_frame_time;
+                last_frame_time = std::chrono::steady_clock::now();
             }
-        }
-        else
-        {
-            last_frame_time = std::chrono::steady_clock::now();
         }
     }
 

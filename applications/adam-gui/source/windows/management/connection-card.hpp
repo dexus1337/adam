@@ -29,7 +29,6 @@ namespace adam::gui
     void draw_connection_name_and_color
     (
         gui_controller& ctrl,
-        adam::language lang,
         adam::connection_view* conn,
         adam::string_hash hash,
         bool is_drag_preview,
@@ -42,10 +41,8 @@ namespace adam::gui
         adam::language lang,
         adam::connection_view* conn,
         adam::string_hash hash,
-        bool is_drag_preview,
         bool is_unavailable,
-        float add_button_width,
-        bool commander_active
+        float add_button_width
     );
 
     void draw_connection_card_header
@@ -74,7 +71,7 @@ namespace adam::gui
         float row_height,
         float avail_x,
         const ImVec2& cur_pos,
-        const std::vector<std::vector<connection_pin_data>>& stage_pins_in,
+        std::vector<std::vector<connection_pin_data>>& stage_pins_in,
         const std::vector<std::vector<connection_pin_data>>& stage_pins_out,
         adam::connection_view* conn
     );

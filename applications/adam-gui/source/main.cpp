@@ -11,7 +11,7 @@
 using namespace adam::string_hashed_ct_literals;
 
 static ADAM_CONSTEXPR int event_redraw_count            = 3;
-static ADAM_CONSTEXPR int perf_overlay_redraw_time      = 2000;
+static ADAM_CONSTEXPR int default_gui_mode_redraw_time  = 1000;
 
 std::unique_ptr<adam::gui::gui_controller> g_gui_ctrl;
     
@@ -26,7 +26,9 @@ int main(int, char**)
     config.enable_viewports = true;
 
     if (!adam::lib::imgui::initialize(renderer_ctx, config))
+    {
         return -1;
+    }
 
     g_gui_ctrl->set_redraw_callback([]() 
     {
@@ -43,7 +45,6 @@ int main(int, char**)
     int frames_to_render = event_redraw_count;
 
     auto* p_immediate = dynamic_cast<adam::configuration_parameter_integer*>(g_gui_ctrl->get_parameters().get("gui_mode"_ct));
-    auto* p_show_perf = dynamic_cast<adam::configuration_parameter_boolean*>(g_gui_ctrl->get_parameters().get("show_performance"_ct));
     auto* p_fps_limit = dynamic_cast<adam::configuration_parameter_integer*>(g_gui_ctrl->get_parameters().get("fps_limit"_ct));
 
     auto last_frame_time = std::chrono::steady_clock::now();
@@ -57,9 +58,13 @@ int main(int, char**)
         { 
             ImGui_ImplSDL3_ProcessEvent(&event);
             if (event.type == SDL_EVENT_QUIT)
+            {
                 done = true;
+            }
             if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(renderer_ctx.window))
+            {
                 done = true;
+            }
             if (event.window.windowID == SDL_GetWindowID(renderer_ctx.window))
             {
                 if (event.type == SDL_EVENT_WINDOW_MOVED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
@@ -88,11 +93,7 @@ int main(int, char**)
         }
         else
         {
-            bool has_event = false;
-            if (p_show_perf->get_value())
-                has_event = SDL_WaitEventTimeout(&event, perf_overlay_redraw_time);
-            else
-                has_event = SDL_WaitEvent(&event);
+            bool has_event = SDL_WaitEventTimeout(&event, default_gui_mode_redraw_time);
 
             if (has_event)
             {
@@ -104,7 +105,7 @@ int main(int, char**)
                 } 
                 while (SDL_PollEvent(&event));
             }
-            else if (p_show_perf->get_value())
+            else
             {
                 frames_to_render = 1;
                 needs_redraw = true;

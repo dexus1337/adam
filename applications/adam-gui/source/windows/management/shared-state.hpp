@@ -33,11 +33,20 @@ namespace adam::gui
         }
     };
 
+    enum class line_activity_state : uint8_t
+    {
+        inactive = 0,
+        success,   // Green: only successful messages (read, forwarded, converted, written)
+        mixed,     // Yellow: both successful and discarded/filtered messages
+        discarded  // Dark Orange: only discarded/filtered messages
+    };
+
     struct connection_pin_data
     {
         ImVec2 pos;
         ImColor col;
         std::string format_name;
+        line_activity_state activity = line_activity_state::inactive;
     };
 
     enum node_type : uint8_t

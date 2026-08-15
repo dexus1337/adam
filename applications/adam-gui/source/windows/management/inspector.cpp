@@ -17,16 +17,16 @@
 #include <algorithm>
 #include <vector>
 #include <map>
-#include <cmath> // For std::min, std::max
-#include <mutex> // For std::lock_guard
-#include <string> // For std::string
-#include <unordered_set> // For std::unordered_set
-#include <set> // For std::set
-#include <cctype> // For std::tolower
+#include <cmath>
+#include <mutex>
+#include <string>
+#include <unordered_set>
+#include <set>
+#include <cctype>
+
 namespace adam::gui
 {
-    // Helper to draw a single row in the inspector frames table
-    static void draw_inspector_table_row
+    static inline void draw_inspector_table_row
     (
         const adam::gui::inspected_buffer& ib,
         int actual_index,
@@ -37,8 +37,7 @@ namespace adam::gui
         ImGui::TableNextRow();
 
         ImGui::TableSetColumnIndex(0);
-        // Use ImGuiTreeNodeFlags_DefaultOpen if it's already expanded
-        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)actual_index, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | (expanded_nodes.count(actual_index) ? ImGuiTreeNodeFlags_DefaultOpen : 0), "");
+        bool node_open = ImGui::TreeNodeEx(reinterpret_cast<void*>(static_cast<intptr_t>(actual_index)), ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_OpenOnArrow | (expanded_nodes.count(actual_index) ? ImGuiTreeNodeFlags_DefaultOpen : 0), "%s", "");
 
         ImGui::TableSetColumnIndex(1);
         ImGui::Text("%d", actual_index);
@@ -50,11 +49,14 @@ namespace adam::gui
         ImGui::Text("%zu B", static_cast<size_t>(ib.size));
 
         ImGui::TableSetColumnIndex(4);
-        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+        if (ImGui::GetIO().Fonts->Fonts[1])
+        {
+            ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+        }
 
         char preview_hex[64];
         char preview_ascii[32];
-        size_t preview_len = std::min((size_t)ib.size, (size_t)16);
+        size_t preview_len = std::min(static_cast<size_t>(ib.size), static_cast<size_t>(16));
         fill_hex_preview(data_pool.data() + ib.offset, preview_len, 16, preview_hex, sizeof(preview_hex), preview_ascii, sizeof(preview_ascii));
 
         ImGui::TextUnformatted(preview_hex);
@@ -62,7 +64,10 @@ namespace adam::gui
         ImGui::TableSetColumnIndex(5);
         ImGui::TextUnformatted(preview_ascii);
         
-        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
+        if (ImGui::GetIO().Fonts->Fonts[1])
+        {
+            ImGui::PopFont();
+        }
 
         if (node_open)
         {
@@ -88,19 +93,23 @@ namespace adam::gui
         size_t display_len = size;
         size_t num_rows = (display_len + 15) / 16;
 
-        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+        if (ImGui::GetIO().Fonts->Fonts[1])
+        {
+            ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+        }
         float line_h = ImGui::GetTextLineHeightWithSpacing();
-        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
+        if (ImGui::GetIO().Fonts->Fonts[1])
+        {
+            ImGui::PopFont();
+        }
 
         float window_border_size = ImGui::GetStyle().WindowBorderSize;
-
         float spacing_h = ImGui::GetStyle().ItemSpacing.y;
         float text_content_h = num_rows > 0 ? (line_h * num_rows) : 0.0f;
         float child_padding_h = (4.0f * dpi_scale) * 2.0f;
         float child_border_h = window_border_size * 2.0f;
         
         float calc_h = text_content_h + child_padding_h + child_border_h;
-
         float button_h = ImGui::GetFrameHeight();
         float container_padding_h = (6.0f * dpi_scale) * 2.0f;
         float container_border_h = window_border_size * 2.0f;
@@ -131,7 +140,10 @@ namespace adam::gui
                     snprintf(hex, sizeof(hex), "%02X ", data[j]);
                     s_copy_str += hex;
                 }
-                if (!s_copy_str.empty()) s_copy_str.pop_back();
+                if (!s_copy_str.empty())
+                {
+                    s_copy_str.pop_back();
+                }
                 ImGui::SetClipboardText(s_copy_str.c_str());
             }
             ImGui::SameLine();
@@ -144,8 +156,14 @@ namespace adam::gui
                 for (size_t j = 0; j < size; ++j)
                 {
                     char c = data[j];
-                    if (c >= 32 && c <= 126) s_copy_str += c;
-                    else s_copy_str += '.';
+                    if (c >= 32 && c <= 126)
+                    {
+                        s_copy_str += c;
+                    }
+                    else
+                    {
+                        s_copy_str += '.';
+                    }
                 }
                 ImGui::SetClipboardText(s_copy_str.c_str());
             }
@@ -160,12 +178,21 @@ namespace adam::gui
                 {
                     char line_buf[256];
                     int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
-                    size_t chunk = std::min((size_t)16, display_len - offset);
+                    size_t chunk = std::min(static_cast<size_t>(16), display_len - offset);
                     for (size_t j = 0; j < 16; ++j)
                     {
-                        if (j == 8) line_buf[printed++] = ' ';
-                        if (j < chunk) printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", data[offset + j]);
-                        else printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
+                        if (j == 8)
+                        {
+                            line_buf[printed++] = ' ';
+                        }
+                        if (j < chunk)
+                        {
+                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", data[offset + j]);
+                        }
+                        else
+                        {
+                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
+                        }
                     }
                     line_buf[printed++] = ' ';
                     line_buf[printed++] = ' ';
@@ -184,18 +211,23 @@ namespace adam::gui
             }
 
             ImGui::PopStyleVar();
-
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * dpi_scale, 4.0f * dpi_scale));
 
             if (ImGui::BeginChild("##hex_child", ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
             {
-                if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+                if (ImGui::GetIO().Fonts->Fonts[1])
+                {
+                    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+                }
 
                 static constexpr const char* dummy_line = "0000:  00 11 22 33 44 55 66 77  88 99 AA BB CC DD EE FF   |0123456789ABCDEF|";
                 float text_w = ImGui::CalcTextSize(dummy_line).x;
                 float avail_w2 = ImGui::GetContentRegionAvail().x;
                 float offset_x = (avail_w2 - text_w) / 2.0f;
-                if (offset_x < 4.0f * dpi_scale) offset_x = 4.0f * dpi_scale;
+                if (offset_x < 4.0f * dpi_scale)
+                {
+                    offset_x = 4.0f * dpi_scale;
+                }
 
                 ImGuiListClipper hex_clipper;
                 hex_clipper.Begin(static_cast<int>(num_rows), line_h);
@@ -204,7 +236,7 @@ namespace adam::gui
                     for (int row = hex_clipper.DisplayStart; row < hex_clipper.DisplayEnd; ++row)
                     {
                         size_t offset = row * 16;
-                        size_t chunk = std::min((size_t)16, display_len - offset);
+                        size_t chunk = std::min(static_cast<size_t>(16), display_len - offset);
 
                         char line_buf[256];
                         int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
@@ -229,15 +261,19 @@ namespace adam::gui
                         line_buf[printed++] = ' ';
                         line_buf[printed++] = '|';
 
-                        for (size_t j = 0; j < 16; ++j)
+                        for (size_t j = 0; j < chunk; ++j)
                         {
                             if (j < chunk)
                             {
                                 char c = data[offset + j];
                                 if (c >= 32 && c <= 126)
+                                {
                                     line_buf[printed++] = c;
+                                }
                                 else
+                                {
                                     line_buf[printed++] = '.';
+                                }
                             }
                             else
                             {
@@ -248,113 +284,121 @@ namespace adam::gui
                         line_buf[printed] = '\0';
 
                         ImGui::SetCursorPosX(offset_x);
-                        ImVec2 start_pos = ImGui::GetCursorScreenPos();
-                        
-                        char sel_id[32];
-                        snprintf(sel_id, sizeof(sel_id), "##sel_%d", row);
-                        
-                        ImGui::Selectable(sel_id, false, ImGuiSelectableFlags_AllowOverlap, ImVec2(text_w, 0));
-                        
-                        bool copy_requested = false;
-                        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                        {
-                            copy_requested = true;
-                        }
-                        
-                        if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_C, false) && ImGui::GetIO().KeyCtrl)
-                        {
-                            copy_requested = true;
-                        }
-                        
-                        if (ImGui::BeginPopupContextItem())
-                        {
-                            if (ImGui::MenuItem(get_gui_string(gui_string_id::btn_copy_row, lang)))
-                            {
-                                copy_requested = true;
-                            }
-                            ImGui::EndPopup();
-                        }
-                        
-                        if (copy_requested)
-                        {
-                            static std::string s_clipboard_buffer;
-                            s_clipboard_buffer = line_buf;
-                            ImGui::SetClipboardText(s_clipboard_buffer.c_str());
-                        }
-                        
-                        ImGui::SetCursorScreenPos(start_pos);
+                        ImGui::TextUnformatted(line_buf);
 
-                        char addr_buf[16];
-                        snprintf(addr_buf, sizeof(addr_buf), "%04X:  ", static_cast<unsigned int>(offset));
-                        ImGui::TextUnformatted(addr_buf);
-                        ImGui::SameLine(0, 0);
-
-                        for (size_t j = 0; j < 16; ++j)
+                        if (ImGui::IsItemHovered())
                         {
-                            if (j == 8)
+                            ImVec2 mouse_pos = ImGui::GetMousePos();
+                            ImVec2 item_min = ImGui::GetItemRectMin();
+                            float rel_x = mouse_pos.x - item_min.x;
+
+                            char header_buf[32];
+                            snprintf(header_buf, sizeof(header_buf), "%04X:  ", static_cast<unsigned int>(offset));
+                            float header_w = ImGui::CalcTextSize(header_buf).x;
+                            float byte_w = ImGui::CalcTextSize("00 ").x;
+                            float space_w = ImGui::CalcTextSize(" ").x;
+
+                            int hovered_byte = -1;
+                            if (rel_x >= header_w && rel_x < header_w + 16 * byte_w + space_w)
                             {
-                                ImGui::TextUnformatted(" ");
-                                ImGui::SameLine(0, 0);
-                            }
-                            if (j < chunk)
-                            {
-                                char byte_buf[8];
-                                snprintf(byte_buf, sizeof(byte_buf), "%02X ", data[offset + j]);
-                                if (data[offset + j] == 0x00)
+                                float hex_rel_x = rel_x - header_w;
+                                if (hex_rel_x >= 8 * byte_w)
                                 {
-                                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                                    ImGui::TextUnformatted(byte_buf);
-                                    ImGui::PopStyleColor();
+                                    hex_rel_x -= space_w;
                                 }
-                                else
+                                if (hex_rel_x >= 0.0f)
                                 {
-                                    ImGui::TextUnformatted(byte_buf);
+                                    hovered_byte = static_cast<int>(hex_rel_x / byte_w);
                                 }
                             }
                             else
                             {
-                                ImGui::TextUnformatted("   ");
-                            }
-                            ImGui::SameLine(0, 0);
-                        }
-
-                        ImGui::TextUnformatted("  |");
-                        ImGui::SameLine(0, 0);
-
-                        for (size_t j = 0; j < 16; ++j)
-                        {
-                            if (j < chunk)
-                            {
-                                char c = data[offset + j];
-                                char char_buf[2] = { (char)((c >= 32 && c <= 126) ? c : '.'), '\0' };
-                                if (c == 0x00)
+                                float ascii_start_x = header_w + 16 * byte_w + space_w + ImGui::CalcTextSize("  |").x;
+                                float char_w = ImGui::CalcTextSize("A").x;
+                                if (rel_x >= ascii_start_x && rel_x < ascii_start_x + 16 * char_w)
                                 {
-                                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                                    ImGui::TextUnformatted(char_buf);
-                                    ImGui::PopStyleColor();
+                                    hovered_byte = static_cast<int>((rel_x - ascii_start_x) / char_w);
+                                }
+                            }
+
+                            if (hovered_byte >= 0 && hovered_byte < static_cast<int>(chunk))
+                            {
+                                size_t exact_offset = offset + hovered_byte;
+                                uint8_t byte_val = data[exact_offset];
+
+                                bool copy_requested = false;
+                                if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                                {
+                                    copy_requested = true;
+                                }
+
+                                ImGui::BeginTooltip();
+                                ImGui::Text("Offset: 0x%04X (%zu)", static_cast<unsigned int>(exact_offset), exact_offset);
+                                ImGui::Separator();
+                                ImGui::Text("Hex:    0x%02X", byte_val);
+                                ImGui::Text("Dec:    %u", byte_val);
+                                ImGui::Text("Signed: %d", static_cast<int8_t>(byte_val));
+                                
+                                char bin_str[9];
+                                for (int b = 7; b >= 0; --b)
+                                {
+                                    bin_str[7 - b] = ((byte_val >> b) & 1) ? '1' : '0';
+                                }
+                                bin_str[8] = '\0';
+                                ImGui::Text("Bin:    0b%s", bin_str);
+                                
+                                if (byte_val >= 32 && byte_val <= 126)
+                                {
+                                    ImGui::Text("ASCII:  '%c'", byte_val);
                                 }
                                 else
                                 {
-                                    ImGui::TextUnformatted(char_buf);
+                                    ImGui::Text("ASCII:  Non-printable");
+                                }
+
+                                if (exact_offset + 1 < display_len)
+                                {
+                                    uint16_t val_u16 = *reinterpret_cast<const uint16_t*>(data + exact_offset);
+                                    ImGui::Spacing();
+                                    ImGui::Text("Int16:  %d", static_cast<int16_t>(val_u16));
+                                    ImGui::Text("UInt16: %u", val_u16);
+                                }
+                                if (exact_offset + 3 < display_len)
+                                {
+                                    uint32_t val_u32 = *reinterpret_cast<const uint32_t*>(data + exact_offset);
+                                    float val_f32 = *reinterpret_cast<const float*>(data + exact_offset);
+                                    ImGui::Spacing();
+                                    ImGui::Text("Int32:  %d", static_cast<int32_t>(val_u32));
+                                    ImGui::Text("UInt32: %u", val_u32);
+                                    ImGui::Text("Float:  %g", val_f32);
+                                }
+                                if (exact_offset + 7 < display_len)
+                                {
+                                    uint64_t val_u64 = *reinterpret_cast<const uint64_t*>(data + exact_offset);
+                                    double val_f64 = *reinterpret_cast<const double*>(data + exact_offset);
+                                    ImGui::Spacing();
+                                    ImGui::Text("Int64:  %lld", static_cast<long long>(val_u64));
+                                    ImGui::Text("UInt64: %llu", static_cast<unsigned long long>(val_u64));
+                                    ImGui::Text("Double: %g", val_f64);
+                                }
+
+                                ImGui::EndTooltip();
+
+                                if (copy_requested)
+                                {
+                                    char byte_hex_str[8];
+                                    snprintf(byte_hex_str, sizeof(byte_hex_str), "%02X", byte_val);
+                                    ImGui::SetClipboardText(byte_hex_str);
                                 }
                             }
-                            else
-                            {
-                                ImGui::TextUnformatted(" ");
-                            }
-                            
-                            if (j < 15)
-                            {
-                                ImGui::SameLine(0, 0);
-                            }
                         }
-                        
-                        ImGui::SameLine(0, 0);
-                        ImGui::TextUnformatted("|");
                     }
                 }
 
-                if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
+                if (ImGui::GetIO().Fonts->Fonts[1])
+                {
+                    ImGui::PopFont();
+                }
             }
             ImGui::EndChild();
             ImGui::PopStyleVar();
@@ -364,7 +408,6 @@ namespace adam::gui
         ImGui::PopStyleVar(2);
     }
 
-    template<typename heigth_func>
     static void calculate_custom_clipper
     (
         int num_total_rows,
@@ -376,95 +419,236 @@ namespace adam::gui
         int& out_display_end,
         float& out_top_dummy_h,
         float& out_bottom_dummy_h,
-        heigth_func get_expanded_height
+        const std::function<float(size_t)>& get_expanded_height
     )
     {
-        out_display_start = -1;
-        out_display_end = -1;
         out_top_dummy_h = 0.0f;
         out_bottom_dummy_h = 0.0f;
-        
-        if (num_total_rows == 0) return;
+        out_display_start = -1;
+        out_display_end = -1;
+
+        if (num_total_rows <= 0)
+        {
+            out_display_start = 0;
+            out_display_end = 0;
+            return;
+        }
 
         float current_y = 0.0f;
         int current_idx = 0;
-        
+
         for (size_t exp_idx : expanded_nodes)
         {
-            if ((int)exp_idx >= num_total_rows) continue;
-            
-            int unexpanded_count = (int)exp_idx - current_idx;
+            if (static_cast<int>(exp_idx) >= num_total_rows)
+            {
+                continue;
+            }
+            int unexpanded_count = static_cast<int>(exp_idx) - current_idx;
             if (unexpanded_count > 0)
             {
                 float unexpanded_h = unexpanded_count * row_height;
-                if (out_display_start == -1 && current_y + unexpanded_h >= scroll_y)
+                if (out_display_start == -1 && current_y + unexpanded_h > scroll_y)
                 {
                     float overshoot = scroll_y - current_y;
-                    int rows_in = (int)(overshoot / row_height);
+                    int rows_in = static_cast<int>(overshoot / row_height);
+                    if (rows_in < 0) rows_in = 0;
                     out_display_start = current_idx + rows_in;
+                    out_top_dummy_h = current_y + rows_in * row_height;
                 }
                 if (out_display_end == -1 && current_y + unexpanded_h >= scroll_y + window_h)
                 {
                     float overshoot = (scroll_y + window_h) - current_y;
-                    int rows_in = (int)(overshoot / row_height);
+                    int rows_in = static_cast<int>(overshoot / row_height) + 1;
+                    if (rows_in > unexpanded_count) rows_in = unexpanded_count;
                     out_display_end = current_idx + rows_in;
-                    if (overshoot > rows_in * row_height) out_display_end += 1;
                 }
                 current_y += unexpanded_h;
-                current_idx = (int)exp_idx;
+                current_idx = static_cast<int>(exp_idx);
             }
-            
+
             float exp_h = get_expanded_height(exp_idx);
             float item_h = row_height + exp_h;
-            
-            if (out_display_start == -1 && current_y + item_h >= scroll_y) out_display_start = current_idx;
+
+            if (out_display_start == -1 && current_y + item_h > scroll_y)
+            {
+                out_display_start = current_idx;
+                out_top_dummy_h = current_y;
+            }
             if (out_display_end == -1 && current_y + item_h >= scroll_y + window_h)
             {
                 out_display_end = current_idx + 1;
             }
-            
+
             current_y += item_h;
             current_idx++;
         }
-        
-        if (current_idx < num_total_rows)
+
+        int unexpanded_count = num_total_rows - current_idx;
+        if (unexpanded_count > 0)
         {
-            int unexpanded_count = num_total_rows - current_idx;
             float unexpanded_h = unexpanded_count * row_height;
-            if (out_display_start == -1 && current_y + unexpanded_h >= scroll_y)
+            if (out_display_start == -1 && current_y + unexpanded_h > scroll_y)
             {
                 float overshoot = scroll_y - current_y;
-                int rows_in = (int)(overshoot / row_height);
+                int rows_in = static_cast<int>(overshoot / row_height);
+                if (rows_in < 0) rows_in = 0;
                 out_display_start = current_idx + rows_in;
+                out_top_dummy_h = current_y + rows_in * row_height;
             }
             if (out_display_end == -1 && current_y + unexpanded_h >= scroll_y + window_h)
             {
                 float overshoot = (scroll_y + window_h) - current_y;
-                int rows_in = (int)(overshoot / row_height);
+                int rows_in = static_cast<int>(overshoot / row_height) + 1;
+                if (rows_in > unexpanded_count) rows_in = unexpanded_count;
                 out_display_end = current_idx + rows_in;
-                if (overshoot > rows_in * row_height) out_display_end += 1;
             }
             current_y += unexpanded_h;
         }
-        
+
         if (out_display_start == -1) out_display_start = num_total_rows;
         if (out_display_end == -1) out_display_end = num_total_rows;
+
+        out_display_start -= 3;
+        if (out_display_start < 0) out_display_start = 0;
+        out_display_end += 3;
         if (out_display_end > num_total_rows) out_display_end = num_total_rows;
-        if (out_display_start > out_display_end) out_display_start = out_display_end;
 
         out_top_dummy_h = out_display_start * row_height;
-        for (size_t exp_idx : expanded_nodes)
+        for (auto it = expanded_nodes.begin(); it != expanded_nodes.end(); ++it)
         {
-            if ((int)exp_idx < out_display_start) out_top_dummy_h += get_expanded_height(exp_idx);
+            if (static_cast<int>(*it) < out_display_start) out_top_dummy_h += get_expanded_height(*it);
             else break;
         }
-        
+
         out_bottom_dummy_h = (num_total_rows - out_display_end) * row_height;
         for (auto it = expanded_nodes.rbegin(); it != expanded_nodes.rend(); ++it)
         {
-            if ((int)*it >= out_display_end && (int)*it < num_total_rows) out_bottom_dummy_h += get_expanded_height(*it);
-            else if ((int)*it < out_display_end) break;
+            if (static_cast<int>(*it) >= out_display_end && static_cast<int>(*it) < num_total_rows) out_bottom_dummy_h += get_expanded_height(*it);
+            else if (static_cast<int>(*it) < out_display_end) break;
         }
+    }
+
+    static void draw_analyzer_expanded_region
+    (
+        inspection_port_data& port_data,
+        size_t b_idx,
+        size_t r_idx,
+        size_t i,
+        float inner_avail_w,
+        float dpi_scale,
+        adam::language lang
+    )
+    {
+        auto& row_obj = port_data.parsed_data[b_idx][r_idx];
+
+        if (!row_obj.expansions_fetched)
+        {
+            if (port_data.analyzer_ptr)
+            {
+                const uint8_t* ref_data = nullptr;
+                if (port_data.buffers[b_idx].ref_size > 0)
+                {
+                    ref_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
+                }
+                
+                port_data.analyzer_ptr->analyze_expanded(port_data.data_pool.data() + port_data.buffers[b_idx].offset, port_data.buffers[b_idx].size, ref_data, port_data.buffers[b_idx].ref_size, r_idx, row_obj.expansions);
+            }
+            row_obj.expansions_fetched = true;
+        }
+
+        ImGui::PushID(static_cast<int>(i));
+        float sub_table_w = inner_avail_w;
+
+        if (ImGui::BeginChild("##ExpandedRegion", ImVec2(sub_table_w, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+        {
+            if (ImGui::BeginChild("##HexDumpRegion", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+            {
+                if (ImGui::TreeNodeEx("Hex Dump"))
+                {
+                    ImGui::Unindent();
+                    const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
+                    size_t hex_size = port_data.buffers[b_idx].size;
+                    if (port_data.buffers[b_idx].ref_size > 0)
+                    {
+                        hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
+                        hex_size = port_data.buffers[b_idx].ref_size;
+                    }
+
+                    draw_inspector_hex_dump
+                    (
+                        hex_data,
+                        hex_size,
+                        static_cast<int>(i),
+                        dpi_scale,
+                        lang,
+                        ImGui::GetContentRegionAvail().x
+                    );
+                        
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::EndChild();
+
+            if (!row_obj.expansions.empty())
+            {
+                for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
+                {
+                    auto exp_table_w = ImGui::GetContentRegionAvail().x;
+                    const auto& exp = row_obj.expansions[exp_idx];
+                    ImGui::PushID(static_cast<int>(exp_idx));
+                    if (exp.data_type == adam::analyzer::expanded_data::type_text)
+                    {
+                        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+                        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + exp_table_w);
+                        ImGui::TextWrapped("%s", exp.text_content.c_str());
+                        ImGui::PopTextWrapPos();
+                        if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
+                    }
+                    else if (exp.data_type == adam::analyzer::expanded_data::type_table)
+                    {
+                        const auto& ext_cols            = port_data.analyzer_ptr->get_expandable_columns();
+                        const auto& ext_cols_fonts      = port_data.analyzer_ptr->get_expandable_columns_fonts();
+                        const auto& ext_cols_weights    = port_data.analyzer_ptr->get_expandable_columns_weights();
+
+                        if (ImGui::BeginTable("##sub_table", static_cast<int>(ext_cols.size()),
+                            ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
+                            ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
+                            ImGuiTableFlags_SizingStretchSame,
+                            ImVec2(exp_table_w, 0), 0.0f))
+                        {
+                            for (size_t c = 0; c < ext_cols.size(); c++) 
+                            {
+                                ImGui::TableSetupColumn(ext_cols[c].c_str(), ImGuiTableColumnFlags_WidthStretch, ext_cols_weights[c]);
+                            }
+
+                            ImGui::TableHeadersRow();
+                            for (const auto& row_v : exp.table_rows)
+                            {
+                                ImGui::TableNextRow();
+                                for (size_t c = 0; c < row_v.columns.size() && c < ext_cols.size(); ++c)
+                                {
+                                    ImGui::TableSetColumnIndex(static_cast<int>(c));
+                                    
+                                    bool usemonofont = (ext_cols_fonts[c] == adam::analyzer::column_font_mono) && ImGui::GetIO().Fonts->Fonts[1];
+
+                                    if (usemonofont) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+                                    ImGui::TextUnformatted(row_v.columns[c].c_str());
+                                    if (usemonofont) ImGui::PopFont();
+                                }
+                            }
+                            ImGui::EndTable();
+                        }
+                    }
+                    ImGui::PopID();
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("No expanded data available.");
+            }
+        }
+        ImGui::EndChild();
+        ImGui::PopID();
     }
 
     static void draw_inspector_frames_table
@@ -492,7 +676,7 @@ namespace adam::gui
         }
         float& current_height = g_expanded_inspector_heights[unique_id];
 
-        ImGui::PushID((const void*)(intptr_t)unique_id);
+        ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(unique_id)));
 
         float outer_child_h = (is_detached && *is_detached) ? 0.0f : current_height;
         ImGui::BeginChild("##outer_child", ImVec2(0, outer_child_h), true);
@@ -502,19 +686,16 @@ namespace adam::gui
         if (has_analyzer)
         {
             bool is_expandable = port_data.analyzer_ptr && port_data.analyzer_ptr->is_row_expandable();
-            int num_cols = (int)port_data.analyzer_columns.size() + (is_expandable ? 1 : 0);
+            int num_cols = static_cast<int>(port_data.analyzer_columns.size()) + (is_expandable ? 1 : 0);
 
             auto setup_analyzer_columns = [&]()
             {
                 float expandable_colum_width = 0.0f;
-
                 if (is_expandable) 
                 {
                     expandable_colum_width = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.x * 2.0f;
                     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_NoClip, expandable_colum_width);
                 }
-
-                //auto avail = ImGui::GetContentRegionAvail().x - expandable_colum_width;
 
                 for (size_t i = 0; i < port_data.analyzer_columns.size(); i++)
                 {
@@ -592,7 +773,7 @@ namespace adam::gui
 
             calculate_custom_clipper
             (
-                (int)flat_rows.size(), row_height, port_data.expanded_nodes, scroll_y, window_h,
+                static_cast<int>(flat_rows.size()), row_height, port_data.expanded_nodes, scroll_y, window_h,
                 display_start, display_end, top_dummy_h, bottom_dummy_h,
                 [&](size_t idx) -> float
                 {
@@ -652,7 +833,7 @@ namespace adam::gui
                     {
                         ImGui::TableSetColumnIndex(current_col);
                         char unparsed_buf[128];
-                        snprintf(unparsed_buf, sizeof(unparsed_buf), "%s (Size: %zu)", get_gui_string(gui_string_id::lbl_no_data, lang), (size_t)port_data.buffers[b_idx].size);
+                        snprintf(unparsed_buf, sizeof(unparsed_buf), "%s (Size: %zu)", get_gui_string(gui_string_id::lbl_no_data, lang), static_cast<size_t>(port_data.buffers[b_idx].size));
                         ImGui::TextDisabled("%s", unparsed_buf);
                     }
                     else
@@ -661,7 +842,7 @@ namespace adam::gui
                         size_t text_idx = 0;
                         for (size_t c = 0; c < port_data.analyzer_columns.size(); ++c)
                         {
-                            ImGui::TableSetColumnIndex(current_col + (int)c);
+                            ImGui::TableSetColumnIndex(current_col + static_cast<int>(c));
                             adam::analyzer::column_type c_type = adam::analyzer::column_text;
                             adam::analyzer::column_font c_font = adam::analyzer::column_font_normal;
 
@@ -699,21 +880,6 @@ namespace adam::gui
 
                 if (is_expandable && port_data.expanded_nodes.count(i) && r_idx != SIZE_MAX)
                 {
-                    auto& row_obj = port_data.parsed_data[b_idx][r_idx];
-
-                    if (!row_obj.expansions_fetched)
-                    {
-                        if (port_data.analyzer_ptr)
-                        {
-                            const uint8_t* ref_data = nullptr;
-                            if (port_data.buffers[b_idx].ref_size > 0)
-                                ref_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
-                            
-                            port_data.analyzer_ptr->analyze_expanded(port_data.data_pool.data() + port_data.buffers[b_idx].offset, port_data.buffers[b_idx].size, ref_data, port_data.buffers[b_idx].ref_size, r_idx, row_obj.expansions);
-                        }
-                        row_obj.expansions_fetched = true;
-                    }
-
                     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 
                     if (table_open)
@@ -723,103 +889,9 @@ namespace adam::gui
                     }
 
                     float start_y = ImGui::GetCursorPosY();
-
-                    ImGui::PushID(i);
-                    float sub_table_w = inner_avail_w;
-
                     ImGui::PopStyleVar();
 
-                    if (ImGui::BeginChild("##ExpandedRegion", ImVec2(sub_table_w, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
-                    {
-                        if (ImGui::BeginChild("##HexDumpRegion", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
-                        {
-                            if (ImGui::TreeNodeEx("Hex Dump"))
-                            {
-                                ImGui::Unindent();
-                                const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
-                                size_t hex_size = port_data.buffers[b_idx].size;
-                                if (port_data.buffers[b_idx].ref_size > 0)
-                                {
-                                    hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].ref_offset;
-                                    hex_size = port_data.buffers[b_idx].ref_size;
-                                }
-
-                                draw_inspector_hex_dump
-                                (
-                                    hex_data,
-                                    hex_size,
-                                    (int)i,
-                                    dpi_scale,
-                                    lang,
-                                    ImGui::GetContentRegionAvail().x
-                                );
-                                    
-                                ImGui::TreePop();
-                            }
-                        }
-                        ImGui::EndChild();
-
-                        if (!row_obj.expansions.empty())
-                        {
-                            for (size_t exp_idx = 0; exp_idx < row_obj.expansions.size(); ++exp_idx)
-                            {
-                                auto exp_table_w = ImGui::GetContentRegionAvail().x;
-                                const auto& exp = row_obj.expansions[exp_idx];
-                                ImGui::PushID((int)exp_idx);
-                                if (exp.data_type == adam::analyzer::expanded_data::type_text)
-                                {
-                                    if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
-                                    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + exp_table_w);
-                                    ImGui::TextWrapped("%s", exp.text_content.c_str());
-                                    ImGui::PopTextWrapPos();
-                                    if (ImGui::GetIO().Fonts->Fonts[1]) ImGui::PopFont();
-                                }
-                                else if (exp.data_type == adam::analyzer::expanded_data::type_table)
-                                {
-                                    const auto& ext_cols            = port_data.analyzer_ptr->get_expandable_columns();
-                                    const auto& ext_cols_fonts      = port_data.analyzer_ptr->get_expandable_columns_fonts();
-                                    const auto& ext_cols_weights    = port_data.analyzer_ptr->get_expandable_columns_weights();
-
-                                    if (ImGui::BeginTable("##sub_table", (int)ext_cols.size(),
-                                        ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
-                                        ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
-                                        ImGuiTableFlags_SizingStretchSame,
-                                        ImVec2(exp_table_w, 0), 0.0f))
-                                    {
-                                        for (size_t c = 0; c < ext_cols.size(); c++) 
-                                        {
-                                            ImGui::TableSetupColumn(ext_cols[c].c_str(), ImGuiTableColumnFlags_WidthStretch, ext_cols_weights[c]);
-                                        }
-
-                                        ImGui::TableHeadersRow();
-                                        for (const auto& row_v : exp.table_rows)
-                                        {
-                                            ImGui::TableNextRow();
-                                            for (size_t c = 0; c < row_v.columns.size() && c < ext_cols.size(); ++c)
-                                            {
-                                                ImGui::TableSetColumnIndex((int)c);
-                                                
-                                                bool usemonofont = (ext_cols_fonts[c] == adam::analyzer::column_font_mono) && ImGui::GetIO().Fonts->Fonts[1];
-
-                                                if (usemonofont) ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
-                                                ImGui::TextUnformatted(row_v.columns[c].c_str());
-                                                if (usemonofont) ImGui::PopFont();
-                                            }
-                                        }
-                                        ImGui::EndTable();
-                                    }
-                                }
-                                ImGui::PopID();
-                            }
-                        }
-                        else
-                        {
-                            ImGui::TextDisabled("No expanded data available.");
-                        }
-                    }
-                    ImGui::EndChild();
-
-                    ImGui::PopID();
+                    draw_analyzer_expanded_region(port_data, b_idx, r_idx, i, inner_avail_w, dpi_scale, lang);
 
                     float end_y = ImGui::GetCursorPosY();
                     expanded_heights[flat_rows[i]] = end_y - start_y;
@@ -859,7 +931,7 @@ namespace adam::gui
 
             ImGui::PopClipRect();
             ImGui::GetWindowDrawList()->ChannelsMerge();
-            ImGui::EndChild(); // ##inner_child
+            ImGui::EndChild();
         }
         else
         {
@@ -941,7 +1013,7 @@ namespace adam::gui
             float top_dummy_h = 0.0f, bottom_dummy_h = 0.0f;
             int display_start = 0, display_end = 0;
 
-            calculate_custom_clipper( (int)buffers.size(), row_height, expanded_nodes, scroll_y, window_h, display_start, display_end, top_dummy_h, bottom_dummy_h, [&](size_t idx) -> float
+            calculate_custom_clipper(static_cast<int>(buffers.size()), row_height, expanded_nodes, scroll_y, window_h, display_start, display_end, top_dummy_h, bottom_dummy_h, [&](size_t idx) -> float
             {
                 uint64_t dump_id = unique_id ^ (idx * 0x9e3779b9);
                 auto it = normal_expanded_heights.find(dump_id);
@@ -1039,7 +1111,7 @@ namespace adam::gui
 
             ImGui::PopClipRect();
             ImGui::GetWindowDrawList()->ChannelsMerge();
-            ImGui::EndChild(); // ##inner_child
+            ImGui::EndChild();
         }
 
         char clear_btn_text[512];
@@ -1080,9 +1152,8 @@ namespace adam::gui
             }
         }
 
-        ImGui::EndChild(); // ##outer_child
+        ImGui::EndChild();
 
-        // Drag splitter to resize the inspector area
         if (!is_detached || !(*is_detached))
         {
             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
@@ -1123,7 +1194,7 @@ namespace adam::gui
 
         auto format_bytes_to_buf = [](uint64_t bytes, char* buf, size_t buf_size) 
         {
-            if (bytes < 1024) snprintf(buf, buf_size, "%llu B", (unsigned long long)bytes);
+            if (bytes < 1024) snprintf(buf, buf_size, "%llu B", static_cast<unsigned long long>(bytes));
             else if (bytes < 1024 * 1024) snprintf(buf, buf_size, "%.2f KB", bytes / 1024.0);
             else if (bytes < 1024 * 1024 * 1024) snprintf(buf, buf_size, "%.2f MB", bytes / (1024.0 * 1024.0));
             else snprintf(buf, buf_size, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
@@ -1133,7 +1204,6 @@ namespace adam::gui
         auto& connection_input_inspectors = ctrl.commander().get_connection_input_inspectors();
         auto& connection_output_inspectors = ctrl.commander().get_connection_output_inspectors();
 
-        // --- Performance: snapshot all per-entry preview data in a single mutex lock ---
         struct entry_preview
         {
             bool      has_data   = false;
@@ -1160,7 +1230,7 @@ namespace adam::gui
                         ep.total_size = pd.data_pool.size();
                         const auto& last_b = pd.buffers.back();
                         ep.last_ts   = last_b.timestamp;
-                        size_t preview_len = std::min((size_t)last_b.size, (size_t)8);
+                        size_t preview_len = std::min(static_cast<size_t>(last_b.size), static_cast<size_t>(8));
                         char preview_ascii_dummy[16];
                         fill_hex_preview(pd.data_pool.data() + last_b.offset, preview_len, 8,
                                          ep.preview_hex, sizeof(ep.preview_hex),
@@ -1173,7 +1243,6 @@ namespace adam::gui
             snapshot_entry(adam::gui::g_inspection_data.connections_output, conn_output_previews);
             snapshot_entry(adam::gui::g_inspection_data.ports,              port_previews);
         }
-        // ---------------------------------------------------------------------------------
 
         for (auto it = g_expanded_inspector_connections_input.begin(); it != g_expanded_inspector_connections_input.end(); )
         {
@@ -1219,14 +1288,19 @@ namespace adam::gui
         if (ImGui::Combo("##AnalysisSortMode", &sort_mode, sort_options, IM_ARRAYSIZE(sort_options)))
         {
             if (sort_mode_param)
+            {
                 sort_mode_param->set_value(static_cast<int64_t>(sort_mode));
+            }
         }
 
         float center_pos = 0.0f;
         float search_width = 0.0f;
         get_search_bar_layout(lang, ImGui::GetContentRegionAvail().x, center_pos, search_width);
         
-        if (center_pos < ImGui::GetCursorPosX()) center_pos = ImGui::GetCursorPosX() + ImGui::GetStyle().ItemSpacing.x;
+        if (center_pos < ImGui::GetCursorPosX())
+        {
+            center_pos = ImGui::GetCursorPosX() + ImGui::GetStyle().ItemSpacing.x;
+        }
 
         ImGui::SameLine(center_pos);
         ImGui::SetNextItemWidth(search_width);
@@ -1237,13 +1311,15 @@ namespace adam::gui
         {
             search_str = search_buf;
             if (search_param)
+            {
                 search_param->set_value(adam::string_hashed(search_str));
+            }
         }
         ImGui::Spacing();
 
         // --- Filtering and Sorting ---
         std::string search_lower = search_str;
-        std::transform(search_lower.begin(), search_lower.end(), search_lower.begin(), [](unsigned char c) { return std::tolower(c); });
+        std::transform(search_lower.begin(), search_lower.end(), search_lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
         std::vector<std::pair<adam::string_hash, const adam::connection_view*>> sorted_connections;
         for (const auto& [hash, conn] : connections)
@@ -1251,8 +1327,11 @@ namespace adam::gui
             if (!search_lower.empty())
             {
                 std::string name_lower = conn->name.c_str();
-                std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), [](unsigned char c) { return std::tolower(c); });
-                if (name_lower.find(search_lower) == std::string::npos) continue;
+                std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (name_lower.find(search_lower) == std::string::npos)
+                {
+                    continue;
+                }
             }
             sorted_connections.push_back({hash, conn.get()});
         }
@@ -1263,36 +1342,45 @@ namespace adam::gui
             if (!search_lower.empty())
             {
                 std::string name_lower = p_view->name.c_str();
-                std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), [](unsigned char c) { return std::tolower(c); });
-                if (name_lower.find(search_lower) == std::string::npos) continue;
+                std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (name_lower.find(search_lower) == std::string::npos)
+                {
+                    continue;
+                }
             }
             sorted_ports.push_back({hash, p_view.get()});
         }
 
-        auto conn_sort_func = [sort_mode](const auto& a, const auto& b) {
-            if (sort_mode == 0) { // Active
+        auto conn_sort_func = [sort_mode](const auto& a, const auto& b) 
+        {
+            if (sort_mode == 0) 
+            {
                 if (a.second->started != b.second->started) return a.second->started > b.second->started;
                 return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
             }
-            if (sort_mode == 1) { // Inactive
+            if (sort_mode == 1) 
+            {
                 if (a.second->started != b.second->started) return a.second->started < b.second->started;
                 return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
             }
-            if (sort_mode == 2) return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0; // Name Asc
-            if (sort_mode == 3) return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) > 0; // Name Desc
-            if (sort_mode == 4) return a.second->sorting_index < b.second->sorting_index; // Mirror
+            if (sort_mode == 2) return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
+            if (sort_mode == 3) return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) > 0;
+            if (sort_mode == 4) return a.second->sorting_index < b.second->sorting_index;
             return false;
         };
         std::stable_sort(sorted_connections.begin(), sorted_connections.end(), conn_sort_func);
 
-        auto port_sort_func = [sort_mode](const auto& a, const auto& b) {
+        auto port_sort_func = [sort_mode](const auto& a, const auto& b) 
+        {
             bool a_active = a.second->started;
             bool b_active = b.second->started;
-            if (sort_mode == 0) { // Active
+            if (sort_mode == 0) 
+            {
                 if (a_active != b_active) return a_active > b_active;
                 return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
             }
-            if (sort_mode == 1) { // Inactive
+            if (sort_mode == 1) 
+            {
                 if (a_active != b_active) return a_active < b_active;
                 return std::strcmp(a.second->name.c_str(), b.second->name.c_str()) < 0;
             }
@@ -1336,7 +1424,6 @@ namespace adam::gui
         {
             if (g_expanded_inspector_ports.count(hash))
             {
-                // Use snapshot data — no mutex lock needed
                 bool has_data = port_previews.count(hash) && port_previews.at(hash).has_data;
                 bool has_inspector = inspectors.find(hash) != inspectors.end();
                 if (has_inspector || has_data)
@@ -1347,9 +1434,13 @@ namespace adam::gui
                 else
                 {
                     if (g_pending_inspector_ports.count(hash))
+                    {
                         num_expanded++;
+                    }
                     else
+                    {
                         g_expanded_inspector_ports.erase(hash);
+                    }
                 }
             }
         }
@@ -1358,7 +1449,6 @@ namespace adam::gui
         {
             if (g_expanded_inspector_connections_input.count(hash))
             {
-                // Use snapshot data — no mutex lock needed
                 bool has_data = conn_input_previews.count(hash) && conn_input_previews.at(hash).has_data;
                 bool has_inspector = connection_input_inspectors.find(hash) != connection_input_inspectors.end();
                 if (has_inspector || has_data)
@@ -1375,7 +1465,6 @@ namespace adam::gui
 
             if (g_expanded_inspector_connections_output.count(hash))
             {
-                // Use snapshot data — no mutex lock needed
                 bool has_data = conn_output_previews.count(hash) && conn_output_previews.at(hash).has_data;
                 bool has_inspector = connection_output_inspectors.find(hash) != connection_output_inspectors.end();
                 if (has_inspector || has_data)
@@ -1392,29 +1481,6 @@ namespace adam::gui
         }
 
         float spacing_h = ImGui::GetStyle().ItemSpacing.y;
-        float table_row_h = ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f;
-        float row_h = ImGui::GetFrameHeight();
-        if (table_row_h < row_h)
-        {
-            table_row_h = row_h;
-        }
-
-        float base_outer_h = 0.0f;
-        if (!sorted_connections.empty())
-        {
-            base_outer_h += table_row_h * (sorted_connections.size() * 2 + 1);
-        }
-        if (!sorted_ports.empty())
-        {
-            base_outer_h += table_row_h * (sorted_ports.size() + 1);
-        }
-        if (!sorted_connections.empty() && !sorted_ports.empty())
-        {
-            base_outer_h += spacing_h;
-        }
-        base_outer_h += num_expanded * 3.0f * spacing_h;
-        base_outer_h += 4.0f * dpi_scale;
-
         float sticky_button_h = ImGui::GetFrameHeight() * 1.5f + spacing_h;
         float initial_inspector_height = ImGui::GetContentRegionAvail().y * 0.5f;
         if (initial_inspector_height < 250.0f * dpi_scale)
@@ -1455,7 +1521,6 @@ namespace adam::gui
                 // Input Row
                 {
                     bool has_inspector = connection_input_inspectors.find(conn_hash) != connection_input_inspectors.end();
-                    // Use the pre-snapshotted data to avoid per-row mutex lock
                     const auto& ep_in = conn_input_previews[conn_hash];
                     bool has_data   = ep_in.has_data;
                     size_t msg_count  = ep_in.msg_count;
@@ -1475,7 +1540,7 @@ namespace adam::gui
                         
                         if (has_inspector || has_data)
                         {
-                            ImGui::PushID((const void*)(intptr_t)(conn_hash ^ 0x9990));
+                            ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(conn_hash ^ 0x9990)));
                             pushed_id = true;
                             
                             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
@@ -1495,14 +1560,16 @@ namespace adam::gui
                         ImGui::TableSetColumnIndex(1);
                         ImColor pin_col = s_is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
                         if (c_view->started)
+                        {
                             pin_col = get_gui_color(gui_color_id::node_pin_active);
+                        }
                         ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
                         float dot_radius = ImGui::GetTextLineHeight() / 2 - ImGui::GetStyle().CellPadding.y;
                         ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(cursor_pos.x + dot_radius + ImGui::GetStyle().CellPadding.x, cursor_pos.y + ImGui::GetFrameHeight() * 0.5f), dot_radius, pin_col);
                         
                         ImGui::TableSetColumnIndex(2);
                         bool inspect_val = has_inspector;
-                        ImGui::PushID((const void*)(intptr_t)(conn_hash ^ 0x9991));
+                        ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(conn_hash ^ 0x9991)));
                         if (ImGui::Checkbox("##inspect_in", &inspect_val))
                         {
                             toggle_connection_inspector(ctrl, conn_hash, true, inspect_val);
@@ -1543,7 +1610,7 @@ namespace adam::gui
                         if (!is_detached)
                         {
                             bool detached_var = false;
-                            draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, initial_inspector_height, dpi_scale, lang, (uint64_t)0x1111111111111111ULL, &detached_var);
+                            draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_input, initial_inspector_height, dpi_scale, lang, 0x1111111111111111ULL, &detached_var);
                             if (detached_var) g_detached_inspector_connections_input.insert(conn_hash);
                         }
                         else
@@ -1560,7 +1627,6 @@ namespace adam::gui
                 // Output Row
                 {
                     bool has_inspector = connection_output_inspectors.find(conn_hash) != connection_output_inspectors.end();
-                    // Use the pre-snapshotted data to avoid per-row mutex lock
                     const auto& ep_out = conn_output_previews[conn_hash];
                     bool has_data   = ep_out.has_data;
                     size_t msg_count  = ep_out.msg_count;
@@ -1580,7 +1646,7 @@ namespace adam::gui
                         
                         if (has_inspector || has_data)
                         {
-                            ImGui::PushID((const void*)(intptr_t)(conn_hash ^ 0x9992));
+                            ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(conn_hash ^ 0x9992)));
                             pushed_id = true;
                             
                             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
@@ -1600,14 +1666,16 @@ namespace adam::gui
                         ImGui::TableSetColumnIndex(1);
                         ImColor pin_col = s_is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
                         if (c_view->started)
+                        {
                             pin_col = get_gui_color(gui_color_id::node_pin_active);
+                        }
                         ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
                         float dot_radius = ImGui::GetTextLineHeight() / 2 - ImGui::GetStyle().CellPadding.y;
                         ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(cursor_pos.x + dot_radius + ImGui::GetStyle().CellPadding.x, cursor_pos.y + ImGui::GetFrameHeight() * 0.5f), dot_radius, pin_col);
                         
                         ImGui::TableSetColumnIndex(2);
                         bool inspect_val = has_inspector;
-                        ImGui::PushID((const void*)(intptr_t)(conn_hash ^ 0x9993));
+                        ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(conn_hash ^ 0x9993)));
                         if (ImGui::Checkbox("##inspect_out", &inspect_val))
                         {
                             toggle_connection_inspector(ctrl, conn_hash, false, inspect_val);
@@ -1648,7 +1716,7 @@ namespace adam::gui
                         if (!is_detached)
                         {
                             bool detached_var = false;
-                            draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, initial_inspector_height, dpi_scale, lang, (uint64_t)0x2222222222222222ULL, &detached_var);
+                            draw_inspector_frames_table(name_buf, conn_hash, adam::gui::g_inspection_data.connections_output, initial_inspector_height, dpi_scale, lang, 0x2222222222222222ULL, &detached_var);
                             if (detached_var) g_detached_inspector_connections_output.insert(conn_hash);
                         }
                         else
@@ -1701,7 +1769,6 @@ namespace adam::gui
                 port_idx++;
                 bool is_last_port = (port_idx == total_ports);
                 bool has_inspector = inspectors.find(port_hash) != inspectors.end();
-                // Use the pre-snapshotted data to avoid per-row mutex lock
                 const auto& ep_port = port_previews[port_hash];
                 bool has_data   = ep_port.has_data;
                 size_t msg_count  = ep_port.msg_count;
@@ -1719,7 +1786,7 @@ namespace adam::gui
                     bool pushed_id = false;
                     if (has_inspector || has_data)
                     {
-                        ImGui::PushID((const void*)(intptr_t)(port_hash ^ 0x9999));
+                        ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(port_hash ^ 0x9999)));
                         pushed_id = true;
                         
                         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
@@ -1744,9 +1811,13 @@ namespace adam::gui
                         {
                             auto* stats = p_view->statistic_buffer->data_as<adam::port::state_buffer_data>();
                             if (stats->cur_state == adam::port::state_running)
+                            {
                                 pin_col = get_gui_color(gui_color_id::node_pin_active);
+                            }
                             else if (stats->cur_state == adam::port::state_inactive)
+                            {
                                 pin_col = get_gui_color(gui_color_id::log_warning);
+                            }
                         }
                         else
                         {
@@ -1760,7 +1831,7 @@ namespace adam::gui
                     
                     ImGui::TableSetColumnIndex(2);
                     bool inspect_val = has_inspector;
-                    ImGui::PushID((const void*)(intptr_t)port_hash);
+                    ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(port_hash)));
                     if (ImGui::Checkbox("##inspect", &inspect_val))
                     {
                         if (inspect_val)
@@ -1831,7 +1902,7 @@ namespace adam::gui
                     if (!is_detached)
                     {
                         bool detached_var = false;
-                        draw_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, initial_inspector_height, dpi_scale, lang, (uint64_t)0x3333333333333333ULL, &detached_var);
+                        draw_inspector_frames_table(p_view->name.c_str(), port_hash, adam::gui::g_inspection_data.ports, initial_inspector_height, dpi_scale, lang, 0x3333333333333333ULL, &detached_var);
                         if (detached_var) g_detached_inspector_ports.insert(port_hash);
                     }
                     else
@@ -1863,13 +1934,37 @@ namespace adam::gui
 
         ImGui::EndChild();
 
-        // Use snapshot data for the clear-all button state — no extra mutex lock needed
         bool has_any_buffered_data = false;
-        for (const auto& [h, ep] : port_previews)        { if (ep.has_data) { has_any_buffered_data = true; break; } }
+        for (const auto& [h, ep] : port_previews)
+        {
+            if (ep.has_data)
+            {
+                has_any_buffered_data = true;
+                break;
+            }
+        }
         if (!has_any_buffered_data)
-            for (const auto& [h, ep] : conn_input_previews)  { if (ep.has_data) { has_any_buffered_data = true; break; } }
+        {
+            for (const auto& [h, ep] : conn_input_previews)
+            {
+                if (ep.has_data)
+                {
+                    has_any_buffered_data = true;
+                    break;
+                }
+            }
+        }
         if (!has_any_buffered_data)
-            for (const auto& [h, ep] : conn_output_previews) { if (ep.has_data) { has_any_buffered_data = true; break; } }
+        {
+            for (const auto& [h, ep] : conn_output_previews)
+            {
+                if (ep.has_data)
+                {
+                    has_any_buffered_data = true;
+                    break;
+                }
+            }
+        }
 
         ImGui::BeginDisabled(!has_any_buffered_data);
         if (ImGui::Button(get_gui_string(gui_string_id::btn_clear_all_data, lang), ImVec2(-1.0f, ImGui::GetFrameHeight() * 1.5f)))
@@ -1908,7 +2003,9 @@ namespace adam::gui
             if (left_w > avail_w - 100.0f * dpi_scale) left_w = avail_w - 100.0f * dpi_scale;
         }
         if (ImGui::IsItemHovered())
+        {
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        }
 
         ImGui::SameLine();
 
@@ -1925,7 +2022,6 @@ namespace adam::gui
         }
 
         auto& cmdr = ctrl.commander();
-        auto& reg = cmdr.registry();
         float dpi_scale = ImGui::GetStyle()._MainScale;
 
         static std::vector<adam::data_inspector*> s_conn_in_to_destroy;
