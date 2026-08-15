@@ -28,7 +28,9 @@ namespace adam
     {
     public:
         /** @brief Constructs a new double buffer vector. */
-        vector_double_buffer() : m_dirty(false) {}
+        vector_double_buffer() : m_dirty(false) 
+        {
+        }
 
         /** @brief Destroys the double buffer vector. */
         ~vector_double_buffer() = default;
@@ -56,14 +58,9 @@ namespace adam
             {
                 std::unique_lock lock(m_mutex);
                 auto it = std::find(m_pending.begin(), m_pending.end(), element);
-                if (it != m_pending.end())
-                {
-                    m_pending.erase(it);
-                }
-                else
-                {
-                    return false;  // Element not found
-                }
+                if (it == m_pending.end()) return false;
+
+                m_pending.erase(it);
             }
             m_dirty.store(true, std::memory_order_release);
             return true;
@@ -116,11 +113,15 @@ namespace adam
             {
                 // Synchronize buffers (minimal lock time)
                 std::unique_lock lock(m_mutex);
-                std::swap(const_cast<std::vector<T>&>(m_active), const_cast<std::vector<T>&>(m_pending));
-                
-                // Keep the pending buffer in sync so future push_back/remove operations don't lose state
-                const_cast<std::vector<T>&>(m_pending) = m_active;
-                const_cast<std::atomic<bool>&>(m_dirty).store(false, std::memory_order_release);
+                // Double-checked locking to avoid redundant swaps if another thread already synchronized
+                if (m_dirty.load(std::memory_order_relaxed))
+                {
+                    std::swap(const_cast<std::vector<T>&>(m_active), const_cast<std::vector<T>&>(m_pending));
+                    
+                    // Keep the pending buffer in sync so future push_back/remove operations don't lose state
+                    const_cast<std::vector<T>&>(m_pending) = m_active;
+                    const_cast<std::atomic<bool>&>(m_dirty).store(false, std::memory_order_release);
+                }
             }
 
             // Iterate without lock (data is stable in m_active)
@@ -155,7 +156,8 @@ namespace adam
         bool contains(const T& element) const
         {
             bool found = false;
-            iterate([&](const auto& active) {
+            iterate([&](const auto& active) 
+            {
                 found = std::find(active.begin(), active.end(), element) != active.end();
             });
             return found;

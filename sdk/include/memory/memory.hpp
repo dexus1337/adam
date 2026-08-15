@@ -48,12 +48,12 @@ namespace adam
         memory(const string_hashed& name = string_hashed());
 
         /** @brief Destroys the memory object and cleans up resources. */
-        ~memory();
+        virtual ~memory();
 
         inline bool is_created()                const { return m_s_state & state_created; }
         inline bool is_active()                 const { return m_s_state & state_active; }
         inline bool is_owner()                  const { return m_s_state & state_owned; }
-        inline void* get()                      const { return reinterpret_cast<uint8_t*>(m_shared_memory_base) + m_memory_offset; }
+        inline void* get()                      const { return m_shared_memory_base ? (reinterpret_cast<uint8_t*>(m_shared_memory_base) + m_memory_offset) : nullptr; }
         inline uint64_t get_size()              const { return m_shared_memory_size > m_memory_offset ? m_shared_memory_size - m_memory_offset : 0; }
         inline const string_hashed& get_name()  const { return m_name; }
 

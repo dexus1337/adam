@@ -65,6 +65,9 @@ namespace adam
                 input_format_module = 0;
                 output_format = 0;
                 output_format_module = 0;
+                input_count = 0;
+                processor_count = 0;
+                output_count = 0;
             }
 
             char name[max_name_length];

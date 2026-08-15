@@ -121,9 +121,7 @@ namespace adam
     bool queue_shared<queue_type, queue_metadata_type>::is_full() const
     {
         const queue_header* h = get_header();
-
-        if (!h) 
-            return false;
+        if (!h) return false;
 
         // to safely call this from owner and observer, use acquire for both. Slows down stuff so only use when needed
         uint32_t head = h->head.load(std::memory_order_acquire);
@@ -138,9 +136,7 @@ namespace adam
     bool queue_shared<queue_type, queue_metadata_type>::is_empty() const
     {
         const queue_header* h = get_header();
-
-        if (!h) 
-            return false;
+        if (!h) return false;
 
         // Empty is simple: Head and Tail are at the same position.
         // to safely call this from owner and observer, use acquire for both. Slows down stuff so only use when needed
@@ -150,14 +146,12 @@ namespace adam
     template<typename queue_type, typename queue_metadata_type>
     bool queue_shared<queue_type, queue_metadata_type>::create(uint32_t max_items)
     {
-        if (max_items == 0)
-            return false;
+        if (max_items == 0) return false;
 
         // Calculate total size: queue_header already contains 1 queue_type, so we add space for max_items - 1
         uint64_t buffer_size = sizeof(queue_header) + sizeof(queue_type) * (max_items - 1);
 
-        if (!m_shared_memory.create(buffer_size))
-            return false;
+        if (!m_shared_memory.create(buffer_size)) return false;
 
         // Initialize queue_header and items in shared memory using placement new
         queue_header* header = reinterpret_cast<queue_header*>(m_shared_memory.get());
@@ -189,14 +183,14 @@ namespace adam
     bool queue_shared<queue_type, queue_metadata_type>::push(const queue_type& object)
     {
         auto* header = this->header();
+        if (!header) return false;
         
         adam::spinlock::guard lock(header->write_lock);
 
         uint32_t current_head = header->head.load(std::memory_order_relaxed);
         uint32_t next_head = (current_head + 1) % header->max_items;
 
-        if (next_head == header->tail.load(std::memory_order_acquire))
-            return false; // Queue full
+        if (next_head == header->tail.load(std::memory_order_acquire)) return false; // Queue full
 
         header->items[current_head] = object;
         header->head.store(next_head, std::memory_order_release);
@@ -208,6 +202,7 @@ namespace adam
     bool queue_shared<queue_type, queue_metadata_type>::pop(queue_type& out_object, int32_t timeout)
     {
         auto* header = this->header();
+        if (!header) return false;
         
         if (timeout >= 0)
         {
@@ -216,13 +211,11 @@ namespace adam
             while (header->tail.load(std::memory_order_relaxed) == header->head.load(std::memory_order_acquire)) // Wait while queue empty
             {
                 auto now = std::chrono::steady_clock::now();
-                if (now >= end_time)
-                    return false; // Timeout reached
+                if (now >= end_time) return false; // Timeout reached
 
                 int32_t remaining = static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - now).count());
                 
-                if (!m_shared_memory.wait(remaining))
-                    return false; // OS level timeout or failure
+                if (!m_shared_memory.wait(remaining)) return false; // OS level timeout or failure
             }
         }
         else
@@ -230,8 +223,7 @@ namespace adam
             // Infinite wait
             while (header->tail.load(std::memory_order_relaxed) == header->head.load(std::memory_order_acquire)) // Wait while queue empty
             {
-                if (!m_shared_memory.wait(-1))
-                    return false; // Error during wait
+                if (!m_shared_memory.wait(-1)) return false; // Error during wait
             }
         }
 

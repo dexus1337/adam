@@ -165,7 +165,7 @@ namespace adam
     using string_hash            = string_hashed::hash_datatype;
     using wstring_hash           = wstring_hashed::hash_datatype;
     #if (defined(ADAM_PLATFORM_LINUX) && defined(_GLIBCXX_USE_CHAR8_T)) || defined(ADAM_PLATFORM_WINDOWS)
-    using string_hash_utf8       = string_hashed::hash_datatype;
+    using string_hash_utf8       = string_hashed_utf8::hash_datatype;
     #endif
     using string_hash_utf16      = string_hashed_utf16::hash_datatype;
     using string_hash_utf32      = string_hashed_utf32::hash_datatype;

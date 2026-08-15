@@ -303,19 +303,18 @@ namespace adam
         status resp     = status_unavailable;
         master_queue mq = master_queue(string_hashed(master_queue_name));
 
-        if (!mq.open())
-            return status_unavailable;
+        if (!mq.open()) return status_unavailable;
 
         queue_master_request_data data;
 
         data.tid    = os::get_current_thread_id();
         data.queue  = mqr;
         data.code   = calculate_secret(data.tid);
-        std::strncpy(data.client_name, client_name.c_str(), client_name.get_length());
-        data.client_name[client_name.get_length()] = '\0';
+        size_t len  = std::min(client_name.get_length(), sizeof(data.client_name) - 1);
+        std::memcpy(data.client_name, client_name.c_str(), len);
+        data.client_name[len] = '\0';
 
-        if (!mq.post_request(data, resp, 300))
-            resp = status_failed;
+        if (!mq.post_request(data, resp, 300)) resp = status_failed;
 
         mq.destroy();
 

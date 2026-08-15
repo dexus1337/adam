@@ -24,7 +24,10 @@ namespace adam
     class map_double_buffer
     {
     public:
-        map_double_buffer() : m_dirty(false) {}
+        map_double_buffer() : m_dirty(false) 
+        {
+        }
+
         ~map_double_buffer() = default;
 
         inline void update(const std::unordered_map<key, value>& new_map)
@@ -45,15 +48,19 @@ namespace adam
         {
             bool dirty = is_dirty();
 
-            if (p_was_dirty)
-                *p_was_dirty = dirty;
+            if (p_was_dirty) *p_was_dirty = dirty;
 
             if (dirty)
             {
                 std::unique_lock lock(m_mutex);
-                const_cast<std::unordered_map<key, value>&>(m_active) = m_pending;
-                const_cast<std::atomic<bool>&>(m_dirty).store(false, std::memory_order_release);
+                // Double-checked locking to ensure only one thread performs the buffer synchronization
+                if (m_dirty.load(std::memory_order_relaxed))
+                {
+                    const_cast<std::unordered_map<key, value>&>(m_active) = m_pending;
+                    const_cast<std::atomic<bool>&>(m_dirty).store(false, std::memory_order_release);
+                }
             }
+
             return m_active;
         }
 

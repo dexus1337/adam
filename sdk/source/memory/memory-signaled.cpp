@@ -15,7 +15,10 @@ namespace adam
         #endif
     }
 
-    memory_signaled::~memory_signaled() { destroy(); }
+    memory_signaled::~memory_signaled() 
+    { 
+        destroy(); 
+    }
 
     bool memory_signaled::create(uint64_t buffer_size) 
     {
@@ -25,10 +28,9 @@ namespace adam
         uint64_t actual_size = buffer_size;
         #endif
 
-        if (!memory::create(actual_size))
-            return false;
+        if (!memory::create(actual_size)) return false;
 
-        #ifdef   ADAM_PLATFORM_LINUX
+        #ifdef ADAM_PLATFORM_LINUX
         m_sem = reinterpret_cast<sem_t*>(m_shared_memory_base);
         if (sem_init(m_sem, 1, 0) == -1) 
         {
@@ -50,10 +52,9 @@ namespace adam
 
     bool memory_signaled::open() 
     {
-        if (!memory::open())
-            return false;
+        if (!memory::open()) return false;
 
-        #ifdef   ADAM_PLATFORM_LINUX
+        #ifdef ADAM_PLATFORM_LINUX
         m_sem = reinterpret_cast<sem_t*>(m_shared_memory_base);
         #elif defined(ADAM_PLATFORM_WINDOWS)
         std::string event_name = std::string(get_name().c_str()) + "_signal";
@@ -70,20 +71,17 @@ namespace adam
 
     bool memory_signaled::destroy() 
     {
-        if (!is_created()) 
-            return true;
+        if (!is_created()) return true;
 
         notify();
         
         bool result = true;
 
-        #ifdef   ADAM_PLATFORM_LINUX
-        if (m_sem && is_owner())
-            result &= (sem_destroy(m_sem) == 0);
+        #ifdef ADAM_PLATFORM_LINUX
+        if (m_sem && is_owner()) result &= (sem_destroy(m_sem) == 0);
         m_sem = nullptr;
         #elif defined(ADAM_PLATFORM_WINDOWS)
-        if (m_handle)
-            result &= static_cast<bool>(CloseHandle(m_handle));
+        if (m_handle) result &= static_cast<bool>(CloseHandle(m_handle));
         m_handle = nullptr;
         #endif
 
@@ -95,7 +93,7 @@ namespace adam
     {
         if (!is_active()) return false;
 
-        #ifdef   ADAM_PLATFORM_LINUX
+        #ifdef ADAM_PLATFORM_LINUX
         if (!m_sem) return false;
         return sem_post(m_sem) == 0;
         #elif defined(ADAM_PLATFORM_WINDOWS)
@@ -111,13 +109,11 @@ namespace adam
         #ifdef ADAM_PLATFORM_LINUX
         if (!m_sem) return false;
 
-        if (timeout_ms < 0)
-            return sem_wait(m_sem) == 0;
+        if (timeout_ms < 0) return sem_wait(m_sem) == 0;
 
         // sem_timedwait requires an absolute end time (CLOCK_REALTIME)
         struct timespec ts;
-        if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
-            return false;
+        if (clock_gettime(CLOCK_REALTIME, &ts) == -1) return false;
 
         // Add the timeout duration to the current time
         ts.tv_sec += timeout_ms / 1000;

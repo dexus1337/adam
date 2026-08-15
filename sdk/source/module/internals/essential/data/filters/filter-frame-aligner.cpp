@@ -43,18 +43,21 @@ namespace adam
 
     bool filter_frame_aligner::handle_data(buffer*& buf)
     {
+        if (!buf) return false;
+
         auto* stats = get_state_buffer_data();
         stats->total_buffers_recieved++;
         stats->total_bytes_recieved += buf->get_size();
 
-        if (buf->get_size() < static_cast<uint32_t>(m_byte_offset->value()))
+        int64_t offset_val = m_byte_offset ? m_byte_offset->value() : 0;
+        if (offset_val < 0 || buf->get_size() < static_cast<uint32_t>(offset_val))
         {
             stats->total_buffers_discarded++;
             stats->total_bytes_discarded += buf->get_size();
             return false;
         }
 
-        buf->move_start_pos(static_cast<uint32_t>(m_byte_offset->value()));
+        buf->move_start_pos(static_cast<uint32_t>(offset_val));
 
         stats->total_buffers_forwarded++;
         stats->total_bytes_forwarded += buf->get_size();

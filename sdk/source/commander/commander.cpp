@@ -47,14 +47,12 @@ namespace adam
 
     bool commander::connect() 
     {
-        // First cerate command queue
-        if (m_queue_command.open())
-            m_queue_command.destroy();
-
+        // First create command queue
         m_queue_command.set_name(string_hashed(controller::queue_command_prefix + std::to_string(os::get_current_thread_id())));
 
-        if (!m_queue_command.create(queue_command_size))
-            return false;
+        if (m_queue_command.open()) m_queue_command.destroy();
+
+        if (!m_queue_command.create(queue_command_size)) return false;
 
         controller::status resp = controller::request_master_queue(controller::request_command, m_client_name);
 
@@ -67,10 +65,9 @@ namespace adam
         }
 
         // Then create event queue
-        if (m_queue_event.open())
-            m_queue_event.destroy();
-
         m_queue_event.set_name(string_hashed(controller::queue_event_prefix + std::to_string(os::get_current_thread_id())));
+
+        if (m_queue_event.open()) m_queue_event.destroy();
 
         if (!m_queue_event.create(queue_event_size))
         {

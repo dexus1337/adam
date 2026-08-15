@@ -25,8 +25,7 @@ namespace adam
     {
         m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(os::get_current_thread_id()) + "_" + std::to_string(port_hash)));
 
-        if (!m_buffer_queue.create(0x1000))
-            return false;
+        if (!m_buffer_queue.create(0x1000)) return false;
 
         m_port_hash = port_hash;
 
@@ -38,8 +37,7 @@ namespace adam
     {
         m_buffer_queue.set_name(string_hashed(queue_name_prefix + std::to_string(tid) + "_" + std::to_string(port_hash)));
 
-        if (!m_buffer_queue.open())
-            return false;
+        if (!m_buffer_queue.open()) return false;
 
         m_port_hash = port_hash;
 
@@ -49,18 +47,30 @@ namespace adam
     /** @brief Data management routine */
     bool data_inspector::handle_data(buffer*& buf)
     {
+        if (!buf) return false;
+        if (!m_buffer_queue.is_active()) return false;
+
         buf->add_ref();
         
+        // Push buffer handle with bounded retry to prevent pipeline freeze if inspector consumer is saturated
+        int retry_count = 0;
+        constexpr int max_retries = 1000;
         while (!m_buffer_queue.push(buf->get_handle()))
+        {
+            if (++retry_count >= max_retries || !m_buffer_queue.is_active())
+            {
+                buf->release();
+                return false;
+            }
             cpu::pause();
+        }
         
         return true;
     }
 
     bool data_inspector::start_inspecting(std::function<void(buffer*)> callback)
     {
-        if (m_inspector_thread.joinable())
-            return false;
+        if (m_inspector_thread.joinable()) return false;
 
         m_inspector_thread = std::thread(&data_inspector::run_inspector, this, callback);
 
@@ -71,8 +81,7 @@ namespace adam
     {
         m_buffer_queue.disable(); // Wake up the blocking pop() if the thread is waiting
 
-        if (m_inspector_thread.joinable())
-            m_inspector_thread.join();
+        if (m_inspector_thread.joinable()) m_inspector_thread.join();
             
         m_buffer_queue.destroy();
     }
@@ -84,17 +93,14 @@ namespace adam
             buffer_handle handle;
 
             // Try to pop a buffer handle from the queue with a timeout
-            if (!m_buffer_queue.pop(handle, 100))
-                continue;
+            if (!m_buffer_queue.pop(handle, 100)) continue;
 
             // Use the buffer_manager to resolve the buffer_handle into a buffer pointer
             buffer* resolved_buffer = buffer_manager::get().resolve_handle(handle);
 
-            if (resolved_buffer && callback)
-                callback(resolved_buffer);
+            if (resolved_buffer && callback) callback(resolved_buffer);
                 
-            if (resolved_buffer)
-                resolved_buffer->release();
+            if (resolved_buffer) resolved_buffer->release();
         }
     }
 }

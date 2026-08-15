@@ -9,18 +9,19 @@ namespace adam
 {
     logger_sink::logger_sink() : m_queue_log_sink() {}
 
-    logger_sink::~logger_sink() {}
+    logger_sink::~logger_sink() 
+    {
+        if (is_active()) destroy();
+    }
 
     bool logger_sink::connect() 
     {
-        // if theres is already a queue for current thread, delete it
-        if (m_queue_log_sink.open())
-            m_queue_log_sink.destroy();
-        
         m_queue_log_sink.set_name(string_hashed(controller::queue_logger_sink_prefix + std::to_string(os::get_current_thread_id())));
 
-        if (!m_queue_log_sink.create(1000))
-            return false;
+        // If there is already an orphaned queue for the current thread, destroy it first
+        if (m_queue_log_sink.open()) m_queue_log_sink.destroy();
+
+        if (!m_queue_log_sink.create(1000)) return false;
 
         if (controller::request_master_queue(controller::request_log_sink) != controller::status_success)
         {

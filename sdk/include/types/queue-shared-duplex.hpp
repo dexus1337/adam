@@ -113,20 +113,30 @@ namespace adam
     template<typename request_type, typename response_type>
     bool queue_shared_duplex<request_type,response_type>::open()
     {
-        return m_request_queue.open() && m_response_queue.open();
+        if (!m_request_queue.open()) return false;
+
+        if (!m_response_queue.open())
+        {
+            m_request_queue.destroy();
+            return false;
+        }
+
+        return true;
     }
 
     template<typename request_type, typename response_type>
     bool queue_shared_duplex<request_type,response_type>::destroy()
     {
-        return m_request_queue.destroy() && m_response_queue.destroy();
+        // Destroy both queues unconditionally to prevent resource leaks from short-circuiting
+        bool req_destroyed = m_request_queue.destroy();
+        bool resp_destroyed = m_response_queue.destroy();
+        return req_destroyed && resp_destroyed;
     }
 
     template<typename request_type, typename response_type>
     bool queue_shared_duplex<request_type,response_type>::post_request(const request_type& req, response_type& resp, int32_t timeout)
     {
-        if (!m_request_queue.push(req))
-            return false;
+        if (!m_request_queue.push(req)) return false;
 
         return m_response_queue.pop(resp, timeout);
     }

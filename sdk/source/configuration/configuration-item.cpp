@@ -124,7 +124,7 @@ namespace adam
             }
         }
 
-        return ifs.good();
+        return !ifs.bad();
     }
 
     void configuration_item::set_name(const string_hashed& new_name)

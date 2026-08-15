@@ -38,11 +38,17 @@ namespace adam
         auto tp_sys = std::chrono::system_clock::time_point(std::chrono::duration_cast<std::chrono::system_clock::duration>(tp_steady.time_since_epoch() + clock_offset));
 
         std::time_t tt = std::chrono::system_clock::to_time_t(tp_sys);
-        std::tm* local_tm = std::localtime(&tt); // Or gmtime for UTC
+        std::tm local_tm{};
+
+        #if defined(ADAM_PLATFORM_WINDOWS)
+        if (localtime_s(&local_tm, &tt) != 0) return "[]";
+        #else
+        if (!localtime_r(&tt, &local_tm)) return "[]";
+        #endif
 
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(tp_sys.time_since_epoch()) % 1000;
 
-        return std::format("[{:02}:{:02}:{:02}.{:03}]", local_tm->tm_hour, local_tm->tm_min, local_tm->tm_sec, static_cast<int>(ms.count()));
+        return std::format("[{:02}:{:02}:{:02}.{:03}]", local_tm.tm_hour, local_tm.tm_min, local_tm.tm_sec, static_cast<int>(ms.count()));
     }
 
     void get_log_appearance(log::level level, const char*& level_str, float& r, float& g, float& b)

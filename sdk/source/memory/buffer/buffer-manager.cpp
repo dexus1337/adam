@@ -101,16 +101,16 @@ namespace adam
         auto& local_list = t_cache.free_lists[capacity_class];
 
         // The holy grail of lock-free allocators: 99% of the time, this `if` is false!
-        if (local_list.empty())
-            request_batch(capacity_class, local_list); // Hits the spinlock
+        if (local_list.empty()) request_batch(capacity_class, local_list); // Hits the spinlock
 
-        if (local_list.empty())
-            return nullptr; // Out of memory
+        if (local_list.empty()) return nullptr; // Out of memory
 
         buffer* buf = local_list.back();
         local_list.pop_back();
+
+        // Reset the buffer state fully so previous slicing/timestamps are wiped clean
+        buf->reset();
         buf->m_header->ref_count.store(1, std::memory_order_relaxed);
-        buf->m_header->size = 0;
         buf->set_referenced_buffer(nullptr);
         
         return buf;

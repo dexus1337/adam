@@ -133,7 +133,20 @@ namespace adam
                     }
                 }
 
+                auto cleanup_parse_cache = [&]()
+                {
+                    for (auto& [h, b] : m_parse_cache)
+                    {
+                        if (b) 
+                        {
+                            b->release(); 
+                            b = nullptr;
+                        }
+                    }
+                };
+
                 // Parse data for each datatype
+                bool parse_ok = true;
                 for (auto& [hash, format] : active_formats)
                 {
                     if (auto* parser = format->get_parser()) 
@@ -143,12 +156,18 @@ namespace adam
                         #else
                         auto it = m_parse_cache.find(hash);
                         #endif
-                        if (it == m_parse_cache.end()) 
-                            return return_with_statistics(false);
-                        
-                        if (!parser->parse(buf, it->second))
-                            return return_with_statistics(false);
+                        if (it == m_parse_cache.end() || !parser->parse(buf, it->second))
+                        {
+                            parse_ok = false;
+                            break;
+                        }
                     }
+                }
+
+                if (!parse_ok)
+                {
+                    cleanup_parse_cache();
+                    return return_with_statistics(false);
                 }
 
                 // Send data to connections
@@ -176,14 +195,7 @@ namespace adam
                 });
 
                 // Release internal format data
-                for (auto& [h, b] : m_parse_cache)
-                {
-                    if (b) 
-                    {
-                        b->release(); 
-                        b = nullptr;
-                    }
-                }
+                cleanup_parse_cache();
 
                 break;
             }

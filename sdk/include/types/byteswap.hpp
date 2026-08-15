@@ -15,14 +15,18 @@
 namespace adam
 {
     // Architecture-optimized big-endian byte swap utilities for unaligned memory loads (2 to 8 octets)
+    // Using std::memcpy ensures strict-aliasing compliance and safety against unaligned memory access faults,
+    // while modern compilers (GCC/Clang/MSVC) optimize this pattern directly into single instructions (e.g. movbe).
     inline uint16_t swap_2(const uint8_t* ptr)
     {
+        uint16_t val = 0;
+        std::memcpy(&val, ptr, sizeof(val));
+
         #if defined(_MSC_VER)
-        return _byteswap_ushort(*reinterpret_cast<const uint16_t*>(ptr));
+        return _byteswap_ushort(val);
         #elif defined(__GNUC__) || defined(__clang__)
-        return __builtin_bswap16(*reinterpret_cast<const uint16_t*>(ptr));
+        return __builtin_bswap16(val);
         #else
-        uint16_t val = *reinterpret_cast<const uint16_t*>(ptr);
         return (val >> 8) | (val << 8);
         #endif
     }
@@ -36,12 +40,14 @@ namespace adam
 
     inline uint32_t swap_4(const uint8_t* ptr)
     {
+        uint32_t val = 0;
+        std::memcpy(&val, ptr, sizeof(val));
+
         #if defined(_MSC_VER)
-        return _byteswap_ulong(*reinterpret_cast<const uint32_t*>(ptr));
+        return _byteswap_ulong(val);
         #elif defined(__GNUC__) || defined(__clang__)
-        return __builtin_bswap32(*reinterpret_cast<const uint32_t*>(ptr));
+        return __builtin_bswap32(val);
         #else
-        uint32_t val = *reinterpret_cast<const uint32_t*>(ptr);
         return ((val >> 24) & 0x000000FF) |
                ((val >> 8)  & 0x0000FF00) |
                ((val << 8)  & 0x00FF0000) |
@@ -81,12 +87,14 @@ namespace adam
 
     inline uint64_t swap_8(const uint8_t* ptr)
     {
+        uint64_t val = 0;
+        std::memcpy(&val, ptr, sizeof(val));
+
         #if defined(_MSC_VER)
-        return _byteswap_uint64(*reinterpret_cast<const uint64_t*>(ptr));
+        return _byteswap_uint64(val);
         #elif defined(__GNUC__) || defined(__clang__)
-        return __builtin_bswap64(*reinterpret_cast<const uint64_t*>(ptr));
+        return __builtin_bswap64(val);
         #else
-        uint64_t val = *reinterpret_cast<const uint64_t*>(ptr);
         return ((val >> 56) & 0x00000000000000FFull) |
                ((val >> 40) & 0x000000000000FF00ull) |
                ((val >> 24) & 0x0000000000FF0000ull) |
@@ -98,3 +106,4 @@ namespace adam
         #endif
     }
 }
+

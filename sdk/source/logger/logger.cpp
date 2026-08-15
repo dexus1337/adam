@@ -9,18 +9,19 @@ namespace adam
 {
     logger::logger() : m_queue_log() {}
 
-    logger::~logger() {}
+    logger::~logger() 
+    {
+        if (is_active()) destroy();
+    }
 
     bool logger::connect() 
     {
-        // if theres is already a queue for current thread, delete it
-        if (m_queue_log.open())
-            m_queue_log.destroy();
-        
         m_queue_log.set_name(string_hashed(controller::queue_logger_prefix + std::to_string(os::get_current_thread_id())));
 
-        if (!m_queue_log.create(1000))
-            return false;
+        // If there is already an orphaned queue for the current thread, destroy it first
+        if (m_queue_log.open()) m_queue_log.destroy();
+
+        if (!m_queue_log.create(1000)) return false;
 
         if (controller::request_master_queue(controller::request_log) != controller::status_success)
         {

@@ -89,7 +89,7 @@ namespace adam
         std::vector<column_font> m_column_fonts;
         std::vector<float>       m_column_weights;
 
-        bool                     m_b_row_expandable;
+        bool                     m_b_row_expandable = false;
 
         std::vector<std::string> m_expandable_columns;
         std::vector<column_font> m_expandable_columns_fonts;

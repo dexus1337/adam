@@ -190,81 +190,91 @@ namespace adam
 
         m_started->set_value(true);
 
-        m_ports_output.iterate([&](const auto& outputs) 
+        if (ctrl)
         {
-            for (auto* out : outputs) 
+            m_ports_output.iterate([&](const auto& outputs) 
             {
-                if (!out->is_started())
+                for (auto* out : outputs) 
                 {
-                    command cmd(command_type::port_start);
-                    cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                    if (!out->is_started())
+                    {
+                        command cmd(command_type::port_start);
+                        cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
+                        ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                    }
                 }
-            }
-        });
+            });
 
-        m_ports_input.iterate([&](const auto& inputs) 
-        {
-            for (auto* in : inputs) 
+            m_ports_input.iterate([&](const auto& inputs) 
             {
-                if (!in->is_started())
+                for (auto* in : inputs) 
                 {
-                    command cmd(command_type::port_start);
-                    cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                    if (!in->is_started())
+                    {
+                        command cmd(command_type::port_start);
+                        cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
+                        ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                    }
                 }
-            }
-        });
+            });
+        }
 
         return true;
     }
 
     bool connection::stop()
     {
-        auto* ctrl  = get_controller();
+        auto* ctrl = get_controller();
 
-        auto is_used_elsewhere = [&](port* p)
+        if (ctrl)
         {
-            bool is_used = false;
-            p->get_in_connections().iterate([&](const auto& conns)
+            auto is_used_elsewhere = [&](port* p)
             {
-                for (auto* c : conns)
-                    if (c != this && c->is_started()) is_used = true;
-            });
-            if (is_used) return true;
-            p->get_out_connections().iterate([&](const auto& conns)
-            {
-                for (auto* c : conns)
-                    if (c != this && c->is_started()) is_used = true;
-            });
-            return is_used;
-        };
-
-        m_ports_input.iterate([&](const auto& inputs) 
-        {
-            for (auto* in : inputs) 
-            {
-                if (in->is_started() && !is_used_elsewhere(in))
+                bool is_used = false;
+                p->get_in_connections().iterate([&](const auto& conns)
                 {
-                    command cmd(command_type::port_stop);
-                    cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
-                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
-                }
-            }
-        });
-
-        m_ports_output.iterate([&](const auto& outputs) 
-        {
-            for (auto* out : outputs) 
-            {
-                if (out->is_started() && !is_used_elsewhere(out))
+                    for (auto* c : conns)
+                    {
+                        if (c != this && c->is_started()) is_used = true;
+                    }
+                });
+                if (is_used) return true;
+                p->get_out_connections().iterate([&](const auto& conns)
                 {
-                    command cmd(command_type::port_stop);
-                    cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
-                    ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                    for (auto* c : conns)
+                    {
+                        if (c != this && c->is_started()) is_used = true;
+                    }
+                });
+                return is_used;
+            };
+
+            m_ports_input.iterate([&](const auto& inputs) 
+            {
+                for (auto* in : inputs) 
+                {
+                    if (in->is_started() && !is_used_elsewhere(in))
+                    {
+                        command cmd(command_type::port_stop);
+                        cmd.data_as<messages::port_action_data>()->port = in->get_name().get_hash();
+                        ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                    }
                 }
-            }
-        });
+            });
+
+            m_ports_output.iterate([&](const auto& outputs) 
+            {
+                for (auto* out : outputs) 
+                {
+                    if (out->is_started() && !is_used_elsewhere(out))
+                    {
+                        command cmd(command_type::port_stop);
+                        cmd.data_as<messages::port_action_data>()->port = out->get_name().get_hash();
+                        ctrl->dispatcher().dispatch(&cmd, 1, *ctrl->get_command_ctx());
+                    }
+                }
+            });
+        }
 
         m_started->set_value(false);
         

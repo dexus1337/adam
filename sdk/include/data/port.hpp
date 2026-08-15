@@ -86,7 +86,6 @@ namespace adam
                 state_buffer_handle = bh;
                 is_unavailable = unavail;
                 started = false;
-                is_unavailable = false;
                 user_parameters = 0;
                 std::strncpy(name, n.c_str(), sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
