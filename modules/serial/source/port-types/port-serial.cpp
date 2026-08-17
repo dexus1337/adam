@@ -2,6 +2,7 @@
 
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
+#include "configuration/parameters/configuration-parameter-boolean.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "module/module-serial.hpp"
@@ -104,30 +105,25 @@ namespace adam::modules::serial
             flow_ctrl_param->set_description(language_german, "Die Hardware- oder Software-Flusssteuerung."_ct);
             up->add(std::move(flow_ctrl_param));
 
-            auto rit_param = std::make_unique<adam::configuration_parameter_integer>("read_interval_timeout"_ct, 1);
-            rit_param->set_description(language_english, "Maximum time between bytes before returning (-1 = immediate)."_ct);
-            rit_param->set_description(language_german, "Maximale Zeit zwischen Bytes vor der Rückgabe (-1 = sofort)."_ct);
-            up->add(std::move(rit_param));
+            auto read_timeout_param = std::make_unique<adam::configuration_parameter_integer>("read_timeout_ms"_ct, 50);
+            read_timeout_param->set_description(language_english, "Maximum time to wait for incoming data (ms)."_ct);
+            read_timeout_param->set_description(language_german, "Maximale Wartezeit auf eingehende Daten (ms)."_ct);
+            up->add(std::move(read_timeout_param));
 
-            auto rttc_param = std::make_unique<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct, 50);
-            rttc_param->set_description(language_english, "Constant timeout to wait for data (ms)."_ct);
-            rttc_param->set_description(language_german, "Konstantes Timeout zum Warten auf Daten (ms)."_ct);
-            up->add(std::move(rttc_param));
+            auto read_interval_timeout_param = std::make_unique<adam::configuration_parameter_integer>("read_interval_timeout_ms"_ct, 5);
+            read_interval_timeout_param->set_description(language_english, "Maximum time between consecutive bytes before delivering a frame (ms)."_ct);
+            read_interval_timeout_param->set_description(language_german, "Maximale Zeit zwischen aufeinanderfolgenden Bytes vor der Übertragung eines Frames (ms)."_ct);
+            up->add(std::move(read_interval_timeout_param));
 
-            auto rttm_param = std::make_unique<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct, 10);
-            rttm_param->set_description(language_english, "Multiplier timeout per expected byte (ms)."_ct);
-            rttm_param->set_description(language_german, "Multiplikator-Timeout pro erwartetem Byte (ms)."_ct);
-            up->add(std::move(rttm_param));
+            auto write_timeout_param = std::make_unique<adam::configuration_parameter_integer>("write_timeout_ms"_ct, 500);
+            write_timeout_param->set_description(language_english, "Maximum time to wait for write operations (ms)."_ct);
+            write_timeout_param->set_description(language_german, "Maximale Wartezeit auf Schreibvorgänge (ms)."_ct);
+            up->add(std::move(write_timeout_param));
 
-            auto wttc_param = std::make_unique<adam::configuration_parameter_integer>("write_total_timeout_constant"_ct, 50);
-            wttc_param->set_description(language_english, "Constant timeout to wait for writes (ms) (Not used on POSIX)."_ct);
-            wttc_param->set_description(language_german, "Konstantes Timeout zum Warten auf Schreibvorgänge (ms) (Unter POSIX nicht verwendet)."_ct);
-            up->add(std::move(wttc_param));
-
-            auto wttm_param = std::make_unique<adam::configuration_parameter_integer>("write_total_timeout_multiplier"_ct, 10);
-            wttm_param->set_description(language_english, "Multiplier timeout per written byte (ms) (Not used on POSIX)."_ct);
-            wttm_param->set_description(language_german, "Multiplikator-Timeout pro geschriebenem Byte (ms) (Unter POSIX nicht verwendet)."_ct);
-            up->add(std::move(wttm_param));
+            auto initial_buffer_flush_param = std::make_unique<adam::configuration_parameter_boolean>("initial_buffer_flush"_ct, true);
+            initial_buffer_flush_param->set_description(language_english, "Flush input and output buffers upon opening the serial port."_ct);
+            initial_buffer_flush_param->set_description(language_german, "Eingabe- und Ausgabepuffer beim Öffnen der seriellen Schnittstelle leeren."_ct);
+            up->add(std::move(initial_buffer_flush_param));
 
             p.add(std::move(up));
             
@@ -150,9 +146,10 @@ namespace adam::modules::serial
         add_parameters(port_serial::get_user_parameters());
 
         auto user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
-        m_rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct);
-        m_rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct);
-        m_rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct);
+        m_read_timeout_ms = user_params->get<adam::configuration_parameter_integer>("read_timeout_ms"_ct);
+        m_read_interval_timeout_ms = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout_ms"_ct);
+        m_write_timeout_ms = user_params->get<adam::configuration_parameter_integer>("write_timeout_ms"_ct);
+        m_initial_buffer_flush = user_params->get<adam::configuration_parameter_boolean>("initial_buffer_flush"_ct);
     }
 
     port_serial::~port_serial() 
@@ -180,11 +177,8 @@ namespace adam::modules::serial
         const auto& flow_ctrl = user_params->get<adam::configuration_parameter_string>("flow_ctrl"_ct)->get_value();
 
         #if defined(ADAM_PLATFORM_WINDOWS)
-        int64_t rit = user_params->get<adam::configuration_parameter_integer>("read_interval_timeout"_ct)->get_value();
-        int64_t rttc = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_constant"_ct)->get_value();
-        int64_t rttm = user_params->get<adam::configuration_parameter_integer>("read_total_timeout_multiplier"_ct)->get_value();
-        int64_t wttc = user_params->get<adam::configuration_parameter_integer>("write_total_timeout_constant"_ct)->get_value();
-        int64_t wttm = user_params->get<adam::configuration_parameter_integer>("write_total_timeout_multiplier"_ct)->get_value();
+        int64_t read_timeout = m_read_timeout_ms ? m_read_timeout_ms->get_value() : 50;
+        int64_t write_timeout = m_write_timeout_ms ? m_write_timeout_ms->get_value() : 500;
         m_handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
         if (m_handle == INVALID_HANDLE_VALUE)
         {
@@ -236,16 +230,18 @@ namespace adam::modules::serial
         }
 
         COMMTIMEOUTS timeouts = {0};
-        // We treat -1 as MAXDWORD to allow users an intuitive way to define infinite or immediate timeouts
-        timeouts.ReadIntervalTimeout = (rit < 0) ? MAXDWORD : static_cast<DWORD>(rit);
-        timeouts.ReadTotalTimeoutConstant = (rttc < 0) ? MAXDWORD : static_cast<DWORD>(rttc);
-        timeouts.ReadTotalTimeoutMultiplier = (rttm < 0) ? MAXDWORD : static_cast<DWORD>(rttm);
-        timeouts.WriteTotalTimeoutConstant = (wttc < 0) ? MAXDWORD : static_cast<DWORD>(wttc);
-        timeouts.WriteTotalTimeoutMultiplier = (wttm < 0) ? MAXDWORD : static_cast<DWORD>(wttm);
+        timeouts.ReadIntervalTimeout = MAXDWORD;
+        timeouts.ReadTotalTimeoutMultiplier = 0;
+        timeouts.ReadTotalTimeoutConstant = (read_timeout < 0) ? MAXDWORD : static_cast<DWORD>(read_timeout);
+        timeouts.WriteTotalTimeoutConstant = (write_timeout < 0) ? MAXDWORD : static_cast<DWORD>(write_timeout);
+        timeouts.WriteTotalTimeoutMultiplier = 0;
         SetCommTimeouts(m_handle, &timeouts);
 
-        // Flush any old data in the kernel buffer
-        PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+        if (m_initial_buffer_flush && m_initial_buffer_flush->get_value())
+        {
+            // Flush any old data in the kernel buffer
+            PurgeComm(m_handle, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+        }
         
         log_event_msg(log::info, log_event::open_success, path, std::to_string(baud_rate));
         #else
@@ -370,7 +366,7 @@ namespace adam::modules::serial
             tty.c_iflag &= ~IGNBRK;
             tty.c_lflag = 0;
             tty.c_oflag = 0;
-            // Make read() fully non-blocking. We will use select() to wait for data.
+            // Make read() fully non-blocking. We will use poll() to wait for data.
             tty.c_cc[VMIN]  = 0;
             tty.c_cc[VTIME] = 0;
 
@@ -383,8 +379,11 @@ namespace adam::modules::serial
 
             tcsetattr(m_fd, TCSANOW, &tty);
             
-            // Flush any old data in the kernel buffer
-            tcflush(m_fd, TCIOFLUSH);
+            if (m_initial_buffer_flush && m_initial_buffer_flush->get_value())
+            {
+                // Flush any old data in the kernel buffer
+                tcflush(m_fd, TCIOFLUSH);
+            }
         }
         log_event_msg(log::info, log_event::open_success, path, std::to_string(baud_rate));
         #endif
@@ -443,12 +442,41 @@ namespace adam::modules::serial
                 if (dwRead > 0)
                 {
                     bytes_read = static_cast<int>(dwRead);
+
+                    int interval_timeout = (m_read_interval_timeout_ms && m_read_interval_timeout_ms->get_value() > 0)
+                                           ? static_cast<int>(m_read_interval_timeout_ms->get_value()) : 0;
+                    if (interval_timeout > 0)
+                    {
+                        while (bytes_read < static_cast<int>(sizeof(temp_buf)))
+                        {
+                            COMSTAT com_stat = {0};
+                            DWORD errors = 0;
+                            if (ClearCommError(m_handle, &errors, &com_stat) && com_stat.cbInQue > 0)
+                            {
+                                DWORD chunk_read = 0;
+                                DWORD to_read = (std::min)(static_cast<DWORD>(sizeof(temp_buf) - bytes_read), com_stat.cbInQue);
+                                if (ReadFile(m_handle, temp_buf + bytes_read, to_read, &chunk_read, NULL) && chunk_read > 0)
+                                {
+                                    bytes_read += static_cast<int>(chunk_read);
+                                    continue;
+                                }
+                            }
+                            
+                            std::this_thread::sleep_for(std::chrono::milliseconds(interval_timeout));
+                            if (ClearCommError(m_handle, &errors, &com_stat) && com_stat.cbInQue > 0)
+                            {
+                                DWORD chunk_read = 0;
+                                DWORD to_read = (std::min)(static_cast<DWORD>(sizeof(temp_buf) - bytes_read), com_stat.cbInQue);
+                                if (ReadFile(m_handle, temp_buf + bytes_read, to_read, &chunk_read, NULL) && chunk_read > 0)
+                                {
+                                    bytes_read += static_cast<int>(chunk_read);
+                                    continue;
+                                }
+                            }
+                            break;
+                        }
+                    }
                     break;
-                }
-                else
-                {
-                    // Read timed out (0 bytes). Yield to prevent 100% CPU spinning.
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }
             }
             else
@@ -465,7 +493,8 @@ namespace adam::modules::serial
                 return false;
             }
             #else
-            int rv = poll(&pfd, 1, 100); // 100ms interval for responsive shutdown
+            int timeout_ms = (m_read_timeout_ms && m_read_timeout_ms->get_value() >= 0) ? static_cast<int>(m_read_timeout_ms->get_value()) : 50;
+            int rv = poll(&pfd, 1, timeout_ms);
             if (rv < 0) 
             {
                 if (errno == EINTR) continue;
@@ -503,7 +532,8 @@ namespace adam::modules::serial
                 
                 bytes_read += chunk;
 
-                int interval_timeout = (m_rit->get_value() < 0) ? 0 : static_cast<int>(m_rit->get_value());
+                int interval_timeout = (m_read_interval_timeout_ms && m_read_interval_timeout_ms->get_value() > 0)
+                                       ? static_cast<int>(m_read_interval_timeout_ms->get_value()) : 0;
                 if (interval_timeout > 0)
                 {
                     while (bytes_read < static_cast<int>(sizeof(temp_buf)))

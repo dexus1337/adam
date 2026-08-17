@@ -87,8 +87,9 @@ namespace adam::modules::serial
 
         void close_handle();
 
-        adam::configuration_parameter_integer* m_rttc = nullptr;
-        adam::configuration_parameter_integer* m_rttm = nullptr;
-        adam::configuration_parameter_integer* m_rit = nullptr;
+        adam::configuration_parameter_integer* m_read_timeout_ms = nullptr;
+        adam::configuration_parameter_integer* m_read_interval_timeout_ms = nullptr;
+        adam::configuration_parameter_integer* m_write_timeout_ms = nullptr;
+        adam::configuration_parameter_boolean* m_initial_buffer_flush = nullptr;
     };
 }

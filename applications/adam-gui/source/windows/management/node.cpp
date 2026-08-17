@@ -142,10 +142,10 @@ namespace adam::gui
                 }
                 else
                 {
-                    int val = static_cast<int>(current_val);
-                    if (ImGui::DragInt("##drag", &val, 1.0f, static_cast<int>(c_int->get_min_value()), static_cast<int>(c_int->get_max_value())))
+                    int64_t val = current_val;
+                    if (ImGui::InputScalar("##input", ImGuiDataType_S64, &val, nullptr, nullptr, "%lld"))
                     {
-                        c_int->set_value(static_cast<int64_t>(val));
+                        c_int->set_value(val);
                     }
                     if (ImGui::IsItemDeactivatedAfterEdit())
                     {
@@ -200,10 +200,10 @@ namespace adam::gui
                 }
                 else
                 {
-                    float val = static_cast<float>(current_val);
-                    if (ImGui::DragFloat("##drag", &val, 0.1f, static_cast<float>(c_dbl->get_min_value()), static_cast<float>(c_dbl->get_max_value()), "%.3f"))
+                    double val = current_val;
+                    if (ImGui::InputScalar("##input", ImGuiDataType_Double, &val, nullptr, nullptr, "%.3f"))
                     {
-                        c_dbl->set_value(static_cast<double>(val));
+                        c_dbl->set_value(val);
                     }
                     if (ImGui::IsItemDeactivatedAfterEdit())
                     {
@@ -224,18 +224,31 @@ namespace adam::gui
             {
                 auto* c_bool = static_cast<adam::configuration_parameter_boolean*>(param_ptr);
                 bool current_val = c_bool->get_value();
-                bool val = current_val;
-                if (ImGui::Checkbox("##bool_chk", &val))
+                const char* preview = current_val ? "enabled" : "disabled";
+                if (ImGui::BeginCombo("##combo", preview))
                 {
-                    c_bool->set_value(val);
-                    if (is_port)
+                    const char* options[] = { "disabled", "enabled" };
+                    for (int i = 0; i < 2; ++i)
                     {
-                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, val); });
+                        bool val = (i == 1);
+                        bool is_selected = (val == current_val);
+                        if (ImGui::Selectable(options[i], is_selected))
+                        {
+                            if (!is_selected)
+                            {
+                                c_bool->set_value(val);
+                                if (is_port)
+                                {
+                                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, val); });
+                                }
+                                else
+                                {
+                                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, val); });
+                                }
+                            }
+                        }
                     }
-                    else
-                    {
-                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, val); });
-                    }
+                    ImGui::EndCombo();
                 }
                 break;
             }

@@ -1,4 +1,5 @@
 #include "textures.hpp"
+#include <cstring>
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <d3d11.h>
