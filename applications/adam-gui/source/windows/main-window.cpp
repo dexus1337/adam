@@ -645,8 +645,8 @@ namespace adam::gui
                 switch (t) 
                 {
                     case adam::lib::imgui::gui_theme::light: return gui_string_id::theme_light;
-                    case adam::lib::imgui::gui_theme::dark_navy: return gui_string_id::theme_dark_navy;
-                    case adam::lib::imgui::gui_theme::dark: default: return gui_string_id::theme_dark;
+                    case adam::lib::imgui::gui_theme::dark: return gui_string_id::theme_dark;
+                    case adam::lib::imgui::gui_theme::dark_navy: default: return gui_string_id::theme_dark_navy;
                 }
             };
             

@@ -12,6 +12,7 @@
 #include "tile-engine.hpp"
 #include "tile-provider.hpp"
 #include "../data/waypoint.hpp"
+#include "../data/site.hpp"
 #include <imgui.h>
 
 #include <vector>
@@ -62,7 +63,7 @@ namespace adam::cop
          * @param waypoints         The list of tactical waypoints to render.
          * @param add_waypoint_text Localized text for the context menu.
          */
-        void draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const char* add_waypoint_text = "Add Waypoint Here");
+        void draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const std::vector<std::unique_ptr<site>>& sites, const char* add_waypoint_text = "Add Waypoint Here");
 
         /** @brief Resets map view to default origin and zoom level */
         void reset_view();
@@ -99,6 +100,7 @@ namespace adam::cop
         void render_grid(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_vector_land(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_waypoints(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints);
+        void render_sites(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<site>>& sites);
         void render_scale_bar(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_compass(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);
         void render_measurements(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options);

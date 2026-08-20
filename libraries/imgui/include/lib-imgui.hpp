@@ -10,3 +10,4 @@
 
 #include "textures.hpp"
 #include "themes.hpp"
+#include "renderer-setup.hpp"

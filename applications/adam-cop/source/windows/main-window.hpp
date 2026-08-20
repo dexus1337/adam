@@ -12,6 +12,14 @@
 #include "../cop-controller.hpp"
 #include "../map/world-map.hpp"
 #include "../cop-strings.hpp"
+#include "window-about.hpp"
+#include "window-layers.hpp"
+#include "window-waypoints.hpp"
+#include "window-radar-sites.hpp"
+#include "window-data-sources.hpp"
+#include "window-cache-stats.hpp"
+#include "window-jump-coords.hpp"
+#include "window-performance.hpp"
 
 struct SDL_Window;
 
@@ -21,17 +29,13 @@ namespace adam::cop
     {
         commander_connected = 0,
         commander_disconnected,
+        node_connection_line,
+        node_connection_line_light,
+        node_pin_active,
         count
     };
 
     const ImVec4& get_cop_color(cop_color_id id);
-
-    struct map_layer_config_params
-    {
-        adam::configuration_parameter_integer* provider;
-        adam::configuration_parameter_double* opacity;
-        adam::configuration_parameter_boolean* visible;
-    };
 
     class main_window
     {
@@ -45,10 +49,7 @@ namespace adam::cop
     private:
         void draw_menu_bar(adam::language lang);
         void draw_status_bar(adam::language lang);
-        void draw_panels(adam::language lang);
         void draw_map_window(adam::language lang);
-        void draw_about_dialog(adam::language lang);
-        void draw_performance_overlay(adam::language lang);
 
         cop_controller& m_ctrl;
         SDL_Window* m_window;
@@ -79,6 +80,7 @@ namespace adam::cop
 
         adam::configuration_parameter_boolean* m_p_show_control_panel = nullptr;
         adam::configuration_parameter_boolean* m_p_show_waypoints     = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_sites         = nullptr;
         adam::configuration_parameter_boolean* m_p_show_cache_stats   = nullptr;
         adam::configuration_parameter_boolean* m_p_show_jump_coords   = nullptr;
         adam::configuration_parameter_boolean* m_p_show_data_sources  = nullptr;
@@ -92,6 +94,7 @@ namespace adam::cop
         float m_jump_lat = 0.0f;
         float m_jump_lon = 0.0f;
         bool  m_show_about = false;
+        adam::string_hash m_picking_site_coords_hash = 0;
 
         adam::language m_last_lang;
     };

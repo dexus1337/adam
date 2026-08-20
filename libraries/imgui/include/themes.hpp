@@ -7,8 +7,8 @@ namespace adam::lib::imgui
 {
     enum class gui_theme : std::uint8_t
     {
-        dark = 0,
-        light,
+        light = 0,
+        dark,
         dark_navy
     };
 

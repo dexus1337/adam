@@ -234,8 +234,8 @@ namespace adam::lib::imgui
         switch (name)
         {
             case "light"_ct:      return gui_theme::light;
-            case "dark_navy"_ct:  return gui_theme::dark_navy;
             case "dark"_ct:       return gui_theme::dark;
+            case "dark_navy"_ct:  return gui_theme::dark_navy;
             default:              return gui_theme::dark; // Fallback to dark
         }
     }
@@ -245,8 +245,8 @@ namespace adam::lib::imgui
         switch (theme)
         {
             case gui_theme::light:     return "light"_ct;
-            case gui_theme::dark_navy: return "dark_navy"_ct;
             case gui_theme::dark:      return "dark"_ct;
+            case gui_theme::dark_navy: return "dark_navy"_ct;
             default:                   return "dark"_ct;
         }
     }
@@ -260,15 +260,15 @@ namespace adam::lib::imgui
                 setup_light_style();
                 break;
             }
-            case gui_theme::dark_navy:
-            {
-                setup_dark_navy_style();
-                break;
-            }
             case gui_theme::dark:
-            default:
             {
                 setup_dark_style();
+                break;
+            }
+            case gui_theme::dark_navy:
+            default:
+            {
+                setup_dark_navy_style();
                 break;
             }
         }

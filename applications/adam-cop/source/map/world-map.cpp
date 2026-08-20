@@ -144,7 +144,7 @@ namespace adam::cop
         return { lat, lon };
     }
 
-    void world_map::draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const char* add_waypoint_text)
+    void world_map::draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const std::vector<std::unique_ptr<site>>& sites, const char* add_waypoint_text)
     {
         m_tile_engine.update();
 
@@ -253,6 +253,9 @@ namespace adam::cop
         }
         ImGui::PopStyleVar();
 
+        // Push Clip Rect
+        draw_list->PushClipRect(canvas_pos, ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
+
         // Render Base Ocean Background
         render_ocean(draw_list, canvas_pos, canvas_size, options);
 
@@ -271,9 +274,10 @@ namespace adam::cop
             render_vector_land(draw_list, canvas_pos, canvas_size, options);
         }
 
-        // Render Tactical Waypoints
+        // Render Tactical Waypoints & Radar Sites
         if (options.show_markers)
         {
+            render_sites(draw_list, canvas_pos, canvas_size, options, sites);
             render_waypoints(draw_list, canvas_pos, canvas_size, options, waypoints);
         }
 
@@ -661,6 +665,97 @@ namespace adam::cop
             draw_list->AddRect(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_primary, 4.0f, 0, 1.2f);
 
             draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 4.0f), col_text, wp->get_label().c_str());
+        }
+    }
+
+    void world_map::render_sites(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<site>>& sites)
+    {
+        for (const auto& s : sites)
+        {
+            if (!s || !s->is_enabled())
+            {
+                continue;
+            }
+
+            ImVec2 screen_pt = geo_to_screen(s->get_lat(), s->get_lon(), pos, size, options.projection);
+
+            uint32_t c = s->get_color();
+            ImU32 col_primary = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
+
+            // Coverage / Range Ring & Sector Crossings
+            double range_nm = s->get_range_nm();
+            float range_alpha = static_cast<float>(s->get_range_alpha());
+            float sector_alpha = static_cast<float>(s->get_sector_crossings_alpha());
+
+            ImU32 col_ring = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(range_alpha * 255.0f * 0.4f));
+            ImU32 col_ring_outline = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(range_alpha * 255.0f));
+            ImU32 col_sector_line = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(sector_alpha * 255.0f));
+
+            if (range_nm > 0.0)
+            {
+                float lat_offset = static_cast<float>(range_nm / 60.0); // 1 deg lat = 60 NM
+                ImVec2 range_pt = geo_to_screen(s->get_lat() + lat_offset, s->get_lon(), pos, size, options.projection);
+                float radius_px = std::abs(range_pt.y - screen_pt.y);
+
+                if (radius_px > 1.0f)
+                {
+                    if (s->get_show_range())
+                    {
+                        draw_list->AddCircleFilled(screen_pt, radius_px, col_ring, 64);
+                        draw_list->AddCircle(screen_pt, radius_px, col_ring_outline, 64, 1.2f);
+                    }
+
+                    // Sector Crossings (32 radial azimuth lines by default)
+                    if (s->get_show_sector_crossings())
+                    {
+                        constexpr int sector_count = 32;
+                        constexpr float angle_step = 6.28318530718f / static_cast<float>(sector_count);
+                        for (int i = 0; i < sector_count; ++i)
+                        {
+                            float angle = static_cast<float>(i) * angle_step - 1.57079632679f;
+                            ImVec2 line_end(screen_pt.x + std::cos(angle) * radius_px, screen_pt.y + std::sin(angle) * radius_px);
+                            draw_list->AddLine(screen_pt, line_end, col_sector_line, 1.0f);
+                        }
+                    }
+                }
+            }
+
+            // Frustum culling check for marker and label
+            if (screen_pt.x < pos.x - 150.0f || screen_pt.x > pos.x + size.x + 150.0f ||
+                screen_pt.y < pos.y - 150.0f || screen_pt.y > pos.y + size.y + 150.0f)
+            {
+                continue;
+            }
+
+            ImVec4 bg_color = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
+            bg_color.w = std::min(bg_color.w, 0.90f);
+            ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(bg_color);
+            ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
+
+            // Radar Diamond Icon
+            float r = 10.0f;
+            draw_list->AddCircleFilled(screen_pt, 3.5f, col_primary);
+            
+            ImVec2 p_top(screen_pt.x, screen_pt.y - r);
+            ImVec2 p_right(screen_pt.x + r, screen_pt.y);
+            ImVec2 p_bottom(screen_pt.x, screen_pt.y + r);
+            ImVec2 p_left(screen_pt.x - r, screen_pt.y);
+            draw_list->AddQuad(p_top, p_right, p_bottom, p_left, col_primary, 1.8f);
+
+            // Label Callout
+            char badge[128];
+            snprintf(badge, sizeof(badge), "%s (SAC:%llu SIC:%llu)", s->get_label().c_str(), static_cast<unsigned long long>(s->get_sac()), static_cast<unsigned long long>(s->get_sic()));
+
+            ImVec2 label_size = ImGui::CalcTextSize(badge);
+            float box_w = label_size.x + 12.0f;
+            float box_h = label_size.y + 8.0f;
+            
+            ImVec2 tag_pos = ImVec2(screen_pt.x + r + 8.0f, screen_pt.y - box_h * 0.5f);
+
+            draw_list->AddRectFilled(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_bg, 4.0f);
+            draw_list->AddRect(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_primary, 4.0f, 0, 1.2f);
+
+            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 4.0f), col_text, badge);
         }
     }
 
