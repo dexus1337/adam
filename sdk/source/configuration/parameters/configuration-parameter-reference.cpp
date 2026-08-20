@@ -13,4 +13,12 @@ namespace adam
         new_param->set_target(m_target);
         return new_param;
     }
+
+    void configuration_parameter_reference::copy_from(const configuration_parameter* other)
+    {
+        if (!other) return;
+
+        if (const auto* p = dynamic_cast<const configuration_parameter_reference*>(other))
+            set_target(p->get_target());
+    }
 }

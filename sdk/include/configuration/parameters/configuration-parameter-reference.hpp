@@ -35,6 +35,9 @@ namespace adam
         /** @brief Creates a deep copy of this configuration parameter. */
         std::unique_ptr<configuration_parameter> clone() const override;
 
+        /** @brief Copies the target reference from another configuration parameter into this parameter. */
+        void copy_from(const configuration_parameter* other) override;
+
         const string_hashed& get_target() const { return m_target; }
         void set_target(const string_hashed& target) { m_target = target; }
         string_hashed& target() { return m_target; }

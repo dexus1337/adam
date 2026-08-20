@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt for the serial module
+# CMakeLists.txt for the serial module
 
 if(NOT DEFINED ADAM_NO_TESTS)
 include(../../cmake/gtest.cmake)
@@ -62,8 +62,4 @@ set_target_properties(adam-module-serial-test PROPERTIES
 )
 
 setup_gtest(adam-module-serial-test)
-
-# Discover tests for the VS Code Test Explorer
-include(GoogleTest)
-gtest_discover_tests(adam-module-serial-test)
 endif()

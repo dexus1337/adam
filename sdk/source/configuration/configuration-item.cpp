@@ -69,60 +69,7 @@ namespace adam
         auto loaded_root = configuration_parameter::deserialize(ifs);
         if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list) return false;
 
-        auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
-        for (auto& [name, param] : root_list->get_children())
-        {
-            if (auto* existing = m_parameters.get(name))
-            {
-                if (auto* e_bool = dynamic_cast<configuration_parameter_boolean*>(existing))
-                {
-                    if (auto* p_bool = dynamic_cast<configuration_parameter_boolean*>(param.get())) e_bool->set_value(p_bool->get_value());
-                } 
-                else if (auto* e_int = dynamic_cast<configuration_parameter_integer*>(existing))  
-                {
-                    if (auto* p_int = dynamic_cast<configuration_parameter_integer*>(param.get())) e_int->set_value(p_int->get_value());
-                } 
-                else if (auto* e_dbl = dynamic_cast<configuration_parameter_double*>(existing))
-                {
-                    if (auto* p_dbl = dynamic_cast<configuration_parameter_double*>(param.get())) e_dbl->set_value(p_dbl->get_value());
-                } 
-                else if (auto* e_str = dynamic_cast<configuration_parameter_string*>(existing)) 
-                {
-                    if (auto* p_str = dynamic_cast<configuration_parameter_string*>(param.get())) e_str->set_value(p_str->get_value());
-                } 
-                else if (auto* e_ref = dynamic_cast<configuration_parameter_reference*>(existing)) 
-                {
-                    if (auto* p_ref = dynamic_cast<configuration_parameter_reference*>(param.get())) e_ref->set_target(p_ref->get_target());
-                } 
-                else if (existing->get_type() == configuration_parameter::type_list) 
-                {
-                    if (param->get_type() == configuration_parameter::type_list) {
-                        auto* e_list = static_cast<configuration_parameter_list*>(existing);
-                        auto* p_list = static_cast<configuration_parameter_list*>(param.get());
-                        if (dynamic_cast<configuration_parameter_list_sorted*>(e_list)) 
-                        {
-                            // For sorted lists (which are fully dynamic), we replace the entire list
-                            e_list->clear();
-                            if (auto* p_sorted = dynamic_cast<configuration_parameter_list_sorted*>(p_list)) 
-                            {
-                                for (const auto& hash : p_sorted->get_order()) 
-                                {
-                                    if (auto* child = p_sorted->get(hash)) e_list->add(child->clone());
-                                }
-                            } 
-                            else 
-                            {
-                                for (const auto& [n, child] : p_list->get_children()) e_list->add(child->clone());
-                            }
-                        } 
-                        else 
-                        {
-                            merge_parameter_lists(e_list, p_list);
-                        }
-                    }
-                }
-            }
-        }
+        m_parameters.copy_from(loaded_root.get());
 
         return !ifs.bad();
     }
@@ -135,8 +82,10 @@ namespace adam
     void configuration_item::add_parameter(std::unique_ptr<configuration_parameter> param)
     {
         if (!param) return;
+
         auto* existing = m_parameters.get(param->get_name());
-        if (!existing) m_parameters.add(std::move(param));
+        if (!existing)
+            m_parameters.add(std::move(param));
         else if (existing->get_type() == configuration_parameter::type_list && param->get_type() == configuration_parameter::type_list)
             merge_parameter_lists(static_cast<configuration_parameter_list*>(existing), static_cast<const configuration_parameter_list*>(param.get()));
     }

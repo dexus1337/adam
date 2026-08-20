@@ -59,6 +59,9 @@ namespace adam
         /** @brief Creates a deep copy of this configuration parameter. */
         std::unique_ptr<configuration_parameter> clone() const override;
 
+        /** @brief Copies the value from another configuration parameter into this integer parameter. */
+        void copy_from(const configuration_parameter* other) override;
+
         int64_t get_value() const { return m_value; }
         bool set_value(int64_t value);
         int64_t& value() { return m_value; }

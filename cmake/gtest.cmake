@@ -55,7 +55,9 @@ function(setup_gtest TARGET_NAME)
     endif()
 
     include(GoogleTest)
-    gtest_discover_tests(${TARGET_NAME} WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-  
-
+    gtest_discover_tests(${TARGET_NAME}
+        DISCOVERY_MODE PRE_TEST
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        PROPERTIES ENVIRONMENT "PATH=${CMAKE_BINARY_DIR}/bin\;${CMAKE_BINARY_DIR}/bin/modules\;$ENV{PATH}"
+    )
 endfunction()

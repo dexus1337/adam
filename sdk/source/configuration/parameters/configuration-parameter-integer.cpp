@@ -23,19 +23,23 @@ namespace adam
         new_param->set_descriptions(get_descriptions());
 
         if (m_mode == value_mode_range)
-        {
             new_param->set_range(m_min_value, m_max_value);
-        }
         else if (m_mode == value_mode_preset)
         {
             for (int64_t preset : m_presets)
-            {
                 new_param->add_preset(preset);
-            }
         }
 
         new_param->set_value(m_value);
         return new_param;
+    }
+
+    void configuration_parameter_integer::copy_from(const configuration_parameter* other)
+    {
+        if (!other) return;
+
+        if (const auto* p = dynamic_cast<const configuration_parameter_integer*>(other))
+            set_value(p->get_value());
     }
 
     bool configuration_parameter_integer::set_value(int64_t value)
@@ -43,17 +47,11 @@ namespace adam
         if (m_mode == value_mode_preset)
         {
             // O(1) preset validation lookup
-            if (m_presets.find(value) == m_presets.end())
-            {
-                return false;
-            }
+            if (m_presets.find(value) == m_presets.end()) return false;
         }
         else if (m_mode == value_mode_range)
         {
-            if (value < m_min_value || value > m_max_value)
-            {
-                return false;
-            }
+            if (value < m_min_value || value > m_max_value) return false;
         }
 
         m_value = value;

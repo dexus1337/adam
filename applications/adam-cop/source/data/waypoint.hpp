@@ -23,5 +23,11 @@ namespace adam::cop
 
         uint32_t get_color() const;
         void set_color(uint32_t color);
+
+    protected:
+        void cache_waypoint_parameters();
+
+        adam::configuration_parameter_boolean* m_p_enabled = nullptr;
+        adam::configuration_parameter_integer* m_p_color   = nullptr;
     };
 }

@@ -46,27 +46,39 @@ namespace adam::cop
     {
         auto& params = m_ctrl.get_parameters();
 
-        m_p_map_projection = dynamic_cast<adam::configuration_parameter_integer*>(params.get("map_projection"_ct));
-        m_p_show_grid      = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_grid"_ct));
-        m_p_show_coastlines = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_coastlines"_ct));
-        m_p_show_land_fill  = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_land_fill"_ct));
-        m_p_show_scale_bar  = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_scale_bar"_ct));
-        m_p_show_performance = dynamic_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
-        m_p_perf_ovly_location = dynamic_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"_ct));
-        m_p_perf_ovly_x      = dynamic_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_x"_ct));
-        m_p_perf_ovly_y      = dynamic_cast<adam::configuration_parameter_double*>(params.get("perf_ovly_y"_ct));
-        m_p_perf_ovly_content= dynamic_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_content"_ct));
-        m_p_fps_limit       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
-        m_p_language        = dynamic_cast<adam::configuration_parameter_integer*>(params.get("language"_ct));
-        m_p_theme          = dynamic_cast<adam::configuration_parameter_string*>(params.get("theme"_ct));
-        m_p_gui_mode       = dynamic_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
-        m_p_font_scale     = dynamic_cast<adam::configuration_parameter_double*>(params.get("font_scale"_ct));
-        m_p_docking_layout = dynamic_cast<adam::configuration_parameter_string*>(params.get("docking_layout"_ct));
-        m_p_map_lat        = dynamic_cast<adam::configuration_parameter_double*>(params.get("map_lat"_ct));
-        m_p_map_lon        = dynamic_cast<adam::configuration_parameter_double*>(params.get("map_lon"_ct));
-        m_p_map_zoom       = dynamic_cast<adam::configuration_parameter_double*>(params.get("map_zoom"_ct));
+        m_p_map_projection     = params.get<adam::configuration_parameter_integer>("map_projection"_ct);
+        m_p_show_grid          = params.get<adam::configuration_parameter_boolean>("show_grid"_ct);
+        m_p_show_coastlines    = params.get<adam::configuration_parameter_boolean>("show_coastlines"_ct);
+        m_p_show_land_fill     = params.get<adam::configuration_parameter_boolean>("show_land_fill"_ct);
+        m_p_show_scale_bar     = params.get<adam::configuration_parameter_boolean>("show_scale_bar"_ct);
+        m_p_show_performance   = params.get<adam::configuration_parameter_boolean>("show_performance"_ct);
+        m_p_perf_ovly_location = params.get<adam::configuration_parameter_integer>("perf_ovly_location"_ct);
+        m_p_perf_ovly_x        = params.get<adam::configuration_parameter_double>("perf_ovly_x"_ct);
+        m_p_perf_ovly_y        = params.get<adam::configuration_parameter_double>("perf_ovly_y"_ct);
+        m_p_perf_ovly_content  = params.get<adam::configuration_parameter_integer>("perf_ovly_content"_ct);
+        m_p_fps_limit          = params.get<adam::configuration_parameter_integer>("fps_limit"_ct);
+        m_p_language           = params.get<adam::configuration_parameter_integer>("language"_ct);
+        m_p_theme              = params.get<adam::configuration_parameter_string>("theme"_ct);
+        m_p_gui_mode           = params.get<adam::configuration_parameter_integer>("gui_mode"_ct);
+        m_p_font_scale         = params.get<adam::configuration_parameter_double>("font_scale"_ct);
+        m_p_docking_layout     = params.get<adam::configuration_parameter_string>("docking_layout"_ct);
+        m_p_map_lat            = params.get<adam::configuration_parameter_double>("map_lat"_ct);
+        m_p_map_lon            = params.get<adam::configuration_parameter_double>("map_lon"_ct);
+        m_p_map_zoom           = params.get<adam::configuration_parameter_double>("map_zoom"_ct);
+
+        m_p_show_control_panel = params.get<adam::configuration_parameter_boolean>("show_control_panel"_ct);
+        m_p_show_waypoints     = params.get<adam::configuration_parameter_boolean>("show_waypoints"_ct);
+        m_p_show_cache_stats   = params.get<adam::configuration_parameter_boolean>("show_cache_stats"_ct);
+        m_p_show_jump_coords   = params.get<adam::configuration_parameter_boolean>("show_jump_coords"_ct);
+        m_p_show_data_sources  = params.get<adam::configuration_parameter_boolean>("show_asterix"_ct);
+
+        m_p_window_x           = params.get<adam::configuration_parameter_integer>("window_x"_ct);
+        m_p_window_y           = params.get<adam::configuration_parameter_integer>("window_y"_ct);
+        m_p_window_w           = params.get<adam::configuration_parameter_integer>("window_w"_ct);
+        m_p_window_h           = params.get<adam::configuration_parameter_integer>("window_h"_ct);
+        m_p_window_maximized   = params.get<adam::configuration_parameter_boolean>("window_maximized"_ct);
         
-        if (!m_p_docking_layout->get_value().empty())
+        if (m_p_docking_layout && !m_p_docking_layout->get_value().empty())
         {
             std::string layout_data = m_p_docking_layout->get_value().data();
             ImGui::LoadIniSettingsFromMemory(layout_data.c_str(), layout_data.size());
@@ -85,10 +97,7 @@ namespace adam::cop
             if (m_p_map_layer_params[i].provider && m_p_map_layer_params[i].opacity && m_p_map_layer_params[i].visible)
             {
                 int64_t provider_val = m_p_map_layer_params[i].provider->get_value();
-                if (provider_val < 0 || provider_val > 3)
-                {
-                    provider_val = i;
-                }
+                if (provider_val < 0 || provider_val > 3) provider_val = i;
                 m_map_options.tile_layers[i].provider = static_cast<tile_provider_type>(provider_val);
                 m_map_options.tile_layers[i].opacity = static_cast<float>(m_p_map_layer_params[i].opacity->get_value());
                 m_map_options.tile_layers[i].visible = m_p_map_layer_params[i].visible->get_value();
@@ -99,21 +108,17 @@ namespace adam::cop
             }
         }
         
+        if (m_p_map_lat && m_p_map_lon)
+            m_map.set_center(static_cast<float>(m_p_map_lat->get_value()), static_cast<float>(m_p_map_lon->get_value()));
 
-        m_map.set_center(static_cast<float>(m_p_map_lat->get_value()), static_cast<float>(m_p_map_lon->get_value()));
-        m_map.set_zoom(static_cast<float>(m_p_map_zoom->get_value()));
+        if (m_p_map_zoom)
+            m_map.set_zoom(static_cast<float>(m_p_map_zoom->get_value()));
 
-        m_show_control_panel = static_cast<adam::configuration_parameter_boolean*>(params.get("show_control_panel"_ct))->get_value();
-        m_show_waypoints = static_cast<adam::configuration_parameter_boolean*>(params.get("show_waypoints"_ct))->get_value();
-        m_show_cache_stats = static_cast<adam::configuration_parameter_boolean*>(params.get("show_cache_stats"_ct))->get_value();
-        m_show_jump_coords = static_cast<adam::configuration_parameter_boolean*>(params.get("show_jump_coords"_ct))->get_value();
-        m_show_data_sources = static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->get_value();
-
-        int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
-        int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
-        int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->get_value_as<int>();
-        int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->get_value_as<int>();
-        bool maximized = static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->get_value();
+        int x = m_p_window_x ? m_p_window_x->get_value_as<int>() : -1;
+        int y = m_p_window_y ? m_p_window_y->get_value_as<int>() : -1;
+        int w = m_p_window_w ? m_p_window_w->get_value_as<int>() : 1280;
+        int h = m_p_window_h ? m_p_window_h->get_value_as<int>() : 720;
+        bool maximized = m_p_window_maximized ? m_p_window_maximized->get_value() : false;
         if (x != -1 && y != -1)
         {
             bool pos_valid = false;
@@ -170,47 +175,37 @@ namespace adam::cop
 
     void main_window::save_window_state()
     {
-        if (m_window)
+        if (!m_window) return;
+
+        int x, y, w, h;
+        SDL_GetWindowPosition(m_window, &x, &y);
+        SDL_GetWindowSize(m_window, &w, &h);
+        SDL_WindowFlags flags = SDL_GetWindowFlags(m_window);
+        bool is_maximized = (flags & SDL_WINDOW_MAXIMIZED) != 0;
+        bool is_minimized = (flags & SDL_WINDOW_MINIMIZED) != 0;
+        bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+
+        if (!is_maximized && !is_minimized && !is_fullscreen)
         {
-            int x, y, w, h;
-            SDL_GetWindowPosition(m_window, &x, &y);
-            SDL_GetWindowSize(m_window, &w, &h);
-            SDL_WindowFlags flags = SDL_GetWindowFlags(m_window);
-            auto& params = m_ctrl.get_parameters();
-            bool is_maximized = (flags & SDL_WINDOW_MAXIMIZED) != 0;
-            bool is_minimized = (flags & SDL_WINDOW_MINIMIZED) != 0;
-            bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
-
-            if (!is_maximized && !is_minimized && !is_fullscreen)
-            {
-                static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->set_value(static_cast<int64_t>(x));
-                static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->set_value(static_cast<int64_t>(y));
-                static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->set_value(static_cast<int64_t>(w));
-                static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->set_value(static_cast<int64_t>(h));
-            }
-            
-            if (!is_minimized)
-            {
-                static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->set_value(is_maximized);
-            }
-
-            static_cast<adam::configuration_parameter_boolean*>(params.get("show_control_panel"_ct))->set_value(m_show_control_panel);
-            static_cast<adam::configuration_parameter_boolean*>(params.get("show_waypoints"_ct))->set_value(m_show_waypoints);
-            static_cast<adam::configuration_parameter_boolean*>(params.get("show_cache_stats"_ct))->set_value(m_show_cache_stats);
-            static_cast<adam::configuration_parameter_boolean*>(params.get("show_jump_coords"_ct))->set_value(m_show_jump_coords);
-            static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->set_value(m_show_data_sources);
-
-            size_t ini_size = 0;
-            const char* ini_data = ImGui::SaveIniSettingsToMemory(&ini_size);
-            if (ini_data && ini_size > 0 && m_p_docking_layout)
-            {
-                m_p_docking_layout->set_value(adam::string_hashed(std::string_view(ini_data, ini_size)));
-            }
-
-            if (m_p_map_lat) m_p_map_lat->set_value(static_cast<double>(m_map.get_center_lat()));
-            if (m_p_map_lon) m_p_map_lon->set_value(static_cast<double>(m_map.get_center_lon()));
-            if (m_p_map_zoom) m_p_map_zoom->set_value(static_cast<double>(m_map.get_zoom()));
+            if (m_p_window_x) m_p_window_x->set_value(static_cast<int64_t>(x));
+            if (m_p_window_y) m_p_window_y->set_value(static_cast<int64_t>(y));
+            if (m_p_window_w) m_p_window_w->set_value(static_cast<int64_t>(w));
+            if (m_p_window_h) m_p_window_h->set_value(static_cast<int64_t>(h));
         }
+        
+        if (!is_minimized && m_p_window_maximized)
+            m_p_window_maximized->set_value(is_maximized);
+
+        size_t ini_size = 0;
+        const char* ini_data = ImGui::SaveIniSettingsToMemory(&ini_size);
+        if (ini_data && ini_size > 0 && m_p_docking_layout)
+        {
+            m_p_docking_layout->set_value(adam::string_hashed(std::string_view(ini_data, ini_size)));
+        }
+
+        if (m_p_map_lat) m_p_map_lat->set_value(static_cast<double>(m_map.get_center_lat()));
+        if (m_p_map_lon) m_p_map_lon->set_value(static_cast<double>(m_map.get_center_lon()));
+        if (m_p_map_zoom) m_p_map_zoom->set_value(static_cast<double>(m_map.get_zoom()));
     }
 
     void main_window::draw()
@@ -308,32 +303,35 @@ namespace adam::cop
 
     void main_window::draw_menu_bar(adam::language lang)
     {
-        if (!ImGui::BeginMenuBar())
-        {
-            return;
-        }
+        if (!ImGui::BeginMenuBar()) return;
 
         if (ImGui::BeginMenu(get_cop_string(menu_view, lang)))
         {
             const auto& show_txt = std::string(get_cop_string(lbl_show, lang));
 
             std::string layers_str = show_txt + std::string(get_cop_string(lbl_layers_panel, lang));
-            ImGui::MenuItem(layers_str.c_str(), nullptr, &m_show_control_panel);
+            if (m_p_show_control_panel)
+                ImGui::MenuItem(layers_str.c_str(), nullptr, &m_p_show_control_panel->value());
 
             std::string asterix_str = show_txt + std::string(get_cop_string(wnd_data_sources, lang));
-            ImGui::MenuItem(asterix_str.c_str(), nullptr, &m_show_data_sources);
+            if (m_p_show_data_sources)
+                ImGui::MenuItem(asterix_str.c_str(), nullptr, &m_p_show_data_sources->value());
             
-            std::string asterix_str = show_txt + std::string(get_cop_string(wnd_sites, lang));
-            ImGui::MenuItem(asterix_str.c_str(), nullptr, &m_show_data_sources);
+            std::string sites_str = show_txt + std::string(get_cop_string(wnd_sites, lang));
+            if (m_p_show_data_sources)
+                ImGui::MenuItem(sites_str.c_str(), nullptr, &m_p_show_data_sources->value());
             
             std::string waypoints_str = show_txt + std::string(get_cop_string(wnd_waypoints, lang));
-            ImGui::MenuItem(waypoints_str.c_str(), nullptr, &m_show_waypoints);
+            if (m_p_show_waypoints)
+                ImGui::MenuItem(waypoints_str.c_str(), nullptr, &m_p_show_waypoints->value());
             
             std::string cache_str = show_txt + std::string(get_cop_string(lbl_cache_stats, lang));
-            ImGui::MenuItem(cache_str.c_str(), nullptr, &m_show_cache_stats);
+            if (m_p_show_cache_stats)
+                ImGui::MenuItem(cache_str.c_str(), nullptr, &m_p_show_cache_stats->value());
             
             std::string jump_str = show_txt + std::string(get_cop_string(lbl_jump_to_coordinates, lang));
-            ImGui::MenuItem(jump_str.c_str(), nullptr, &m_show_jump_coords);
+            if (m_p_show_jump_coords)
+                ImGui::MenuItem(jump_str.c_str(), nullptr, &m_p_show_jump_coords->value());
 
             if (m_p_show_performance)
             {
@@ -559,11 +557,11 @@ namespace adam::cop
 
     void main_window::draw_panels(adam::language lang)
     {
-        if (m_show_control_panel)
+        if (m_p_show_control_panel && m_p_show_control_panel->get_value())
         {
             ImGui::SetNextWindowSize(ImVec2(340.0f, 250.0f), ImGuiCond_FirstUseEver);
             std::string panel_title = std::string(get_cop_string(lbl_layers_panel, lang)) + "###ControlPanel";
-            if (ImGui::Begin(panel_title.c_str(), &m_show_control_panel))
+            if (ImGui::Begin(panel_title.c_str(), &m_p_show_control_panel->value()))
             {
                 auto save_map_layers = [&]() 
                 {
@@ -736,10 +734,10 @@ namespace adam::cop
             ImGui::End();
         }
 
-        if (m_show_waypoints)
+        if (m_p_show_waypoints && m_p_show_waypoints->get_value())
         {
             std::string title = std::string(get_cop_string(wnd_waypoints, lang)) + "###Waypoints";
-            if (ImGui::Begin(title.c_str(), &m_show_waypoints))
+            if (ImGui::Begin(title.c_str(), &m_p_show_waypoints->value()))
             {
                 static float new_wp_lat = 0.0f;
                 static float new_wp_lon = 0.0f;
@@ -836,7 +834,7 @@ namespace adam::cop
                         ImGui::PushItemWidth(-list_right_space);
                         if (ImGui::InputText("##Label", label, sizeof(label)))
                         {
-                            wp->set_label(label);
+                            wp->set_label(&label[0]);
                             m_ctrl.save_config();
                         }
                         ImGui::PopItemWidth();
@@ -872,10 +870,10 @@ namespace adam::cop
             ImGui::End();
         }
 
-        if (m_show_cache_stats)
+        if (m_p_show_cache_stats && m_p_show_cache_stats->get_value())
         {
             std::string title_cache = std::string(get_cop_string(lbl_cache_stats, lang)) + "###CacheStats";
-            if (ImGui::Begin(title_cache.c_str(), &m_show_cache_stats))
+            if (ImGui::Begin(title_cache.c_str(), &m_p_show_cache_stats->value()))
             {
                 auto& engine = m_map.get_tile_engine();
                 ImGui::Text("GPU Loaded Textures: %zu", engine.get_loaded_texture_count());
@@ -889,10 +887,10 @@ namespace adam::cop
             ImGui::End();
         }
 
-        if (m_show_jump_coords)
+        if (m_p_show_jump_coords && m_p_show_jump_coords->get_value())
         {
             std::string title_jump = std::string(get_cop_string(lbl_jump_to_coordinates, lang)) + "###JumpCoords";
-            if (ImGui::Begin(title_jump.c_str(), &m_show_jump_coords))
+            if (ImGui::Begin(title_jump.c_str(), &m_p_show_jump_coords->value()))
             {
                 ImGui::InputFloat(get_cop_string(lbl_lat, lang), &m_jump_lat, 1.0f, 5.0f, "%.4f");
                 ImGui::InputFloat(get_cop_string(lbl_lon, lang), &m_jump_lon, 1.0f, 5.0f, "%.4f");
@@ -910,10 +908,10 @@ namespace adam::cop
             ImGui::End();
         }
 
-        if (m_show_data_sources)
+        if (m_p_show_data_sources && m_p_show_data_sources->get_value())
         {
             std::string title_asterix = std::string(get_cop_string(wnd_data_sources, lang)) + "###Asterix";
-            if (ImGui::Begin(title_asterix.c_str(), &m_show_data_sources))
+            if (ImGui::Begin(title_asterix.c_str(), &m_p_show_data_sources->value()))
             {
                 ImGui::TextDisabled("No active ASTERIX data feeds connected.");
                 ImGui::TextWrapped("Select ASTERIX radar sources in adam to begin multi-sensor air object tracking.");
@@ -952,7 +950,8 @@ namespace adam::cop
             wp->set_lon(add_lon);
             wp->set_color(0x00D9FF);
             m_ctrl.add_waypoint(std::move(wp));
-            m_show_waypoints = true;
+            if (m_p_show_waypoints)
+                m_p_show_waypoints->set_value(true);
         }
 
         ImGui::End();

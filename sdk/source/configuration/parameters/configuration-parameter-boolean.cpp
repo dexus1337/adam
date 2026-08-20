@@ -13,4 +13,12 @@ namespace adam
         new_param->set_value(m_value);
         return new_param;
     }
+
+    void configuration_parameter_boolean::copy_from(const configuration_parameter* other)
+    {
+        if (!other) return;
+
+        if (const auto* p = dynamic_cast<const configuration_parameter_boolean*>(other))
+            set_value(p->get_value());
+    }
 }

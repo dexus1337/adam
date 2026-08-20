@@ -32,17 +32,21 @@ namespace adam
         new_param->set_descriptions(get_descriptions());
 
         for (const auto& [key, preset] : m_presets)
-        {
             new_param->add_preset(std::unique_ptr<configuration_parameter_string>(static_cast<configuration_parameter_string*>(preset->clone().release())));
-        }
 
         if (m_regex)
-        {
             new_param->set_regex(std::unique_ptr<configuration_parameter_string>(static_cast<configuration_parameter_string*>(m_regex->clone().release())));
-        }
 
         new_param->set_value(m_value);
         return new_param;
+    }
+
+    void configuration_parameter_string::copy_from(const configuration_parameter* other)
+    {
+        if (!other) return;
+
+        if (const auto* p = dynamic_cast<const configuration_parameter_string*>(other))
+            set_value(p->get_value());
     }
 
     bool configuration_parameter_string::set_value(const string_hashed& value)

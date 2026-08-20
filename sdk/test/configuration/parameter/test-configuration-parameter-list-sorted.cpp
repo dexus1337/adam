@@ -6,7 +6,7 @@
 using namespace adam;
 using namespace adam::string_hashed_ct_literals;
 
-TEST(configuration_parameter_list_sorted_test, basic_insert_order_operations)
+TEST(configuration_parameter_test, list_sorted_basic_insert_order_operations)
 {
     configuration_parameter_list_sorted sorted_list("my_list"_ct);
     
@@ -46,7 +46,7 @@ TEST(configuration_parameter_list_sorted_test, basic_insert_order_operations)
     EXPECT_TRUE(order.empty());
 }
 
-TEST(configuration_parameter_list_sorted_test, slicing_copy_and_assignment)
+TEST(configuration_parameter_test, list_sorted_slicing_copy_and_assignment)
 {
     // Create source sorted list
     configuration_parameter_list_sorted src("src_list"_ct);
@@ -79,3 +79,25 @@ TEST(configuration_parameter_list_sorted_test, slicing_copy_and_assignment)
     EXPECT_EQ(assigned_order[2], "param_b"_ct.get_hash());
 }
 
+TEST(configuration_parameter_test, list_sorted_copy_from)
+{
+    configuration_parameter_list_sorted target("sorted_target"_ct);
+    target.add(std::make_unique<configuration_parameter_integer>("old_elem"_ct, 100));
+
+    configuration_parameter_list_sorted source("sorted_source"_ct);
+    source.add(std::make_unique<configuration_parameter_integer>("item_z"_ct, 30));
+    source.add(std::make_unique<configuration_parameter_integer>("item_x"_ct, 10));
+    source.add(std::make_unique<configuration_parameter_integer>("item_y"_ct, 20));
+
+    target.copy_from(&source);
+
+    const auto& order = target.get_order();
+    ASSERT_EQ(order.size(), 3u);
+    EXPECT_EQ(order[0], "item_z"_ct.get_hash());
+    EXPECT_EQ(order[1], "item_x"_ct.get_hash());
+    EXPECT_EQ(order[2], "item_y"_ct.get_hash());
+
+    auto* z = target.get<configuration_parameter_integer>("item_z"_ct);
+    ASSERT_NE(z, nullptr);
+    EXPECT_EQ(z->get_value(), 30);
+}

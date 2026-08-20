@@ -57,34 +57,41 @@ namespace adam::cop
         map_render_options m_map_options;
 
         std::array<map_layer_config_params, 4> m_p_map_layer_params;
-        adam::configuration_parameter_integer* m_p_map_projection;
-        adam::configuration_parameter_boolean* m_p_show_grid;
-        adam::configuration_parameter_boolean* m_p_show_coastlines;
-        adam::configuration_parameter_boolean* m_p_show_land_fill;
-        adam::configuration_parameter_boolean* m_p_show_scale_bar;
-        adam::configuration_parameter_boolean* m_p_show_performance;
-        adam::configuration_parameter_integer* m_p_perf_ovly_location;
-        adam::configuration_parameter_double*  m_p_perf_ovly_x;
-        adam::configuration_parameter_double*  m_p_perf_ovly_y;
-        adam::configuration_parameter_integer* m_p_perf_ovly_content;
-        adam::configuration_parameter_integer* m_p_fps_limit;
-        adam::configuration_parameter_integer* m_p_language;
-        adam::configuration_parameter_string*  m_p_theme;
-        adam::configuration_parameter_integer* m_p_gui_mode;
-        adam::configuration_parameter_double*  m_p_font_scale;
-        adam::configuration_parameter_string*  m_p_docking_layout;
-        adam::configuration_parameter_double*  m_p_map_lat;
-        adam::configuration_parameter_double*  m_p_map_lon;
-        adam::configuration_parameter_double*  m_p_map_zoom;
+        adam::configuration_parameter_integer* m_p_map_projection     = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_grid          = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_coastlines    = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_land_fill     = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_scale_bar     = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_performance   = nullptr;
+        adam::configuration_parameter_integer* m_p_perf_ovly_location = nullptr;
+        adam::configuration_parameter_double*  m_p_perf_ovly_x        = nullptr;
+        adam::configuration_parameter_double*  m_p_perf_ovly_y        = nullptr;
+        adam::configuration_parameter_integer* m_p_perf_ovly_content  = nullptr;
+        adam::configuration_parameter_integer* m_p_fps_limit          = nullptr;
+        adam::configuration_parameter_integer* m_p_language           = nullptr;
+        adam::configuration_parameter_string*  m_p_theme              = nullptr;
+        adam::configuration_parameter_integer* m_p_gui_mode           = nullptr;
+        adam::configuration_parameter_double*  m_p_font_scale         = nullptr;
+        adam::configuration_parameter_string*  m_p_docking_layout     = nullptr;
+        adam::configuration_parameter_double*  m_p_map_lat            = nullptr;
+        adam::configuration_parameter_double*  m_p_map_lon            = nullptr;
+        adam::configuration_parameter_double*  m_p_map_zoom           = nullptr;
+
+        adam::configuration_parameter_boolean* m_p_show_control_panel = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_waypoints     = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_cache_stats   = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_jump_coords   = nullptr;
+        adam::configuration_parameter_boolean* m_p_show_data_sources  = nullptr;
+
+        adam::configuration_parameter_integer* m_p_window_x           = nullptr;
+        adam::configuration_parameter_integer* m_p_window_y           = nullptr;
+        adam::configuration_parameter_integer* m_p_window_w           = nullptr;
+        adam::configuration_parameter_integer* m_p_window_h           = nullptr;
+        adam::configuration_parameter_boolean* m_p_window_maximized   = nullptr;
 
         float m_jump_lat = 0.0f;
         float m_jump_lon = 0.0f;
         bool  m_show_about = false;
-        bool  m_show_control_panel = true;
-        bool  m_show_waypoints = true;
-        bool  m_show_cache_stats = true;
-        bool  m_show_jump_coords = true;
-        bool  m_show_data_sources = true;
 
         adam::language m_last_lang;
     };

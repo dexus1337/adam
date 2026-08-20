@@ -219,9 +219,6 @@ namespace adam
         /** @brief Marks connections originating from the given module as unavailable. */
         void mark_connections_unavailable(string_hash module_hash);
 
-        /** @brief Deep copies a list of configuration parameters. */
-        static void copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source);
-
     protected:
 
         /** @brief Constructs a new registry object. */

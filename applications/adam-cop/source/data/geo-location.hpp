@@ -9,7 +9,6 @@
  */
 
 #include <adam-sdk.hpp>
-#include <string>
 
 namespace adam::cop
 {
@@ -21,10 +20,17 @@ namespace adam::cop
 
         float get_lat() const;
         float get_lon() const;
-        std::string get_label() const; 
+        const adam::string_hashed& get_label() const; 
 
         void set_lat(float lat);
         void set_lon(float lon);
-        void set_label(const std::string& name);
+        void set_label(const adam::string_hashed& name);
+
+    protected:
+        void cache_geo_parameters();
+
+        adam::configuration_parameter_double* m_p_lat = nullptr;
+        adam::configuration_parameter_double* m_p_lon = nullptr;
+        adam::configuration_parameter_string* m_p_name = nullptr;
     };
 }

@@ -63,6 +63,10 @@ namespace adam
         /** @brief Creates a deep copy of this configuration parameter. */
         virtual std::unique_ptr<configuration_parameter> clone() const = 0;
 
+        /** @brief Copies the value(s) from another configuration parameter of compatible type into this parameter. */
+        virtual void copy_from(const configuration_parameter* other) = 0;
+        void copy_from(const configuration_parameter& other) { copy_from(&other); }
+
         /** @brief Destroys the configuration_parameter object and cleans up resources. */
         virtual ~configuration_parameter();
 

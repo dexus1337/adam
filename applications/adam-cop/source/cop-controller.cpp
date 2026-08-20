@@ -200,13 +200,11 @@ namespace adam::cop
         for (const auto& hash : wp_list->get_order())
         {
             auto* p = wp_list->get<configuration_parameter_list>(hash);
-            if (p)
-            {
-                auto wp = std::make_unique<waypoint>(p->get_name());
-                // Configuration parameters clone on assignment
-                wp->parameters() = *p; 
-                m_waypoints.push_back(std::move(wp));
-            }
+            if (!p) continue;
+
+            auto wp = std::make_unique<waypoint>(p->get_name());
+            wp->parameters().copy_from(p);
+            m_waypoints.push_back(std::move(wp));
         }
     }
 
@@ -219,6 +217,8 @@ namespace adam::cop
         uint32_t wp_id = 0;
         for (const auto& wp : m_waypoints)
         {
+            if (!wp) continue;
+
             auto p = wp->get_parameters().clone();
             
             // Generate a unique ID to guarantee they don't overwrite each other in the config list

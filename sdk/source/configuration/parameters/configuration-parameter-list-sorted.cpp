@@ -61,6 +61,33 @@ namespace adam
         return *this;
     }
 
+    void configuration_parameter_list_sorted::copy_from(const configuration_parameter* other)
+    {
+        if (!other) return;
+
+        const auto* src_list = dynamic_cast<const configuration_parameter_list*>(other);
+        if (!src_list) return;
+
+        clear();
+
+        if (const auto* sorted_other = dynamic_cast<const configuration_parameter_list_sorted*>(src_list))
+        {
+            for (string_hash child_hash : sorted_other->get_order())
+            {
+                if (auto* child = sorted_other->get(child_hash))
+                    add(child->clone());
+            }
+        }
+        else
+        {
+            for (const auto& [name, child] : src_list->get_children())
+            {
+                if (child)
+                    add(child->clone());
+            }
+        }
+    }
+
     void configuration_parameter_list_sorted::add(std::unique_ptr<configuration_parameter> param)
     {
         if (param)
@@ -71,9 +98,7 @@ namespace adam
             configuration_parameter_list::add(std::move(param));
             
             if (!already_exists)
-            {
                 m_order.push_back(h);
-            }
         }
     }
 

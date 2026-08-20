@@ -45,6 +45,9 @@ namespace adam
         /** @brief Creates a deep copy of this configuration parameter list. */
         std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_list>(*this); }
 
+        /** @brief Copies matching parameter values from another configuration parameter list into this list. */
+        void copy_from(const configuration_parameter* other) override;
+
         /** @brief Adds a child parameter to the list. */
         virtual void add(std::unique_ptr<configuration_parameter> param);
 

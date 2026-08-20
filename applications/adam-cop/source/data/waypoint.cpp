@@ -15,27 +15,36 @@ namespace adam::cop
     waypoint::waypoint(const adam::string_hashed& item_name)
         : geo_location(item_name, build_waypoint_params())
     {
+        cache_waypoint_parameters();
     }
 
     bool waypoint::is_enabled() const
     {
-        auto* p = get_parameter<adam::configuration_parameter_boolean>("enabled"_ct);
-        return p ? p->get_value() : true;
+        if (!m_p_enabled) return true;
+        return m_p_enabled->get_value();
     }
 
     void waypoint::set_enabled(bool enabled)
     {
-        if (auto* p = get_parameter<adam::configuration_parameter_boolean>("enabled"_ct)) p->set_value(enabled);
+        if (!m_p_enabled) return;
+        m_p_enabled->set_value(enabled);
     }
 
     uint32_t waypoint::get_color() const
     {
-        auto* p = get_parameter<adam::configuration_parameter_integer>("color"_ct);
-        return p ? static_cast<uint32_t>(p->get_value()) : 0xFF5919;
+        if (!m_p_color) return 0xFF5919;
+        return static_cast<uint32_t>(m_p_color->get_value());
     }
 
     void waypoint::set_color(uint32_t color)
     {
-        if (auto* p = get_parameter<adam::configuration_parameter_integer>("color"_ct)) p->set_value(static_cast<int64_t>(color));
+        if (!m_p_color) return;
+        m_p_color->set_value(static_cast<int64_t>(color));
+    }
+
+    void waypoint::cache_waypoint_parameters()
+    {
+        m_p_enabled = get_parameter<adam::configuration_parameter_boolean>("enabled"_ct);
+        m_p_color   = get_parameter<adam::configuration_parameter_integer>("color"_ct);
     }
 }

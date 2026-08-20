@@ -17,5 +17,13 @@ namespace adam::cop
     public:
         site(const adam::string_hashed& item_name);
         virtual ~site() = default;
+
+        int64_t get_sacsic() const;
+        void set_sacsic(int64_t sacsic);
+
+    protected:
+        void cache_site_parameters();
+
+        adam::configuration_parameter_integer* m_p_sacsic = nullptr;
     };
 }

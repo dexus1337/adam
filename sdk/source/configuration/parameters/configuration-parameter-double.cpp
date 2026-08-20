@@ -25,19 +25,23 @@ namespace adam
         new_param->set_descriptions(get_descriptions());
 
         if (m_mode == value_mode_range)
-        {
             new_param->set_range(m_min_value, m_max_value);
-        }
         else if (m_mode == value_mode_preset)
         {
             for (double preset : m_presets)
-            {
                 new_param->add_preset(preset);
-            }
         }
 
         new_param->set_value(m_value);
         return new_param;
+    }
+
+    void configuration_parameter_double::copy_from(const configuration_parameter* other)
+    {
+        if (!other) return;
+
+        if (const auto* p = dynamic_cast<const configuration_parameter_double*>(other))
+            set_value(p->get_value());
     }
 
     bool configuration_parameter_double::set_value(double value)
@@ -47,17 +51,11 @@ namespace adam
             auto it = std::find_if(m_presets.begin(), m_presets.end(), [value](double preset) {
                 return std::abs(preset - value) < 1e-9;
             });
-            if (it == m_presets.end())
-            {
-                return false;
-            }
+            if (it == m_presets.end()) return false;
         }
         else if (m_mode == value_mode_range)
         {
-            if (value < m_min_value || value > m_max_value)
-            {
-                return false;
-            }
+            if (value < m_min_value || value > m_max_value) return false;
         }
 
         m_value = value;

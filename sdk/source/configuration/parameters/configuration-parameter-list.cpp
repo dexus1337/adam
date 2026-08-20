@@ -33,13 +33,38 @@ namespace adam
 
     configuration_parameter_list::~configuration_parameter_list() {}
 
+    void configuration_parameter_list::copy_from(const configuration_parameter* other)
+    {
+        if (!other) return;
+
+        const auto* src_list = dynamic_cast<const configuration_parameter_list*>(other);
+        if (!src_list) return;
+
+        if (m_children.empty())
+        {
+            for (const auto& [name, param] : src_list->get_children())
+            {
+                if (param)
+                    m_children.emplace(name, param->clone());
+            }
+            return;
+        }
+
+        for (auto& [name, param] : m_children)
+        {
+            if (!param) continue;
+
+            const auto* src_param = src_list->get(name.get_hash());
+            if (!src_param) continue;
+
+            param->copy_from(src_param);
+        }
+    }
+
     void configuration_parameter_list::add(std::unique_ptr<configuration_parameter> param)
     {
-        if (param)
-        {
-            if (!m_children.contains(param->get_name()))
-                m_children.emplace(param->get_name(), std::move(param));
-        }
+        if (param && !m_children.contains(param->get_name()))
+            m_children.emplace(param->get_name(), std::move(param));
     }
 
     void configuration_parameter_list::clear()
