@@ -33,6 +33,21 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_boolean>("show_coastlines"_ct, true));
             p.add(std::make_unique<configuration_parameter_boolean>("show_land_fill"_ct, true));
             p.add(std::make_unique<configuration_parameter_boolean>("show_scale_bar"_ct, true));
+            p.add(std::make_unique<configuration_parameter_integer>("language"_ct, static_cast<int>(adam::language_english)));
+            p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "dark"_ct));
+            p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0)); // 0 = Default, 1 = Immediate
+            p.add(std::make_unique<configuration_parameter_double>("font_scale"_ct, 1.0));
+            p.add(std::make_unique<configuration_parameter_integer>("window_x"_ct, -1));
+            p.add(std::make_unique<configuration_parameter_integer>("window_y"_ct, -1));
+            p.add(std::make_unique<configuration_parameter_integer>("window_w"_ct, 1280));
+            p.add(std::make_unique<configuration_parameter_integer>("window_h"_ct, 720));
+            p.add(std::make_unique<configuration_parameter_boolean>("window_maximized"_ct, false));
+            p.add(std::make_unique<configuration_parameter_string>("docking_layout"_ct, ""_ct));
+            p.add(std::make_unique<configuration_parameter_double>("map_lat"_ct, 20.0));
+            p.add(std::make_unique<configuration_parameter_double>("map_lon"_ct, 10.0));
+            p.add(std::make_unique<configuration_parameter_double>("map_zoom"_ct, 1.0));
+            p.add(std::make_unique<configuration_parameter_list_sorted>("waypoints"_ct));
+            
             p.add(std::make_unique<configuration_parameter_integer>("map_layer_0_provider"_ct, 0));
             p.add(std::make_unique<configuration_parameter_double>("map_layer_0_opacity"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_boolean>("map_layer_0_visible"_ct, true));
@@ -49,21 +64,6 @@ namespace adam::cop
             p.add(std::make_unique<configuration_parameter_double>("map_layer_3_opacity"_ct, 1.0));
             p.add(std::make_unique<configuration_parameter_boolean>("map_layer_3_visible"_ct, false));
 
-
-            p.add(std::make_unique<configuration_parameter_integer>("language"_ct, static_cast<int>(adam::language_english)));
-            p.add(std::make_unique<configuration_parameter_string>("theme"_ct, "dark"_ct));
-            p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0)); // 0 = Default, 1 = Immediate
-            p.add(std::make_unique<configuration_parameter_double>("font_scale"_ct, 1.0));
-            p.add(std::make_unique<configuration_parameter_integer>("window_x"_ct, -1));
-            p.add(std::make_unique<configuration_parameter_integer>("window_y"_ct, -1));
-            p.add(std::make_unique<configuration_parameter_integer>("window_w"_ct, 1280));
-            p.add(std::make_unique<configuration_parameter_integer>("window_h"_ct, 720));
-            p.add(std::make_unique<configuration_parameter_boolean>("window_maximized"_ct, false));
-            p.add(std::make_unique<configuration_parameter_string>("docking_layout"_ct, ""_ct));
-            p.add(std::make_unique<configuration_parameter_double>("map_lat"_ct, 20.0));
-            p.add(std::make_unique<configuration_parameter_double>("map_lon"_ct, 10.0));
-            p.add(std::make_unique<configuration_parameter_double>("map_zoom"_ct, 1.0));
-            p.add(std::make_unique<configuration_parameter_list_sorted>("waypoints"_ct));
             return p;
         }();
         return params;
@@ -166,8 +166,11 @@ namespace adam::cop
 
     void cop_controller::remove_waypoint(adam::string_hash item_hash)
     {
-        auto it = std::find_if(m_waypoints.begin(), m_waypoints.end(),
-            [item_hash](const std::unique_ptr<waypoint>& wp) { return wp->get_name().get_hash() == item_hash; });
+        auto it = std::find_if(m_waypoints.begin(), m_waypoints.end(), [item_hash](const std::unique_ptr<waypoint>& wp) 
+        { 
+            return wp->get_name().get_hash() == item_hash; 
+        });
+
         if (it != m_waypoints.end())
         {
             m_waypoints.erase(it);
@@ -205,9 +208,6 @@ namespace adam::cop
                 m_waypoints.push_back(std::move(wp));
             }
         }
-        
-        // Ensure next id is correct by finding the max numeric suffix if possible, 
-        // but for simplicity we can just make sure they have unique names when creating.
     }
 
     void cop_controller::sync_waypoints_to_config()

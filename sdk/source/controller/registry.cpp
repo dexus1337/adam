@@ -1752,8 +1752,6 @@ namespace adam
         return true;
     }
     
-
-
     void registry::copy_parameters(configuration_parameter_list* target, configuration_parameter_list* source)
     {
         if (!target || !source) return;
@@ -1846,26 +1844,26 @@ namespace adam
             }
         };
 
-            if (auto* sorted_source = dynamic_cast<const configuration_parameter_list_sorted*>(source))
+        if (auto* sorted_source = dynamic_cast<const configuration_parameter_list_sorted*>(source))
+        {
+            const auto& children = sorted_source->get_children();
+            for (const auto& child_hash : sorted_source->get_order())
             {
-                const auto& children = sorted_source->get_children();
-                for (const auto& child_hash : sorted_source->get_order())
+                auto it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) 
                 {
-                    auto it = std::find_if(children.begin(), children.end(), [child_hash](const auto& pair) {
-                        return pair.first.get_hash() == child_hash;
-                    });
-                    if (it != children.end())
-                    {
-                        copy_single_parameter(it->first, it->second);
-                    }
-                }
-            }
-            else
-            {
-                for (const auto& [name, param] : source->get_children())
-                    copy_single_parameter(name, param);
+                    return pair.first.get_hash() == child_hash;
+                });
+
+                if (it != children.end())
+                    copy_single_parameter(it->first, it->second);
             }
         }
+        else
+        {
+            for (const auto& [name, param] : source->get_children())
+                copy_single_parameter(name, param);
+        }
+    }
 
     std::string_view registry::get_status_text(status status, language lang)
     {
@@ -1882,7 +1880,9 @@ namespace adam
         };
 
         auto it = translations.find(static_cast<int>(status));
+        
         if (it != translations.end()) return it->second[static_cast<size_t>(lang)];
+
         return "Unknown registry status.";
     }
 }

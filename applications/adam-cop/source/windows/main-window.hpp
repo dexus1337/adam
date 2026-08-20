@@ -80,13 +80,11 @@ namespace adam::cop
         float m_jump_lat = 0.0f;
         float m_jump_lon = 0.0f;
         bool  m_show_about = false;
-        bool  m_show_base_map_layer = true;
-        bool  m_show_projection = true;
         bool  m_show_control_panel = true;
         bool  m_show_waypoints = true;
         bool  m_show_cache_stats = true;
         bool  m_show_jump_coords = true;
-        bool  m_show_asterix = true;
+        bool  m_show_data_sources = true;
 
         adam::language m_last_lang;
     };

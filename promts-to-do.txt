@@ -1,0 +1,46 @@
+Currently, loading parameters/configuration_items from a file is not standardized.
+
+The adam registry does it entirely different compared to how cop does it. And i dont really like how
+there is a copy_parameter function in the registry, while it should be part of the configuration_parameter class or 
+its children classes. make sure to also account the the list ones, theres a ordererd list variant. make sure you check out
+everywhere we use the config system to fully understand it and optimize it.
+
+It is okay that we do some tricky stuff with magic and fast access connection count etc in the regirstry, but deserializing the 
+objects/parameters from the file should be unique procedure. 
+
+"// Configuration parameters clone on assignment
+                wp->parameters() = *p; "
+
+This code for example i dont really like. Since the = operater essentially remvoes the existing parameters
+and overwrites from the parsed one (iguess?). One goal of the config system is to have 100% backwards compatability with old configs: 
+If new parameters are missing, they are automatically added (with defualt values), esisting parameters their value is used, and old/no longer used parameters
+are automatically cleared.
+
+Remember to do this is the cleaest way possible, use guard clauses and allman bracket style. align code so it looks nice and readable, have same functions grouped together in the header. and make sure the order
+of functions in the header and source should be the same.
+
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+
+In cop, i want to also have quick access to all parameters, so make sure to cache their pointers everywhere.
+In all the data types like geo_location, site waypoint etc. But also for the main window, like look at this:
+
+
+        m_show_control_panel = static_cast<adam::configuration_parameter_boolean*>(params.get("show_control_panel"_ct))->get_value();
+        m_show_waypoints = static_cast<adam::configuration_parameter_boolean*>(params.get("show_waypoints"_ct))->get_value();
+        m_show_cache_stats = static_cast<adam::configuration_parameter_boolean*>(params.get("show_cache_stats"_ct))->get_value();
+        m_show_jump_coords = static_cast<adam::configuration_parameter_boolean*>(params.get("show_jump_coords"_ct))->get_value();
+        m_show_data_sources = static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->get_value();
+
+        int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
+        int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
+        int w = static_cast<adam::configuration_parameter_integer*>(params.get("window_w"_ct))->get_value_as<int>();
+        int h = static_cast<adam::configuration_parameter_integer*>(params.get("window_h"_ct))->get_value_as<int>();
+        bool maximized = static_cast<adam::configuration_parameter_boolean*>(params.get("window_maximized"_ct))->get_value();
+
+why cache the parameter values but not the parameters directly? please do this properly
+
+
+Remember to do this is the cleaest way possible, use guard clauses and allman bracket style. align code so it looks nice and readable, have same functions grouped together in the header. and make sure the order
+of functions in the header and source should be the same.

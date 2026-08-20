@@ -107,7 +107,7 @@ namespace adam::cop
         m_show_waypoints = static_cast<adam::configuration_parameter_boolean*>(params.get("show_waypoints"_ct))->get_value();
         m_show_cache_stats = static_cast<adam::configuration_parameter_boolean*>(params.get("show_cache_stats"_ct))->get_value();
         m_show_jump_coords = static_cast<adam::configuration_parameter_boolean*>(params.get("show_jump_coords"_ct))->get_value();
-        m_show_asterix = static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->get_value();
+        m_show_data_sources = static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->get_value();
 
         int x = static_cast<adam::configuration_parameter_integer*>(params.get("window_x"_ct))->get_value_as<int>();
         int y = static_cast<adam::configuration_parameter_integer*>(params.get("window_y"_ct))->get_value_as<int>();
@@ -198,7 +198,7 @@ namespace adam::cop
             static_cast<adam::configuration_parameter_boolean*>(params.get("show_waypoints"_ct))->set_value(m_show_waypoints);
             static_cast<adam::configuration_parameter_boolean*>(params.get("show_cache_stats"_ct))->set_value(m_show_cache_stats);
             static_cast<adam::configuration_parameter_boolean*>(params.get("show_jump_coords"_ct))->set_value(m_show_jump_coords);
-            static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->set_value(m_show_asterix);
+            static_cast<adam::configuration_parameter_boolean*>(params.get("show_asterix"_ct))->set_value(m_show_data_sources);
 
             size_t ini_size = 0;
             const char* ini_data = ImGui::SaveIniSettingsToMemory(&ini_size);
@@ -315,19 +315,24 @@ namespace adam::cop
 
         if (ImGui::BeginMenu(get_cop_string(menu_view, lang)))
         {
-            std::string layers_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(lbl_layers_panel, lang));
+            const auto& show_txt = std::string(get_cop_string(lbl_show, lang));
+
+            std::string layers_str = show_txt + std::string(get_cop_string(lbl_layers_panel, lang));
             ImGui::MenuItem(layers_str.c_str(), nullptr, &m_show_control_panel);
 
-            std::string waypoints_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(wnd_waypoints, lang));
+            std::string asterix_str = show_txt + std::string(get_cop_string(wnd_data_sources, lang));
+            ImGui::MenuItem(asterix_str.c_str(), nullptr, &m_show_data_sources);
+            
+            std::string asterix_str = show_txt + std::string(get_cop_string(wnd_sites, lang));
+            ImGui::MenuItem(asterix_str.c_str(), nullptr, &m_show_data_sources);
+            
+            std::string waypoints_str = show_txt + std::string(get_cop_string(wnd_waypoints, lang));
             ImGui::MenuItem(waypoints_str.c_str(), nullptr, &m_show_waypoints);
             
-            std::string cache_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(lbl_cache_stats, lang));
+            std::string cache_str = show_txt + std::string(get_cop_string(lbl_cache_stats, lang));
             ImGui::MenuItem(cache_str.c_str(), nullptr, &m_show_cache_stats);
             
-            std::string asterix_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(wnd_asterix_connections, lang));
-            ImGui::MenuItem(asterix_str.c_str(), nullptr, &m_show_asterix);
-            
-            std::string jump_str = (lang == adam::language_german ? "Zeige " : "Show ") + std::string(get_cop_string(lbl_jump_to_coordinates, lang));
+            std::string jump_str = show_txt + std::string(get_cop_string(lbl_jump_to_coordinates, lang));
             ImGui::MenuItem(jump_str.c_str(), nullptr, &m_show_jump_coords);
 
             if (m_p_show_performance)
@@ -905,10 +910,10 @@ namespace adam::cop
             ImGui::End();
         }
 
-        if (m_show_asterix)
+        if (m_show_data_sources)
         {
-            std::string title_asterix = std::string(get_cop_string(wnd_asterix_connections, lang)) + "###Asterix";
-            if (ImGui::Begin(title_asterix.c_str(), &m_show_asterix))
+            std::string title_asterix = std::string(get_cop_string(wnd_data_sources, lang)) + "###Asterix";
+            if (ImGui::Begin(title_asterix.c_str(), &m_show_data_sources))
             {
                 ImGui::TextDisabled("No active ASTERIX data feeds connected.");
                 ImGui::TextWrapped("Select ASTERIX radar sources in adam to begin multi-sensor air object tracking.");

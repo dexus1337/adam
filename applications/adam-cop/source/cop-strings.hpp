@@ -40,6 +40,7 @@ namespace adam::cop
         lbl_land_fill_toggle,
         lbl_scale_bar_toggle,
         lbl_compass_toggle,
+        lbl_show,
         lbl_cache_stats,
         btn_clear_tile_cache,
         lbl_placed_markers,
@@ -56,9 +57,6 @@ namespace adam::cop
         lbl_fps,
         lbl_status_online,
         lbl_status_offline,
-        wnd_log_console,
-        wnd_asterix_connections,
-        wnd_about,
         msg_cop_description,
         msg_cop_copyright,
         menu_settings,
@@ -95,6 +93,10 @@ namespace adam::cop
         wnd_waypoints,
         wnd_world_map,
         wnd_settings,
+        wnd_log_console,
+        wnd_data_sources,
+        wnd_sites,
+        wnd_about,
         menu_add_waypoint_here
     };
 
