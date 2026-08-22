@@ -1,6 +1,6 @@
 #pragma once
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include <cstdint>
 
 namespace adam::lib::imgui

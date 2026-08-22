@@ -12,7 +12,7 @@
 #include "api/api-recrep.hpp"
 #include "commander/messages/message-structs.hpp"
  
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 #include <cstdint>
 #include <fstream>

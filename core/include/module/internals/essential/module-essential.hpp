@@ -21,12 +21,12 @@ namespace adam
      * @class   module_essential
      * @brief   An internal module compiled directly into ADAM to host essential formats, ports, and processors.
      */
-    class ADAM_SDK_API module_essential : public module
+    class ADAM_CORE_API module_essential : public module
     {
     public:
         module_essential();
         ~module_essential();
     };
 
-    extern ADAM_SDK_API module_essential internal_module_essential;
+    extern ADAM_CORE_API module_essential internal_module_essential;
 }

@@ -8,7 +8,7 @@
  * @date    12.06.2026
  */
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include <imgui.h>
 #include <vector>
 #include <string>

@@ -8,7 +8,7 @@
  * @date    13.05.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "data/port.hpp"
 #include "resources/language.hpp"
@@ -55,7 +55,7 @@ namespace adam
      * @class module_view
      * @brief Holds a local view of the controller's available, unavailable, and loaded modules.
      */
-    class ADAM_SDK_API module_view
+    class ADAM_CORE_API module_view
     {
     public:
         using map_available_modules   = std::unordered_map<string_hashed, std::pair<uint32_t, string_hashed>>;

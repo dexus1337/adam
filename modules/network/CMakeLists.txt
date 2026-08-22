@@ -10,12 +10,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-# Grab all source files for the sdk and tests automatically
+# Grab all source files for the target and tests automatically
 file(GLOB_RECURSE module_source_files "source/*cpp"  )
 file(GLOB_RECURSE test_source_files   "test/*cpp"    ) 
 
 
-# Create the shared library target for the sdk
+# Create the shared library target
 add_library(adam-module-network SHARED ${module_source_files})
 
 # This tells other targets where to find headers when they link to 'adam-module-network'
@@ -25,14 +25,14 @@ target_include_directories(adam-module-network
 )
 
 target_link_libraries(adam-module-network 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
 )
 if(WIN32)
     target_link_libraries(adam-module-network PRIVATE ws2_32)
 endif()
 
 target_compile_definitions(adam-module-network
-    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_USE_SHARED_CORE
     PRIVATE ADAM_NETWORK_EXPORTS
 )
 
@@ -55,11 +55,11 @@ target_include_directories(adam-module-network-test
 )
 
 target_compile_definitions(adam-module-network-test
-    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_USE_SHARED_CORE
 )
 
 target_link_libraries(adam-module-network-test 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
 )
 if(WIN32)
     target_link_libraries(adam-module-network-test PRIVATE ws2_32)
@@ -72,7 +72,7 @@ set_target_properties(adam-module-network-test PROPERTIES
 
 add_custom_command(TARGET adam-module-network-test POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:adam-sdk>
+            $<TARGET_FILE:adam-core>
             $<TARGET_FILE_DIR:adam-module-network-test>
 )
 

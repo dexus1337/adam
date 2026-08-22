@@ -29,12 +29,12 @@ namespace adam
         static const std::unordered_map<log_event, std::array<std::string_view, languages_count>> translations =
         {
             {
-                log_event::module_requires_newer_sdk,
-                { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}" }
+                log_event::module_requires_newer_core,
+                { "Module \"{}\" requires Core {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}", "Modul \"{}\" benötigt Core {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}" }
             },
             {
-                log_event::module_requires_newer_sdk_cannot_load,
-                { "Module \"{}\" requires SDK {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!", "Modul \"{}\" benötigt SDK {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}. Kann nicht geladen werden!" }
+                log_event::module_requires_newer_core_cannot_load,
+                { "Module \"{}\" requires Core {:d}.{:d}.{:d}, this is {:d}.{:d}.{:d}. Cannot be loaded!", "Modul \"{}\" benötigt Core {:d}.{:d}.{:d}, dies ist {:d}.{:d}.{:d}. Kann nicht geladen werden!" }
             },
             {
                 log_event::module_available,
@@ -267,19 +267,19 @@ namespace adam
                 goto UNLOAD_AND_CONTINUE;
             }
 
-            if (mod->get_required_sdk_version() > adam::sdk_version)
+            if (mod->get_required_core_version() > adam::core_version)
             {
-                auto req_maj = adam::get_major(mod->get_required_sdk_version());
-                auto req_min = adam::get_minor(mod->get_required_sdk_version());
-                auto req_pat = adam::get_patch(mod->get_required_sdk_version());
-                auto sdk_maj = adam::get_major(adam::sdk_version);
-                auto sdk_min = adam::get_minor(adam::sdk_version);
-                auto sdk_pat = adam::get_patch(adam::sdk_version);
+                auto req_maj = adam::get_major(mod->get_required_core_version());
+                auto req_min = adam::get_minor(mod->get_required_core_version());
+                auto req_pat = adam::get_patch(mod->get_required_core_version());
+                auto core_maj = adam::get_major(adam::core_version);
+                auto core_min = adam::get_minor(adam::core_version);
+                auto core_pat = adam::get_patch(adam::core_version);
 
-                m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_sdk, m_controller.get_language()),
-                    path_str.c_str(), req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
+                m_controller.log(log::warning, get_log_event_text(log_event::module_requires_newer_core, m_controller.get_language()),
+                    path_str.c_str(), req_maj, req_min, req_pat, core_maj, core_min, core_pat);
 
-                m_unavailable_modules.emplace(mod->get_name(), std::make_tuple(mod->get_version(), path_str, module::basic_info::incompat_reason_sdk_too_old));
+                m_unavailable_modules.emplace(mod->get_name(), std::make_tuple(mod->get_version(), path_str, module::basic_info::incompat_reason_core_too_old));
 
                 event evt(event_type::module_unavailable);
                 auto* mod_info = evt.data_as<module::basic_info>();
@@ -344,17 +344,17 @@ namespace adam
         mod = fn_get_adam_module();
         if (!mod || m_loaded_modules.contains(mod->get_name())) goto UNLOAD_AND_RETURN;
 
-        if (mod->get_required_sdk_version() > adam::sdk_version)
+        if (mod->get_required_core_version() > adam::core_version)
         {
-            auto req_maj = adam::get_major(mod->get_required_sdk_version());
-            auto req_min = adam::get_minor(mod->get_required_sdk_version());
-            auto req_pat = adam::get_patch(mod->get_required_sdk_version());
-            auto sdk_maj = adam::get_major(adam::sdk_version);
-            auto sdk_min = adam::get_minor(adam::sdk_version);
-            auto sdk_pat = adam::get_patch(adam::sdk_version);
+            auto req_maj = adam::get_major(mod->get_required_core_version());
+            auto req_min = adam::get_minor(mod->get_required_core_version());
+            auto req_pat = adam::get_patch(mod->get_required_core_version());
+            auto core_maj = adam::get_major(adam::core_version);
+            auto core_min = adam::get_minor(adam::core_version);
+            auto core_pat = adam::get_patch(adam::core_version);
 
-            m_controller.log(log::error, get_log_event_text(log_event::module_requires_newer_sdk_cannot_load, m_controller.get_language()),
-                path_str.c_str(), req_maj, req_min, req_pat, sdk_maj, sdk_min, sdk_pat);
+            m_controller.log(log::error, get_log_event_text(log_event::module_requires_newer_core_cannot_load, m_controller.get_language()),
+                path_str.c_str(), req_maj, req_min, req_pat, core_maj, core_min, core_pat);
             return false;
         }
 

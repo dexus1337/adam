@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string>
 #include <vector>
@@ -23,7 +23,7 @@ namespace adam
      * @class   analyzer
      * @brief   Defines a base class for data format analyzer. Used to make data human readable and analyzable in a CSV format.
      */
-    class ADAM_SDK_API analyzer 
+    class ADAM_CORE_API analyzer 
     {
     public:
 

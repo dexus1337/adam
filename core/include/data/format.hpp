@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "factory/factory.hpp"
 
@@ -24,7 +24,7 @@ namespace adam
      * @class data_format
      * @brief A base class for any data formats used in the ADAM system, providing a common interface for handling different types of data.
      */
-    class ADAM_SDK_API data_format 
+    class ADAM_CORE_API data_format 
     {
     public:
 

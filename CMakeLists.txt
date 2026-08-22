@@ -27,7 +27,7 @@ if(MSVC)
 endif()
 
 # Add subdirectories in order of dependency
-add_subdirectory(sdk)
+add_subdirectory(core)
 add_subdirectory(libraries)
 add_subdirectory(modules)
 add_subdirectory(applications)

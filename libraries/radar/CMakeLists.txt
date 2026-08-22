@@ -9,7 +9,7 @@ target_include_directories(adam-radar PUBLIC
 )
 
 target_link_libraries(adam-radar PUBLIC
-    adam-sdk
+    adam-core
 )
 
 if(WIN32)

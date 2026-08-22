@@ -16,7 +16,7 @@
 
 #include "api/api-network.hpp"
 #include "data/port-types/port-udp-base.hpp"
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 namespace adam::modules::network
 {

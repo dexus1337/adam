@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include "data/processor.hpp"
 
@@ -19,7 +19,7 @@ namespace adam
      * @class converter
      * @brief A base class for data format processors, providing a common interface for processing data in different formats used in the ADAM system.
      */
-    class ADAM_SDK_API converter : public processor
+    class ADAM_CORE_API converter : public processor
     {
     public: 
         /** @brief Destroys the data processor object and cleans up resources. */

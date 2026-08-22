@@ -1,4 +1,4 @@
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 #include "terminal-manager.hpp"
 #include "cli-strings.hpp"

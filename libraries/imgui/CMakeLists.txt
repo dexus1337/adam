@@ -25,7 +25,7 @@ target_include_directories(adam-imgui PUBLIC
 )
 
 target_link_libraries(adam-imgui PUBLIC
-    adam-sdk
+    adam-core
     SDL3::SDL3
     OpenGL::GL
 )

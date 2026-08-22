@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <memory>
 #include <ostream>
@@ -24,7 +24,7 @@ namespace adam
      * @class configuration_parameter
      * @brief Defines a base class for any configuration parameters
      */
-    class ADAM_SDK_API configuration_parameter 
+    class ADAM_CORE_API configuration_parameter 
     {
 
         friend class configuration_item;

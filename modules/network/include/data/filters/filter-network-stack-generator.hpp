@@ -8,7 +8,7 @@
  * @date    10.07.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "data/processors/filter.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"

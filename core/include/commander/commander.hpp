@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include "controller/controller.hpp"
 #include "data/inspector.hpp"
@@ -36,7 +36,7 @@ namespace adam
      * @class commander
      * @brief Defines the ADAM commander which allows to send commands to the controller from external processes
      */
-    class ADAM_SDK_API commander
+    class ADAM_CORE_API commander
     {
         friend class commander_event_dispatcher;
 

@@ -8,7 +8,7 @@
  * @date    12.05.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <cstdint>
 #include <cstddef>
@@ -85,7 +85,7 @@ namespace adam
      * @brief Defines an event for the controller to broadcast state changes
      */
     #pragma pack(push, 1) // align to 1 byte
-    class ADAM_SDK_API event : public commander_message_template<event_type>
+    class ADAM_CORE_API event : public commander_message_template<event_type>
     {
     public:
 

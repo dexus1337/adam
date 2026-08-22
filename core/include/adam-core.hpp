@@ -1,14 +1,14 @@
 #pragma once
 
 /**
- * @file    adam-sdk.hpp
+ * @file    adam-core.hpp
  * @author  dexus1337
- * @brief   Umbrella header for the ADAM SDK, including all necessary headers for using the SDK in external applications and modules.
+ * @brief   Umbrella header for the ADAM Core library, including all necessary headers for using Core in external applications and modules.
  * @version 1.0
  * @date    25.04.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "configuration/configuration-item.hpp"
 #include "configuration/parameters/configuration-parameter.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"

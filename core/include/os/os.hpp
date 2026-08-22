@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include <cstdint>
 #include <atomic>
 
@@ -63,7 +63,7 @@ namespace adam::os
     using thread_id     = uint32_t;
     using process_id    = uint32_t;
 
-    inline ADAM_SDK_API thread_id get_current_thread_id()
+    inline ADAM_CORE_API thread_id get_current_thread_id()
     {
         #ifdef      ADAM_PLATFORM_LINUX
         return static_cast<thread_id>(syscall(SYS_gettid));
@@ -74,7 +74,7 @@ namespace adam::os
         #endif
     }
 
-    inline ADAM_SDK_API process_id get_current_process_id()
+    inline ADAM_CORE_API process_id get_current_process_id()
     {
         #ifdef      ADAM_PLATFORM_LINUX
         return static_cast<process_id>(syscall(SYS_getpid));
@@ -85,10 +85,10 @@ namespace adam::os
         #endif
     }
 
-    extern ADAM_SDK_API float   get_cpu_usage();
-    extern ADAM_SDK_API void    get_ram_usage_mb(float& used_mb, float& available_mb);
+    extern ADAM_CORE_API float   get_cpu_usage();
+    extern ADAM_CORE_API void    get_ram_usage_mb(float& used_mb, float& available_mb);
 
-    extern ADAM_SDK_API void*   load_library(const char* path);
-    extern ADAM_SDK_API bool    unload_library(void* handle);
-    extern ADAM_SDK_API void*   get_library_symbol(void* handle, const char* symbol);
+    extern ADAM_CORE_API void*   load_library(const char* path);
+    extern ADAM_CORE_API bool    unload_library(void* handle);
+    extern ADAM_CORE_API void*   get_library_symbol(void* handle, const char* symbol);
 }

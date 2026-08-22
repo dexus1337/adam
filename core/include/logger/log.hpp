@@ -13,7 +13,7 @@
 #include <string>
 #include <format>
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "os/os.hpp"
 
 
@@ -24,7 +24,7 @@ namespace adam
      * @brief Defines a log for the controller
      */
     #pragma pack(push, 1) // align to 1 byte
-    class ADAM_SDK_API log 
+    class ADAM_CORE_API log 
     {
     public:
 
@@ -78,12 +78,12 @@ namespace adam
 
     static_assert(sizeof(log) == log::log_size_in_bytes, "log size mismatch");
 
-    extern std::string ADAM_SDK_API get_log_time_string(uint64_t timestamp);
+    extern std::string ADAM_CORE_API get_log_time_string(uint64_t timestamp);
 
-    extern void ADAM_SDK_API get_log_appearance(log::level level, const char*& level_str, float& r, float& g, float& b);
+    extern void ADAM_CORE_API get_log_appearance(log::level level, const char*& level_str, float& r, float& g, float& b);
 
     /** @brief Global function for anyone to use to have logs display in adam style. */
-    extern void ADAM_SDK_API stream_log(const adam::log& cr_log, std::ostream& stream);
+    extern void ADAM_CORE_API stream_log(const adam::log& cr_log, std::ostream& stream);
 
     /** @brief Global function for anyone to use to have logs display in adam style. */
     inline void stream_log(log::level t, std::string_view txt, std::ostream& stream) 

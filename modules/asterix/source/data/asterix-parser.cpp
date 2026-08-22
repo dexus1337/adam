@@ -2,7 +2,7 @@
 #include "data/asterix-types.hpp"
 #include "data/asterix-uap.hpp"
 #include "data/format-asterix.hpp"
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 namespace adam::modules::asterix
 {

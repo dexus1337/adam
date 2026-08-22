@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "configuration/configuration-item.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 
@@ -21,7 +21,7 @@ namespace adam
      * @class encoder
      * @brief A base class for data format encoders, providing a common interface for encoding data from different formats used in the ADAM system.
      */
-    class ADAM_SDK_API encoder : public configuration_item
+    class ADAM_CORE_API encoder : public configuration_item
     {
     public:
 

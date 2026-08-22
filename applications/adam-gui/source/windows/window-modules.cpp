@@ -394,7 +394,7 @@ namespace adam::gui
             {
                 if (reason == 1)
                 {
-                    ImGui::SetTooltip("%s", get_gui_string(gui_string_id::tt_incompat_sdk, lang));
+                    ImGui::SetTooltip("%s", get_gui_string(gui_string_id::tt_incompat_core, lang));
                 }
                 else
                 {

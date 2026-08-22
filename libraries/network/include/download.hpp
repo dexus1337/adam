@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 namespace adam::lib::network
 {

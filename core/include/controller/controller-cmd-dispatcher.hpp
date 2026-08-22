@@ -9,7 +9,7 @@
  */
 
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/response.hpp"
 #include "resources/language.hpp"
@@ -53,7 +53,7 @@ namespace adam
      * @class   controller_cmd_dispatcher
      * @brief   Dispatches incoming commands to their registered handler functions.
      */
-    class ADAM_SDK_API controller_cmd_dispatcher
+    class ADAM_CORE_API controller_cmd_dispatcher
     {
     public:
 

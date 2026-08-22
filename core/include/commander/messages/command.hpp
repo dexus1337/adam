@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <cstdint>
 #include <cstddef>
@@ -89,7 +89,7 @@ namespace adam
      * @brief Defines a command for the controller
      */
     #pragma pack(push, 1) // align to 1 byte
-    class ADAM_SDK_API command : public commander_message_template<command_type>
+    class ADAM_CORE_API command : public commander_message_template<command_type>
     {
     public:
         /** @brief Constructs a new command object.*/

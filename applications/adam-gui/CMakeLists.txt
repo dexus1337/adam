@@ -27,7 +27,7 @@ if(WIN32)
 endif()
 
 
-# Grab all source files for the sdk and tests automatically
+# Grab all source files for the target and tests automatically
 file(GLOB_RECURSE adam_gui_app_source_files         "source/*cpp")
 file(GLOB_RECURSE adam_gui_app_test_source_files    "test/*cpp")
 
@@ -47,7 +47,7 @@ target_include_directories(adam-gui PRIVATE
 )
 
 target_link_libraries(adam-gui PRIVATE
-    adam-sdk
+    adam-core
     adam-imgui
     SDL3::SDL3
     OpenGL::GL

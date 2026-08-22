@@ -40,7 +40,7 @@ target_include_directories(adam-cop PRIVATE
 )
 
 target_link_libraries(adam-cop PRIVATE
-    adam-sdk
+    adam-core
     adam-imgui
     adam-network
     adam-image

@@ -9,7 +9,7 @@
 #include "tile-engine.hpp"
 #include <renderer-setup.hpp>
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include <imgui.h>
 
 #include <lib-imgui.hpp>

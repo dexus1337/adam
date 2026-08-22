@@ -9,7 +9,7 @@ target_include_directories(adam-network PUBLIC
 )
 
 target_link_libraries(adam-network PUBLIC
-    adam-sdk
+    adam-core
 )
 
 if(WIN32)

@@ -12,7 +12,7 @@
  
 #include <cstdint>
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #ifdef   ADAM_PLATFORM_WINDOWS
 #include <windows.h>
@@ -40,7 +40,7 @@ namespace adam
      * @brief   A class responsible for managing shared memory across processes and modules, 
      *          providing efficient memory management and interprocess communication.
      */
-    class ADAM_SDK_API memory 
+    class ADAM_CORE_API memory 
     {
     public:
 

@@ -8,7 +8,7 @@
  * @date    12.06.2026
  */
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include "management/shared-state.hpp"
 #include "management/modals.hpp"
 #include "management/node.hpp"

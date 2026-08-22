@@ -11,7 +11,7 @@
  
 #include "api/api-asterix.hpp"
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 namespace adam::modules::asterix
 {

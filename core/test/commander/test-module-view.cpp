@@ -182,7 +182,7 @@ string_hashed mock_name("another_internal");
 class dummy_internal_module : public module
 {
 public:
-    dummy_internal_module(const string_hashed& name) : module(name, make_version(2, 0, 0), sdk_version) {}
+    dummy_internal_module(const string_hashed& name) : module(name, make_version(2, 0, 0), core_version) {}
 };
 
 dummy_internal_module second_mod(mock_name);

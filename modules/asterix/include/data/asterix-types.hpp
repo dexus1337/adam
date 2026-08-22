@@ -8,7 +8,7 @@
  * @date    16.06.2026
  */
 
-#include <api/api-sdk.hpp>
+#include <api/api-core.hpp>
 #include <cstdint>
 #include <types/byteswap.hpp>
 #include <iterator>

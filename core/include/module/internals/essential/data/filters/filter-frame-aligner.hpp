@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include "configuration/parameters/configuration-parameter-integer.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
@@ -22,7 +22,7 @@ namespace adam
      * @class filter_frame_aligner
      * @brief A filter that aligns frames in a buffer.
      */
-    class ADAM_SDK_API filter_frame_aligner : public filter   
+    class ADAM_CORE_API filter_frame_aligner : public filter   
     {
     public:
 

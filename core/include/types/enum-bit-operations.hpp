@@ -8,7 +8,7 @@
  * @date    19.06.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include <type_traits>
 
 #define enable_enum_bit_operations(T) \

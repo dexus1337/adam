@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <array>
 #include <string>
@@ -33,7 +33,7 @@ namespace adam
      * @class   module
      * @brief   A base class for any external module that can be loaded into the ADAM system, providing a common interface for initialization and cleanup.
      */
-    class ADAM_SDK_API module 
+    class ADAM_CORE_API module 
     {
         friend class registry_module_manager;           /**< The registry_module_manager class is declared as a friend to allow it to access the protected members of the module class for managing module lifecycles and interactions. */
         friend class module_view;                       /**< The module_view class is declared as a friend to allow it to access the protected members of the module class for managing the local view of modules in the commander. */
@@ -50,7 +50,7 @@ namespace adam
             enum incompat_reason : uint8_t
             {
                 incompat_reason_unknown     = 0,
-                incompat_reason_sdk_too_old = 1,
+                incompat_reason_core_too_old = 1,
             } rsn;
             enum status : uint8_t
             {
@@ -79,7 +79,7 @@ namespace adam
         static ADAM_CONSTEXPR string_hashed_ct get_entry_point_name() { return "get_adam_module"_ct; }
 
         /** @brief Constructs a new module object. */
-        module(const string_hashed& name, uint32_t version = adam::make_version(1, 0, 0), uint32_t req_sdk_ver = adam::sdk_version);
+        module(const string_hashed& name, uint32_t version = adam::make_version(1, 0, 0), uint32_t req_core_ver = adam::core_version);
 
         /** @brief Destroys the module object and cleans up resources. */
         ~module();
@@ -88,7 +88,7 @@ namespace adam
         const string_hashed&                    get_filepath()                 const { return m_str_filepath; }
         const std::string&                      get_description(language lang) const { return m_descriptions[static_cast<size_t>(lang)]; }
         uintptr_t                               get_module_handle()            const { return m_mod_handle; }
-        uint32_t                                get_required_sdk_version()     const { return m_ui32_req_sdk_version; }
+        uint32_t                                get_required_core_version()     const { return m_ui32_req_core_version; }
         uint32_t                                get_version()                  const { return m_ui32_version; }
         const registry::data_format_map&        get_data_formats()             const { return m_data_formats; }
         const registry::port_factory_map&       get_port_factories()           const { return m_port_factories; }
@@ -106,7 +106,7 @@ namespace adam
         string_hashed                   m_str_name;                 /**< The name of the module, used for identification and lookup in the ADAM system. */
         string_hashed                   m_str_filepath;             /**< The file path of the module's shared library, used for loading and unloading the module. */
         uintptr_t                       m_mod_handle;               /**< The handle to the loaded module's shared library, used for managing the module's lifecycle. */
-        uint32_t                        m_ui32_req_sdk_version;     /**< The minimum SDK version required for this module to function correctly. */
+        uint32_t                        m_ui32_req_core_version;     /**< The minimum Core version required for this module to function correctly. */
         uint32_t                        m_ui32_version;             /**< The version of the module. */
         registry::data_format_map       m_data_formats;             /**< A map of data formats supported by the module. */
         registry::port_factory_map      m_port_factories;           /**< A map of factories for creating ports provided by the module. */

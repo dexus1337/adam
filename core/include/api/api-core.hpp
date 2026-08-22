@@ -1,9 +1,9 @@
 #pragma once
 
 /**
- * @file    api-sdk.hpp
+ * @file    api-core.hpp
  * @author  dexus1337
- * @brief   Defines macros for controlling symbol visibility in the SDK and platform/architecture detection.
+ * @brief   Defines macros for controlling symbol visibility in the Core library and platform/architecture detection.
  * @version 1.0
  * @date    25.04.2026
  */
@@ -33,20 +33,20 @@
     #define _CRT_SECURE_NO_WARNINGS
     #endif
     
-    #ifdef ADAM_SDK_EXPORTS // This should be defined when building the DLL, not when using it
-        #define ADAM_SDK_API __declspec(dllexport)
-    #elif defined(ADAM_USE_SHARED_SDK)
-        #define ADAM_SDK_API __declspec(dllimport)
+    #ifdef ADAM_CORE_EXPORTS // This should be defined when building the DLL, not when using it
+        #define ADAM_CORE_API __declspec(dllexport)
+    #elif defined(ADAM_USE_SHARED_CORE)
+        #define ADAM_CORE_API __declspec(dllimport)
     #else 
-        #define ADAM_SDK_API
+        #define ADAM_CORE_API
     #endif
 #else
     // Under Linux/macOS, all symbols are visible by default,
     // unless you use special compiler flags (-fvisibility=hidden)
     #if __GNUC__ >= 4
-        #define ADAM_SDK_API __attribute__ ((visibility ("default")))
+        #define ADAM_CORE_API __attribute__ ((visibility ("default")))
     #else
-        #define ADAM_SDK_API
+        #define ADAM_CORE_API
     #endif
 #endif
 

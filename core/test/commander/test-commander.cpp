@@ -122,7 +122,7 @@ namespace cmdr_test
     {
     public:
         mock_module(const adam::string_hashed& name)
-            : adam::module(name, adam::make_version(1, 0, 0), adam::sdk_version)
+            : adam::module(name, adam::make_version(1, 0, 0), adam::core_version)
         {
         }
 

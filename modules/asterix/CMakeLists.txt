@@ -10,12 +10,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-# Grab all source files for the sdk and tests automatically
+# Grab all source files for the target and tests automatically
 file(GLOB_RECURSE module_source_files "source/*cpp" )
 file(GLOB_RECURSE test_source_files   "test/*cpp"   ) 
 
 
-# Create the shared library target for the sdk
+# Create the shared library target
 add_library(adam-module-asterix SHARED ${module_source_files})
 
 # This tells other targets where to find headers when they link to 'adam-module-asterix'
@@ -25,11 +25,11 @@ target_include_directories(adam-module-asterix
 )
 
 target_link_libraries(adam-module-asterix 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
 )
 
 target_compile_definitions(adam-module-asterix
-    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_USE_SHARED_CORE
     PRIVATE ADAM_ASTERIX_EXPORTS
 )
 
@@ -52,11 +52,11 @@ target_include_directories(adam-module-asterix-test
 )
 
 target_compile_definitions(adam-module-asterix-test
-    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_USE_SHARED_CORE
 )
 
 target_link_libraries(adam-module-asterix-test 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
 )
 
 # Set the output directory for the executable
@@ -66,7 +66,7 @@ set_target_properties(adam-module-asterix-test PROPERTIES
 
 add_custom_command(TARGET adam-module-asterix-test POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:adam-sdk>
+            $<TARGET_FILE:adam-core>
             $<TARGET_FILE_DIR:adam-module-asterix-test>
 )
 

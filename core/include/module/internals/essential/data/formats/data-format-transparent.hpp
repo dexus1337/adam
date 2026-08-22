@@ -12,5 +12,5 @@
 
 namespace adam 
 {
-    extern ADAM_SDK_API data_format data_format_transparent;  /**< A predefined data format representing raw, unprocessed data that can be passed through the system without any parsing or encoding. */
+    extern ADAM_CORE_API data_format data_format_transparent;  /**< A predefined data format representing raw, unprocessed data that can be passed through the system without any parsing or encoding. */
 }

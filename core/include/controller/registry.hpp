@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string_view>
 #include <memory>
@@ -37,7 +37,7 @@ namespace adam
      * @class registry
      * @brief Manages the global application configuration, including loading from and saving to a fast, binary file format.
      */
-    class ADAM_SDK_API registry : public configuration_item
+    class ADAM_CORE_API registry : public configuration_item
     {
         friend class controller;
 

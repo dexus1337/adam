@@ -8,7 +8,7 @@
  * @date    14.05.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "resources/language.hpp"
 #include "commander/messages/command.hpp"

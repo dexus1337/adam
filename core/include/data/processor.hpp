@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "data/registry-item.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "commander/messages/message-structs.hpp"
@@ -26,7 +26,7 @@ namespace adam
      * @class processor
      * @brief A base class for data format processors, providing a common interface for processing data in different formats used in the ADAM system.
      */
-    class ADAM_SDK_API processor : public registry_item
+    class ADAM_CORE_API processor : public registry_item
     {
     public:
 

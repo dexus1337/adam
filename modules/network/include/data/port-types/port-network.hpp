@@ -10,7 +10,7 @@
  */
 
 #include "api/api-network.hpp"
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include <string>
 #include <string_view>
 #include <atomic>

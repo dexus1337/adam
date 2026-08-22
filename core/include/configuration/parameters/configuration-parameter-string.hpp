@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -25,7 +25,7 @@ namespace adam
      * @class configuration_parameter_string
      * @brief Defines a string configuration parameter, used for defining a single string configuration value.
      */
-    class ADAM_SDK_API configuration_parameter_string : public configuration_parameter
+    class ADAM_CORE_API configuration_parameter_string : public configuration_parameter
     {
     public:
 

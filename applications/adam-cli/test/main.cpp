@@ -1,4 +1,4 @@
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 
 int main() 

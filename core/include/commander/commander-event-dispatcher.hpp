@@ -8,7 +8,7 @@
  * @date    12.05.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "commander/messages/event.hpp"
 
 #include <unordered_map>
@@ -31,7 +31,7 @@ namespace adam
      * @class   commander_event_dispatcher
      * @brief   Dispatches incoming events to their registered handler functions.
      */
-    class ADAM_SDK_API commander_event_dispatcher
+    class ADAM_CORE_API commander_event_dispatcher
     {
     public:
         using handler_fn = std::function<void(const event*, size_t, event_context&)>; /**< A type alias for an event handler function. */

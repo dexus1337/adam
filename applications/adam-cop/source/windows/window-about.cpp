@@ -101,7 +101,7 @@ namespace adam::cop
         const char* title_text = "ADAM COP";
         
         char version_text[128];
-        auto ver = adam::decode_version(adam::sdk_version);
+        auto ver = adam::decode_version(adam::core_version);
         snprintf(version_text, sizeof(version_text), "v%d.%d.%d", ver.major, ver.minor, ver.patch);
 
         const char* desc_text = get_cop_string(msg_cop_description, lang);

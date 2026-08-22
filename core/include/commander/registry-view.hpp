@@ -8,7 +8,7 @@
  * @date    13.05.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "data/port.hpp"
 #include "memory/buffer/buffer.hpp"
@@ -146,7 +146,7 @@ namespace adam
      * @class registry_view
      * @brief Holds a local view of the controller's registry elements.
      */
-    class ADAM_SDK_API registry_view
+    class ADAM_CORE_API registry_view
     {
     public:
         using port_map       = std::unordered_map<string_hash, std::unique_ptr<port_view>>;

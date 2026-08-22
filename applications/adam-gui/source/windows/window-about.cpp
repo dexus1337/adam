@@ -9,7 +9,7 @@
 #include "window-about.hpp"
 #include "main-window.hpp"
 #include <renderer-setup.hpp>
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include <imgui.h>
 #include <version/version.hpp>
 #include <cstdio>
@@ -91,7 +91,7 @@ namespace adam::gui
         const char* title_text = "ADAM GUI";
         
         char version_text[128];
-        auto ver = adam::decode_version(adam::sdk_version);
+        auto ver = adam::decode_version(adam::core_version);
         snprintf(version_text, sizeof(version_text), "v%d.%d.%d", 
                  ver.major, ver.minor, ver.patch);
 

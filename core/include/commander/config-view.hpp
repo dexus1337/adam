@@ -6,7 +6,7 @@
  * @brief   Defines a view for configurations in the commander.
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "os/os.hpp"
 
@@ -34,7 +34,7 @@ namespace adam
      * @class config_view
      * @brief Holds a local view of the controller's available configurations and configuration paths.
      */
-    class ADAM_SDK_API config_view
+    class ADAM_CORE_API config_view
     {
     public:
         using map_available_configs = std::unordered_map<string_hashed, config_info>;

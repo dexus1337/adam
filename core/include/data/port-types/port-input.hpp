@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "data/port.hpp"
 
 
@@ -19,7 +19,7 @@ namespace adam
      * @class port_input
      * @brief An input port for receiving data in the ADAM system.
      */
-    class ADAM_SDK_API port_input : public port
+    class ADAM_CORE_API port_input : public port
     {
     public:
         static ADAM_CONSTEXPR port::direction direction = port::direction_in;

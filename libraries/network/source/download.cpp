@@ -1,5 +1,5 @@
 #include "download.hpp"
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>

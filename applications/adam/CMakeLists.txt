@@ -4,18 +4,18 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-# Grab all source files for the sdk and tests automatically
+# Grab all source files for the target and tests automatically
 file(GLOB_RECURSE adam_app_source_files       "source/*cpp"   )
 file(GLOB_RECURSE adam_app_test_source_files   "test/*cpp"    ) 
 
 set(app_resources "../../resources/resources.rc")
 
 
-# Create the shared library target for the sdk
+# Create the shared library target
 add_executable(adam ${adam_app_source_files} ${app_resources})
 
 # Link libraries
-target_link_libraries(adam PRIVATE adam-sdk)  # Link against the SDK library
+target_link_libraries(adam PRIVATE adam-core)  # Link against the Core library
 
 # Set the output directory for the executable
 set_target_properties(adam PROPERTIES
@@ -51,5 +51,5 @@ endif()
 if(NOT DEFINED ADAM_NO_TESTS)
 # Create the test application
 add_executable(adam-test ${adam_app_test_source_files})
-target_link_libraries(adam-test PRIVATE adam-sdk)  # Link against the SDK library
+target_link_libraries(adam-test PRIVATE adam-core)  # Link against the Core library
 endif()

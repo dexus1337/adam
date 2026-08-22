@@ -8,7 +8,7 @@
  * @date    11.07.2026
  */
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 #include "api/api-can.hpp"
 

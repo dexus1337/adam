@@ -61,8 +61,8 @@
  */
 
 #include "api/api-asterix.hpp"
-#include "api/api-sdk.hpp"
-#include <adam-sdk.hpp>
+#include "api/api-core.hpp"
+#include <adam-core.hpp>
 #include <cstdint>
 #include <iterator>
 #include <types/byteswap.hpp>

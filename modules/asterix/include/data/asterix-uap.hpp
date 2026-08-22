@@ -9,7 +9,7 @@
  */
 
 #include "data/asterix-types.hpp"
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

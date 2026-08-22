@@ -72,7 +72,7 @@ namespace adam::gui
             { gui_string_id::stat_available,              { "Available", "Verfügbar" } },
             { gui_string_id::stat_loaded,                 { "Loaded", "Geladen" } },
             { gui_string_id::stat_unavailable,            { "Unavailable", "Nicht verfügbar" } },
-            { gui_string_id::tt_incompat_sdk,             { "Requires newer SDK version", "Benötigt neuere SDK-Version" } },
+            { gui_string_id::tt_incompat_core,             { "Requires newer Core version", "Benötigt neuere Core-Version" } },
             { gui_string_id::tt_incompat_unknown,         { "Unknown incompatibility reason", "Unbekannter Inkompatibilitätsgrund" } },
             { gui_string_id::lbl_module_paths,            { "Module Paths", "Modulpfade" } },
             { gui_string_id::btn_add_path,                { "Add", "Hinzufügen" } },

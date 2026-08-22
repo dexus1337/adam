@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string_view>
 #include "configuration/parameters/configuration-parameter.hpp"
@@ -21,7 +21,7 @@ namespace adam
      * @class   configuration_parameter_boolean
      * @brief   Defines a boolean configuration parameter. True or False
      */
-    class ADAM_SDK_API configuration_parameter_boolean : public configuration_parameter
+    class ADAM_CORE_API configuration_parameter_boolean : public configuration_parameter
     {
     public:
     

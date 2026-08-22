@@ -8,7 +8,7 @@
  * @date    05.08.2026
  */
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include "data/waypoint.hpp"
 #include "data/site.hpp"
 #include "data/radar-stream.hpp"

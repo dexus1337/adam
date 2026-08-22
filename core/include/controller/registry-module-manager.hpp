@@ -9,7 +9,7 @@
  */
 
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "resources/language.hpp"
 
@@ -26,14 +26,14 @@ namespace adam
      * @class   registry_module_manager
      * @brief   Manages the discovery, loading, and lifecycle of external modules in the ADAM system.
      */
-    class ADAM_SDK_API registry_module_manager
+    class ADAM_CORE_API registry_module_manager
     {
     public:
     
         enum log_event
         {
-            module_requires_newer_sdk,
-            module_requires_newer_sdk_cannot_load,
+            module_requires_newer_core,
+            module_requires_newer_core_cannot_load,
             module_available,
             module_loaded,
             module_load_failed,

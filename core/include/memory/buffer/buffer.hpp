@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <memory>
 #include <atomic>
@@ -34,7 +34,7 @@ namespace adam
      * @brief A lightweight, POD structure used to safely send a buffer's location across IPC queues.
      */
     #pragma pack(push, 1)
-    struct ADAM_SDK_API buffer_handle
+    struct ADAM_CORE_API buffer_handle
     {
         uint32_t        memory_index;   /**< The globally unique index of the shared memory segment. */
         uint32_t        offset;         /**< The offset within the shared memory segment. */
@@ -53,7 +53,7 @@ namespace adam
      * @class buffer
      * @brief Defines a memory buffer class. Uses shared memory for interprocess availability and efficient memory management.
      */
-    class ADAM_SDK_API buffer 
+    class ADAM_CORE_API buffer 
     {
         friend class buffer_manager;
         friend struct std::default_delete<buffer>;

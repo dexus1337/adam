@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include "controller/controller.hpp"
 
@@ -22,7 +22,7 @@ namespace adam
      * @class logger_sink
      * @brief Defines a ADAM loger sink which allows to retrieve logs to the controller from external processes
      */
-    class ADAM_SDK_API logger_sink
+    class ADAM_CORE_API logger_sink
     {
     public:
 

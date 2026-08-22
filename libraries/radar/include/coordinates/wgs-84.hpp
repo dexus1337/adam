@@ -7,7 +7,7 @@
  */
 
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 
 namespace adam::lib::radar::coord

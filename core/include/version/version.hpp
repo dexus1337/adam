@@ -3,7 +3,7 @@
 /**
  * @file    version.hpp
  * @author  dexus1337
- * @brief   Defines the sdk version and functions to decode/encode versions
+ * @brief   Defines the core version and functions to decode/encode versions
  * @version 1.0
  * @date    25.04.2026
  */
@@ -44,5 +44,5 @@ namespace adam
                 static_cast<uint32_t>(pat);
     }
 
-    static ADAM_CONSTEXPR uint32_t sdk_version = make_version(1, 0, 0);
+    static ADAM_CONSTEXPR uint32_t core_version = make_version(1, 0, 0);
 }

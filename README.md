@@ -12,11 +12,11 @@ The system is highly extensible, allowing developers to dynamically load modules
 
 ## 🏗️ System Architecture
 
-ADAM splits functionality into a Core Service, a lightweight SDK for external applications and modules, Shared Libraries for common functionality, and Client Applications for administration, telemetry, and situational awareness.
+ADAM splits functionality into a Core Library (`adam-core`), Shared Libraries for common functionality, Modules, and Client Applications for administration, telemetry, and situational awareness.
 
 ```mermaid
 graph TD
-    subgraph SDK["ADAM SDK"]
+    subgraph CoreLib["ADAM Core"]
         direction TB
         Core[Core Architecture]
         Types[Lock-free & CT Types]
@@ -206,8 +206,8 @@ ADAM implements a robust and fast binary configuration serialization format to s
 ```mermaid
 graph TD
     subgraph Serialization["Configuration File (*.bin)"]
-        Magic[Magic Header: 0xADACF116] --> SDKVer[SDK Version Info]
-        SDKVer --> CfgHeader[Config Header: Name, Desc, Created, Modified, Object Counts]
+        Magic[Magic Header: 0xADACF116] --> CoreVer[Core Version Info]
+        CoreVer --> CfgHeader[Config Header: Name, Desc, Created, Modified, Object Counts]
         CfgHeader --> RootParam[Root Parameter List]
         RootParam --> GenParams[1. General Parameters]
         RootParam --> PortParams[2. Ports Parameters]
@@ -219,7 +219,7 @@ graph TD
 
 * **Binary Serialization Header**: Every configuration file starts with a standardized header block containing:
   * **Magic Identifier**: A 4-byte magic signature (`0xADACF116`).
-  * **SDK Version**: A semantic version representation to ensure backward and forward compatibility.
+  * **Core Version**: A semantic version representation to ensure backward and forward compatibility.
   * **Configuration Metadata**: High-level details including a friendly `name`, `description`, creation/modification timestamps, and total object counts (ports, processors, connections) to allow quick parsing during configuration scanning.
 * **Registry Configuration Manager (`registry_configuration_manager`)**: Manages the dynamic lookup of configuration paths and files. It implements:
   * **Configuration Directory Scanning**: Scans all registered config path directories, reads binary headers, and returns structured configuration summaries without loading the entire configuration tree.

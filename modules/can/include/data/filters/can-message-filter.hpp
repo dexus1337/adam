@@ -10,7 +10,7 @@
 
 #include "api/api-can.hpp"
 #include "data/can-types.hpp"
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 #include <unordered_set>
 #include <string>

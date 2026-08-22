@@ -8,7 +8,7 @@
  * @date    05.08.2026
  */
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include "../cop-controller.hpp"
 #include "../map/world-map.hpp"
 #include "../cop-strings.hpp"

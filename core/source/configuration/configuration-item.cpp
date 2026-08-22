@@ -46,7 +46,7 @@ namespace adam
         if (!ofs) return false;
 
         configuration_parameter::write_binary(ofs, configuration_file_magic);
-        configuration_parameter::write_binary(ofs, decode_version(sdk_version));
+        configuration_parameter::write_binary(ofs, decode_version(core_version));
 
         configuration_parameter::serialize(ofs, &m_parameters);
         return ofs.good();
@@ -64,7 +64,7 @@ namespace adam
         version_info ver;
         configuration_parameter::read_binary(ifs, ver);
         uint32_t loaded_version = make_version(ver.major, ver.minor, ver.patch);
-        if (get_major(loaded_version) > get_major(sdk_version)) return false;
+        if (get_major(loaded_version) > get_major(core_version)) return false;
 
         auto loaded_root = configuration_parameter::deserialize(ifs);
         if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list) return false;

@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "data/port-types/port-input.hpp"
 #include "data/port-types/port-output.hpp"
 
@@ -22,7 +22,7 @@ namespace adam
      *        Inherits from port_input to natively reuse the threading and queue logic,
      *        while simultaneously functioning as an output via the base port's connections.
      */
-    class ADAM_SDK_API port_in_out : public port_input
+    class ADAM_CORE_API port_in_out : public port_input
     {
     public:
         static ADAM_CONSTEXPR port::direction direction = port::direction_inout;

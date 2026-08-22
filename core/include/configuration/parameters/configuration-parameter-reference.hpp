@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string_view>
 #include "configuration/parameters/configuration-parameter.hpp"
@@ -21,7 +21,7 @@ namespace adam
      * @class configuration_parameter_reference
      * @brief Defines a an reference of another configuration parameter, used for definning relations between configuration parameters.
      */
-    class ADAM_SDK_API configuration_parameter_reference : public configuration_parameter
+    class ADAM_CORE_API configuration_parameter_reference : public configuration_parameter
     {
     public:
         /** @brief Constructs a new configuration_parameter_reference object. */

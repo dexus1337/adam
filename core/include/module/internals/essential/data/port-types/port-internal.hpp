@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "data/port-types/port-in-out.hpp"
 
 
@@ -19,7 +19,7 @@ namespace adam
      * @class port_internal
      * @brief Defines an InOut internal port for passing data between connections directly
      */
-    class ADAM_SDK_API port_internal : public port_in_out
+    class ADAM_CORE_API port_internal : public port_in_out
     {
     public:
 

@@ -11,7 +11,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -40,7 +40,7 @@ namespace adam
      *          Global IPC Memory Gateway - 
      *          responsible for managing buffers, allocating and freeing memory, and providing a safe interface for buffer sharing across processes.
      */
-    class ADAM_SDK_API buffer_manager 
+    class ADAM_CORE_API buffer_manager 
     {
     public:
 

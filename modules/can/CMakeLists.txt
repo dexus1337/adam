@@ -10,12 +10,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-# Grab all source files for the sdk and tests automatically
+# Grab all source files for the target and tests automatically
 file(GLOB_RECURSE module_source_files "source/*cpp"  )
 file(GLOB_RECURSE test_source_files   "test/*cpp"    ) 
 
 
-# Create the shared library target for the sdk
+# Create the shared library target
 add_library(adam-module-can SHARED ${module_source_files})
 
 # This tells other targets where to find headers when they link to 'adam-module-can'
@@ -25,11 +25,11 @@ target_include_directories(adam-module-can
 )
 
 target_link_libraries(adam-module-can 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
 )
 
 target_compile_definitions(adam-module-can
-    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_USE_SHARED_CORE
     PRIVATE ADAM_CAN_EXPORTS
 )
 
@@ -51,11 +51,11 @@ target_include_directories(adam-module-can-test
 )
 
 target_compile_definitions(adam-module-can
-    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_USE_SHARED_CORE
 )
 
 target_link_libraries(adam-module-can-test 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
 )
 
 # Set the output directory for the executable

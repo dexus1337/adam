@@ -8,7 +8,7 @@
  * @date    03.06.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include <vector>
 #include <string>
@@ -19,7 +19,7 @@ namespace adam
      * @class configuration_parameter_list_sorted
      * @brief Defines a sorted list of configuration parameters.
      */
-    class ADAM_SDK_API configuration_parameter_list_sorted : public configuration_parameter_list
+    class ADAM_CORE_API configuration_parameter_list_sorted : public configuration_parameter_list
     {
     public:
     

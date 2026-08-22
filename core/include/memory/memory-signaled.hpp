@@ -10,7 +10,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "memory/memory.hpp"
 
 #ifdef   ADAM_PLATFORM_LINUX
@@ -28,7 +28,7 @@ namespace adam
      * @brief   A class to allow signaling for shared memory communication, providing a mechanism for interprocess synchronization and event notification between the main memory 
      *          and external processes.
      */
-    class ADAM_SDK_API memory_signaled : public memory
+    class ADAM_CORE_API memory_signaled : public memory
     {
     public:
 

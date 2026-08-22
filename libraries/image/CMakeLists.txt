@@ -9,5 +9,5 @@ target_include_directories(adam-image PUBLIC
 )
 
 target_link_libraries(adam-image PUBLIC
-    adam-sdk
+    adam-core
 )

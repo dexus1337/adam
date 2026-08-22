@@ -8,7 +8,7 @@
  * @date    02.07.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "configuration/configuration-item.hpp"
 
 namespace adam 
@@ -19,7 +19,7 @@ namespace adam
      * @class registry_item
      * @brief A base class for registry items (ports, connections, processors) that holds a pointer to the controller.
      */
-    class ADAM_SDK_API registry_item : public configuration_item
+    class ADAM_CORE_API registry_item : public configuration_item
     {
     public:
 

@@ -13,7 +13,7 @@
 #include "data/categories/062/cat062.hpp"
 
 #include <string_view>
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 using namespace adam;
 using namespace adam::modules;

@@ -10,7 +10,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "data/registry-item.hpp"
 #include "types/vector-double-buffer.hpp"
 #include "commander/messages/command.hpp"
@@ -34,7 +34,7 @@ namespace adam
      * @brief   Defines a data connection between n+ input ports and n+ output ports.
      *          The connection owns the input and output data formats and their parser/encoder instances.
      */
-    class ADAM_SDK_API connection : public registry_item
+    class ADAM_CORE_API connection : public registry_item
     {
     public:
 

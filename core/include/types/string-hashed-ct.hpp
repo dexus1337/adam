@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string>
 #include <cstdint>
@@ -112,7 +112,7 @@ namespace adam
         }
     }
 
-    // Inside the sdk, we will use this everywhere
+    // Inside the core, we will use this everywhere
     using namespace adam::string_hashed_ct_literals;
 }
 

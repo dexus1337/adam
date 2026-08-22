@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/queue-shared.hpp"
 #include "memory/buffer/buffer.hpp"
 #include <thread>
@@ -22,7 +22,7 @@ namespace adam
      * @class   data_inspector
      * @brief   Defines a class which enables to route data from ports in order to read-only inspect
      */
-    class ADAM_SDK_API data_inspector
+    class ADAM_CORE_API data_inspector
     {
     public:
 

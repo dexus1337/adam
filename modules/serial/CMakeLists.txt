@@ -10,12 +10,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-# Grab all source files for the sdk and tests automatically
+# Grab all source files for the target and tests automatically
 file(GLOB_RECURSE module_source_files "source/*cpp"  )
 file(GLOB_RECURSE test_source_files   "test/*cpp"    ) 
 
 
-# Create the shared library target for the sdk
+# Create the shared library target
 add_library(adam-module-serial SHARED ${module_source_files})
 
 # This tells other targets where to find headers when they link to 'adam-module-serial'
@@ -25,11 +25,11 @@ target_include_directories(adam-module-serial
 )
 
 target_link_libraries(adam-module-serial 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
 )
 
 target_compile_definitions(adam-module-serial
-    PRIVATE ADAM_USE_SHARED_SDK
+    PRIVATE ADAM_USE_SHARED_CORE
     PRIVATE ADAM_SERIAL_EXPORTS
 )
 
@@ -52,7 +52,7 @@ target_include_directories(adam-module-serial-test
 )
 
 target_link_libraries(adam-module-serial-test 
-    PRIVATE adam-sdk
+    PRIVATE adam-core
     PRIVATE adam-module-serial
 )
 

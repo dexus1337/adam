@@ -8,7 +8,7 @@
  * @date    20.08.2026
  */
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include "../map/world-map.hpp"
 #include <array>
 

@@ -6,7 +6,7 @@
  * @brief   Defines a manager for handling portable configurations within the ADAM system.
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 
@@ -23,7 +23,7 @@ namespace adam
      * @class   registry_configuration_manager
      * @brief   Manages the discovery, loading, and saving of portable configurations in the ADAM system.
      */
-    class ADAM_SDK_API registry_configuration_manager
+    class ADAM_CORE_API registry_configuration_manager
     {
     public:
         struct config_file_info

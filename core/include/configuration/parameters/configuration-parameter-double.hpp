@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string_view>
 #include <vector>
@@ -22,7 +22,7 @@ namespace adam
      * @class   configuration_parameter_double
      * @brief   Defines a decimal configuration parameter. Double for better precision.
      */
-    class ADAM_SDK_API configuration_parameter_double : public configuration_parameter
+    class ADAM_CORE_API configuration_parameter_double : public configuration_parameter
     {
     public:
     

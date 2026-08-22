@@ -9,7 +9,7 @@
  */
  
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -47,7 +47,7 @@ namespace adam
      *          queue_log               one-way queue   -> Retrieves logs, outputs to all registered queue_log_sink
      *          queue_log_sink:         one-way queue   -> Forwards all recieved logs
      */
-    class ADAM_SDK_API controller 
+    class ADAM_CORE_API controller 
     {
         friend class commander;
         friend class logger;

@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <cstdint>
 #include <cstddef>
@@ -24,7 +24,7 @@ namespace adam
      */
     #pragma pack(push, 1) // align to 1 byte
     template<typename message_type>
-    class ADAM_SDK_API commander_message_template 
+    class ADAM_CORE_API commander_message_template 
     {
     public:
 

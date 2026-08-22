@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string_view>
 #include <unordered_set>
@@ -22,7 +22,7 @@ namespace adam
      * @class configuration_parameter_integer
      * @brief Defines a integer configuration parameter. Signed 64bit.
      */
-    class ADAM_SDK_API configuration_parameter_integer : public configuration_parameter
+    class ADAM_CORE_API configuration_parameter_integer : public configuration_parameter
     {
     public:
     

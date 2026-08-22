@@ -9,7 +9,7 @@ namespace adam
     static default_factory<port, port_internal>                 global_port_internal_factory            = default_factory<port, port_internal>();
     static default_factory<processor, filter_frame_aligner>     global_filter_frame_aligner_factory     = default_factory<processor, filter_frame_aligner>();
 
-    module_essential::module_essential() : module("essential"_ct, adam::make_version(1, 0, 0), adam::sdk_version)
+    module_essential::module_essential() : module("essential"_ct, adam::make_version(1, 0, 0), adam::core_version)
     {
         data_format_transparent.set_origin_module(this);
 

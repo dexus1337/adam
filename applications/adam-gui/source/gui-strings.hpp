@@ -8,7 +8,7 @@
  * @date    13.06.2026
  */
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 
 namespace adam::gui 
 {
@@ -69,7 +69,7 @@ namespace adam::gui
         stat_available,
         stat_loaded,
         stat_unavailable,
-        tt_incompat_sdk,
+        tt_incompat_core,
         tt_incompat_unknown,
         lbl_module_paths,
         btn_add_path,

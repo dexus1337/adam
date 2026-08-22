@@ -8,7 +8,7 @@
  * @date    06.05.2026
  */
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 #include "types/string-hashed.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
@@ -27,7 +27,7 @@ namespace adam
      * The base class will instantly perform a deep clone of the defaults, making instantiation extremely fast
      * and universally smooth across the framework!
      */
-    class ADAM_SDK_API configuration_item 
+    class ADAM_CORE_API configuration_item 
     {
     public:
     

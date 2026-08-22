@@ -9,7 +9,7 @@
  */
 
 
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include <string>
 
@@ -23,7 +23,7 @@ namespace adam
      * @class   language_strings
      * @brief   A static class which hosts all strings in the ADAM system in supported languages
      */
-    class ADAM_SDK_API language_strings
+    class ADAM_CORE_API language_strings
     {
     public:
         static std::string_view controller_status_text(controller::status stat, language lang);

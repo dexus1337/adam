@@ -9,7 +9,7 @@
  */
 
  
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
 #include "controller/controller.hpp"
 
@@ -22,7 +22,7 @@ namespace adam
      * @class logger
      * @brief Defines the ADAM logger which allows to send logs to the controller from external processes
      */
-    class ADAM_SDK_API logger
+    class ADAM_CORE_API logger
     {
     public:
 

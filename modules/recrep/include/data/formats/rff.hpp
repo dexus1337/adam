@@ -10,9 +10,9 @@
 
 
 #include "api/api-recrep.hpp"
-#include "api/api-sdk.hpp"
+#include "api/api-core.hpp"
 
-#include <adam-sdk.hpp>
+#include <adam-core.hpp>
 #include <cstdint>
 #include <ctime>
 
