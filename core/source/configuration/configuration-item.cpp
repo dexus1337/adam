@@ -69,7 +69,7 @@ namespace adam
         auto loaded_root = configuration_parameter::deserialize(ifs);
         if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list) return false;
 
-        m_parameters.copy_from(loaded_root.get());
+        m_parameters.copy_values_from(loaded_root.get());
 
         return !ifs.bad();
     }

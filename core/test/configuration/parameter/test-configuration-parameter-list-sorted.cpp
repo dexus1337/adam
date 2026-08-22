@@ -79,10 +79,42 @@ TEST(configuration_parameter_test, list_sorted_slicing_copy_and_assignment)
     EXPECT_EQ(assigned_order[2], "param_b"_ct.get_hash());
 }
 
+TEST(configuration_parameter_test, list_sorted_copy_values_from)
+{
+    configuration_parameter_list_sorted target("sorted_target"_ct);
+    target.add(std::make_unique<configuration_parameter_integer>("existing_param"_ct, 100));
+    target.add(std::make_unique<configuration_parameter_integer>("retained_param"_ct, 200));
+
+    auto* existing_ptr = target.get<configuration_parameter_integer>("existing_param"_ct);
+    auto* retained_ptr = target.get<configuration_parameter_integer>("retained_param"_ct);
+
+    configuration_parameter_list_sorted source("sorted_source"_ct);
+    source.add(std::make_unique<configuration_parameter_integer>("existing_param"_ct, 30));
+    source.add(std::make_unique<configuration_parameter_integer>("obsolete_param"_ct, 40));
+
+    target.copy_values_from(&source);
+
+    // Order and count should be preserved
+    const auto& order = target.get_order();
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_EQ(order[0], "existing_param"_ct.get_hash());
+    EXPECT_EQ(order[1], "retained_param"_ct.get_hash());
+
+    // Pointers must remain stable and values updated in-place
+    EXPECT_EQ(target.get<configuration_parameter_integer>("existing_param"_ct), existing_ptr);
+    EXPECT_EQ(existing_ptr->get_value(), 30);
+
+    EXPECT_EQ(target.get<configuration_parameter_integer>("retained_param"_ct), retained_ptr);
+    EXPECT_EQ(retained_ptr->get_value(), 200);
+
+    // Obsolete parameters are not added
+    EXPECT_EQ(target.get("obsolete_param"_ct), nullptr);
+}
+
 TEST(configuration_parameter_test, list_sorted_copy_from)
 {
     configuration_parameter_list_sorted target("sorted_target"_ct);
-    target.add(std::make_unique<configuration_parameter_integer>("old_elem"_ct, 100));
+    target.add(std::make_unique<configuration_parameter_integer>("old_param"_ct, 999));
 
     configuration_parameter_list_sorted source("sorted_source"_ct);
     source.add(std::make_unique<configuration_parameter_integer>("item_z"_ct, 30));
@@ -97,6 +129,7 @@ TEST(configuration_parameter_test, list_sorted_copy_from)
     EXPECT_EQ(order[1], "item_x"_ct.get_hash());
     EXPECT_EQ(order[2], "item_y"_ct.get_hash());
 
+    EXPECT_EQ(target.get("old_param"_ct), nullptr);
     auto* z = target.get<configuration_parameter_integer>("item_z"_ct);
     ASSERT_NE(z, nullptr);
     EXPECT_EQ(z->get_value(), 30);

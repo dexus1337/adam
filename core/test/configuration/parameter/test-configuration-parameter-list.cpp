@@ -63,7 +63,7 @@ TEST(configuration_parameter_test, list_copy_and_assignment)
     EXPECT_EQ(assigned.get<configuration_parameter_integer>("child_a"_ct)->get_value(), 99);
 }
 
-TEST(configuration_parameter_test, list_copy_from_backward_compatibility)
+TEST(configuration_parameter_test, list_copy_values_from_backward_compatibility)
 {
     // Target represents newly loaded class schema with default parameters
     configuration_parameter_list target("root"_ct);
@@ -75,7 +75,7 @@ TEST(configuration_parameter_test, list_copy_from_backward_compatibility)
     source.add(std::make_unique<configuration_parameter_string>("existing_param"_ct, "loaded_val"_ct));
     source.add(std::make_unique<configuration_parameter_double>("obsolete_param"_ct, 123.45)); // Removed in new schema
 
-    target.copy_from(&source);
+    target.copy_values_from(&source);
 
     // 1. Existing parameter value is updated from file
     auto* existing = target.get<configuration_parameter_string>("existing_param"_ct);
@@ -91,7 +91,7 @@ TEST(configuration_parameter_test, list_copy_from_backward_compatibility)
     EXPECT_EQ(target.get("obsolete_param"_ct), nullptr);
 }
 
-TEST(configuration_parameter_test, list_copy_from_empty_target)
+TEST(configuration_parameter_test, list_copy_values_from_empty_target)
 {
     configuration_parameter_list target("root"_ct);
 
@@ -99,7 +99,29 @@ TEST(configuration_parameter_test, list_copy_from_empty_target)
     source.add(std::make_unique<configuration_parameter_integer>("a"_ct, 1));
     source.add(std::make_unique<configuration_parameter_string>("b"_ct, "hello"_ct));
 
-    target.copy_from(&source);
+    target.copy_values_from(&source);
 
     EXPECT_EQ(target.get_children().size(), 0u);
+}
+
+TEST(configuration_parameter_test, list_copy_from)
+{
+    configuration_parameter_list target("root"_ct);
+    target.add(std::make_unique<configuration_parameter_integer>("old_param"_ct, 999));
+
+    configuration_parameter_list source("root"_ct);
+    source.add(std::make_unique<configuration_parameter_integer>("a"_ct, 1));
+    source.add(std::make_unique<configuration_parameter_string>("b"_ct, "hello"_ct));
+
+    target.copy_from(&source);
+
+    EXPECT_EQ(target.get_children().size(), 2u);
+    EXPECT_EQ(target.get("old_param"_ct), nullptr);
+    
+    auto* a = target.get<configuration_parameter_integer>("a"_ct);
+    auto* b = target.get<configuration_parameter_string>("b"_ct);
+    ASSERT_NE(a, nullptr);
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(a->get_value(), 1);
+    EXPECT_EQ(b->get_value(), "hello"_ct);
 }

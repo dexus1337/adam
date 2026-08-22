@@ -742,7 +742,7 @@ TEST_F(connection_test, connection_format_parameter_persistence)
             if (auto* user_params = conn_3.get_parameter<adam::configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
             {
                 if (auto* parser_params = parser->get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct))
-                    parser_params->copy_from(user_params);
+                    parser_params->copy_values_from(user_params);
             }
         }
 
@@ -751,7 +751,7 @@ TEST_F(connection_test, connection_format_parameter_persistence)
             if (auto* user_params = conn_3.get_parameter<adam::configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
             {
                 if (auto* encoder_params = encoder->get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct))
-                    encoder_params->copy_from(user_params);
+                    encoder_params->copy_values_from(user_params);
             }
         }
 

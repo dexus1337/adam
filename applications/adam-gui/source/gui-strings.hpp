@@ -181,7 +181,7 @@ namespace adam::gui
         lbl_parameters,
 
         col_config_name,
-        col_filename,
+        col_file_path,
         col_description,
         col_created,
         col_modified,

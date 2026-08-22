@@ -36,7 +36,7 @@ namespace adam
         return new_param;
     }
 
-    void configuration_parameter_double::copy_from(const configuration_parameter* other)
+    void configuration_parameter_double::copy_values_from(const configuration_parameter* other)
     {
         if (!other) return;
 

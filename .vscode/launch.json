@@ -28,6 +28,8 @@
     ]
 }*/
 
+
+/*
 {
     "version": "0.2.0",
     "configurations": [
@@ -68,4 +70,4 @@
             "miDebuggerServerAddress": "pi:55556"
         }
     ]
-}
+}*/

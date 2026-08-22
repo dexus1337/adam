@@ -61,10 +61,10 @@ namespace adam::modules::asterix::cat034
     const auto cat034_050_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "COM - Common Part"                                                    },
-        // FRN 2 is not used
-        {  2, item_type_fixed,       0,      1, "PSR - Specific Status for PSR Sensor"                                 },
-        {  3, item_type_fixed,       0,      1, "SSR - Specific Status for SSR Sensor"                                 },
-        {  4, item_type_fixed,       0,      2, "MDS - Specific Status for Mode S Sensor"                              }
+        // FRN 2-3 is not used
+        {  4, item_type_fixed,       0,      1, "PSR - Specific Status for PSR Sensor"                                 },
+        {  5, item_type_fixed,       0,      1, "SSR - Specific Status for SSR Sensor"                                 },
+        {  6, item_type_fixed,       0,      2, "MDS - Specific Status for Mode S Sensor"                              }
     });
 
     uap cat034_050_uap(34, "CAT034 I021/050 " CAT034_VERSION ""_ct, cat034_050_items.data(), cat034_050_items.size());
@@ -75,10 +75,10 @@ namespace adam::modules::asterix::cat034
     const auto cat034_060_items = std::to_array<const field_spec>
     ({
         {  1, item_type_fixed,       0,      1, "COM - Common Part"                                                    },
-        // FRN 2 is not used
-        {  2, item_type_fixed,       0,      1, "PSR - Specific Processing Mode information for PSR Sensor"            },
-        {  3, item_type_fixed,       0,      1, "SSR - Specific Processing Mode information for SSR Sensor"            },
-        {  4, item_type_fixed,       0,      1, "MDS - Specific Processing Mode information for Mode S Sensor"         }
+        // FRN 2-3 is not used
+        {  4, item_type_fixed,       0,      1, "PSR - Specific Processing Mode information for PSR Sensor"            },
+        {  5, item_type_fixed,       0,      1, "SSR - Specific Processing Mode information for SSR Sensor"            },
+        {  6, item_type_fixed,       0,      1, "MDS - Specific Processing Mode information for Mode S Sensor"         }
     });
 
     uap cat034_060_uap(34, "CAT034 I021/060 " CAT034_VERSION ""_ct, cat034_060_items.data(), cat034_060_items.size());

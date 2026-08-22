@@ -121,23 +121,18 @@ namespace adam::gui
                     ImGui::TextUnformatted(paths[i].c_str());
 
                     ImGui::TableSetColumnIndex(2);
-                    ImGui::PushID(static_cast<int>(i));
-                    if (i == 0)
+                    if (i != 0)
                     {
-                        ImGui::BeginDisabled();
-                    }
-                    if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang), ImVec2(-1.0f, 0.0f)))
-                    {
-                        ctrl.enqueue_commander_action([&ctrl, idx = static_cast<uint32_t>(i)]() 
+                        ImGui::PushID(static_cast<int>(i));
+                        if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang), ImVec2(-1.0f, 0.0f)))
                         {
-                            ctrl.commander().request_module_path_remove(idx);
-                        });
+                            ctrl.enqueue_commander_action([&ctrl, idx = static_cast<uint32_t>(i)]() 
+                            {
+                                ctrl.commander().request_module_path_remove(idx);
+                            });
+                        }
+                        ImGui::PopID();
                     }
-                    if (i == 0)
-                    {
-                        ImGui::EndDisabled();
-                    }
-                    ImGui::PopID();
                 }
             }
             ImGui::EndTable();
@@ -160,6 +155,7 @@ namespace adam::gui
         
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_module_paths, lang));
         ImGui::Separator();
+        ImGui::Spacing();
 
         float btn_add_width = std::max(ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_add_path, adam::language_english)).x,
                                        ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_add_path, adam::language_german)).x) + ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -457,6 +453,7 @@ namespace adam::gui
     {
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_modules, lang));
         ImGui::Separator();
+        ImGui::Spacing();
 
         ImGui::PushID(modules_table_id);
         bool table_open = ImGui::BeginTable("ModulesTable", 6, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable);

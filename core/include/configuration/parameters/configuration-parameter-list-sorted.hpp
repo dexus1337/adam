@@ -41,7 +41,7 @@ namespace adam
             return std::make_unique<configuration_parameter_list_sorted>(*this); 
         }
 
-        /** @brief Copies all child parameters in order from another list into this sorted list. */
+        /** @brief Performs a full deep copy from another configuration parameter list in order, clearing existing children and adding clones of all source children. */
         void copy_from(const configuration_parameter* other) override;
 
         void add(std::unique_ptr<configuration_parameter> param) override;

@@ -185,8 +185,15 @@ namespace adam::gui
     void draw_direction_badge(adam::port::direction dir, bool is_used, adam::language lang);
 
     std::function<void(adam::buffer*)> make_inspector_buffer_callback(adam::string_hash port_hash);
-    std::function<void(adam::buffer*)> make_inspector_connection_input_buffer_callback(adam::string_hash conn_hash, const class analyzer* data_analyzer = nullptr);
-    std::function<void(adam::buffer*)> make_inspector_connection_output_buffer_callback(adam::string_hash conn_hash, const class analyzer* data_analyzer = nullptr);
+    std::function<void(adam::buffer*)> make_inspector_connection_buffer_callback(adam::string_hash conn_hash, bool is_input, const class analyzer* data_analyzer = nullptr);
+    inline std::function<void(adam::buffer*)> make_inspector_connection_input_buffer_callback(adam::string_hash conn_hash, const class analyzer* data_analyzer = nullptr)
+    {
+        return make_inspector_connection_buffer_callback(conn_hash, true, data_analyzer);
+    }
+    inline std::function<void(adam::buffer*)> make_inspector_connection_output_buffer_callback(adam::string_hash conn_hash, const class analyzer* data_analyzer = nullptr)
+    {
+        return make_inspector_connection_buffer_callback(conn_hash, false, data_analyzer);
+    }
 
     void toggle_connection_inspector(class gui_controller& ctrl, adam::string_hash conn_hash, bool is_input, bool enable);
 }

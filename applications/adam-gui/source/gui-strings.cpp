@@ -183,7 +183,7 @@ namespace adam::gui
             { gui_string_id::lbl_replay_instant,          { "instant", "sofort" } },
             { gui_string_id::lbl_parameters,              { "Parameters###Parameters", "Parameter###Parameters" } },
             { gui_string_id::col_config_name,             { "Configuration Name", "Konfigurationsname" } },
-            { gui_string_id::col_filename,                { "Filename", "Dateiname" } },
+            { gui_string_id::col_file_path,               { "File Path", "Dateipfad" } },
             { gui_string_id::col_description,             { "Description", "Beschreibung" } },
             { gui_string_id::col_created,                 { "Created", "Erstellt" } },
             { gui_string_id::col_modified,                { "Modified", "Geändert" } },

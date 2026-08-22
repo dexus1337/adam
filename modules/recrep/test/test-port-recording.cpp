@@ -255,3 +255,57 @@ TEST_F(recording_test, chunked_by_time)
     read_and_verify(rep_port, 5);
     ASSERT_TRUE(rep_port.stop());
 }
+
+TEST_F(recording_test, buffer_start_offset)
+{
+    port_output_recording rec_port("rec_start_offset");
+    rec_port.set_controller(&controller::get());
+    
+    auto r_params = rec_port.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+    r_params->get<configuration_parameter_string>("data_format"_ct)->set_value("pcap"_ct);
+    r_params->get<configuration_parameter_string>("file_mode"_ct)->set_value("single"_ct);
+    r_params->get<configuration_parameter_string>("path"_ct)->set_value(adam::string_hashed(temp_dir));
+
+    ASSERT_TRUE(rec_port.start());
+
+    buffer* buf = buffer_manager::get().request_buffer(64);
+    ASSERT_NE(buf, nullptr);
+
+    std::memcpy(buf->data_as<char>(), "GARBAGE_HEADER", 14);
+    std::string text = "Payload data after offset";
+    std::memcpy(buf->data_as<char>() + 14, text.c_str(), text.size() + 1);
+    buf->set_start_pos(14);
+    buf->set_size(static_cast<uint32_t>(text.size() + 1));
+    buf->set_timestamp(1000000000ull);
+    EXPECT_TRUE(rec_port.write(buf));
+    buf->release();
+
+    ASSERT_TRUE(rec_port.stop());
+
+    port_input_replay rep_port("rep_start_offset");
+    rep_port.set_controller(&controller::get());
+
+    auto i_params = rep_port.get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+    i_params->get<configuration_parameter_string>("data_format"_ct)->set_value("pcap"_ct);
+    i_params->get<configuration_parameter_string>("file_mode"_ct)->set_value("single_file"_ct);
+
+    std::string file_path;
+    for (const auto& entry : std::filesystem::directory_iterator(temp_dir))
+    {
+        if (entry.path().extension() == ".pcap")
+        {
+            file_path = entry.path().string();
+        }
+    }
+    i_params->get<configuration_parameter_string>("path"_ct)->set_value(adam::string_hashed(file_path));
+    i_params->get<configuration_parameter_double>("speed"_ct)->set_value(0.0);
+
+    ASSERT_TRUE(rep_port.start());
+    buffer* read_buf = nullptr;
+    ASSERT_TRUE(rep_port.read(read_buf));
+    ASSERT_NE(read_buf, nullptr);
+    EXPECT_STREQ(read_buf->data_as<const char>(), "Payload data after offset");
+    read_buf->release();
+    ASSERT_TRUE(rep_port.stop());
+}
+

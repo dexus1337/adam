@@ -49,14 +49,14 @@ namespace adam
         stats->total_buffers_recieved++;
         stats->total_bytes_recieved += buf->get_size();
 
-        int64_t offset_val = m_byte_offset ? m_byte_offset->value() : 0;
-        if (offset_val < 0 || buf->get_size() < static_cast<uint32_t>(offset_val))
+        const auto offset_val = m_byte_offset->value();
+        if (offset_val < 0 || buf->get_size() <= static_cast<uint32_t>(offset_val))
         {
             stats->total_buffers_discarded++;
             stats->total_bytes_discarded += buf->get_size();
             return false;
         }
-
+        
         buf->move_start_pos(static_cast<uint32_t>(offset_val));
 
         stats->total_buffers_forwarded++;

@@ -44,7 +44,7 @@ namespace adam
         std::unique_ptr<configuration_parameter> clone() const override;
 
         /** @brief Copies the value from another configuration parameter into this boolean parameter. */
-        void copy_from(const configuration_parameter* other) override;
+        void copy_values_from(const configuration_parameter* other) override;
 
         bool get_value() const { return m_value; }
         void set_value(bool value) { m_value = value; }

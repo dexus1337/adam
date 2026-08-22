@@ -46,6 +46,9 @@ namespace adam
         std::unique_ptr<configuration_parameter> clone() const override { return std::make_unique<configuration_parameter_list>(*this); }
 
         /** @brief Copies matching parameter values from another configuration parameter list into this list. */
+        void copy_values_from(const configuration_parameter* other) override;
+
+        /** @brief Performs a full deep copy from another configuration parameter list, clearing existing children and adding clones of all source children. */
         void copy_from(const configuration_parameter* other) override;
 
         /** @brief Adds a child parameter to the list. */

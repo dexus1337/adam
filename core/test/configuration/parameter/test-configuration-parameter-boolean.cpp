@@ -42,20 +42,20 @@ TEST(configuration_parameter_test, boolean_clone)
     EXPECT_FALSE(cloned->get_default_value());
 }
 
-TEST(configuration_parameter_test, boolean_copy_from)
+TEST(configuration_parameter_test, boolean_copy_values_from)
 {
     configuration_parameter_boolean target("target"_ct, false);
     configuration_parameter_boolean source("source"_ct, true);
 
-    target.copy_from(&source);
+    target.copy_values_from(&source);
     EXPECT_TRUE(target.get_value());
 
     // Null source should be safely ignored
-    target.copy_from(nullptr);
+    target.copy_values_from(nullptr);
     EXPECT_TRUE(target.get_value());
 
     // Incompatible type should be safely ignored
     configuration_parameter_integer int_source("int_src"_ct, 42);
-    target.copy_from(&int_source);
+    target.copy_values_from(&int_source);
     EXPECT_TRUE(target.get_value());
 }

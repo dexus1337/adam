@@ -214,9 +214,10 @@ namespace adam::cop
             total_height += version_size.y + large_spacing;
             total_height += desc_size.y + large_spacing;
             total_height += cpy1_size.y + item_spacing;
-            total_height += cpy2_size.y;
+            total_height += item_spacing * 2.0f;
+            total_height += ImGui::GetFrameHeight();
 
-            float start_y = (avail.y - total_height) * 0.5f - ImGui::GetFrameHeight() * 1.5f;
+            float start_y = (avail.y - total_height) * 0.5f;
             if (start_y > 0.0f) 
             {
                 ImGui::SetCursorPosY(start_cursor_y + start_y);
@@ -272,9 +273,7 @@ namespace adam::cop
             ImGui::Spacing();
             ImGui::Spacing();
 
-            float btn_w = 120.0f;
-            ImGui::SetCursorPosX((avail.x - btn_w) * 0.5f);
-            if (ImGui::Button("OK", ImVec2(btn_w, 0)))
+            if (ImGui::Button("Close", ImVec2(-1.0f, 0.0f)))
             {
                 show_about = false;
                 ImGui::CloseCurrentPopup();

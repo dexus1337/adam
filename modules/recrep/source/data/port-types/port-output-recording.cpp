@@ -296,7 +296,7 @@ namespace adam::modules::recrep
             ph.orig_len = static_cast<uint32_t>(buff->get_size());
 
             m_file_stream.write(reinterpret_cast<const char*>(&ph), sizeof(ph));
-            m_file_stream.write(reinterpret_cast<const char*>(buff->data()), buff->get_size());
+            m_file_stream.write(buff->get_begin_as<char>(), buff->get_size());
 
             m_current_chunk_bytes += sizeof(ph) + buff->get_size();
         }
@@ -309,7 +309,7 @@ namespace adam::modules::recrep
             ph.block_size_bytes = static_cast<uint16_t>(buff->get_size());
 
             m_file_stream.write(reinterpret_cast<const char*>(&ph), sizeof(ph));
-            m_file_stream.write(reinterpret_cast<const char*>(buff->data()), buff->get_size());
+            m_file_stream.write(buff->get_begin_as<char>(), buff->get_size());
 
             m_current_chunk_bytes += sizeof(ph) + buff->get_size();
             m_last_packet_timestamp_ns = buff->get_timestamp();

@@ -63,10 +63,16 @@ namespace adam
 
     void configuration_parameter_list_sorted::copy_from(const configuration_parameter* other)
     {
-        if (!other) return;
+        if (!other)
+        {
+            return;
+        }
 
         const auto* src_list = dynamic_cast<const configuration_parameter_list*>(other);
-        if (!src_list) return;
+        if (!src_list)
+        {
+            return;
+        }
 
         clear();
 
@@ -74,16 +80,20 @@ namespace adam
         {
             for (string_hash child_hash : sorted_other->get_order())
             {
-                if (auto* child = sorted_other->get(child_hash))
-                    add(child->clone());
-            }
-        }
-        else
-        {
-            for (const auto& [name, child] : src_list->get_children())
-            {
+                const auto* child = sorted_other->get(child_hash);
                 if (child)
+                {
                     add(child->clone());
+                }
+            }
+            return;
+        }
+
+        for (const auto& [name, child] : src_list->get_children())
+        {
+            if (child)
+            {
+                add(child->clone());
             }
         }
     }

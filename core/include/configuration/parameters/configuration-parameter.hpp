@@ -64,7 +64,11 @@ namespace adam
         virtual std::unique_ptr<configuration_parameter> clone() const = 0;
 
         /** @brief Copies the value(s) from another configuration parameter of compatible type into this parameter. */
-        virtual void copy_from(const configuration_parameter* other) = 0;
+        virtual void copy_values_from(const configuration_parameter* other) = 0;
+        void copy_values_from(const configuration_parameter& other) { copy_values_from(&other); }
+
+        /** @brief Performs a full copy from another configuration parameter. For lists, clears and clones all children. */
+        virtual void copy_from(const configuration_parameter* other);
         void copy_from(const configuration_parameter& other) { copy_from(&other); }
 
         /** @brief Destroys the configuration_parameter object and cleans up resources. */

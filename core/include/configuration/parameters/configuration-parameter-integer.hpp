@@ -60,7 +60,7 @@ namespace adam
         std::unique_ptr<configuration_parameter> clone() const override;
 
         /** @brief Copies the value from another configuration parameter into this integer parameter. */
-        void copy_from(const configuration_parameter* other) override;
+        void copy_values_from(const configuration_parameter* other) override;
 
         int64_t get_value() const { return m_value; }
         bool set_value(int64_t value);

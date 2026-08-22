@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <mutex>
 #include <ctime>
+#include <filesystem>
 
 namespace adam::gui 
 {
@@ -115,11 +116,12 @@ namespace adam::gui
             }
         }
         
-        if (ImGui::BeginTable("ConfigPathsTable", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, panel_height - ImGui::GetCursorPosY() - btn_h - ImGui::GetStyle().ItemSpacing.y)))
+        if (ImGui::BeginTable("ConfigPathsTable", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0.0f, panel_height - ImGui::GetCursorPosY() - btn_h - ImGui::GetStyle().ItemSpacing.y)))
         {
             ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_index, lang), ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("99").x);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::tbl_path, lang), ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("##Action", ImGuiTableColumnFlags_WidthFixed, 60.0f * dpi_scale);
+            ImGui::TableSetupColumn("##Actions", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize(get_gui_string(gui_string_id::btn_remove_path, lang)).x + ImGui::GetStyle().FramePadding.x * 2.0f);
             ImGui::TableHeadersRow();
 
             std::vector<adam::string_hashed> paths;
@@ -134,18 +136,26 @@ namespace adam::gui
                 ImGui::TableNextRow();
                 
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(paths[i].c_str());
+                ImGui::AlignTextToFramePadding();
+                ImGui::Text("%zu", i);
                 
                 ImGui::TableSetColumnIndex(1);
-                ImGui::PushID(static_cast<int>(i));
-                if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang)))
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted(paths[i].c_str());
+                
+                ImGui::TableSetColumnIndex(2);
+                if (i != 0)
                 {
-                    ctrl.enqueue_commander_action([&ctrl, idx = static_cast<uint32_t>(i)]() 
+                    ImGui::PushID(static_cast<int>(i));
+                    if (ImGui::Button(get_gui_string(gui_string_id::btn_remove_path, lang), ImVec2(-1.0f, 0.0f)))
                     {
-                        ctrl.commander().request_config_path_remove(idx);
-                    });
+                        ctrl.enqueue_commander_action([&ctrl, idx = static_cast<uint32_t>(i)]() 
+                        {
+                            ctrl.commander().request_config_path_remove(idx);
+                        });
+                    }
+                    ImGui::PopID();
                 }
-                ImGui::PopID();
             }
             ImGui::EndTable();
         }
@@ -216,6 +226,7 @@ namespace adam::gui
         adam::language lang,
         size_t row_idx,
         const adam::config_info& cfg,
+        const std::vector<adam::string_hashed>& paths,
         float action_btn_w,
         uint32_t& confirm_delete_idx,
         uint32_t& save_path_idx,
@@ -232,10 +243,18 @@ namespace adam::gui
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(cfg.name.c_str());
 
-        // Filename
+        // File Path
         ImGui::TableSetColumnIndex(1);
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(cfg.filename.c_str());
+        if (cfg.path_idx < paths.size())
+        {
+            std::filesystem::path full_p = std::filesystem::path(paths[cfg.path_idx].c_str()) / cfg.filename;
+            ImGui::TextUnformatted(full_p.string().c_str());
+        }
+        else
+        {
+            ImGui::TextUnformatted(cfg.filename.c_str());
+        }
 
         // Description
         ImGui::TableSetColumnIndex(2);
@@ -435,6 +454,7 @@ namespace adam::gui
     {
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_available_configurations, lang));
         ImGui::Separator();
+        ImGui::Spacing();
 
         if (!commander_active)
         {
@@ -445,7 +465,7 @@ namespace adam::gui
         {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_config_name, lang), ImGuiTableColumnFlags_WidthStretch, 0.15f);
-            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_filename, lang), ImGuiTableColumnFlags_WidthStretch, 0.15f);
+            ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_file_path, lang), ImGuiTableColumnFlags_WidthStretch, 0.15f);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_description, lang), ImGuiTableColumnFlags_WidthStretch, 0.35f);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_created, lang), ImGuiTableColumnFlags_WidthFixed, 130.0f * dpi_scale);
             ImGui::TableSetupColumn(get_gui_string(gui_string_id::col_modified, lang), ImGuiTableColumnFlags_WidthFixed, 130.0f * dpi_scale);
@@ -454,6 +474,7 @@ namespace adam::gui
             ImGui::TableHeadersRow();
 
             std::vector<adam::config_info> available_configs;
+            std::vector<adam::string_hashed> paths;
             if (commander_active)
             {
                 std::lock_guard<const adam::config_view> lg(ctrl.commander().configs());
@@ -461,6 +482,7 @@ namespace adam::gui
                 {
                     available_configs.push_back(info);
                 }
+                paths = ctrl.get_commander().get_configs().get_paths();
             }
 
             static uint32_t confirm_delete_idx = UINT32_MAX;
@@ -468,7 +490,7 @@ namespace adam::gui
 
             for (size_t i = 0; i < available_configs.size(); ++i)
             {
-                draw_config_file_row(ctrl, lang, i, available_configs[i], action_btn_w, confirm_delete_idx, save_path_idx, export_popup_filename, save_name, save_desc, open_save_popup);
+                draw_config_file_row(ctrl, lang, i, available_configs[i], paths, action_btn_w, confirm_delete_idx, save_path_idx, export_popup_filename, save_name, save_desc, open_save_popup);
             }
 
             ImGui::EndTable();
@@ -512,7 +534,7 @@ namespace adam::gui
         }
         
         float separator_pad = ImGui::GetStyle().ItemSpacing.x;
-        float half_w = (content_w - separator_pad * 2.0f - 1.0f) * 0.5f;
+        float half_w = (ImGui::GetContentRegionAvail().x - separator_pad * 2.0f - ImGui::GetStyle().ItemSpacing.x * 2.0f) * 0.5f;
         float btn_h = ImGui::GetFrameHeight() * 1.5f;
 
         // --- TOP LEFT PANEL (Export Metadata) ---

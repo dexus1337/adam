@@ -117,13 +117,13 @@ namespace adam
         #pragma pack(push, 1)
         struct header
         {
-            std::atomic<uint32_t> ref_count;
-            uint32_t              capacity;
-            uint32_t              start_pos;
-            uint32_t              size;
-            string_hash           data_format_hash;
-            uint64_t              timestamp;
-            buffer_handle         reference;
+            std::atomic<uint32_t>  ref_count;
+            uint32_t               capacity;
+            volatile uint32_t      start_pos;
+            volatile uint32_t      size;
+            string_hash            data_format_hash;
+            uint64_t               timestamp;
+            buffer_handle          reference;
         };
         #pragma pack(pop)
 

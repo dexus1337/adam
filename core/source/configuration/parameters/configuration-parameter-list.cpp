@@ -33,7 +33,7 @@ namespace adam
 
     configuration_parameter_list::~configuration_parameter_list() {}
 
-    void configuration_parameter_list::copy_from(const configuration_parameter* other)
+    void configuration_parameter_list::copy_values_from(const configuration_parameter* other)
     {
         if (!other)
             return;
@@ -51,7 +51,31 @@ namespace adam
             if (!src_param)
                 continue;
 
-            param->copy_from(src_param);
+            param->copy_values_from(src_param);
+        }
+    }
+
+    void configuration_parameter_list::copy_from(const configuration_parameter* other)
+    {
+        if (!other)
+        {
+            return;
+        }
+
+        const auto* src_list = dynamic_cast<const configuration_parameter_list*>(other);
+        if (!src_list)
+        {
+            return;
+        }
+
+        clear();
+
+        for (const auto& [name, param] : src_list->get_children())
+        {
+            if (param)
+            {
+                add(param->clone());
+            }
         }
     }
 

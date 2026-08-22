@@ -217,7 +217,7 @@ namespace adam::cop
             }
 
             auto wp = std::make_unique<waypoint>(p->get_name());
-            wp->parameters().copy_from(p);
+            wp->parameters().copy_values_from(p);
             m_waypoints.push_back(std::move(wp));
         }
     }
@@ -327,7 +327,7 @@ namespace adam::cop
             }
 
             auto s = std::make_unique<site>(p->get_name());
-            s->parameters().copy_from(p);
+            s->parameters().copy_values_from(p);
             m_sites.push_back(std::move(s));
         }
     }

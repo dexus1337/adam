@@ -932,8 +932,24 @@ namespace adam
         auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
  
         // 1. Restore general settings
-        m_parameters.copy_from(root_list->get("general"_ct));
+        m_parameters.copy_values_from(root_list->get("general"_ct));
  
+        if (auto* src_mod_paths = root_list->get<configuration_parameter_list>("module_paths"_ct))
+        {
+            if (auto* dest_mod_paths = get_parameter<configuration_parameter_list>("module_paths"_ct))
+            {
+                dest_mod_paths->copy_from(src_mod_paths);
+            }
+        }
+
+        if (auto* src_cfg_paths = root_list->get<configuration_parameter_list>("config_paths"_ct))
+        {
+            if (auto* dest_cfg_paths = get_parameter<configuration_parameter_list>("config_paths"_ct))
+            {
+                dest_cfg_paths->copy_from(src_cfg_paths);
+            }
+        }
+
         if (auto* mod_paths = get_parameter<configuration_parameter_list>("module_paths"_ct))
         {
             if (auto* param_0 = mod_paths->get("0"_ct))
@@ -983,14 +999,16 @@ namespace adam
                 const status s = create_port(port_name, port_type, module_name, &new_port);
 
                 if (s == status_success)
-                    new_port->parameters().copy_from(port_params);
+                {
+                    new_port->parameters().copy_values_from(port_params);
+                }
                 else if (s == status_error_module_not_found || s == status_error_factory_not_found)
                 {
                     auto upi         = std::make_unique<port::unavailable_info>(port_name);
                     upi->type        = port_type;
                     upi->type_module = module_name;
                     upi->parameters().copy_from(port_params);
-                    m_unavailable_ports[port_name] = std::move(upi);
+                    m_unavailable_ports[port_name.get_hash()] = std::move(upi);
                 }
             }
         }
@@ -1009,7 +1027,9 @@ namespace adam
                 const status s = create_processor(processor_name, processor_type, module_name, &new_processor);
 
                 if (s == status_success)
-                    new_processor->parameters().copy_from(processor_params);
+                {
+                    new_processor->parameters().copy_values_from(processor_params);
+                }
                 else if (s == status_error_module_not_found || s == status_error_factory_not_found)
                 {
                     auto upi         = std::make_unique<processor::unavailable_info>(processor_name);
@@ -1017,7 +1037,7 @@ namespace adam
                     upi->type_module = module_name;
                     upi->is_filter   = is_filter;
                     upi->parameters().copy_from(processor_params);
-                    m_unavailable_processors[processor_name] = std::move(upi);
+                    m_unavailable_processors[processor_name.get_hash()] = std::move(upi);
                 }
             }
         }
@@ -1058,13 +1078,41 @@ namespace adam
                 if (missing_in || missing_out)
                 {
                     auto uci = std::make_unique<connection::unavailable_info>(conn_name);
-                    uci->parameters().copy_from(conn_params);
+                    uci->parameters().copy_values_from(conn_params);
+
+                    if (auto* src_inputs = conn_params->get<configuration_parameter_list_sorted>("inputs"_ct))
+                    {
+                        if (auto* dest_inputs = uci->parameters().get<configuration_parameter_list_sorted>("inputs"_ct))
+                        {
+                            dest_inputs->copy_from(src_inputs);
+                        }
+                    }
+
+                    if (auto* src_procs = conn_params->get<configuration_parameter_list_sorted>("processors"_ct))
+                    {
+                        if (auto* dest_procs = uci->parameters().get<configuration_parameter_list_sorted>("processors"_ct))
+                        {
+                            dest_procs->copy_from(src_procs);
+                        }
+                    }
+
+                    if (auto* src_outputs = conn_params->get<configuration_parameter_list_sorted>("outputs"_ct))
+                    {
+                        if (auto* dest_outputs = uci->parameters().get<configuration_parameter_list_sorted>("outputs"_ct))
+                        {
+                            dest_outputs->copy_from(src_outputs);
+                        }
+                    }
 
                     if (auto* in_user = conn_params->get<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
+                    {
                         uci->parameters().add(std::make_unique<configuration_parameter_list_sorted>(*in_user));
+                    }
 
                     if (auto* out_user = conn_params->get<configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
+                    {
                         uci->parameters().add(std::make_unique<configuration_parameter_list_sorted>(*out_user));
+                    }
 
                     auto* color = static_cast<configuration_parameter_integer*>(uci->get_parameters().get("color_code"_ct));
                     if (color->get_value() == 0xFFFFFF) color->set_value(0);
@@ -1081,14 +1129,38 @@ namespace adam
                 new_conn->set_input_format(resolved_in_fmt);
                 new_conn->set_output_format(resolved_out_fmt);
 
-                new_conn->parameters().copy_from(conn_params);
+                new_conn->parameters().copy_values_from(conn_params);
+
+                if (auto* src_inputs = conn_params->get<configuration_parameter_list_sorted>("inputs"_ct))
+                {
+                    if (auto* dest_inputs = new_conn->get_parameter<configuration_parameter_list_sorted>("inputs"_ct))
+                    {
+                        dest_inputs->copy_from(src_inputs);
+                    }
+                }
+
+                if (auto* src_procs = conn_params->get<configuration_parameter_list_sorted>("processors"_ct))
+                {
+                    if (auto* dest_procs = new_conn->get_parameter<configuration_parameter_list_sorted>("processors"_ct))
+                    {
+                        dest_procs->copy_from(src_procs);
+                    }
+                }
+
+                if (auto* src_outputs = conn_params->get<configuration_parameter_list_sorted>("outputs"_ct))
+                {
+                    if (auto* dest_outputs = new_conn->get_parameter<configuration_parameter_list_sorted>("outputs"_ct))
+                    {
+                        dest_outputs->copy_from(src_outputs);
+                    }
+                }
 
                 if (auto* parser = new_conn->get_parser())
                 {
                     if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
                     {
                         if (auto* parser_params = parser->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
-                            parser_params->copy_from(user_params);
+                            parser_params->copy_values_from(user_params);
                     }
                 }
 
@@ -1097,7 +1169,7 @@ namespace adam
                     if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
                     {
                         if (auto* encoder_params = encoder->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
-                            encoder_params->copy_from(user_params);
+                            encoder_params->copy_values_from(user_params);
                     }
                 }
 
@@ -1266,7 +1338,7 @@ namespace adam
                 continue;
             }
                 
-            new_port->parameters().copy_from(&it->second->parameters());
+            new_port->parameters().copy_values_from(&it->second->parameters());
                 
             for (auto& [conn_hash, conn] : m_connections)
             {
@@ -1427,7 +1499,7 @@ namespace adam
                 continue;
             }
 
-            new_processor->parameters().copy_from(&it->second->parameters());
+            new_processor->parameters().copy_values_from(&it->second->parameters());
             
             for (auto& [conn_hash, conn] : m_connections)
             {
@@ -1631,14 +1703,38 @@ namespace adam
             new_conn->set_input_format(resolved_in_fmt);
             new_conn->set_output_format(resolved_out_fmt);
 
-            new_conn->parameters().copy_from(&it->second->parameters());
+            new_conn->parameters().copy_values_from(&it->second->parameters());
+
+            if (auto* src_inputs = it->second->get_parameters().get<configuration_parameter_list_sorted>("inputs"_ct))
+            {
+                if (auto* dest_inputs = new_conn->get_parameter<configuration_parameter_list_sorted>("inputs"_ct))
+                {
+                    dest_inputs->copy_from(src_inputs);
+                }
+            }
+
+            if (auto* src_procs = it->second->get_parameters().get<configuration_parameter_list_sorted>("processors"_ct))
+            {
+                if (auto* dest_procs = new_conn->get_parameter<configuration_parameter_list_sorted>("processors"_ct))
+                {
+                    dest_procs->copy_from(src_procs);
+                }
+            }
+
+            if (auto* src_outputs = it->second->get_parameters().get<configuration_parameter_list_sorted>("outputs"_ct))
+            {
+                if (auto* dest_outputs = new_conn->get_parameter<configuration_parameter_list_sorted>("outputs"_ct))
+                {
+                    dest_outputs->copy_from(src_outputs);
+                }
+            }
 
             if (auto* parser = new_conn->get_parser())
             {
                 if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
                 {
                     if (auto* parser_params = parser->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
-                        parser_params->copy_from(user_params);
+                        parser_params->copy_values_from(user_params);
                 }
             }
 
@@ -1647,7 +1743,7 @@ namespace adam
                 if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
                 {
                     if (auto* encoder_params = encoder->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
-                        encoder_params->copy_from(user_params);
+                        encoder_params->copy_values_from(user_params);
                 }
             }
 
@@ -1807,7 +1903,31 @@ namespace adam
             auto conn_name = it->second->get_name();
 
             auto uci = std::make_unique<connection::unavailable_info>(conn_name);
-            uci->parameters().copy_from(&it->second->parameters());
+            uci->parameters().copy_values_from(&it->second->parameters());
+
+            if (auto* src_inputs = it->second->get_parameter<configuration_parameter_list_sorted>("inputs"_ct))
+            {
+                if (auto* dest_inputs = uci->parameters().get<configuration_parameter_list_sorted>("inputs"_ct))
+                {
+                    dest_inputs->copy_from(src_inputs);
+                }
+            }
+
+            if (auto* src_procs = it->second->get_parameter<configuration_parameter_list_sorted>("processors"_ct))
+            {
+                if (auto* dest_procs = uci->parameters().get<configuration_parameter_list_sorted>("processors"_ct))
+                {
+                    dest_procs->copy_from(src_procs);
+                }
+            }
+
+            if (auto* src_outputs = it->second->get_parameter<configuration_parameter_list_sorted>("outputs"_ct))
+            {
+                if (auto* dest_outputs = uci->parameters().get<configuration_parameter_list_sorted>("outputs"_ct))
+                {
+                    dest_outputs->copy_from(src_outputs);
+                }
+            }
 
             if (auto* in_user = it->second->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
                 uci->parameters().add(std::make_unique<configuration_parameter_list_sorted>(*in_user));

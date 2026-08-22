@@ -1496,7 +1496,7 @@ namespace adam
                     {
                         if (auto* p = parser_params->get(params->param_view.name))
                         {
-                            p->copy_from(param);
+                            p->copy_values_from(param);
                         }
                     }
                 }
@@ -1607,7 +1607,7 @@ namespace adam
                     {
                         if (auto* p = encoder_params->get(params->param_view.name))
                         {
-                            p->copy_from(param);
+                            p->copy_values_from(param);
                         }
                     }
                 }

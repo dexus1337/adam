@@ -19,6 +19,11 @@ namespace adam
         : m_str_name(name) {}
 
     configuration_parameter::~configuration_parameter() {}
+ 
+    void configuration_parameter::copy_from(const configuration_parameter* other)
+    {
+        copy_values_from(other);
+    }
 
     const string_hashed& configuration_parameter::get_description(language lang) const 
     {

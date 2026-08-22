@@ -250,9 +250,7 @@ namespace adam::gui
             ImGui::Spacing();
             ImGui::Spacing();
 
-            float btn_w = 120.0f;
-            ImGui::SetCursorPosX((avail.x - btn_w) * 0.5f);
-            if (ImGui::Button("Close", ImVec2(btn_w, 0)))
+            if (ImGui::Button("Close", ImVec2(-1.0f, 0.0f)))
             {
                 show_about = false;
             }

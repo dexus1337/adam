@@ -137,21 +137,9 @@ namespace adam
 
     bool connection::handle_data(buffer*& buf)
     {
-        if (!buf)
-        {
-            return false;
-        }
+        if (!buf) return false;
 
         bool result = true;
-
-        // Run data through input inspectors
-        m_inspectors_input.iterate([&](const auto& inspectors) 
-        {
-            for (const auto& inspector : inspectors) 
-            {
-                inspector->handle_data(buf);
-            }
-        });
 
         if (!m_b_valid_data_chain || !m_started->get_value()) return false;
 
@@ -160,37 +148,35 @@ namespace adam
 
         buffer* current_buf = parsed_buf ? parsed_buf : buf;
 
+        // Run data through input inspectors
+        m_inspectors_input.iterate([&](const auto& inspectors) 
+        {
+            for (const auto& inspector : inspectors) 
+                inspector->handle_data(current_buf);
+        });
+
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
         {
             for (auto* processor : processors) 
-            {
                 result &= processor->handle_data(current_buf);
-            }
         });
 
         if (!result)
         {
             if (parsed_buf) parsed_buf->release();
-            return false;
+                return false;
         }
 
         // Run data through output inspectors
         m_inspectors_output.iterate([&](const auto& inspectors) 
         {
             for (const auto& inspector : inspectors) 
-            {
                 inspector->handle_data(current_buf);
-            }
         });
 
         buffer* encoded_buf = nullptr;
-
-        // Run data through output encoder if required
-        if (m_encoder && current_buf->get_data_format() != m_output_format)
-        {
-            m_encoder->encode(encoded_buf, current_buf);
-        }
+        if (m_encoder && !m_encoder->encode(encoded_buf, current_buf)) return false;
 
         buffer* out_buf = encoded_buf ? encoded_buf : current_buf;
 
@@ -198,9 +184,7 @@ namespace adam
         m_ports_output.iterate([&](const auto& outputs) 
         {
             for (auto* output_port : outputs) 
-            {
                 result &= output_port->handle_data(out_buf, data_direction_out);
-            }
         });
 
         if (encoded_buf) encoded_buf->release();

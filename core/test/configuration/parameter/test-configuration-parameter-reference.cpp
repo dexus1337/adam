@@ -36,20 +36,20 @@ TEST(configuration_parameter_test, reference_clone)
     EXPECT_EQ(cloned->get_default_target(), "default_target"_ct);
 }
 
-TEST(configuration_parameter_test, reference_copy_from)
+TEST(configuration_parameter_test, reference_copy_values_from)
 {
     configuration_parameter_reference target("target"_ct, "init_target"_ct);
     configuration_parameter_reference source("source"_ct, "source_target"_ct);
 
-    target.copy_from(&source);
+    target.copy_values_from(&source);
     EXPECT_EQ(target.get_target(), "source_target"_ct);
 
     // Null source should be safely ignored
-    target.copy_from(nullptr);
+    target.copy_values_from(nullptr);
     EXPECT_EQ(target.get_target(), "source_target"_ct);
 
     // Incompatible type should be safely ignored
     configuration_parameter_string str_source("str_src"_ct, "text"_ct);
-    target.copy_from(&str_source);
+    target.copy_values_from(&str_source);
     EXPECT_EQ(target.get_target(), "source_target"_ct);
 }

@@ -271,24 +271,38 @@ namespace adam::gui
         };
     }
 
-    std::function<void(adam::buffer*)> make_inspector_connection_input_buffer_callback(adam::string_hash conn_hash, const adam::analyzer* data_analyzer)
+    std::function<void(adam::buffer*)> make_inspector_connection_buffer_callback(adam::string_hash conn_hash, bool is_input, const adam::analyzer* data_analyzer)
     {
-        return [conn_hash, data_analyzer](adam::buffer* buf)
+        return [conn_hash, is_input, data_analyzer](adam::buffer* buf)
         {
-            if (!buf) return;
+            if (!buf)
+            {
+                return;
+            }
             
             std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
-            auto& port_data = adam::gui::g_inspection_data.connections_input[conn_hash];
+            auto& port_data = is_input ? adam::gui::g_inspection_data.connections_input[conn_hash]
+                                       : adam::gui::g_inspection_data.connections_output[conn_hash];
             
             adam::gui::inspected_buffer ib;
             ib.timestamp = buf->get_timestamp();
             if (ib.timestamp == 0)
+            {
                 ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+            }
             
             ib.size = buf->get_size();
             ib.offset = static_cast<uint32_t>(port_data.data_pool.size());
             ib.ref_offset = 0;
             ib.ref_size = 0;
+            
+            auto* ref_buf = buf->get_referenced_buffer();
+            const size_t ref_size = (ref_buf && ref_buf->get_data()) ? ref_buf->get_size() : 0;
+            
+            if (ib.size > 0 || ref_size > 0)
+            {
+                port_data.data_pool.reserve(port_data.data_pool.size() + ib.size + ref_size);
+            }
             
             if (ib.size > 0 && buf->get_data())
             {
@@ -296,15 +310,12 @@ namespace adam::gui
                 port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
             }
             
-            if (auto* ref_buf = buf->get_referenced_buffer())
+            if (ref_size > 0)
             {
-                ib.ref_size = ref_buf->get_size();
+                ib.ref_size = static_cast<uint32_t>(ref_size);
                 ib.ref_offset = static_cast<uint32_t>(port_data.data_pool.size());
-                if (ib.ref_size > 0 && ref_buf->get_data())
-                {
-                    const uint8_t* ptr = ref_buf->get_begin_as<uint8_t>();
-                    port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.ref_size);
-                }
+                const uint8_t* ptr = ref_buf->get_begin_as<uint8_t>();
+                port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.ref_size);
             }
             
             std::vector<adam::analyzer::row> parsed_rows;
@@ -320,75 +331,17 @@ namespace adam::gui
                 }
                 data_analyzer->analyze(buf, parsed_rows);
             }
-            size_t b_idx = port_data.parsed_data.size();
+            
+            const size_t b_idx = port_data.parsed_data.size();
             if (parsed_rows.empty()) 
             {
                 port_data.parsed_flat_rows.push_back({b_idx, SIZE_MAX});
             } 
             else 
             {
+                port_data.parsed_flat_rows.reserve(port_data.parsed_flat_rows.size() + parsed_rows.size());
                 for (size_t r_idx = 0; r_idx < parsed_rows.size(); ++r_idx) 
-                    port_data.parsed_flat_rows.push_back({b_idx, r_idx});
-            }
-            port_data.parsed_data.push_back(std::move(parsed_rows));
-            port_data.buffers.push_back(ib);
-        };
-    }
-
-    std::function<void(adam::buffer*)> make_inspector_connection_output_buffer_callback(adam::string_hash conn_hash, const adam::analyzer* data_analyzer)
-    {
-        return [conn_hash, data_analyzer](adam::buffer* buf)
-        {
-            if (!buf) return;
-            
-            std::lock_guard<std::mutex> lock(adam::gui::g_inspection_data.mtx);
-            auto& port_data = adam::gui::g_inspection_data.connections_output[conn_hash];
-            
-            adam::gui::inspected_buffer ib;
-            ib.timestamp = buf->get_timestamp();
-            if (ib.timestamp == 0)
-                ib.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
-            
-            ib.size = buf->get_size();
-            ib.offset = static_cast<uint32_t>(port_data.data_pool.size());
-            ib.ref_offset = 0;
-            ib.ref_size = 0;
-            
-            if (ib.size > 0 && buf->get_data())
-            {
-                const uint8_t* ptr = buf->get_begin_as<uint8_t>();
-                port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.size);
-            }
-            
-            if (auto* ref_buf = buf->get_referenced_buffer())
-            {
-                ib.ref_size = ref_buf->get_size();
-                ib.ref_offset = static_cast<uint32_t>(port_data.data_pool.size());
-                if (ib.ref_size > 0 && ref_buf->get_data())
                 {
-                    const uint8_t* ptr = ref_buf->get_begin_as<uint8_t>();
-                    port_data.data_pool.insert(port_data.data_pool.end(), ptr, ptr + ib.ref_size);
-                }
-            }
-            
-            std::vector<adam::analyzer::row> parsed_rows;
-            if (data_analyzer)
-            {
-                if (port_data.analyzer_columns.empty())
-                {
-                    port_data.analyzer_columns          = data_analyzer->get_columns();
-                    port_data.analyzer_column_types     = data_analyzer->get_column_types();
-                    port_data.analyzer_column_fonts     = data_analyzer->get_column_fonts();
-                    port_data.analyzer_column_weights   = data_analyzer->get_column_weights();
-                    port_data.analyzer_ptr              = data_analyzer;
-                }
-                data_analyzer->analyze(buf, parsed_rows);
-            }
-            size_t b_idx = port_data.parsed_data.size();
-            if (parsed_rows.empty()) {
-                port_data.parsed_flat_rows.push_back({b_idx, SIZE_MAX});
-            } else {
-                for (size_t r_idx = 0; r_idx < parsed_rows.size(); ++r_idx) {
                     port_data.parsed_flat_rows.push_back({b_idx, r_idx});
                 }
             }
@@ -436,7 +389,7 @@ namespace adam::gui
                             adam::gui::g_inspection_data.connections_input[conn_hash].analyzer_ptr              = analyzer_ptr;
                         }
                         adam::data_inspector* new_inspector = nullptr;
-                        cmdr.request_connection_input_inspector_create(conn_hash, make_inspector_connection_input_buffer_callback(conn_hash, analyzer_ptr), new_inspector);
+                        cmdr.request_connection_input_inspector_create(conn_hash, make_inspector_connection_buffer_callback(conn_hash, true, analyzer_ptr), new_inspector);
                     }
                 } 
                 else 
@@ -453,7 +406,7 @@ namespace adam::gui
                             adam::gui::g_inspection_data.connections_output[conn_hash].analyzer_ptr             = analyzer_ptr;
                         }
                         adam::data_inspector* new_inspector = nullptr;
-                        cmdr.request_connection_output_inspector_create(conn_hash, make_inspector_connection_output_buffer_callback(conn_hash, analyzer_ptr), new_inspector);
+                        cmdr.request_connection_output_inspector_create(conn_hash, make_inspector_connection_buffer_callback(conn_hash, false, analyzer_ptr), new_inspector);
                     }
                 }
             });

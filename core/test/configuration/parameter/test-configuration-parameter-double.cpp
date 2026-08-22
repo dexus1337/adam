@@ -81,20 +81,20 @@ TEST(configuration_parameter_test, double_clone)
     EXPECT_EQ(cloned->get_presets().size(), 3u);
 }
 
-TEST(configuration_parameter_test, double_copy_from)
+TEST(configuration_parameter_test, double_copy_values_from)
 {
     configuration_parameter_double target("target"_ct, 1.0);
     configuration_parameter_double source("source"_ct, 42.42);
 
-    target.copy_from(&source);
+    target.copy_values_from(&source);
     EXPECT_DOUBLE_EQ(target.get_value(), 42.42);
 
     // Null source should be safely ignored
-    target.copy_from(nullptr);
+    target.copy_values_from(nullptr);
     EXPECT_DOUBLE_EQ(target.get_value(), 42.42);
 
     // Incompatible type should be safely ignored
     configuration_parameter_integer int_source("int_src"_ct, 42);
-    target.copy_from(&int_source);
+    target.copy_values_from(&int_source);
     EXPECT_DOUBLE_EQ(target.get_value(), 42.42);
 }
