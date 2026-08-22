@@ -177,7 +177,7 @@ TEST_F(replay_test, mode_multiple_files)
     {
         if (entry.path().extension() == ".pcap") files.push_back(entry.path().string());
     }
-    ASSERT_EQ(files.size(), 2);
+    ASSERT_EQ(files.size(), 2u);
     // Sort to ensure sequential
     std::sort(files.begin(), files.end());
     std::string concat_path = files[0] + ";" + files[1];

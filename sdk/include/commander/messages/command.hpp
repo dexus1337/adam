@@ -47,6 +47,8 @@ namespace adam
         port_inject_data,
         connection_set_input_data_format,
         connection_set_output_data_format,
+        connection_set_input_format_parameter,
+        connection_set_output_format_parameter,
 
         connection_create,
         connection_destroy,

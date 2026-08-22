@@ -10,7 +10,8 @@
 
  
 #include "api/api-sdk.hpp"
-
+#include "configuration/configuration-item.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 
 namespace adam 
 {
@@ -20,20 +21,19 @@ namespace adam
      * @class encoder
      * @brief A base class for data format encoders, providing a common interface for encoding data from different formats used in the ADAM system.
      */
-    class ADAM_SDK_API encoder 
+    class ADAM_SDK_API encoder : public configuration_item
     {
-
     public:
 
-        /** @brief Destroys the encoder object and cleans up resources. */
+        static const configuration_parameter_list& get_default_parameters();
+
         virtual ~encoder() = default;
 
         virtual bool encode(class buffer*& buf, class buffer* internal_data) = 0;
 
     protected:
 
-        /** @brief Constructs a new encoder object. */
-        encoder() = default;
+        encoder(const string_hashed& item_name = "encoder"_ct, const configuration_parameter_list& default_params = get_default_parameters());
 
     };
 }

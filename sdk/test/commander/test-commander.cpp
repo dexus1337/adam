@@ -16,12 +16,78 @@
 #include <configuration/parameters/configuration-parameter-integer.hpp>
 #include <configuration/parameters/configuration-parameter-string.hpp>
 #include <configuration/parameters/configuration-parameter-boolean.hpp>
-#include <configuration/parameters/configuration-parameter-double.hpp>
+#include <configuration/parameters/configuration-parameter-list-sorted.hpp>
+#include <data/format.hpp>
+#include <data/parser.hpp>
+#include <data/encoder.hpp>
 
 using namespace adam::string_hashed_ct_literals;
 
 namespace cmdr_test
 {
+    class param_mock_parser : public adam::parser
+    {
+    public:
+        static const adam::configuration_parameter_list& get_custom_parameters()
+        {
+            static const adam::configuration_parameter_list params = []()
+            {
+                adam::configuration_parameter_list p;
+                auto user_params = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+                user_params->add(std::make_unique<adam::configuration_parameter_boolean>("custom_flag"_ct, true));
+                p.add(std::move(user_params));
+                return p;
+            }();
+            return params;
+        }
+
+        param_mock_parser(const adam::string_hashed& name = "param_mock_parser"_ct)
+            : adam::parser(name, get_custom_parameters())
+        {
+        }
+
+        bool parse(adam::buffer* buf, adam::buffer*& internal_data) override
+        {
+            internal_data = buf;
+            return true;
+        }
+    };
+
+    class param_mock_encoder : public adam::encoder
+    {
+    public:
+        static const adam::configuration_parameter_list& get_custom_parameters()
+        {
+            static const adam::configuration_parameter_list params = []()
+            {
+                adam::configuration_parameter_list p;
+                auto user_params = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+                user_params->add(std::make_unique<adam::configuration_parameter_integer>("custom_int"_ct, 42));
+                p.add(std::move(user_params));
+                return p;
+            }();
+            return params;
+        }
+
+        param_mock_encoder(const adam::string_hashed& name = "param_mock_encoder"_ct)
+            : adam::encoder(name, get_custom_parameters())
+        {
+        }
+
+        bool encode(adam::buffer*& buf, adam::buffer* internal_data) override
+        {
+            buf = internal_data;
+            if (buf)
+            {
+                buf->add_ref();
+            }
+            return true;
+        }
+    };
+
+    static adam::default_factory<adam::parser, param_mock_parser> global_param_mock_parser_factory;
+    static adam::default_factory<adam::encoder, param_mock_encoder> global_param_mock_encoder_factory;
+
     class mock_processor : public adam::processor
     {
     public:
@@ -63,6 +129,21 @@ namespace cmdr_test
         void register_processor_factory(const adam::string_hashed& type_name, adam::factory<adam::processor>* factory_ptr)
         {
             m_processor_factories[type_name] = adam::registry::factory_data_processor(factory_ptr, nullptr, 0, 0, 0, 0);
+        }
+
+        void register_parser_factory(const adam::string_hashed& format_name, const adam::registry::factory_data_parser& data)
+        {
+            m_parser_factories[format_name] = data;
+        }
+
+        void register_encoder_factory(const adam::string_hashed& format_name, const adam::registry::factory_data_encoder& data)
+        {
+            m_encoder_factories[format_name] = data;
+        }
+
+        void register_data_format(const adam::string_hashed& format_name, const adam::data_format* format_ptr)
+        {
+            m_data_formats[format_name.get_hash()] = format_ptr;
         }
     };
 
@@ -863,6 +944,90 @@ TEST_F(commander_test, sync_unavailable_connection)
     EXPECT_TRUE(cmdr.destroy());
 }
 
+/** @brief Tests synchronization of format user parameters when connection becomes available. */
+TEST_F(commander_test, connection_available_format_parameters_sync)
+{
+    adam::controller& ctrl = adam::controller::get();
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    adam::configuration_parameter_list in_params;
+    auto in_user_params = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+    in_user_params->add(std::make_unique<adam::configuration_parameter_integer>("baudrate"_ct, 9600));
+    in_params.add(std::move(in_user_params));
+
+    cmdr_test::mock_module mod_a("mod_a"_ct);
+    adam::data_format df_in("fmt_in"_ct, nullptr, nullptr, nullptr, &mod_a);
+    mod_a.register_data_format("fmt_in"_ct, &df_in);
+    mod_a.register_parser_factory("fmt_in"_ct, adam::registry::factory_data_parser(nullptr, &in_params));
+    cmdr.modules().register_internal_module(&mod_a);
+
+    adam::configuration_parameter_list out_params;
+    auto out_user_params = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+    out_user_params->add(std::make_unique<adam::configuration_parameter_boolean>("verbose"_ct, false));
+    out_params.add(std::move(out_user_params));
+
+    cmdr_test::mock_module mod_b("mod_b"_ct);
+    adam::data_format df_out("fmt_out"_ct, nullptr, nullptr, nullptr, &mod_b);
+    mod_b.register_data_format("fmt_out"_ct, &df_out);
+    mod_b.register_encoder_factory("fmt_out"_ct, adam::registry::factory_data_encoder(nullptr, &out_params));
+    cmdr.modules().register_internal_module(&mod_b);
+
+    auto conn_hash = ("rt_avail_conn"_ct).get_hash();
+
+    // Broadcast connection_available with serialized input and output format user parameters
+    adam::event evt(adam::event_type::connection_available);
+    auto* evt_data = evt.data_as<adam::connection::basic_info>();
+    evt_data->setup("rt_avail_conn"_ct);
+    evt_data->input_format = ("fmt_in"_ct).get_hash();
+    evt_data->input_format_module = ("mod_a"_ct).get_hash();
+    evt_data->output_format = ("fmt_out"_ct).get_hash();
+    evt_data->output_format_module = ("mod_b"_ct).get_hash();
+    evt_data->is_unavailable = false;
+    evt_data->valid_chain = true;
+    evt_data->input_format_user_parameters = 1;
+    evt_data->output_format_user_parameters = 1;
+
+    std::vector<adam::event> evt_chain;
+    evt_chain.push_back(evt);
+    size_t unused_off = sizeof(adam::connection::basic_info);
+    size_t unused_size = adam::event::get_max_data_length() - unused_off;
+    size_t evt_idx = 0;
+    adam::detail::message_serializer<adam::event> serializer(evt_chain, evt_idx, unused_off, unused_size);
+
+    adam::configuration_parameter_integer::view in_param_view;
+    in_param_view.var_type = adam::configuration_parameter::type::type_integer;
+    in_param_view.name = ("baudrate"_ct).get_hash();
+    in_param_view.value = 115200;
+    serializer.write_bytes(&in_param_view, sizeof(in_param_view));
+
+    adam::configuration_parameter_boolean::view out_param_view;
+    out_param_view.var_type = adam::configuration_parameter::type::type_boolean;
+    out_param_view.name = ("verbose"_ct).get_hash();
+    out_param_view.value = true;
+    serializer.write_bytes(&out_param_view, sizeof(out_param_view));
+
+    for (const auto& ev : evt_chain)
+        ctrl.broadcast_event(ev);
+
+    const auto& conns = cmdr.get_registry().get_connections();
+    auto start = std::chrono::steady_clock::now();
+    while ((!conns.contains(conn_hash) || conns.at(conn_hash)->input_format_user_params.get_children().empty()) && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    ASSERT_TRUE(conns.contains(conn_hash));
+    EXPECT_FALSE(conns.at(conn_hash)->is_unavailable);
+    auto* in_param = conns.at(conn_hash)->input_format_user_params.get("baudrate"_ct);
+    ASSERT_NE(in_param, nullptr);
+    EXPECT_EQ(static_cast<adam::configuration_parameter_integer*>(in_param)->get_value(), 115200);
+
+    auto* out_param = conns.at(conn_hash)->output_format_user_params.get("verbose"_ct);
+    ASSERT_NE(out_param, nullptr);
+    EXPECT_TRUE(static_cast<adam::configuration_parameter_boolean*>(out_param)->get_value());
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
 /** @brief Tests synchronization of connection data format changes including valid_chain state. */
 TEST_F(commander_test, connection_data_format_changed_sync)
 {
@@ -890,6 +1055,7 @@ TEST_F(commander_test, connection_data_format_changed_sync)
     evt_data->format = ("new_fmt"_ct).get_hash();
     evt_data->format_module = ("new_mod"_ct).get_hash();
     evt_data->valid_chain = true;
+    evt_data->user_parameters = 0;
     ctrl.broadcast_event(evt);
 
     auto start = std::chrono::steady_clock::now();
@@ -1344,3 +1510,159 @@ TEST_F(commander_test, commander_disable_flow)
 
     EXPECT_TRUE(cmdr.destroy());
 }
+
+/** @brief Tests setting connection format parameter and verifying sync to commander. */
+TEST_F(commander_test, request_connection_format_parameter_set)
+{
+    adam::controller& ctrl = adam::controller::get();
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_connection("conn_param_sync"_ct, &conn), adam::registry::status_success);
+    ASSERT_NE(conn, nullptr);
+
+    adam::commander cmdr;
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("conn_param_sync"_ct).get_hash();
+    EXPECT_TRUE(cmdr.get_registry().get_connections().contains(conn_hash));
+
+    // Request setting an input format parameter (returns failed if format has no parser/parameter)
+    EXPECT_EQ(cmdr.request_connection_input_format_parameter_set(conn_hash, "non_existent"_ct, true), adam::response_status::failed);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests initial sync of connection format user parameters when commander connects. */
+TEST_F(commander_test, connection_format_parameter_initial_sync)
+{
+    adam::controller& ctrl = adam::controller::get();
+
+    cmdr_test::mock_module mock_mod("mock_mod"_ct);
+
+    // 1. Setup mock format with parser and encoder user parameters
+    adam::data_format format_with_params
+    (
+        "mock_format"_ct,
+        &cmdr_test::global_param_mock_parser_factory,
+        &cmdr_test::global_param_mock_encoder_factory,
+        nullptr,
+        &mock_mod
+    );
+
+    mock_mod.register_data_format("mock_format"_ct, &format_with_params);
+    mock_mod.register_parser_factory("mock_format"_ct, adam::registry::factory_data_parser(&cmdr_test::global_param_mock_parser_factory, &cmdr_test::param_mock_parser::get_custom_parameters()));
+    mock_mod.register_encoder_factory("mock_format"_ct, adam::registry::factory_data_encoder(&cmdr_test::global_param_mock_encoder_factory, &cmdr_test::param_mock_encoder::get_custom_parameters()));
+    cmdr_test::mock_module_injector injector(ctrl.get_registry(), &mock_mod);
+
+    // 2. Create connection and set format
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_connection("conn_init_param_sync"_ct, &conn), adam::registry::status_success);
+    ASSERT_NE(conn, nullptr);
+
+    conn->set_input_format(&format_with_params);
+    conn->set_output_format(&format_with_params);
+
+    // 3. Modify parameter values on controller's connection
+    auto* in_user_params = conn->get_parameter<adam::configuration_parameter_list_sorted>("input_format_user_parameters"_ct);
+    auto* out_user_params = conn->get_parameter<adam::configuration_parameter_list_sorted>("output_format_user_parameters"_ct);
+    ASSERT_NE(in_user_params, nullptr);
+    ASSERT_NE(out_user_params, nullptr);
+
+    auto* flag = in_user_params->get<adam::configuration_parameter_boolean>("custom_flag"_ct);
+    auto* int_param = out_user_params->get<adam::configuration_parameter_integer>("custom_int"_ct);
+    ASSERT_NE(flag, nullptr);
+    ASSERT_NE(int_param, nullptr);
+
+    flag->set_value(false);
+    int_param->set_value(888);
+
+    // 4. Connect commander and verify parameters synced properly
+    adam::commander cmdr;
+    cmdr.modules().register_internal_module(&mock_mod);
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("conn_init_param_sync"_ct).get_hash();
+    ASSERT_TRUE(cmdr.get_registry().get_connections().contains(conn_hash));
+
+    const auto& conn_view = cmdr.get_registry().get_connections().at(conn_hash);
+    auto* view_flag = conn_view->input_format_user_params.get<adam::configuration_parameter_boolean>("custom_flag"_ct);
+    auto* view_int = conn_view->output_format_user_params.get<adam::configuration_parameter_integer>("custom_int"_ct);
+
+    ASSERT_NE(view_flag, nullptr);
+    ASSERT_NE(view_int, nullptr);
+
+    EXPECT_FALSE(view_flag->get_value());
+    EXPECT_EQ(view_int->get_value(), 888);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+/** @brief Tests updating connection format parameters via commander and receiving updated state events. */
+TEST_F(commander_test, connection_format_parameter_update_and_events)
+{
+    adam::controller& ctrl = adam::controller::get();
+
+    cmdr_test::mock_module mock_mod("mock_mod"_ct);
+
+    // 1. Setup mock format with parser and encoder user parameters
+    adam::data_format format_with_params
+    (
+        "mock_format"_ct,
+        &cmdr_test::global_param_mock_parser_factory,
+        &cmdr_test::global_param_mock_encoder_factory,
+        nullptr,
+        &mock_mod
+    );
+
+    mock_mod.register_data_format("mock_format"_ct, &format_with_params);
+    mock_mod.register_parser_factory("mock_format"_ct, adam::registry::factory_data_parser(&cmdr_test::global_param_mock_parser_factory, &cmdr_test::param_mock_parser::get_custom_parameters()));
+    mock_mod.register_encoder_factory("mock_format"_ct, adam::registry::factory_data_encoder(&cmdr_test::global_param_mock_encoder_factory, &cmdr_test::param_mock_encoder::get_custom_parameters()));
+    cmdr_test::mock_module_injector injector(ctrl.get_registry(), &mock_mod);
+
+    // 2. Create connection and set format
+    adam::connection* conn = nullptr;
+    EXPECT_EQ(ctrl.get_registry().create_connection("conn_event_param_sync"_ct, &conn), adam::registry::status_success);
+    ASSERT_NE(conn, nullptr);
+
+    conn->set_input_format(&format_with_params);
+    conn->set_output_format(&format_with_params);
+
+    // 3. Connect commander
+    adam::commander cmdr;
+    cmdr.modules().register_internal_module(&mock_mod);
+    ASSERT_TRUE(cmdr.connect());
+
+    auto conn_hash = ("conn_event_param_sync"_ct).get_hash();
+    ASSERT_TRUE(cmdr.get_registry().get_connections().contains(conn_hash));
+    const auto& conn_view = cmdr.get_registry().get_connections().at(conn_hash);
+
+    auto* view_flag = conn_view->input_format_user_params.get<adam::configuration_parameter_boolean>("custom_flag"_ct);
+    auto* view_int = conn_view->output_format_user_params.get<adam::configuration_parameter_integer>("custom_int"_ct);
+    ASSERT_NE(view_flag, nullptr);
+    ASSERT_NE(view_int, nullptr);
+    EXPECT_TRUE(view_flag->get_value());
+    EXPECT_EQ(view_int->get_value(), 42);
+
+    // 4. Request input format parameter change
+    EXPECT_EQ(cmdr.request_connection_input_format_parameter_set(conn_hash, "custom_flag"_ct, false), adam::response_status::success);
+
+    auto start = std::chrono::steady_clock::now();
+    while (view_flag->get_value() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    EXPECT_FALSE(view_flag->get_value());
+
+    // 5. Request output format parameter change
+    EXPECT_EQ(cmdr.request_connection_output_format_parameter_set(conn_hash, "custom_int"_ct, static_cast<int64_t>(12345)), adam::response_status::success);
+
+    start = std::chrono::steady_clock::now();
+    while (view_int->get_value() != 12345 && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    EXPECT_EQ(view_int->get_value(), 12345);
+
+    EXPECT_TRUE(cmdr.destroy());
+}
+
+

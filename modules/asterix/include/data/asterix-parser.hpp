@@ -20,7 +20,11 @@ namespace adam::modules::asterix
     class ADAM_ASTERIX_API asterix_parser : public adam::parser
     {
     public:
-        asterix_parser() = default;
+
+        static const adam::configuration_parameter_list& get_user_parameters();
+        static const adam::configuration_parameter_list& get_default_parameters();
+
+        asterix_parser(const adam::string_hashed& item_name = "asterix_parser"_ct, const adam::configuration_parameter_list& default_params = get_default_parameters());
         ~asterix_parser() override = default;
 
         /**
@@ -30,5 +34,10 @@ namespace adam::modules::asterix
          * @return True if parsing is successful, false otherwise.
          */
         bool parse(class adam::buffer* buf, class adam::buffer*& internal_data) override;
+
+    private:
+
+        adam::configuration_parameter_boolean* m_forward_unknown_cats;
+
     };
 }

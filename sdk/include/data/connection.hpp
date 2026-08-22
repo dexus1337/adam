@@ -15,9 +15,11 @@
 #include "types/vector-double-buffer.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/message-structs.hpp"
+#include "data/parser.hpp"
+#include "data/encoder.hpp"
 
 #include <cstring>
-
+#include <memory>
 
 namespace adam 
 {
@@ -30,8 +32,7 @@ namespace adam
     /**
      * @class   connection
      * @brief   Defines a data connection between n+ input ports and n+ output ports.
-     *          The connection owns the input and output data formats; individual ports
-     *          carry no format information.
+     *          The connection owns the input and output data formats and their parser/encoder instances.
      */
     class ADAM_SDK_API connection : public registry_item
     {
@@ -65,6 +66,8 @@ namespace adam
                 input_format_module = 0;
                 output_format = 0;
                 output_format_module = 0;
+                input_format_user_parameters = 0;
+                output_format_user_parameters = 0;
                 input_count = 0;
                 processor_count = 0;
                 output_count = 0;
@@ -75,11 +78,14 @@ namespace adam
             bool valid_chain;
             bool is_unavailable;
 
+            uint16_t input_format_user_parameters;
+            uint16_t output_format_user_parameters;
+
             uint16_t input_count;
             uint16_t processor_count;
             uint16_t output_count;
 
-            static ADAM_CONSTEXPR size_t default_type_count = ((command::get_max_data_length() - sizeof(name) - sizeof(bool) * 3 - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2 - sizeof(string_hash) * 4 - sizeof(uint16_t) * 3) / 3) / sizeof(string_hash);
+            static ADAM_CONSTEXPR size_t default_type_count = ((command::get_max_data_length() - sizeof(name) - sizeof(bool) * 3 - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2 - sizeof(string_hash) * 4 - sizeof(uint16_t) * 5) / 3) / sizeof(string_hash);
 
             string_hash inputs[default_type_count];
             string_hash processors[default_type_count];
@@ -116,6 +122,12 @@ namespace adam
 
         /** @brief Returns the data format expected on all output ports. */
         const data_format* get_output_format() const { return m_output_format; }
+
+        /** @brief Returns the active parser instance for the input format, or nullptr if none. */
+        parser* get_parser() const { return m_parser.get(); }
+
+        /** @brief Returns the active encoder instance for the output format, or nullptr if none. */
+        encoder* get_encoder() const { return m_encoder.get(); }
 
         /** @brief Returns the last calculated validation state. */
         bool is_valid_chain() const { return m_b_valid_data_chain; }
@@ -155,6 +167,9 @@ namespace adam
 
         const data_format*                                      m_input_format;             /**< Format expected from all input ports (defaults to transparent). */
         const data_format*                                      m_output_format;            /**< Format expected for all output ports (defaults to transparent). */
+
+        std::unique_ptr<parser>                                 m_parser;                   /**< Parser instance for input format. */
+        std::unique_ptr<encoder>                                m_encoder;                  /**< Encoder instance for output format. */
 
         bool                                                    m_b_valid_data_chain;       /**< Last calculated validation state of the data chain. */
         

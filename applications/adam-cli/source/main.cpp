@@ -530,6 +530,90 @@ int main()
                         }
                     }
                 }
+                else if ((tokens[0] == "conn_fmt_in_set_param" || tokens[0] == "conn_parser_set_param") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string conn_name = tokens[1];
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    auto it = ctx.cmd.get_registry().get_connections().find(adam::string_hashed(conn_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_connections().end())
+                    {
+                        std::vector<std::string> candidates;
+                        for (const auto& [hash, p] : it->second->input_format_user_params.get_children())
+                            candidates.push_back(std::string(p->get_name().c_str()));
+                        if (!candidates.empty()) handle_matches(candidates, arg, base);
+                    }
+                }
+                else if ((tokens[0] == "conn_fmt_in_set_param" || tokens[0] == "conn_parser_set_param") && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                {
+                    std::string conn_name = tokens[1];
+                    std::string param_name = tokens[2];
+                    std::string arg = (tokens.size() == 4) ? tokens[3] : "";
+                    auto it = ctx.cmd.get_registry().get_connections().find(adam::string_hashed(conn_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_connections().end())
+                    {
+                        auto* param = it->second->input_format_user_params.get(adam::string_hashed(param_name.c_str()).get_hash());
+                        if (param)
+                        {
+                            std::vector<std::string> candidates;
+                            if (param->get_type() == adam::configuration_parameter::type_boolean)
+                            {
+                                candidates = {"true", "false"};
+                            }
+                            else if (param->get_type() == adam::configuration_parameter::type_string)
+                            {
+                                auto* p = static_cast<adam::configuration_parameter_string*>(param);
+                                if (p->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                                {
+                                    for (const auto& [phash, pval] : p->get_presets())
+                                        candidates.push_back(std::string(pval->get_value().c_str()));
+                                }
+                            }
+                            if (!candidates.empty()) handle_matches(candidates, arg, base);
+                        }
+                    }
+                }
+                else if ((tokens[0] == "conn_fmt_out_set_param" || tokens[0] == "conn_encoder_set_param") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                {
+                    std::string conn_name = tokens[1];
+                    std::string arg = (tokens.size() == 3) ? tokens[2] : "";
+                    auto it = ctx.cmd.get_registry().get_connections().find(adam::string_hashed(conn_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_connections().end())
+                    {
+                        std::vector<std::string> candidates;
+                        for (const auto& [hash, p] : it->second->output_format_user_params.get_children())
+                            candidates.push_back(std::string(p->get_name().c_str()));
+                        if (!candidates.empty()) handle_matches(candidates, arg, base);
+                    }
+                }
+                else if ((tokens[0] == "conn_fmt_out_set_param" || tokens[0] == "conn_encoder_set_param") && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                {
+                    std::string conn_name = tokens[1];
+                    std::string param_name = tokens[2];
+                    std::string arg = (tokens.size() == 4) ? tokens[3] : "";
+                    auto it = ctx.cmd.get_registry().get_connections().find(adam::string_hashed(conn_name.c_str()).get_hash());
+                    if (it != ctx.cmd.get_registry().get_connections().end())
+                    {
+                        auto* param = it->second->output_format_user_params.get(adam::string_hashed(param_name.c_str()).get_hash());
+                        if (param)
+                        {
+                            std::vector<std::string> candidates;
+                            if (param->get_type() == adam::configuration_parameter::type_boolean)
+                            {
+                                candidates = {"true", "false"};
+                            }
+                            else if (param->get_type() == adam::configuration_parameter::type_string)
+                            {
+                                auto* p = static_cast<adam::configuration_parameter_string*>(param);
+                                if (p->get_mode() == adam::configuration_parameter_string::value_mode_preset)
+                                {
+                                    for (const auto& [phash, pval] : p->get_presets())
+                                        candidates.push_back(std::string(pval->get_value().c_str()));
+                                }
+                            }
+                            if (!candidates.empty()) handle_matches(candidates, arg, base);
+                        }
+                    }
+                }
                 else if (tokens[0] == "conn_analyze" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
                 {
                     std::string arg = (tokens.size() == 3) ? tokens[2] : "";

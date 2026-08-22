@@ -125,6 +125,20 @@ namespace adam
         /** @brief Requests to change the output data format of a connection. */
         response_status request_connection_set_output_data_format(string_hash conn_hash, string_hash format, string_hash format_module);
 
+        /** @brief Requests to set a parameter of a connection input format (parser). */
+        response_status request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, int64_t value);
+        response_status request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, double value);
+        response_status request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, bool value);
+        response_status request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed& value);
+        response_status request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed_ct& value);
+
+        /** @brief Requests to set a parameter of a connection output format (encoder). */
+        response_status request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, int64_t value);
+        response_status request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, double value);
+        response_status request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, bool value);
+        response_status request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed& value);
+        response_status request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed_ct& value);
+
         /** @brief Requests the creation of a connection. */
         response_status request_connection_create(const string_hashed& name);
 

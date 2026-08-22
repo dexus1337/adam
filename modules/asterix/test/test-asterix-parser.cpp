@@ -13,7 +13,9 @@
 #include "data/categories/062/cat062.hpp"
 
 #include <string_view>
+#include <adam-sdk.hpp>
 
+using namespace adam;
 using namespace adam::modules;
 
 class parser_test : public ::testing::Test 
@@ -379,15 +381,15 @@ TEST_F(parser_test, parse_compound)
     ASSERT_NE(item24, nullptr);
     EXPECT_TRUE(item24->is_populated());
     EXPECT_EQ(item24->type, asterix::item_type_compound);
-    EXPECT_EQ(item24->raw_length, 8);
-    EXPECT_EQ(item24->raw_offset, 7);
+    EXPECT_EQ(item24->raw_length, 8u);
+    EXPECT_EQ(item24->raw_offset, 7u);
 
     auto child_item1 = item24->get_child_item(1);
     ASSERT_NE(child_item1, nullptr);
     EXPECT_TRUE(child_item1->is_populated());
     EXPECT_EQ(child_item1->type, asterix::item_type_fixed);
-    EXPECT_EQ(child_item1->raw_length, 1);
-    EXPECT_EQ(child_item1->raw_offset, 8);
+    EXPECT_EQ(child_item1->raw_length, 1u);
+    EXPECT_EQ(child_item1->raw_offset, 8u);
 
     auto child_item2 = item24->get_child_item(2);
     ASSERT_NE(child_item2, nullptr);
@@ -397,8 +399,8 @@ TEST_F(parser_test, parse_compound)
     ASSERT_NE(child_item3, nullptr);
     EXPECT_TRUE(child_item3->is_populated());
     EXPECT_EQ(child_item3->type, asterix::item_type_fixed);
-    EXPECT_EQ(child_item3->raw_length, 6);
-    EXPECT_EQ(child_item3->raw_offset, 9);
+    EXPECT_EQ(child_item3->raw_length, 6u);
+    EXPECT_EQ(child_item3->raw_offset, 9u);
 
 
     adam::buffer_manager::get().return_buffer(internal_data);
@@ -949,51 +951,51 @@ TEST_F(parser_test, parse_multiple_blocks_and_records)
 
     // Verify layout
     const auto* buf_header = internal_data->get_begin_as<asterix::frame>();
-    EXPECT_EQ(buf_header->block_count, 2);
+    EXPECT_EQ(buf_header->block_count, 2u);
     
     auto block48 = buf_header->get_block(0);
     ASSERT_NE(block48, nullptr);
     EXPECT_TRUE(block48->has_next());
-    EXPECT_EQ(block48->category, 48);
-    EXPECT_EQ(block48->record_count, 2);
-    EXPECT_EQ(block48->raw_length, 10);
-    EXPECT_EQ(block48->raw_offset, 0);
+    EXPECT_EQ(block48->category, 48u);
+    EXPECT_EQ(block48->record_count, 2u);
+    EXPECT_EQ(block48->raw_length, 10u);
+    EXPECT_EQ(block48->raw_offset, 0u);
 
     auto record48_0 = block48->get_record(0);
     ASSERT_NE(record48_0, nullptr);
     EXPECT_TRUE(record48_0->has_next());
     EXPECT_EQ(record48_0->item_count, record48_0->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
-    EXPECT_EQ(record48_0->fspec_size, 1);
-    EXPECT_EQ(record48_0->raw_length, 3);
-    EXPECT_EQ(record48_0->raw_offset, 3);
-    EXPECT_EQ(record48_0->category, 48);
+    EXPECT_EQ(record48_0->fspec_size, 1u);
+    EXPECT_EQ(record48_0->raw_length, 3u);
+    EXPECT_EQ(record48_0->raw_offset, 3u);
+    EXPECT_EQ(record48_0->category, 48u);
 
     auto record48_1 = block48->get_record(1);
     ASSERT_NE(record48_1, nullptr);
     EXPECT_EQ(record48_0->get_next(), record48_1);
     EXPECT_FALSE(record48_1->has_next());
     EXPECT_EQ(record48_1->item_count, record48_1->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
-    EXPECT_EQ(record48_1->fspec_size, 1);
-    EXPECT_EQ(record48_1->raw_length, 4);
-    EXPECT_EQ(record48_1->raw_offset, 6);
-    EXPECT_EQ(record48_1->category, 48);
+    EXPECT_EQ(record48_1->fspec_size, 1u);
+    EXPECT_EQ(record48_1->raw_length, 4u);
+    EXPECT_EQ(record48_1->raw_offset, 6u);
+    EXPECT_EQ(record48_1->category, 48u);
 
     auto block62 = buf_header->get_block(1);
     ASSERT_NE(block62, nullptr);
     EXPECT_EQ(block48->get_next(), block62);
     EXPECT_FALSE(block62->has_next());
-    EXPECT_EQ(block62->category, 62);
-    EXPECT_EQ(block62->record_count, 1);
-    EXPECT_EQ(block62->raw_length, 6);
-    EXPECT_EQ(block62->raw_offset, 10);
+    EXPECT_EQ(block62->category, 62u);
+    EXPECT_EQ(block62->record_count, 1u);
+    EXPECT_EQ(block62->raw_length, 6u);
+    EXPECT_EQ(block62->raw_offset, 10u);
 
     auto record62_0 = block62->get_record(0);
     ASSERT_NE(record62_0, nullptr);
     EXPECT_FALSE(record62_0->has_next());
     EXPECT_EQ(record62_0->item_count, record62_0->find_used_uap()->get_highest_frn()); // no children, so item count = last FRN
-    EXPECT_EQ(record62_0->raw_length, 3);
-    EXPECT_EQ(record62_0->raw_offset, 13);
-    EXPECT_EQ(record62_0->category, 62);
+    EXPECT_EQ(record62_0->raw_length, 3u);
+    EXPECT_EQ(record62_0->raw_offset, 13u);
+    EXPECT_EQ(record62_0->category, 62u);
 
     adam::buffer_manager::get().return_buffer(internal_data);
     adam::buffer_manager::get().return_buffer(raw_buf);
@@ -2524,4 +2526,38 @@ TEST_F(parser_error_test, parse_explicit_item_payload_truncated)
         0x08,  // explicit length = 8 (includes itself) → 7 payload bytes expected
         0xDE, 0xAD, 0xBE  // only 3 of the 7 payload bytes
     });
+}
+
+TEST_F(parser_test, forward_unknown_cats_parameter)
+{
+    // Create unknown cat (CAT 250) packet
+    adam::buffer* raw_buf = adam::buffer_manager::get().request_buffer(64);
+    ASSERT_NE(raw_buf, nullptr);
+
+    uint8_t* raw_data = raw_buf->begin_as<uint8_t>();
+    raw_data[0] = 250; // Unknown CAT
+    raw_data[1] = 0;   // Length MSB
+    raw_data[2] = 4;   // Length LSB (4 bytes)
+    raw_data[3] = 0xAA;
+    raw_buf->set_size(4);
+
+    adam::buffer* parsed = nullptr;
+
+    // 1. By default, forward_unknown_cats is true -> parse succeeds
+    EXPECT_TRUE(parser.parse(raw_buf, parsed));
+    ASSERT_NE(parsed, nullptr);
+    parsed->release();
+    parsed = nullptr;
+
+    // 2. Set forward_unknown_cats to false -> parse fails
+    auto* user_params = parser.get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+    ASSERT_NE(user_params, nullptr);
+    auto* fwd = dynamic_cast<adam::configuration_parameter_boolean*>(user_params->get("forward_unknown_cats"_ct));
+    ASSERT_NE(fwd, nullptr);
+    fwd->set_value(false);
+
+    EXPECT_FALSE(parser.parse(raw_buf, parsed));
+    EXPECT_EQ(parsed, nullptr);
+
+    raw_buf->release();
 }

@@ -17,6 +17,45 @@
 
 namespace adam 
 {
+    namespace
+    {
+        inline void populate_user_params_from_factory(const configuration_parameter_list* factory_params, configuration_parameter_list_sorted& target)
+        {
+            if (!factory_params)
+                return;
+
+            if (auto* user_params = factory_params->get("user_parameters"_ct))
+            {
+                if (auto* sorted = dynamic_cast<const configuration_parameter_list_sorted*>(user_params))
+                    target = *sorted;
+                else if (auto* unsorted = dynamic_cast<const configuration_parameter_list*>(user_params))
+                    target = *unsorted;
+            }
+            else if (factory_params->get_name() == "user_parameters"_ct)
+            {
+                if (auto* sorted = dynamic_cast<const configuration_parameter_list_sorted*>(factory_params))
+                    target = *sorted;
+                else
+                    target = *factory_params;
+            }
+        }
+
+        inline void populate_user_params_from_factory(const configuration_parameter_list* factory_params, configuration_parameter_list& target)
+        {
+            if (!factory_params)
+                return;
+
+            if (auto* user_params = factory_params->get("user_parameters"_ct))
+            {
+                if (auto* list = dynamic_cast<const configuration_parameter_list*>(user_params))
+                    target = *list;
+            }
+            else if (factory_params->get_name() == "user_parameters"_ct)
+            {
+                target = *factory_params;
+            }
+        }
+    }
     commander::commander(const string_hashed_ct& client_name) 
      :  m_queue_command(),
         m_queue_event(),
@@ -276,13 +315,8 @@ namespace adam
             {
                 const auto& factories = mod->get_port_factories();
                 auto fact_it = factories.find(pview->type);
-                if (fact_it != factories.end() && fact_it->second.parameters)
-                {
-                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list_sorted*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                    {
-                        pview->user_params = *factory_user_params;
-                    }
-                }
+                if (fact_it != factories.end())
+                    populate_user_params_from_factory(fact_it->second.parameters, pview->user_params);
             }
 
             size_t unused_off = sizeof(port::basic_info);
@@ -318,13 +352,8 @@ namespace adam
             {
                 const auto& factories = mod->get_processor_factories();
                 auto fact_it = factories.find(proc_view->type);
-                if (fact_it != factories.end() && fact_it->second.parameters)
-                {
-                    if (auto* factory_user_params = dynamic_cast<const configuration_parameter_list_sorted*>(fact_it->second.parameters->get("user_parameters"_ct)))
-                    {
-                        proc_view->user_params = *factory_user_params;
-                    }
-                }
+                if (fact_it != factories.end())
+                    populate_user_params_from_factory(fact_it->second.parameters, proc_view->user_params);
             }
 
             size_t unused_off = sizeof(processor::basic_info);
@@ -356,7 +385,25 @@ namespace adam
             // Populate connection format fields
             m_module_view.extract_datatype_and_module(conn_info->input_format,  conn_info->input_format_module,  conn->input_format,  conn->input_format_module);
             m_module_view.extract_datatype_and_module(conn_info->output_format, conn_info->output_format_module, conn->output_format, conn->output_format_module);
-            
+
+            const auto* in_mod = m_module_view.get_module(conn->input_format_module.get_hash());
+            if (in_mod)
+            {
+                const auto& factories = in_mod->get_parser_factories();
+                auto fact_it = factories.find(conn->input_format);
+                if (fact_it != factories.end())
+                    populate_user_params_from_factory(fact_it->second.parameters, conn->input_format_user_params);
+            }
+
+            const auto* out_mod = m_module_view.get_module(conn->output_format_module.get_hash());
+            if (out_mod)
+            {
+                const auto& factories = out_mod->get_encoder_factories();
+                auto fact_it = factories.find(conn->output_format);
+                if (fact_it != factories.end())
+                    populate_user_params_from_factory(fact_it->second.parameters, conn->output_format_user_params);
+            }
+
             for (size_t j = 0; j < conn_info->input_count; j++)
                 conn->inputs.push_back(conn_info->inputs[j]);
                 
@@ -365,6 +412,12 @@ namespace adam
                 
             for (size_t j = 0; j < conn_info->output_count; j++)
                 conn->outputs.push_back(conn_info->outputs[j]);
+
+            size_t unused_off  = sizeof(connection::basic_info);
+            size_t unused_size = response::get_max_data_length() - unused_off;
+            detail::message_deserializer<response> deserializer(resp, m_response_buffer.size(), current_idx, unused_off, unused_size);
+            detail::deserialize_user_parameters(conn_info->input_format_user_parameters, deserializer, conn->input_format_user_params);
+            detail::deserialize_user_parameters(conn_info->output_format_user_parameters, deserializer, conn->output_format_user_params);
                 
             m_registry_view.connections().emplace(conn->name.get_hash(), std::move(conn));
             current_idx++;
@@ -698,6 +751,154 @@ namespace adam
         data->format = format;
         data->format_module = format_module;
         data->valid_chain = false;
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, int64_t value)
+    {
+        command cmd(command_type::connection_set_input_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = true;
+        data->param_view.var_type = configuration_parameter::type_integer;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(int64_t));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, double value)
+    {
+        command cmd(command_type::connection_set_input_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = true;
+        data->param_view.var_type = configuration_parameter::type_double;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(double));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, bool value)
+    {
+        command cmd(command_type::connection_set_input_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = true;
+        data->param_view.var_type = configuration_parameter::type_boolean;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(bool));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed& value)
+    {
+        command cmd(command_type::connection_set_input_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = true;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.size());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0) std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_input_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed_ct& value)
+    {
+        command cmd(command_type::connection_set_input_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = true;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.get_length());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0) std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, int64_t value)
+    {
+        command cmd(command_type::connection_set_output_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = false;
+        data->param_view.var_type = configuration_parameter::type_integer;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(int64_t));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, double value)
+    {
+        command cmd(command_type::connection_set_output_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = false;
+        data->param_view.var_type = configuration_parameter::type_double;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(double));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, bool value)
+    {
+        command cmd(command_type::connection_set_output_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = false;
+        data->param_view.var_type = configuration_parameter::type_boolean;
+        data->param_view.name = param_name.get_hash();
+        std::memcpy(data->data, &value, sizeof(bool));
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed& value)
+    {
+        command cmd(command_type::connection_set_output_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = false;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.size());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0) std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
+        return send_command(cmd);
+    }
+
+    response_status commander::request_connection_output_format_parameter_set(string_hash conn_hash, const string_hashed& param_name, const string_hashed_ct& value)
+    {
+        command cmd(command_type::connection_set_output_format_parameter);
+        auto* data = cmd.data_as<messages::connection_format_set_parameter_data>();
+        data->connection = conn_hash;
+        data->is_input = false;
+        data->param_view.var_type = configuration_parameter::type_string;
+        data->param_view.name = param_name.get_hash();
+        
+        uint16_t len = static_cast<uint16_t>(value.get_length());
+        size_t max_len = sizeof(data->data) - sizeof(uint16_t);
+        if (len > max_len) len = static_cast<uint16_t>(max_len);
+        
+        std::memcpy(data->data, &len, sizeof(uint16_t));
+        if (len > 0) std::memcpy(data->data + sizeof(uint16_t), value.c_str(), len);
+            
         return send_command(cmd);
     }
 

@@ -17,6 +17,25 @@ namespace adam::gui
 {
     class gui_controller;
 
+    enum class param_target_type
+    {
+        port,
+        processor,
+        connection_input_format,
+        connection_output_format
+    };
+
+    void draw_configuration_parameter
+    (
+        gui_controller& ctrl,
+        adam::language lang,
+        adam::string_hash item_hash,
+        const adam::string_hashed& param_name,
+        adam::configuration_parameter* param_ptr,
+        param_target_type target,
+        float available_width
+    );
+
     float get_expanded_node_height(uint64_t uid, float dpi_scale);
 
     void draw_expanded_port_node

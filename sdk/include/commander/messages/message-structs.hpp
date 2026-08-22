@@ -169,8 +169,27 @@ namespace adam
             string_hash format;
             string_hash format_module;
             bool        valid_chain;
+            uint16_t    user_parameters;
         };
         static_assert(sizeof(connection_data_format_data) <= command::get_max_data_length(), "connection_data_format_data exceeds maximum command data size");
+
+        struct connection_format_set_parameter_data
+        {
+            string_hash connection;
+            bool is_input;
+            configuration_parameter::view param_view;
+            uint8_t data[command::get_max_data_length() - sizeof(string_hash) - sizeof(bool) - sizeof(configuration_parameter::view)];
+        };
+        static_assert(sizeof(connection_format_set_parameter_data) <= command::get_max_data_length(), "connection_format_set_parameter_data exceeds maximum command data size");
+
+        struct connection_format_parameter_updated_data
+        {
+            string_hash connection;
+            bool is_input;
+            configuration_parameter::view param_view;
+            uint8_t data[command::get_max_data_length() - sizeof(string_hash) - sizeof(bool) - sizeof(configuration_parameter::view)];
+        };
+        static_assert(sizeof(connection_format_parameter_updated_data) <= command::get_max_data_length(), "connection_format_parameter_updated_data exceeds maximum command data size");
 
         struct connection_action_data
         {

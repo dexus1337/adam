@@ -27,7 +27,7 @@ namespace adam::network
         return ip;
     }
 
-    static void parse_ipv6(const std::string& ip_str, uint8_t* out)
+    static void parse_ipv6(const std::string& /*ip_str*/, uint8_t* out)
     {
         // extremely simplified ipv6 parser for demo
         for (int i=0; i<16; ++i) out[i] = 0; 

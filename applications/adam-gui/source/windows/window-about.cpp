@@ -114,8 +114,8 @@ namespace adam::gui
 
             float total_height = 0.0f;
             
-            float logo_display_size = 96.0f * ImGui::GetStyle()._MainScale;
 #ifdef _WIN32
+            float logo_display_size = 96.0f * ImGui::GetStyle()._MainScale;
             if (g_logo_texture) total_height += logo_display_size + item_spacing;
 #endif
 

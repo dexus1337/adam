@@ -159,11 +159,11 @@ TEST_F(recording_test, chunked_by_size)
 
     ASSERT_TRUE(rec_port.start());
     
-    int num_buffers = 20;
-    int data_size = 100000; // ~100KB per buffer
+    size_t num_buffers = 20;
+    uint32_t data_size = 100000; // ~100KB per buffer
     
     std::vector<char> large_data(data_size, 'A');
-    for (int i = 0; i < num_buffers; ++i)
+    for (size_t i = 0; i < num_buffers; ++i)
     {
         buffer* buf = buffer_manager::get().request_buffer(data_size);
         ASSERT_NE(buf, nullptr);
@@ -192,7 +192,7 @@ TEST_F(recording_test, chunked_by_size)
 
     ASSERT_TRUE(rep_port.start());
     
-    int read_count = 0;
+    size_t read_count = 0;
     buffer* buf = nullptr;
     while (rep_port.read(buf))
     {

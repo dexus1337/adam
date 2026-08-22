@@ -60,6 +60,8 @@ namespace adam
         connection_color_changed,
         connection_input_data_format_changed,
         connection_output_data_format_changed,
+        connection_input_format_parameter_updated,
+        connection_output_format_parameter_updated,
         connection_available,
         connection_unavailable,
 

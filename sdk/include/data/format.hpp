@@ -11,7 +11,7 @@
  
 #include "api/api-sdk.hpp"
 #include "types/string-hashed.hpp"
-
+#include "factory/factory.hpp"
 
 namespace adam 
 {
@@ -28,30 +28,43 @@ namespace adam
     {
     public:
 
-        data_format(const string_hashed& name, parser* parser = nullptr, encoder* encoder = nullptr, analyzer* analyzer = nullptr, const module* orig_module = nullptr);
+        data_format
+        (
+            const string_hashed&    name,
+            const factory<parser>*  parser_factory = nullptr,
+            const factory<encoder>* encoder_factory = nullptr,
+            analyzer*               analyzer = nullptr,
+            const module*           orig_module = nullptr
+        );
         ~data_format();
 
-        const string_hashed&    get_name()          const { return m_str_name; }
-        parser*                 get_parser()        const { return m_parser; }
-        encoder*                get_encoder()       const { return m_encoder; } 
-        analyzer*               get_analyzer()      const { return m_analyzer; }
-        const module*           get_origin_module() const { return m_module; }
+        data_format(const data_format&)            = delete;
+        data_format& operator=(const data_format&) = delete;
+        data_format(data_format&&)                 = delete;
+        data_format& operator=(data_format&&)      = delete;
+
+        bool operator==(const data_format& other) const { return m_str_name == other.m_str_name; }
+        bool operator!=(const data_format& other) const { return m_str_name != other.m_str_name; }
+
+        const string_hashed&    get_name()            const { return m_str_name; }
+        const factory<parser>*  get_parser_factory()  const { return m_parser_factory; }
+        const factory<encoder>* get_encoder_factory() const { return m_encoder_factory; }
+        analyzer*               get_analyzer()        const { return m_analyzer; }
+        const module*           get_origin_module()   const { return m_module; }
         void                    set_origin_module(const module* mod) { m_module = mod; }
 
-        data_format(const data_format&)               = delete;
-        data_format& operator=(const data_format&)    = delete;
-        data_format(data_format&&)                    = delete;
-        data_format& operator=(data_format&&)         = delete;
+        bool has_parser()  const { return m_parser_factory != nullptr; }
+        bool has_encoder() const { return m_encoder_factory != nullptr; }
 
-        bool operator==(const data_format& other) const { return &other == this; }
-        bool operator!=(const data_format& other) const { return &other != this; }
+        std::unique_ptr<parser>  create_parser(const string_hashed& name = "parser"_ct) const;
+        std::unique_ptr<encoder> create_encoder(const string_hashed& name = "encoder"_ct) const;
 
     protected:
 
-        string_hashed   m_str_name;     /**< The name of the data format, used for identification and lookup in the ADAM system. */
-        parser*         m_parser;       /**< A pointer to the parser associated with this data format, responsible for parsing data in this format. */
-        encoder*        m_encoder;      /**< A pointer to the encoder associated with this data format, responsible for encoding data in this format. */
-        analyzer*       m_analyzer;     /**< A pointer to the analyzer associated with this data format, responsible for formatting data into human-readable representation. */
-        const module*   m_module;       /**< The origin this dataformat comes from */
+        string_hashed           m_str_name;
+        const factory<parser>*  m_parser_factory;
+        const factory<encoder>* m_encoder_factory;
+        analyzer*               m_analyzer;
+        const module*           m_module;
     };
 }

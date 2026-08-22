@@ -20,7 +20,11 @@ namespace adam::modules::asterix
     class ADAM_ASTERIX_API asterix_encoder : public adam::encoder
     {
     public:
-        asterix_encoder() = default;
+
+        static const adam::configuration_parameter_list& get_user_parameters();
+        static const adam::configuration_parameter_list& get_default_parameters();
+
+        asterix_encoder(const adam::string_hashed& item_name = "asterix_encoder"_ct, const adam::configuration_parameter_list& default_params = get_default_parameters());
         ~asterix_encoder() override = default;
 
         /**
@@ -30,5 +34,6 @@ namespace adam::modules::asterix
          * @return True if encoding is successful, false otherwise.
          */
         bool encode(class adam::buffer*& buf, class adam::buffer* internal_data) override;
+
     };
 }

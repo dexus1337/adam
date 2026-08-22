@@ -12,12 +12,10 @@
 #include "../main-window.hpp"
 #include "controller/controller.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
-#include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include <algorithm>
 #include <vector>
 #include <cstring>
-#include <cmath>
 #include <chrono>
 #include <unordered_map>
 #include <atomic>
@@ -481,6 +479,32 @@ namespace adam::gui
         }
     }
 
+    static float get_format_params_height(const adam::configuration_parameter_list_sorted& params, float dpi_scale)
+    {
+        float spacing_y = ImGui::GetStyle().ItemSpacing.y;
+        float pad_y = 6.0f * dpi_scale * 2.0f;
+        if (params.get_children().empty())
+        {
+            return ImGui::GetTextLineHeight() + pad_y + spacing_y;
+        }
+
+        float h = pad_y;
+        bool first = true;
+        for (auto p_hash : params.get_order())
+        {
+            if (params.get(p_hash))
+            {
+                if (!first)
+                {
+                    h += spacing_y;
+                }
+                h += ImGui::GetTextLineHeight() + spacing_y + ImGui::GetFrameHeight();
+                first = false;
+            }
+        }
+        return h + spacing_y;
+    }
+
     void draw_connection_card_header
     (
         gui_controller& ctrl,
@@ -523,7 +547,79 @@ namespace adam::gui
         draw_format_selection_combo(ctrl, lang, hash, conn->input_format, conn->input_format_module, available_formats, true, input_missing, combo_w);
 
         ImGui::SameLine();
-        ImGui::Button("F##format_in");
+        bool is_input_params_open = g_expanded_conn_input_format_params.count(hash) > 0;
+        if (input_missing)
+        {
+            g_expanded_conn_input_format_params.erase(hash);
+            is_input_params_open = false;
+        }
+
+        if (is_input_params_open)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+
+        if (input_missing)
+            ImGui::BeginDisabled();
+
+        if (ImGui::Button("F##format_in", ImVec2(inspect_w, 0)))
+        {
+            if (is_input_params_open)
+                g_expanded_conn_input_format_params.erase(hash);
+            else
+                g_expanded_conn_input_format_params.insert(hash);
+        }
+
+        if (input_missing)
+            ImGui::EndDisabled();
+
+        if (is_input_params_open)
+            ImGui::PopStyleColor();
+
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        {
+            if (input_missing)
+            {
+                ImGui::BeginTooltip();
+                ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), conn->input_format_module.c_str());
+                ImGui::EndTooltip();
+            }
+            else
+            {
+                ImGui::SetTooltip("%s", lang == adam::language_german ? "Format-Parameter" : "Format Parameters");
+            }
+        }
+
+        if (is_input_params_open)
+        {
+            float child_h = get_format_params_height(conn->input_format_user_params, dpi_scale) - ImGui::GetStyle().ItemSpacing.y;
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_PopupBg));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f * dpi_scale);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f * dpi_scale, 6.0f * dpi_scale));
+            if (ImGui::BeginChild("##input_format_params_child", ImVec2(port_w, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+            {
+                if (conn->input_format_user_params.get_children().empty())
+                    ImGui::TextDisabled("%s", lang == adam::language_german ? "Keine Parameter" : "No parameters");
+                else
+                {
+                    bool disable_params = conn->started || is_unavailable || input_missing;
+                    if (disable_params)
+                        ImGui::BeginDisabled();
+
+                    float content_w = ImGui::GetContentRegionAvail().x;
+                    for (auto param_hash : conn->input_format_user_params.get_order())
+                    {
+                        if (auto* param_ptr = conn->input_format_user_params.get(param_hash))
+                            draw_configuration_parameter(ctrl, lang, hash, param_ptr->get_name(), param_ptr, param_target_type::connection_input_format, content_w);
+                    }
+
+                    if (disable_params)
+                        ImGui::EndDisabled();
+                }
+            }
+            ImGui::EndChild();
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor();
+        }
         ImGui::EndGroup();
         
         // Middle column: Centered connection controls (color, name, start, stop, delete, add processor)
@@ -536,22 +632,17 @@ namespace adam::gui
 
         float total_controls_w = color_w + spacing_x + name_field_width;
         if (!is_unavailable)
-        {
             total_controls_w += spacing_x + btn_start_w + spacing_x + btn_stop_w;
-        }
         else
-        {
             total_controls_w += spacing_x + ImGui::CalcTextSize(get_gui_string(gui_string_id::stat_unavailable, lang)).x;
-        }
+
         total_controls_w += spacing_x + btn_delete_w;
         total_controls_w += spacing_x + btn_add_port_w;
 
         float start_mid_x = pad_x + (avail_x - total_controls_w) * 0.5f;
         float min_start_x = pad_x + port_w + spacing_x;
         if (start_mid_x < min_start_x)
-        {
             start_mid_x = min_start_x;
-        }
 
         ImGui::SameLine();
         ImGui::SetCursorPosX(start_mid_x);
@@ -560,11 +651,50 @@ namespace adam::gui
         draw_connection_action_buttons(ctrl, lang, conn, hash, is_unavailable, btn_w);
         ImGui::EndGroup();
 
-        // Right column: Inspect checkbox, Output Format Combo, and Add Output button "+"
+        // Right column: Format button "F", Output Format Combo, and Add Output button "+"
         ImGui::SameLine(pad_x + avail_x - port_w);
         ImGui::BeginGroup();
 
-        ImGui::Button("F##format_out");
+        bool is_output_params_open = g_expanded_conn_output_format_params.count(hash) > 0;
+        if (output_missing)
+        {
+            g_expanded_conn_output_format_params.erase(hash);
+            is_output_params_open = false;
+        }
+
+        if (is_output_params_open)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+
+        if (output_missing)
+            ImGui::BeginDisabled();
+
+        if (ImGui::Button("F##format_out", ImVec2(inspect_w, 0)))
+        {
+            if (is_output_params_open)
+                g_expanded_conn_output_format_params.erase(hash);
+            else
+                g_expanded_conn_output_format_params.insert(hash);
+        }
+
+        if (output_missing)
+            ImGui::EndDisabled();
+
+        if (is_output_params_open)
+            ImGui::PopStyleColor();
+
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        {
+            if (output_missing)
+            {
+                ImGui::BeginTooltip();
+                ImGui::Text(get_gui_string(gui_string_id::tt_module_missing, lang), conn->output_format_module.c_str());
+                ImGui::EndTooltip();
+            }
+            else
+            {
+                ImGui::SetTooltip("%s", lang == adam::language_german ? "Format-Parameter" : "Format Parameters");
+            }
+        }
 
         ImGui::SameLine();
         draw_format_selection_combo(ctrl, lang, hash, conn->output_format, conn->output_format_module, available_formats, false, output_missing, combo_w);
@@ -576,6 +706,40 @@ namespace adam::gui
             g_target_direction = adam::port::direction_out;
             g_request_port_popup = true;
         }
+
+        if (is_output_params_open)
+        {
+            float child_h = get_format_params_height(conn->output_format_user_params, dpi_scale) - ImGui::GetStyle().ItemSpacing.y;
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_PopupBg));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f * dpi_scale);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f * dpi_scale, 6.0f * dpi_scale));
+            if (ImGui::BeginChild("##output_format_params_child", ImVec2(port_w, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+            {
+                if (conn->output_format_user_params.get_children().empty())
+                    ImGui::TextDisabled("%s", lang == adam::language_german ? "Keine Parameter" : "No parameters");
+                else
+                {
+                    bool disable_params = conn->started || is_unavailable || output_missing;
+                    if (disable_params)
+                        ImGui::BeginDisabled();
+
+                    float content_w = ImGui::GetContentRegionAvail().x;
+                    for (auto param_hash : conn->output_format_user_params.get_order())
+                    {
+                        if (auto* param_ptr = conn->output_format_user_params.get(param_hash))
+                            draw_configuration_parameter(ctrl, lang, hash, param_ptr->get_name(), param_ptr, param_target_type::connection_output_format, content_w);
+                    }
+
+                    if (disable_params)
+                        ImGui::EndDisabled();
+                }
+            }
+            ImGui::EndChild();
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor();
+        }
+
         ImGui::EndGroup();
 
         if (sort_mode == 6 && !is_drag_preview)
@@ -905,6 +1069,17 @@ namespace adam::gui
         float row_height = node_h + 10.0f * dpi_scale;
         float base_height = ImGui::GetStyle().WindowPadding.y * 2.0f + ImGui::GetFrameHeight();
         
+        float extra_format_h = 0.0f;
+        if (g_expanded_conn_input_format_params.count(hash))
+        {
+            extra_format_h = std::max(extra_format_h, get_format_params_height(conn->input_format_user_params, dpi_scale));
+        }
+        if (g_expanded_conn_output_format_params.count(hash))
+        {
+            extra_format_h = std::max(extra_format_h, get_format_params_height(conn->output_format_user_params, dpi_scale));
+        }
+        base_height += extra_format_h;
+
         if (sort_mode == 6 && !is_drag_preview)
         {
             base_height += 4.0f * dpi_scale + ImGui::GetStyle().ItemSpacing.y;

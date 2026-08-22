@@ -93,6 +93,8 @@ namespace adam
         const registry::data_format_map&        get_data_formats()             const { return m_data_formats; }
         const registry::port_factory_map&       get_port_factories()           const { return m_port_factories; }
         const registry::processor_factory_map&  get_processor_factories()      const { return m_processor_factories; }
+        const registry::parser_factory_map&     get_parser_factories()         const { return m_parser_factories; }
+        const registry::encoder_factory_map&    get_encoder_factories()        const { return m_encoder_factories; }
 
         void set_controller(controller* ctrl) { m_controller = ctrl; }
         controller* get_controller() const { return m_controller; }
@@ -109,6 +111,8 @@ namespace adam
         registry::data_format_map       m_data_formats;             /**< A map of data formats supported by the module. */
         registry::port_factory_map      m_port_factories;           /**< A map of factories for creating ports provided by the module. */
         registry::processor_factory_map m_processor_factories;      /**< A map of factories for creating processors provided by the module. */
+        registry::parser_factory_map    m_parser_factories;         /**< A map of factories for creating parsers provided by the module. */
+        registry::encoder_factory_map   m_encoder_factories;        /**< A map of factories for creating encoders provided by the module. */
         description_database            m_descriptions;             /**< The multi-language description of the module. */
     };
 }

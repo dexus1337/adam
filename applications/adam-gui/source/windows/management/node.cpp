@@ -19,17 +19,36 @@
 
 namespace adam::gui
 {
-    static void draw_configuration_parameter
+    void draw_configuration_parameter
     (
         gui_controller& ctrl,
         adam::language lang,
         adam::string_hash item_hash,
         const adam::string_hashed& param_name,
         adam::configuration_parameter* param_ptr,
-        bool is_port,
+        param_target_type target,
         float available_width
     )
     {
+        auto dispatch_param_set = [&](auto val)
+        {
+            switch (target)
+            {
+                case param_target_type::port:
+                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, val); });
+                    break;
+                case param_target_type::processor:
+                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, val); });
+                    break;
+                case param_target_type::connection_input_format:
+                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_connection_input_format_parameter_set(item_hash, param_name, val); });
+                    break;
+                case param_target_type::connection_output_format:
+                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_connection_output_format_parameter_set(item_hash, param_name, val); });
+                    break;
+            }
+        };
+
         ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(param_name.get_hash())));
         ImGui::TextUnformatted(param_name.c_str());
 
@@ -126,14 +145,7 @@ namespace adam::gui
                                 if (!is_selected)
                                 {
                                     c_int->set_value(preset);
-                                    if (is_port)
-                                    {
-                                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, preset]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, preset); });
-                                    }
-                                    else
-                                    {
-                                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, preset]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, preset); });
-                                    }
+                                    dispatch_param_set(preset);
                                 }
                             }
                         }
@@ -150,14 +162,7 @@ namespace adam::gui
                     if (ImGui::IsItemDeactivatedAfterEdit())
                     {
                         int64_t new_val = c_int->get_value();
-                        if (is_port)
-                        {
-                            ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_val]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, new_val); });
-                        }
-                        else
-                        {
-                            ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_val]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, new_val); });
-                        }
+                        dispatch_param_set(new_val);
                     }
                 }
                 break;
@@ -184,14 +189,7 @@ namespace adam::gui
                                 if (!is_selected)
                                 {
                                     c_dbl->set_value(preset);
-                                    if (is_port)
-                                    {
-                                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, preset]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, preset); });
-                                    }
-                                    else
-                                    {
-                                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, preset]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, preset); });
-                                    }
+                                    dispatch_param_set(preset);
                                 }
                             }
                         }
@@ -208,14 +206,7 @@ namespace adam::gui
                     if (ImGui::IsItemDeactivatedAfterEdit())
                     {
                         double new_val = c_dbl->get_value();
-                        if (is_port)
-                        {
-                            ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_val]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, new_val); });
-                        }
-                        else
-                        {
-                            ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_val]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, new_val); });
-                        }
+                        dispatch_param_set(new_val);
                     }
                 }
                 break;
@@ -237,14 +228,7 @@ namespace adam::gui
                             if (!is_selected)
                             {
                                 c_bool->set_value(val);
-                                if (is_port)
-                                {
-                                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, val); });
-                                }
-                                else
-                                {
-                                    ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, val]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, val); });
-                                }
+                                dispatch_param_set(val);
                             }
                         }
                     }
@@ -278,14 +262,7 @@ namespace adam::gui
                                 {
                                     adam::string_hashed new_v(preset_str.c_str());
                                     c_str->set_value(new_v);
-                                    if (is_port)
-                                    {
-                                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_v]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, new_v); });
-                                    }
-                                    else
-                                    {
-                                        ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_v]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, new_v); });
-                                    }
+                                    dispatch_param_set(new_v);
                                 }
                             }
                         }
@@ -303,14 +280,7 @@ namespace adam::gui
                         adam::string_hashed new_v(&buf[0]);
                         if (c_str->set_value(new_v))
                         {
-                            if (is_port)
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_v]() { ctrl.commander().request_port_parameter_set(item_hash, param_name, new_v); });
-                            }
-                            else
-                            {
-                                ctrl.enqueue_commander_action([&ctrl, item_hash, param_name, new_v]() { ctrl.commander().request_processor_parameter_set(item_hash, param_name, new_v); });
-                            }
+                            dispatch_param_set(new_v);
                         }
                     }
                 }
@@ -319,7 +289,6 @@ namespace adam::gui
             default:
                 break;
         }
-
         ImGui::PopID();
     }
 
@@ -677,7 +646,7 @@ namespace adam::gui
         adam::language lang,
         const expanded_port_draw_info& info,
         bool is_port,
-        bool p_started,
+        bool disable_params,
         const adam::configuration_parameter_list_sorted* user_params
     )
     {
@@ -708,7 +677,6 @@ namespace adam::gui
         {
             ImGui::Unindent();
 
-            bool disable_params = p_started;
             if (disable_params)
             {
                 ImGui::BeginDisabled();
@@ -719,7 +687,7 @@ namespace adam::gui
             { 
                 if (auto* param_ptr = user_params->get(hash))
                 {
-                    draw_configuration_parameter(ctrl, lang, info.port_hash, param_ptr->get_name(), param_ptr, is_port, avail_w);
+                    draw_configuration_parameter(ctrl, lang, info.port_hash, param_ptr->get_name(), param_ptr, is_port ? param_target_type::port : param_target_type::processor, avail_w);
                 }
             }
 
@@ -741,7 +709,7 @@ namespace adam::gui
         adam::language lang,
         const expanded_port_draw_info& info,
         float dpi_scale,
-        bool p_started
+        bool disable_inject
     )
     {
         ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(info.unique_node_id ^ 0x3333)));
@@ -799,8 +767,8 @@ namespace adam::gui
                 ImGui::PopStyleVar();
             }
 
-            bool disable_inject = !p_started || !inject_state.is_valid;
-            if (disable_inject)
+            bool should_disable_inject = disable_inject || !inject_state.is_valid;
+            if (should_disable_inject)
             {
                 ImGui::BeginDisabled();
             }
@@ -827,7 +795,7 @@ namespace adam::gui
                 }
             }
 
-            if (disable_inject)
+            if (should_disable_inject)
             {
                 ImGui::EndDisabled();
             }
@@ -964,10 +932,15 @@ namespace adam::gui
         auto proc_it = registry.get_processors().find(info.port_hash);
         const adam::configuration_parameter_list_sorted* user_params = nullptr;
 
+        bool is_unavailable = false;
+        bool module_missing = false;
+
         if (is_port && p_it != registry.get_ports().end())
         {
             p_started = p_it->second->started;
             user_params = &p_it->second->user_params;
+            is_unavailable = p_it->second->is_unavailable;
+            module_missing = !p_it->second->type_module.empty() && !ctrl.commander().get_modules().is_module_loaded(p_it->second->type_module);
             if (p_it->second->statistic_buffer)
             {
                 port_stats = p_it->second->statistic_buffer->data_as<adam::port::state_buffer_data>();
@@ -979,6 +952,8 @@ namespace adam::gui
         else if (!is_port && proc_it != registry.get_processors().end())
         {
             user_params = &proc_it->second->user_params;
+            is_unavailable = proc_it->second->is_unavailable;
+            module_missing = !proc_it->second->module_name.empty() && !ctrl.commander().get_modules().is_module_loaded(proc_it->second->module_name);
             if (proc_it->second->state_buffer)
             {
                 proc_stats = proc_it->second->state_buffer->data_as<adam::processor::state_buffer_data>();
@@ -1009,38 +984,52 @@ namespace adam::gui
         ImGui::TextColored(get_gui_color(gui_color_id::log_info), "%s [%s]", p_type, p_module);
         ImGui::Separator();
 
+        bool disable_controls = p_started || is_unavailable || module_missing;
+
         if (is_port)
         {
             float btn_w = (ImGui::GetContentRegionAvail().x - exp_pad) * 0.5f;
             ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(info.port_hash ^ 0x1111)));
-            if (p_started) ImGui::BeginDisabled();
+            if (disable_controls)
+            {
+                ImGui::BeginDisabled();
+            }
             if (ImGui::Button(get_gui_string(gui_string_id::btn_start, lang), ImVec2(btn_w, 0)))
             {
                 ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash]() { ctrl.commander().request_port_start(port_hash); });
             }
-            if (p_started) ImGui::EndDisabled();
+            if (disable_controls)
+            {
+                ImGui::EndDisabled();
+            }
             ImGui::PopID();
 
             ImGui::SameLine(0.0f, exp_pad);
 
             ImGui::PushID(reinterpret_cast<const void*>(static_cast<intptr_t>(info.port_hash ^ 0x2222)));
-            if (!p_started) ImGui::BeginDisabled();
+            if (!p_started || is_unavailable || module_missing)
+            {
+                ImGui::BeginDisabled();
+            }
             if (ImGui::Button(get_gui_string(gui_string_id::btn_stop, lang), ImVec2(btn_w, 0)))
             {
                 ctrl.enqueue_commander_action([&ctrl, port_hash = info.port_hash]() { ctrl.commander().request_port_stop(port_hash); });
             }
-            if (!p_started) ImGui::EndDisabled();
+            if (!p_started || is_unavailable || module_missing)
+            {
+                ImGui::EndDisabled();
+            }
             ImGui::PopID();
             
             ImGui::Separator();
         }
 
         draw_expanded_node_statistics(registry, info, lang, is_port, p_started, has_stats, port_stats, proc_stats);
-        draw_expanded_node_parameters(ctrl, lang, info, is_port, p_started, user_params);
+        draw_expanded_node_parameters(ctrl, lang, info, is_port, disable_controls, user_params);
 
         if (is_port)
         {
-            draw_expanded_node_inject_data(ctrl, lang, info, dpi_scale, p_started);
+            draw_expanded_node_inject_data(ctrl, lang, info, dpi_scale, !p_started || is_unavailable || module_missing);
         }
 
         draw_expanded_node_remove_action(ctrl, lang, info, exp_pad, is_port);
@@ -1124,7 +1113,14 @@ namespace adam::gui
         if (port_hash != 0)
         {
             unique_node_id = get_unique_node_id(port_hash, hash, stage, type);
-            is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
+            if (is_unavail)
+            {
+                g_expanded_nodes.erase(unique_node_id);
+            }
+            else
+            {
+                is_expanded = g_expanded_nodes.count(unique_node_id) > 0;
+            }
         }
 
         ImDrawFlags header_corners = ImDrawFlags_RoundCornersAll;
@@ -1157,7 +1153,7 @@ namespace adam::gui
             }
         }
 
-        if (port_hash != 0)
+        if (port_hash != 0 && !is_unavail)
         {
             if (clicked)
             {

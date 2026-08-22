@@ -129,7 +129,7 @@ namespace adam::modules::asterix
         return true;
     }
 
-    bool asterix_analyzer::analyze_expanded(const uint8_t* data, size_t size, const uint8_t* ref_data, size_t ref_size, size_t row_idx, std::vector<expanded_data>& out_expansions) const
+    bool asterix_analyzer::analyze_expanded(const uint8_t* data, size_t /*size*/, const uint8_t* ref_data, size_t ref_size, size_t row_idx, std::vector<expanded_data>& out_expansions) const
     {
         if (!data) return false;
 

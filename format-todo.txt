@@ -1,0 +1,10 @@
+Okay, BIG change coming to the entire format system. 
+
+Currently, parsers and encoders are singletons. We need to change this. Both of these need to be instances for each connection they are used in.
+That is because both should be configuration_items that have editable (user-) parameters, just like ports and processors. 
+
+Please deeply study how ports make this work, especially the synching of parameters initally and per parameter when they get updated. 
+Now the thing is, a connection can quickly change its format, so the old parameters of the old format need to be wiped when it gets changed. 
+
+Implement this in the cleanest and portable way possible, yet keep performance as the main focus. use guard clauses and allman bracket style. align code so it looks nice and readable, have same functions grouped together in the header. and make sure the order
+of functions in the header and source should be the same.

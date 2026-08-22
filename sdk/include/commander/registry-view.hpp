@@ -44,15 +44,43 @@ namespace adam
                 
                 switch (header.var_type)
                 {
-                    case configuration_parameter::type::type_boolean: { bool value; deserializer.read_bytes(&value, sizeof(bool)); if (auto* p = user_params.get<configuration_parameter_boolean>(header.name)) p->set_value(value); break; }
-                    case configuration_parameter::type::type_integer: { int64_t value; deserializer.read_bytes(&value, sizeof(int64_t)); if (auto* p = user_params.get<configuration_parameter_integer>(header.name)) p->set_value(value); break; }
-                    case configuration_parameter::type::type_double:  { double value; deserializer.read_bytes(&value, sizeof(double)); if (auto* p = user_params.get<configuration_parameter_double>(header.name)) p->set_value(value); break; }
-                    case configuration_parameter::type::type_string:  {
-                        uint16_t length; deserializer.read_bytes(&length, sizeof(uint16_t)); std::string value(length, '\0'); if (length > 0) deserializer.read_bytes(value.data(), length);
-                        if (auto* p = user_params.get<configuration_parameter_string>(header.name)) p->set_value(string_hashed(value));
+                    case configuration_parameter::type::type_boolean:
+                    {
+                        bool value;
+                        deserializer.read_bytes(&value, sizeof(bool));
+                        if (auto* p = user_params.get<configuration_parameter_boolean>(header.name))
+                            p->set_value(value);
                         break;
                     }
-                    default: break;
+                    case configuration_parameter::type::type_integer:
+                    {
+                        int64_t value;
+                        deserializer.read_bytes(&value, sizeof(int64_t));
+                        if (auto* p = user_params.get<configuration_parameter_integer>(header.name))
+                            p->set_value(value);
+                        break;
+                    }
+                    case configuration_parameter::type::type_double:
+                    {
+                        double value;
+                        deserializer.read_bytes(&value, sizeof(double));
+                        if (auto* p = user_params.get<configuration_parameter_double>(header.name))
+                            p->set_value(value);
+                        break;
+                    }
+                    case configuration_parameter::type::type_string:
+                    {
+                        uint16_t length;
+                        deserializer.read_bytes(&length, sizeof(uint16_t));
+                        std::string value(length, '\0');
+                        if (length > 0)
+                            deserializer.read_bytes(value.data(), length);
+                        if (auto* p = user_params.get<configuration_parameter_string>(header.name))
+                            p->set_value(string_hashed(value));
+                        break;
+                    }
+                    default:
+                        break;
                 }
             }
         }
@@ -109,6 +137,9 @@ namespace adam
         string_hashed input_format_module;
         string_hashed output_format;
         string_hashed output_format_module;
+
+        configuration_parameter_list_sorted input_format_user_params{string_hashed("user_parameters")};
+        configuration_parameter_list_sorted output_format_user_params{string_hashed("user_parameters")};
     };
 
     /**

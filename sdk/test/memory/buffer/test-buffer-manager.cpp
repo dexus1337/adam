@@ -257,7 +257,7 @@ TEST_F(buffer_manager_test, referenced_buffer_basic)
     child->release(); // Release local ownership, parent still owns it
     
     // Verify child is still alive via parent's reference
-    EXPECT_EQ(child->get_ref_count(), 1);
+    EXPECT_EQ(child->get_ref_count(), 1u);
     
     parent->release(); // Should release parent and recursively release child
     
@@ -279,8 +279,8 @@ TEST_F(buffer_manager_test, referenced_buffer_resolve_recursive)
     parent->set_referenced_buffer(child);
     child->release();
     
-    EXPECT_EQ(parent->get_ref_count(), 1);
-    EXPECT_EQ(child->get_ref_count(), 1);
+    EXPECT_EQ(parent->get_ref_count(), 1u);
+    EXPECT_EQ(child->get_ref_count(), 1u);
     
     adam::buffer_handle parent_handle = parent->get_handle();
     
@@ -293,16 +293,16 @@ TEST_F(buffer_manager_test, referenced_buffer_resolve_recursive)
     EXPECT_STREQ(resolved_child->get_data_as<char>(), child_payload);
     
     // The resolved_parent should have called add_ref on the resolved_child
-    EXPECT_EQ(child->get_ref_count(), 2);
-    EXPECT_EQ(parent->get_ref_count(), 2);
-    EXPECT_EQ(resolved_child->get_ref_count(), 2);
-    EXPECT_EQ(resolved_parent->get_ref_count(), 2);
+    EXPECT_EQ(child->get_ref_count(), 2u);
+    EXPECT_EQ(parent->get_ref_count(), 2u);
+    EXPECT_EQ(resolved_child->get_ref_count(), 2u);
+    EXPECT_EQ(resolved_parent->get_ref_count(), 2u);
     
     resolved_parent->release(); // Releases both parent and child surrogates
     
     // Child's ref count drops back to 1 (owned solely by original parent)
-    EXPECT_EQ(child->get_ref_count(), 1);
-    EXPECT_EQ(parent->get_ref_count(), 1);
+    EXPECT_EQ(child->get_ref_count(), 1u);
+    EXPECT_EQ(parent->get_ref_count(), 1u);
     
     parent->release();
     

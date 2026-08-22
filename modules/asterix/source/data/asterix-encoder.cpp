@@ -7,6 +7,25 @@
 
 namespace adam::modules::asterix
 {
+    const adam::configuration_parameter_list& asterix_encoder::get_user_parameters()
+    {
+        static const adam::configuration_parameter_list params = []()
+        {
+            adam::configuration_parameter_list p;
+            auto user_params = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+            p.add(std::move(user_params));
+            return p;
+        }();
+        return params;
+    }
+
+    const adam::configuration_parameter_list& asterix_encoder::get_default_parameters() { return get_user_parameters(); }
+
+    asterix_encoder::asterix_encoder(const adam::string_hashed& item_name, const adam::configuration_parameter_list& default_params)
+        : adam::encoder(item_name, default_params)
+    {
+    }
+
     static inline void encode_item(adam::buffer* out_buf, uint32_t& out_offset, const item* itm, const uap* sub_uap, adam::buffer* ref_buf)
     {
         if (!itm->is_populated()) return;

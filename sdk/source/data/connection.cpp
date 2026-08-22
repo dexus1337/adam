@@ -4,6 +4,7 @@
 #include "data/processor.hpp"
 #include "data/format.hpp"
 #include "data/inspector.hpp"
+#include "data/parser.hpp"
 #include "data/encoder.hpp"
 #include "module/module.hpp"
 #include "controller/controller.hpp"
@@ -12,7 +13,6 @@
 #include "commander/messages/message-structs.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 #include "memory/buffer/buffer.hpp"
-#include "module/internals/essential/module-essential.hpp"
 
 namespace adam 
 {
@@ -22,9 +22,9 @@ namespace adam
         {
             configuration_parameter_list p;
             p.add(std::make_unique<configuration_parameter_boolean>("started"_ct));
-            p.add(std::make_unique<configuration_parameter_list>("inputs"_ct));
+            p.add(std::make_unique<configuration_parameter_list_sorted>("inputs"_ct));
             p.add(std::make_unique<configuration_parameter_list_sorted>("processors"_ct));
-            p.add(std::make_unique<configuration_parameter_list>("outputs"_ct));
+            p.add(std::make_unique<configuration_parameter_list_sorted>("outputs"_ct));
             p.add(std::make_unique<configuration_parameter_integer>("date_created"_ct));
             p.add(std::make_unique<configuration_parameter_integer>("date_edited"_ct));
             p.add(std::make_unique<configuration_parameter_integer>("color_code"_ct));
@@ -39,95 +39,172 @@ namespace adam
     }
 
     connection::connection(const string_hashed& item_name) 
-    :   registry_item(item_name, connection::get_default_parameters()),
-        m_ports_input(),
-        m_processors(),
-        m_ports_output(),
-        m_unavailable_inputs(),
-        m_unavailable_outputs(),
-        m_input_format(&data_format_transparent),   // Default to transparent
-        m_output_format(&data_format_transparent),  // Default to transparent
-        m_b_valid_data_chain(false),
-        m_started(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("started"_ct)))
+        : registry_item(item_name, connection::get_default_parameters()),
+          m_ports_input(),
+          m_inspectors_input(),
+          m_processors(),
+          m_inspectors_output(),
+          m_ports_output(),
+          m_unavailable_inputs(),
+          m_unavailable_processors(),
+          m_unavailable_outputs(),
+          m_input_format(&data_format_transparent),
+          m_output_format(&data_format_transparent),
+          m_parser(nullptr),
+          m_encoder(nullptr),
+          m_b_valid_data_chain(false),
+          m_started(dynamic_cast<configuration_parameter_boolean*>(get_parameters().get("started"_ct)))
     {
-
     }
 
-    connection::~connection() {}
+    connection::~connection() 
+    {
+    }
 
     void connection::set_input_format(const data_format* fmt)
     {
-        m_input_format = fmt;
+        m_input_format = fmt ? fmt : &data_format_transparent;
+        m_parser.reset();
+
+        // Wipe old input format user parameters
+        m_parameters.remove("input_format_user_parameters"_ct);
+
+        if (auto* fmt_param = m_parameters.get<configuration_parameter_string>("input_format"_ct))
+            fmt_param->set_value(m_input_format->get_name());
+
+        if (auto* mod_param = m_parameters.get<configuration_parameter_string>("input_format_module"_ct))
+            mod_param->set_value(m_input_format->get_origin_module() ? m_input_format->get_origin_module()->get_name() : "essential"_ct);
+
+        if (m_input_format && m_input_format->has_parser())
+        {
+            m_parser = m_input_format->create_parser(get_name());
+            if (m_parser)
+            {
+                auto* user_params = m_parser->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+                if (user_params && !user_params->get_children().empty())
+                {
+                    auto copy = std::make_unique<configuration_parameter_list_sorted>(*user_params);
+                    copy->set_name("input_format_user_parameters"_ct);
+                    m_parameters.add(std::move(copy));
+                }
+            }
+        }
+
         check_valid_chain();
         m_ports_input.iterate([](const auto& inputs)
         {
             for (auto* in : inputs)
-            {
                 in->rebuild_formats_database();
-            }
         });
     }
 
     void connection::set_output_format(const data_format* fmt)
     {
-        m_output_format = fmt;
+        m_output_format = fmt ? fmt : &data_format_transparent;
+        m_encoder.reset();
+
+        // Wipe old output format user parameters
+        m_parameters.remove("output_format_user_parameters"_ct);
+
+        if (auto* fmt_param = m_parameters.get<configuration_parameter_string>("output_format"_ct))
+            fmt_param->set_value(m_output_format->get_name());
+
+        if (auto* mod_param = m_parameters.get<configuration_parameter_string>("output_format_module"_ct))
+            mod_param->set_value(m_output_format->get_origin_module() ? m_output_format->get_origin_module()->get_name() : "essential"_ct);
+
+        if (m_output_format && m_output_format->has_encoder())
+        {
+            m_encoder = m_output_format->create_encoder(get_name());
+            if (m_encoder)
+            {
+                auto* user_params = m_encoder->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
+                if (user_params && !user_params->get_children().empty())
+                {
+                    auto copy = std::make_unique<configuration_parameter_list_sorted>(*user_params);
+                    copy->set_name("output_format_user_parameters"_ct);
+                    m_parameters.add(std::move(copy));
+                }
+            }
+        }
+
         check_valid_chain();
         m_ports_input.iterate([](const auto& inputs)
         {
             for (auto* in : inputs)
-            {
                 in->rebuild_formats_database();
-            }
         });
     }
 
     bool connection::handle_data(buffer*& buf)
     {
+        if (!buf)
+        {
+            return false;
+        }
+
         bool result = true;
 
         // Run data through input inspectors
         m_inspectors_input.iterate([&](const auto& inspectors) 
         {
             for (const auto& inspector : inspectors) 
+            {
                 inspector->handle_data(buf);
+            }
         });
 
         if (!m_b_valid_data_chain || !m_started->get_value()) return false;
+
+        buffer* parsed_buf = nullptr;
+        if (m_parser && !m_parser->parse(buf, parsed_buf)) return false;
+
+        buffer* current_buf = parsed_buf ? parsed_buf : buf;
 
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
         {
             for (auto* processor : processors) 
-                result &= processor->handle_data(buf);
+            {
+                result &= processor->handle_data(current_buf);
+            }
         });
 
-        // If any processor discarded the buffer, stop here
         if (!result)
+        {
+            if (parsed_buf) parsed_buf->release();
             return false;
+        }
 
         // Run data through output inspectors
         m_inspectors_output.iterate([&](const auto& inspectors) 
         {
             for (const auto& inspector : inspectors) 
-                inspector->handle_data(buf);
+            {
+                inspector->handle_data(current_buf);
+            }
         });
 
         buffer* encoded_buf = nullptr;
 
-        // Run data through output encoder
-        if (buf->get_data_format() != m_output_format && m_output_format->get_encoder())
+        // Run data through output encoder if required
+        if (m_encoder && current_buf->get_data_format() != m_output_format)
         {
-            m_output_format->get_encoder()->encode(encoded_buf, buf);
+            m_encoder->encode(encoded_buf, current_buf);
         }
+
+        buffer* out_buf = encoded_buf ? encoded_buf : current_buf;
 
         // Forward to all output ports
         m_ports_output.iterate([&](const auto& outputs) 
         {
             for (auto* output_port : outputs) 
-                result &= output_port->handle_data(encoded_buf ? encoded_buf : buf, data_direction_out);
+            {
+                result &= output_port->handle_data(out_buf, data_direction_out);
+            }
         });
 
         if (encoded_buf) encoded_buf->release();
+        if (parsed_buf) parsed_buf->release();
 
         return result;
     }
@@ -164,7 +241,7 @@ namespace adam
                 const data_format* proc_in = proc->get_input_format();
                 const data_format* proc_out = proc->get_output_format();
 
-                if (current_format != proc_in)
+                if (!current_format || !proc_in || current_format->get_name() != proc_in->get_name())
                     format_mismatch = true;
 
                 current_format = proc_out;
@@ -176,7 +253,7 @@ namespace adam
 
         const data_format* expected_out = m_output_format;
 
-        if (current_format != expected_out)
+        if (!current_format || !expected_out || current_format->get_name() != expected_out->get_name())
             return false;
 
         m_b_valid_data_chain = true;
@@ -235,15 +312,24 @@ namespace adam
                 {
                     for (auto* c : conns)
                     {
-                        if (c != this && c->is_started()) is_used = true;
+                        if (c != this && c->is_started())
+                        {
+                            is_used = true;
+                        }
                     }
                 });
-                if (is_used) return true;
+                if (is_used)
+                {
+                    return true;
+                }
                 p->get_out_connections().iterate([&](const auto& conns)
                 {
                     for (auto* c : conns)
                     {
-                        if (c != this && c->is_started()) is_used = true;
+                        if (c != this && c->is_started())
+                        {
+                            is_used = true;
+                        }
                     }
                 });
                 return is_used;

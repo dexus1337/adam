@@ -4,13 +4,10 @@
 #include "configuration/configuration-item.hpp"
 #include "module/internals/essential/module-essential.hpp"
 #include "module/module.hpp"
-#include "data/processors/filter.hpp"
-#include "data/processors/converter.hpp"
 #include "data/connection.hpp"
 #include "version/version.hpp"
 #include "configuration/parameters/configuration-parameter-boolean.hpp"
 #include "configuration/parameters/configuration-parameter-integer.hpp"
-#include "configuration/parameters/configuration-parameter-double.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
@@ -18,12 +15,12 @@
 #include "commander/messages/event.hpp"
 #include "commander/messages/command.hpp"
 #include "commander/messages/response.hpp"
+#include "commander/messages/message-serializer.hpp"
 #include "controller/controller-cmd-dispatcher.hpp"
 #include "os/os.hpp"
 
 #include <fstream>
 #include <string>
-#include <stdexcept>
 #include <array>
 #include <cstdlib>
 #include <algorithm>
@@ -31,6 +28,63 @@
 
 namespace adam
 {
+    namespace
+    {
+        template<typename msg_type>
+        void serialize_user_parameters(const configuration_parameter_list* user_param, detail::message_serializer<msg_type>& serializer)
+        {
+            if (!user_param)
+                return;
+
+            for (const auto& [name, param] : user_param->get_children())
+            {
+                switch (param->get_type())
+                {
+                    case configuration_parameter::type::type_string:
+                    {
+                        auto val = dynamic_cast<configuration_parameter_string*>(param.get())->get_value();
+                        configuration_parameter_string::view view;
+                        view.var_type = configuration_parameter::type::type_string;
+                        view.name = name.get_hash();
+                        view.length = static_cast<uint16_t>(val.size());
+                        serializer.write_bytes(&view, sizeof(view));
+                        if (val.size() > 0)
+                            serializer.write_bytes(val.c_str(), val.size());
+                        break;
+                    }
+                    case configuration_parameter::type::type_integer:
+                    {
+                        configuration_parameter_integer::view view;
+                        view.var_type = configuration_parameter::type::type_integer;
+                        view.name = name.get_hash();
+                        view.value = dynamic_cast<configuration_parameter_integer*>(param.get())->get_value();
+                        serializer.write_bytes(&view, sizeof(view));
+                        break;
+                    }
+                    case configuration_parameter::type::type_boolean:
+                    {
+                        configuration_parameter_boolean::view view;
+                        view.var_type = configuration_parameter::type::type_boolean;
+                        view.name = name.get_hash();
+                        view.value = dynamic_cast<configuration_parameter_boolean*>(param.get())->get_value();
+                        serializer.write_bytes(&view, sizeof(view));
+                        break;
+                    }
+                    case configuration_parameter::type::type_double:
+                    {
+                        configuration_parameter_double::view view;
+                        view.var_type = configuration_parameter::type::type_double;
+                        view.name = name.get_hash();
+                        view.value = dynamic_cast<configuration_parameter_double*>(param.get())->get_value();
+                        serializer.write_bytes(&view, sizeof(view));
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     const configuration_parameter_list& registry::get_default_parameters()
     {
@@ -47,9 +101,9 @@ namespace adam
             config_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./"_ct));
             p.add(std::move(config_paths));
 
-            p.add(std::move(std::make_unique<configuration_parameter_list>("ports"_ct)));
-            p.add(std::move(std::make_unique<configuration_parameter_list_sorted>("processors"_ct)));
-            p.add(std::move(std::make_unique<configuration_parameter_list>("connections"_ct)));
+            p.add(std::make_unique<configuration_parameter_list>("ports"_ct));
+            p.add(std::make_unique<configuration_parameter_list_sorted>("processors"_ct));
+            p.add(std::make_unique<configuration_parameter_list>("connections"_ct));
 
             return p;
         }();
@@ -1006,6 +1060,12 @@ namespace adam
                     auto uci = std::make_unique<connection::unavailable_info>(conn_name);
                     uci->parameters().copy_from(conn_params);
 
+                    if (auto* in_user = conn_params->get<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
+                        uci->parameters().add(std::make_unique<configuration_parameter_list_sorted>(*in_user));
+
+                    if (auto* out_user = conn_params->get<configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
+                        uci->parameters().add(std::make_unique<configuration_parameter_list_sorted>(*out_user));
+
                     auto* color = static_cast<configuration_parameter_integer*>(uci->get_parameters().get("color_code"_ct));
                     if (color->get_value() == 0xFFFFFF) color->set_value(0);
 
@@ -1017,7 +1077,29 @@ namespace adam
                 if (create_connection(conn_name, &new_conn) != status_success)
                     continue;
 
+                // Set formats first so user parameter lists exist on connection
+                new_conn->set_input_format(resolved_in_fmt);
+                new_conn->set_output_format(resolved_out_fmt);
+
                 new_conn->parameters().copy_from(conn_params);
+
+                if (auto* parser = new_conn->get_parser())
+                {
+                    if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
+                    {
+                        if (auto* parser_params = parser->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
+                            parser_params->copy_from(user_params);
+                    }
+                }
+
+                if (auto* encoder = new_conn->get_encoder())
+                {
+                    if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
+                    {
+                        if (auto* encoder_params = encoder->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
+                            encoder_params->copy_from(user_params);
+                    }
+                }
 
                 auto* color = static_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("color_code"_ct));
                 if (color->get_value() == 0xFFFFFF) color->set_value(0);
@@ -1082,10 +1164,6 @@ namespace adam
                             new_conn->unavailable_processors().push_back(ref->get_target());
                     }
                 }
-
-                // these will also perform the chain checks
-                new_conn->set_input_format(resolved_in_fmt);
-                new_conn->set_output_format(resolved_out_fmt);
             }
         }
         
@@ -1230,7 +1308,24 @@ namespace adam
             evt_data->setup(new_port->get_name(), it->second->type, it->second->type_module, false, new_port->get_state_buffer()->get_handle());
             evt_data->dir       = new_port->get_direction();
             evt_data->started   = new_port->is_started();
-            m_controller.broadcast_event(evt);
+
+            auto* user_param = new_port->get_parameter<configuration_parameter_list>("user_parameters"_ct);
+            evt_data->user_parameters = user_param ? static_cast<uint16_t>(user_param->get_children().size()) : 0;
+
+            std::vector<event> evt_chain;
+            evt_chain.push_back(evt);
+            if (user_param)
+            {
+                size_t unused_off  = sizeof(port::basic_info);
+                size_t unused_size = event::get_max_data_length() - unused_off;
+                size_t evt_idx     = 0;
+                detail::message_serializer<event> serializer(evt_chain, evt_idx, unused_off, unused_size);
+                serialize_user_parameters(user_param, serializer);
+            }
+
+            for (const auto& ev : evt_chain)
+                m_controller.broadcast_event(ev);
+
             it = m_unavailable_ports.erase(it);
         }
     }
@@ -1254,7 +1349,7 @@ namespace adam
 
             auto upi = std::make_unique<port::unavailable_info>(port_name);
             upi->type = orig_type.get_hash();
-            upi->type_module = module_hash;
+            upi->type_module = type_module.get_hash();
             
             upi->parameters().copy_from(&it->second->parameters());
 
@@ -1301,8 +1396,11 @@ namespace adam
                 }
             }
 
+            it->second->stop();
+
             event evt(event_type::port_unavailable);
-            evt.data_as<messages::port_action_data>()->port = port_hash;
+            auto* evt_data = evt.data_as<messages::port_action_data>();
+            evt_data->port = port_hash;
             m_controller.broadcast_event(evt);
 
             m_unavailable_ports[port_hash] = std::move(upi);
@@ -1390,7 +1488,22 @@ namespace adam
             evt_data->output_datatype           = out_fmt ? out_fmt->get_name().get_hash() : 0ull;
             evt_data->output_datatype_module    = out_mod ? out_mod->get_name().get_hash() : 0ull;
 
-            m_controller.broadcast_event(evt);
+            auto* user_param = new_processor->get_parameter<configuration_parameter_list>("user_parameters"_ct);
+            evt_data->user_parameters = user_param ? static_cast<uint16_t>(user_param->get_children().size()) : 0;
+
+            std::vector<event> evt_chain;
+            evt_chain.push_back(evt);
+            if (user_param)
+            {
+                size_t unused_off  = sizeof(processor::basic_info);
+                size_t unused_size = event::get_max_data_length() - unused_off;
+                size_t evt_idx     = 0;
+                detail::message_serializer<event> serializer(evt_chain, evt_idx, unused_off, unused_size);
+                serialize_user_parameters(user_param, serializer);
+            }
+
+            for (const auto& ev : evt_chain)
+                m_controller.broadcast_event(ev);
             
             // Successfully created, remove from unavailable list
             it = m_unavailable_processors.erase(it);
@@ -1416,7 +1529,7 @@ namespace adam
 
             auto upi            = std::make_unique<processor::unavailable_info>(processor_name);
             upi->type           = orig_type.get_hash();
-            upi->type_module    = module_hash;
+            upi->type_module    = type_module.get_hash();
             upi->is_filter      = it->second->get_parameter<configuration_parameter_boolean>("is_filter"_ct)->get_value();
             
             upi->parameters().copy_from(&it->second->parameters());
@@ -1457,7 +1570,8 @@ namespace adam
 
             // Notify UI about processor becoming unavailable
             event evt(event_type::processor_unavailable);
-            evt.data_as<messages::processor_action_data>()->processor = processor_hash;
+            auto* evt_data = evt.data_as<messages::processor_action_data>();
+            evt_data->processor = processor_hash;
             m_controller.broadcast_event(evt);
 
             m_unavailable_processors[processor_hash] = std::move(upi);
@@ -1502,8 +1616,6 @@ namespace adam
                 continue;
             }
 
-            new_conn->parameters().copy_from(&it->second->parameters());
-            
             auto resolve_format = [&](const string_hashed& fmt_name, const string_hashed& mod_name) -> const data_format*
             {
                 if (const auto* fmt = get_data_format(fmt_name.get_hash(), mod_name.get_hash()))
@@ -1518,6 +1630,26 @@ namespace adam
 
             new_conn->set_input_format(resolved_in_fmt);
             new_conn->set_output_format(resolved_out_fmt);
+
+            new_conn->parameters().copy_from(&it->second->parameters());
+
+            if (auto* parser = new_conn->get_parser())
+            {
+                if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
+                {
+                    if (auto* parser_params = parser->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
+                        parser_params->copy_from(user_params);
+                }
+            }
+
+            if (auto* encoder = new_conn->get_encoder())
+            {
+                if (auto* user_params = new_conn->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
+                {
+                    if (auto* encoder_params = encoder->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
+                        encoder_params->copy_from(user_params);
+                }
+            }
 
             auto* inputs_list = new_conn->get_parameter<configuration_parameter_list>("inputs"_ct);
             for (size_t i = 0; i < inputs_list->get_children().size(); ++i)
@@ -1594,6 +1726,12 @@ namespace adam
             evt_data->output_format = resolved_out_fmt->get_name().get_hash();
             evt_data->output_format_module = out_mod.get_hash();
 
+            auto* in_user_param  = new_conn->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct);
+            auto* out_user_param = new_conn->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct);
+
+            evt_data->input_format_user_parameters  = in_user_param ? static_cast<uint16_t>(in_user_param->get_children().size()) : 0;
+            evt_data->output_format_user_parameters = out_user_param ? static_cast<uint16_t>(out_user_param->get_children().size()) : 0;
+
             evt_data->input_count = 0;
             evt_data->processor_count = 0;
             evt_data->output_count = 0;
@@ -1626,7 +1764,22 @@ namespace adam
             for (size_t i = 0; i < new_conn->unavailable_outputs().size() && evt_data->output_count < connection::basic_info::default_type_count; ++i)
                 evt_data->outputs[evt_data->output_count++] = new_conn->unavailable_outputs()[i].get_hash();
 
-            m_controller.broadcast_event(evt);
+            std::vector<event> evt_chain;
+            evt_chain.push_back(evt);
+            if (in_user_param || out_user_param)
+            {
+                size_t unused_off  = sizeof(connection::basic_info);
+                size_t unused_size = event::get_max_data_length() - unused_off;
+                size_t evt_idx     = 0;
+                detail::message_serializer<event> serializer(evt_chain, evt_idx, unused_off, unused_size);
+                if (in_user_param)
+                    serialize_user_parameters(in_user_param, serializer);
+                if (out_user_param)
+                    serialize_user_parameters(out_user_param, serializer);
+            }
+
+            for (const auto& ev : evt_chain)
+                m_controller.broadcast_event(ev);
 
             it = m_unavailable_connections.erase(it);
         }
@@ -1655,6 +1808,12 @@ namespace adam
 
             auto uci = std::make_unique<connection::unavailable_info>(conn_name);
             uci->parameters().copy_from(&it->second->parameters());
+
+            if (auto* in_user = it->second->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct))
+                uci->parameters().add(std::make_unique<configuration_parameter_list_sorted>(*in_user));
+
+            if (auto* out_user = it->second->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct))
+                uci->parameters().add(std::make_unique<configuration_parameter_list_sorted>(*out_user));
 
             it->second->ports_input().iterate([&](const auto& inputs)
             {

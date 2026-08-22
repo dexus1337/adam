@@ -157,14 +157,16 @@ TEST_F(port_test, inactive_drops_data)
 class bench_parser : public adam::parser
 {
 public:
+    bench_parser(const adam::string_hashed& name = "bench_parser"_ct) : adam::parser(name) {}
     bool parse(adam::buffer* buf, adam::buffer*& internal_data) override
     {
         internal_data = buf;
-        if (internal_data)
-            internal_data->add_ref();
+        if (internal_data) internal_data->add_ref();
         return true;
     }
 };
+
+static adam::default_factory<adam::parser, bench_parser> bench_parser_factory;
 
 TEST_F(port_test, benchmark_handle_data)
 {
@@ -175,10 +177,8 @@ TEST_F(port_test, benchmark_handle_data)
     test_port out_port1("out_port1"_ct);
     test_port out_port2("out_port2"_ct);
 
-    bench_parser parser1;
-    bench_parser parser2;
-    adam::data_format format1("format1", &parser1);
-    adam::data_format format2("format2", &parser2);
+    adam::data_format format1("format1"_ct, &bench_parser_factory);
+    adam::data_format format2("format2"_ct, &bench_parser_factory);
 
     adam::connection conn1("conn1"_ct);
     conn1.ports_input().push_back(&p);
@@ -225,12 +225,9 @@ TEST_F(port_test, benchmark_handle_data_three_formats)
     test_port out_port2("out_port2"_ct);
     test_port out_port3("out_port3"_ct);
 
-    bench_parser parser1;
-    bench_parser parser2;
-    bench_parser parser3;
-    adam::data_format format1("format1", &parser1);
-    adam::data_format format2("format2", &parser2);
-    adam::data_format format3("format3", &parser3);
+    adam::data_format format1("format1"_ct, &bench_parser_factory);
+    adam::data_format format2("format2"_ct, &bench_parser_factory);
+    adam::data_format format3("format3"_ct, &bench_parser_factory);
 
     adam::connection conn1("conn1"_ct);
     conn1.ports_input().push_back(&p);

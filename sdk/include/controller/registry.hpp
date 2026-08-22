@@ -73,18 +73,18 @@ namespace adam
         struct factory_data
         {
             factory_data() = default;
-            factory_data(factory<T>* ptr) : factory_ptr(ptr), parameters(nullptr) {}
-            factory_data(factory<T>* ptr, const configuration_parameter_list* params) : factory_ptr(ptr), parameters(params) {}
+            factory_data(const factory<T>* ptr) : factory_ptr(ptr), parameters(nullptr) {}
+            factory_data(const factory<T>* ptr, const configuration_parameter_list* params) : factory_ptr(ptr), parameters(params) {}
 
-            factory<T>*                         factory_ptr = nullptr;
+            const factory<T>*                   factory_ptr = nullptr;
             const configuration_parameter_list* parameters = nullptr;
         };
 
         struct factory_data_port : public factory_data<port>
         {
             factory_data_port() = default;
-            factory_data_port(factory<port>* ptr) : factory_data<port>(ptr), direction(port::direction_invalid) {}
-            factory_data_port(factory<port>* ptr, const configuration_parameter_list* params, port::direction dir)  : factory_data<port>(ptr, params), direction(dir) {}
+            factory_data_port(const factory<port>* ptr) : factory_data<port>(ptr), direction(port::direction_invalid) {}
+            factory_data_port(const factory<port>* ptr, const configuration_parameter_list* params, port::direction dir)  : factory_data<port>(ptr, params), direction(dir) {}
 
             port::direction direction = port::direction_invalid;
         }; 
@@ -92,7 +92,7 @@ namespace adam
         struct factory_data_processor : public factory_data<processor>
         {
             factory_data_processor() = default;
-            factory_data_processor(factory<processor>* ptr, const configuration_parameter_list* params, string_hash idt = 0, string_hash idtm = 0, string_hash odt = 0, string_hash odtm = 0) 
+            factory_data_processor(const factory<processor>* ptr, const configuration_parameter_list* params, string_hash idt = 0, string_hash idtm = 0, string_hash odt = 0, string_hash odtm = 0) 
                 : factory_data<processor>(ptr, params), input_datatype(idt), input_datatype_module(idtm), output_datatype(odt), output_datatype_module(odtm) {}
 
             string_hash input_datatype;
@@ -101,8 +101,24 @@ namespace adam
             string_hash output_datatype_module;
         }; 
 
+        struct factory_data_parser : public factory_data<parser>
+        {
+            factory_data_parser() = default;
+            factory_data_parser(const factory<parser>* ptr) : factory_data<parser>(ptr) {}
+            factory_data_parser(const factory<parser>* ptr, const configuration_parameter_list* params) : factory_data<parser>(ptr, params) {}
+        };
+
+        struct factory_data_encoder : public factory_data<encoder>
+        {
+            factory_data_encoder() = default;
+            factory_data_encoder(const factory<encoder>* ptr) : factory_data<encoder>(ptr) {}
+            factory_data_encoder(const factory<encoder>* ptr, const configuration_parameter_list* params) : factory_data<encoder>(ptr, params) {}
+        };
+
         using port_factory_map              = std::unordered_map<string_hashed, factory_data_port>;         /**< A map of factories for creating ports provided by a module. */
         using processor_factory_map         = std::unordered_map<string_hashed, factory_data_processor>;    /**< A map of factories for creating processors provided by a module. */
+        using parser_factory_map            = std::unordered_map<string_hashed, factory_data_parser>;       /**< A map of factories for creating parsers provided by a module. */
+        using encoder_factory_map           = std::unordered_map<string_hashed, factory_data_encoder>;      /**< A map of factories for creating encoders provided by a module. */
 
         /** @brief Explicitly delete copy semantics to prevent dllexport from generating implicit copies of unique_ptr maps. */
         registry(const registry&) = delete;

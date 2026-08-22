@@ -133,3 +133,37 @@ TEST_F(controller_cmd_dispatcher_test, connection_set_input_data_format_dispatch
     // Clean up
     reg.destroy_connection(conn_name.get_hash());
 }
+
+TEST_F(controller_cmd_dispatcher_test, connection_chain_validity_event_sync)
+{
+    adam::controller& ctrl = adam::controller::get();
+    adam::registry& reg = ctrl.get_registry();
+    adam::controller_cmd_dispatcher dispatcher;
+    dispatcher.register_default_handlers();
+
+    auto conn_name = "test_valid_sync_conn"_ct;
+    adam::connection* conn = nullptr;
+    ASSERT_EQ(reg.create_connection(conn_name, &conn), adam::registry::status_success);
+    ASSERT_NE(conn, nullptr);
+
+    // Initial connection without ports -> invalid chain
+    EXPECT_FALSE(conn->check_valid_chain());
+
+    adam::port* in_port = nullptr;
+    adam::port* out_port = nullptr;
+    ASSERT_EQ(reg.create_port("sync_test_in"_ct, "internal"_ct.get_hash(), "essential"_ct.get_hash(), &in_port), adam::registry::status_success);
+    ASSERT_EQ(reg.create_port("sync_test_out"_ct, "internal"_ct.get_hash(), "essential"_ct.get_hash(), &out_port), adam::registry::status_success);
+
+    // Add input port
+    ASSERT_EQ(reg.connection_add_port(conn_name.get_hash(), ("sync_test_in"_ct).get_hash(), true), adam::registry::status_success);
+    EXPECT_FALSE(conn->is_valid_chain());
+
+    // Add output port -> now valid!
+    ASSERT_EQ(reg.connection_add_port(conn_name.get_hash(), ("sync_test_out"_ct).get_hash(), false), adam::registry::status_success);
+    EXPECT_TRUE(conn->is_valid_chain());
+
+    // Clean up
+    reg.destroy_connection(conn_name.get_hash());
+    reg.destroy_port(("sync_test_in"_ct).get_hash());
+    reg.destroy_port(("sync_test_out"_ct).get_hash());
+}

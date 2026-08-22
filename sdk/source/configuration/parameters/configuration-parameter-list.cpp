@@ -35,27 +35,21 @@ namespace adam
 
     void configuration_parameter_list::copy_from(const configuration_parameter* other)
     {
-        if (!other) return;
+        if (!other)
+            return;
 
         const auto* src_list = dynamic_cast<const configuration_parameter_list*>(other);
-        if (!src_list) return;
-
-        if (m_children.empty())
-        {
-            for (const auto& [name, param] : src_list->get_children())
-            {
-                if (param)
-                    m_children.emplace(name, param->clone());
-            }
+        if (!src_list)
             return;
-        }
 
         for (auto& [name, param] : m_children)
         {
-            if (!param) continue;
+            if (!param)
+                continue;
 
             const auto* src_param = src_list->get(name.get_hash());
-            if (!src_param) continue;
+            if (!src_param)
+                continue;
 
             param->copy_from(src_param);
         }

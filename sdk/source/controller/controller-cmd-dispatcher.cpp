@@ -12,8 +12,6 @@
 #include "commander/messages/message-serializer.hpp"
 #include "data/connection.hpp"
 #include "data/processor.hpp"
-#include "data/port-types/port-input.hpp"
-#include "data/port-types/port-output.hpp"
 #include "configuration/parameters/configuration-parameter.hpp"
 #include "configuration/parameters/configuration-parameter-string.hpp"
 #include "configuration/parameters/configuration-parameter-list.hpp"
@@ -46,39 +44,42 @@ namespace adam
                     case configuration_parameter::type::type_string: 
                     {
                         auto val = dynamic_cast<configuration_parameter_string*>(param.get())->get_value();
-                        auto* view = serializer.template allocate_view<configuration_parameter_string::view>();
-                        view->var_type = configuration_parameter::type::type_string;
-                        view->name = name.get_hash();
-                        view->length = static_cast<uint16_t>(val.size());
-                        serializer.write_bytes(val.c_str(), val.size());
+                        configuration_parameter_string::view view;
+                        view.var_type = configuration_parameter::type::type_string;
+                        view.name = name.get_hash();
+                        view.length = static_cast<uint16_t>(val.size());
+                        serializer.write_bytes(&view, sizeof(view));
+                        if (val.size() > 0)
+                        {
+                            serializer.write_bytes(val.c_str(), val.size());
+                        }
                         break;
                     }
                     case configuration_parameter::type::type_integer: 
                     {
-                        auto* view = serializer.template allocate_view<configuration_parameter_integer::view>();
-
-                        view->var_type = configuration_parameter::type::type_integer;
-                        view->name = name.get_hash();
-                        view->value = dynamic_cast<configuration_parameter_integer*>(param.get())->get_value();
-
+                        configuration_parameter_integer::view view;
+                        view.var_type = configuration_parameter::type::type_integer;
+                        view.name = name.get_hash();
+                        view.value = dynamic_cast<configuration_parameter_integer*>(param.get())->get_value();
+                        serializer.write_bytes(&view, sizeof(view));
                         break;
                     }
                     case configuration_parameter::type::type_boolean: 
                     {
-                        auto* view = serializer.template allocate_view<configuration_parameter_boolean::view>();
-
-                        view->var_type = configuration_parameter::type::type_boolean;
-                        view->name = name.get_hash();
-                        view->value = dynamic_cast<configuration_parameter_boolean*>(param.get())->get_value();
+                        configuration_parameter_boolean::view view;
+                        view.var_type = configuration_parameter::type::type_boolean;
+                        view.name = name.get_hash();
+                        view.value = dynamic_cast<configuration_parameter_boolean*>(param.get())->get_value();
+                        serializer.write_bytes(&view, sizeof(view));
                         break;
                     }
                     case configuration_parameter::type::type_double: 
                     {
-                        auto* view = serializer.template allocate_view<configuration_parameter_double::view>();
-
-                        view->var_type = configuration_parameter::type::type_double;
-                        view->name = name.get_hash();
-                        view->value = dynamic_cast<configuration_parameter_double*>(param.get())->get_value();
+                        configuration_parameter_double::view view;
+                        view.var_type = configuration_parameter::type::type_double;
+                        view.name = name.get_hash();
+                        view.value = dynamic_cast<configuration_parameter_double*>(param.get())->get_value();
+                        serializer.write_bytes(&view, sizeof(view));
                         break;
                     }
                     default: break;
@@ -350,7 +351,7 @@ namespace adam
                     conn_info->color = static_cast<uint32_t>(param->get_value());
                 
                 conn_info->started                 = conn->is_started();
-                conn_info->valid_chain             = conn->is_valid_chain();
+                conn_info->valid_chain             = conn->check_valid_chain();
                 conn_info->is_unavailable          = false;
 
                 conn_info->input_format            = conn->get_input_format()->get_name().get_hash();
@@ -358,6 +359,12 @@ namespace adam
 
                 conn_info->output_format           = conn->get_output_format()->get_name().get_hash();
                 conn_info->output_format_module    = dynamic_cast<configuration_parameter_string*>(conn->get_parameters().get("output_format_module"_ct))->get_value().get_hash();
+
+                auto* in_user_param  = conn->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct);
+                auto* out_user_param = conn->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct);
+
+                conn_info->input_format_user_parameters  = in_user_param ? static_cast<uint16_t>(in_user_param->get_children().size()) : 0;
+                conn_info->output_format_user_parameters = out_user_param ? static_cast<uint16_t>(out_user_param->get_children().size()) : 0;
 
                 conn_info->input_count             = 0;
                 conn_info->processor_count         = 0;
@@ -390,6 +397,18 @@ namespace adam
 
                 for (size_t i = 0; i < conn->unavailable_outputs().size() && conn_info->output_count < connection::basic_info::default_type_count; ++i)
                     conn_info->outputs[conn_info->output_count++] = conn->unavailable_outputs()[i].get_hash();
+
+                size_t unused_off  = sizeof(connection::basic_info);
+                size_t unused_size = response::get_max_data_length() - unused_off;
+                detail::message_serializer<response> serializer(ctx.responses, resp_idx, unused_off, unused_size);
+                if (in_user_param)
+                {
+                    serialize_user_parameters(in_user_param, serializer);
+                }
+                if (out_user_param)
+                {
+                    serialize_user_parameters(out_user_param, serializer);
+                }
 
                 resp_idx++;
 
@@ -747,6 +766,7 @@ namespace adam
             evt_data->sorting_index             = static_cast<uint32_t>(dynamic_cast<configuration_parameter_integer*>(new_conn->get_parameters().get("sorting_index"_ct))->get_value());
             evt_data->input_format_module       = dynamic_cast<configuration_parameter_string*>(new_conn->get_parameters().get("input_format_module"_ct))->get_value().get_hash();
             evt_data->output_format_module      = dynamic_cast<configuration_parameter_string*>(new_conn->get_parameters().get("output_format_module"_ct))->get_value().get_hash();
+            evt_data->valid_chain               = new_conn->check_valid_chain();
 
             ctx.ctrl.broadcast_event(evt);
 
@@ -1268,15 +1288,25 @@ namespace adam
             evt_data->format                = in_fmt->get_name().get_hash();
             evt_data->format_module         = resolved_in_module.get_hash();
             evt_data->valid_chain           = valid_chain;
-            ctx.ctrl.broadcast_event(evt);
+            auto* user_param                = (conn && conn->get_parser()) ? dynamic_cast<configuration_parameter_list*>(conn->get_parser()->get_parameters().get("user_parameters"_ct)) : nullptr;
+            evt_data->user_parameters       = user_param ? static_cast<uint16_t>(user_param->get_children().size()) : 0;
+
+            std::vector<event> evt_chain;
+            evt_chain.push_back(evt);
+            if (user_param)
+            {
+                size_t unused_off  = sizeof(messages::connection_data_format_data);
+                size_t unused_size = event::get_max_data_length() - unused_off;
+                size_t evt_idx     = 0;
+                detail::message_serializer<event> serializer(evt_chain, evt_idx, unused_off, unused_size);
+                serialize_user_parameters(user_param, serializer);
+            }
+            for (const auto& ev : evt_chain) ctx.ctrl.broadcast_event(ev);
 
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_data_format_changed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
 
-            if (unavail_conn)
-            {
-                ctx.reg.retry_unavailable_connections(0);
-            }
+            if (unavail_conn) ctx.reg.retry_unavailable_connections(0);
         });
 
         register_handler(command_type::connection_set_output_data_format, [](const command* cmds, size_t, command_context& ctx) 
@@ -1345,7 +1375,20 @@ namespace adam
             evt_data->format                = out_fmt->get_name().get_hash();
             evt_data->format_module         = resolved_out_module.get_hash();
             evt_data->valid_chain           = valid_chain;
-            ctx.ctrl.broadcast_event(evt);
+            auto* user_param                = (conn && conn->get_encoder()) ? dynamic_cast<configuration_parameter_list*>(conn->get_encoder()->get_parameters().get("user_parameters"_ct)) : nullptr;
+            evt_data->user_parameters       = user_param ? static_cast<uint16_t>(user_param->get_children().size()) : 0;
+
+            std::vector<event> evt_chain;
+            evt_chain.push_back(evt);
+            if (user_param)
+            {
+                size_t unused_off  = sizeof(messages::connection_data_format_data);
+                size_t unused_size = event::get_max_data_length() - unused_off;
+                size_t evt_idx     = 0;
+                detail::message_serializer<event> serializer(evt_chain, evt_idx, unused_off, unused_size);
+                serialize_user_parameters(user_param, serializer);
+            }
+            for (const auto& ev : evt_chain) ctx.ctrl.broadcast_event(ev);
 
             ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_data_format_changed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn ? conn->get_name().c_str() : unavail_conn->get_name().c_str());
             ctx.set_single_response_status(response_status::success);
@@ -1353,6 +1396,236 @@ namespace adam
             if (unavail_conn)
             {
                 ctx.reg.retry_unavailable_connections(0);
+            }
+        });
+
+        register_handler(command_type::connection_set_input_format_parameter, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_format_set_parameter_data>();
+            auto it = ctx.reg.connections().find(params->connection);
+
+            if (it == ctx.reg.connections().end())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_format_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto* conn = it->second.get();
+            auto* parser = conn->get_parser();
+            if (!parser)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_format_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto* user_params = conn->get_parameter<configuration_parameter_list_sorted>("input_format_user_parameters"_ct);
+            if (!user_params && parser)
+            {
+                user_params = dynamic_cast<configuration_parameter_list_sorted*>(parser->get_parameters().get("user_parameters"_ct));
+            }
+
+            if (!user_params)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_format_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto* param = user_params->get(params->param_view.name);
+            if (!param)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_format_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            bool changed = false;
+
+            if (param->get_type() == params->param_view.var_type)
+            {
+                switch (param->get_type())
+                {
+                    case configuration_parameter::type_integer:
+                    {
+                        int64_t val;
+                        std::memcpy(&val, params->data, sizeof(int64_t));
+                        if (static_cast<configuration_parameter_integer*>(param)->set_value(val)) changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_double:
+                    {
+                        double val;
+                        std::memcpy(&val, params->data, sizeof(double));
+                        static_cast<configuration_parameter_double*>(param)->set_value(val);
+                        changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_boolean:
+                    {
+                        bool val;
+                        std::memcpy(&val, params->data, sizeof(bool));
+                        static_cast<configuration_parameter_boolean*>(param)->set_value(val);
+                        changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_string:
+                    {
+                        uint16_t len;
+                        std::memcpy(&len, params->data, sizeof(uint16_t));
+                        std::string val(len, '\0');
+                        if (len > 0) std::memcpy(&val[0], params->data + sizeof(uint16_t), len);
+                        if (static_cast<configuration_parameter_string*>(param)->set_value(string_hashed(val))) changed = true;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+
+            if (changed)
+            {
+                if (parser)
+                {
+                    if (auto* parser_params = parser->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
+                    {
+                        if (auto* p = parser_params->get(params->param_view.name))
+                        {
+                            p->copy_from(param);
+                        }
+                    }
+                }
+
+                event evt(event_type::connection_input_format_parameter_updated);
+                auto* evt_data = evt.data_as<messages::connection_format_parameter_updated_data>();
+                evt_data->connection = params->connection;
+                evt_data->is_input   = true;
+                evt_data->param_view = params->param_view;
+                std::memcpy(evt_data->data, params->data, sizeof(evt_data->data));
+                ctx.ctrl.broadcast_event(evt);
+
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_input_format_parameter_updated, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn->get_name().c_str());
+                ctx.set_single_response_status(response_status::success);
+            }
+            else
+            {
+                ctx.set_single_response_status(response_status::failed);
+            }
+        });
+
+        register_handler(command_type::connection_set_output_format_parameter, [](const command* cmds, size_t, command_context& ctx) 
+        {
+            auto params = cmds->get_data_as<messages::connection_format_set_parameter_data>();
+            auto it = ctx.reg.connections().find(params->connection);
+
+            if (it == ctx.reg.connections().end())
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_format_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto* conn = it->second.get();
+            auto* encoder = conn->get_encoder();
+            auto* user_params = conn->get_parameter<configuration_parameter_list_sorted>("output_format_user_parameters"_ct);
+            if (!user_params && encoder)
+            {
+                user_params = dynamic_cast<configuration_parameter_list_sorted*>(encoder->get_parameters().get("user_parameters"_ct));
+            }
+
+            if (!user_params)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_format_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            auto* param = user_params->get(params->param_view.name);
+            if (!param)
+            {
+                uint64_t conn_hash = static_cast<uint64_t>(params->connection);
+                ctx.ctrl.log(log::error, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_format_parameter_update_failed, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn_hash);
+                ctx.set_single_response_status(response_status::failed);
+                return;
+            }
+
+            bool changed = false;
+
+            if (param->get_type() == params->param_view.var_type)
+            {
+                switch (param->get_type())
+                {
+                    case configuration_parameter::type_integer:
+                    {
+                        int64_t val;
+                        std::memcpy(&val, params->data, sizeof(int64_t));
+                        if (static_cast<configuration_parameter_integer*>(param)->set_value(val)) changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_double:
+                    {
+                        double val;
+                        std::memcpy(&val, params->data, sizeof(double));
+                        static_cast<configuration_parameter_double*>(param)->set_value(val);
+                        changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_boolean:
+                    {
+                        bool val;
+                        std::memcpy(&val, params->data, sizeof(bool));
+                        static_cast<configuration_parameter_boolean*>(param)->set_value(val);
+                        changed = true;
+                        break;
+                    }
+                    case configuration_parameter::type_string:
+                    {
+                        uint16_t len;
+                        std::memcpy(&len, params->data, sizeof(uint16_t));
+                        std::string val(len, '\0');
+                        if (len > 0) std::memcpy(&val[0], params->data + sizeof(uint16_t), len);
+                        if (static_cast<configuration_parameter_string*>(param)->set_value(string_hashed(val))) changed = true;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+
+            if (changed)
+            {
+                if (encoder)
+                {
+                    if (auto* encoder_params = encoder->get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct))
+                    {
+                        if (auto* p = encoder_params->get(params->param_view.name))
+                        {
+                            p->copy_from(param);
+                        }
+                    }
+                }
+
+                event evt(event_type::connection_output_format_parameter_updated);
+                auto* evt_data = evt.data_as<messages::connection_format_parameter_updated_data>();
+                evt_data->connection = params->connection;
+                evt_data->is_input   = false;
+                evt_data->param_view = params->param_view;
+                std::memcpy(evt_data->data, params->data, sizeof(evt_data->data));
+                ctx.ctrl.broadcast_event(evt);
+
+                ctx.ctrl.log(log::info, controller_cmd_dispatcher::get_log_event_text(controller_cmd_dispatcher::log_event::connection_output_format_parameter_updated, ctx.ctrl.get_language()), ctx.ctrl.get_client_name(ctx.tid), ctx.tid, conn->get_name().c_str());
+                ctx.set_single_response_status(response_status::success);
+            }
+            else
+            {
+                ctx.set_single_response_status(response_status::failed);
             }
         });
 
@@ -2247,6 +2520,22 @@ namespace adam
             {
                 log_event::connection_output_data_format_change_failed,
                 { "{} ({:d}) failed to change output data format of connection {:d}.", "{} ({:d}) konnte das Ausgangsdatenformat von Verbindung {:d} nicht ändern." }
+            },
+            {
+                log_event::connection_input_format_parameter_updated,
+                { "{} ({:d}) successfully updated input format parameter on connection \"{}\".", "{} ({:d}) hat erfolgreich einen Eingangsformat-Parameter an Verbindung \"{}\" aktualisiert." }
+            },
+            {
+                log_event::connection_input_format_parameter_update_failed,
+                { "{} ({:d}) failed to update input format parameter on connection {:d}.", "{} ({:d}) konnte Eingangsformat-Parameter an Verbindung {:d} nicht aktualisieren." }
+            },
+            {
+                log_event::connection_output_format_parameter_updated,
+                { "{} ({:d}) successfully updated output format parameter on connection \"{}\".", "{} ({:d}) hat erfolgreich einen Ausgangsformat-Parameter an Verbindung \"{}\" aktualisiert." }
+            },
+            {
+                log_event::connection_output_format_parameter_update_failed,
+                { "{} ({:d}) failed to update output format parameter on connection {:d}.", "{} ({:d}) konnte Ausgangsformat-Parameter an Verbindung {:d} nicht aktualisieren." }
             },
             {
                 log_event::connection_created,

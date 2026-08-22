@@ -120,7 +120,19 @@ namespace adam::cli
         desc_cli_params_info,
         desc_cli_params,
         desc_cli_set_param,
-        usage_cli_set_param
+        usage_cli_set_param,
+        desc_conn_fmt_in_params,
+        usage_conn_fmt_in_params,
+        desc_conn_fmt_in_params_info,
+        usage_conn_fmt_in_params_info,
+        desc_conn_fmt_in_set_param,
+        usage_conn_fmt_in_set_param,
+        desc_conn_fmt_out_params,
+        usage_conn_fmt_out_params,
+        desc_conn_fmt_out_params_info,
+        usage_conn_fmt_out_params_info,
+        desc_conn_fmt_out_set_param,
+        usage_conn_fmt_out_set_param
     };
 
     const char* get_cli_string(cmd_string_id id, adam::language lang);

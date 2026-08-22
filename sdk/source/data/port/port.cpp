@@ -116,86 +116,13 @@ namespace adam
         {
             case data_direction_in:
             {
-                bool formats_updated = false;
-                auto& active_formats = m_formats.get(&formats_updated);
-                
-                if (formats_updated) 
-                {
-                    m_parse_cache.clear();
-                    m_parse_cache.reserve(active_formats.size());
-                    for (auto& [hash, format] : active_formats)
-                    {
-                        #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
-                        m_parse_cache.emplace_back(hash, nullptr);
-                        #else
-                        m_parse_cache.emplace(hash, nullptr);
-                        #endif
-                    }
-                }
-
-                auto cleanup_parse_cache = [&]()
-                {
-                    for (auto& [h, b] : m_parse_cache)
-                    {
-                        if (b) 
-                        {
-                            b->release(); 
-                            b = nullptr;
-                        }
-                    }
-                };
-
-                // Parse data for each datatype
-                bool parse_ok = true;
-                for (auto& [hash, format] : active_formats)
-                {
-                    if (auto* parser = format->get_parser()) 
-                    {
-                        #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
-                        auto it = std::find_if(m_parse_cache.begin(), m_parse_cache.end(), [hash](const auto& entry) { return entry.first == hash; });
-                        #else
-                        auto it = m_parse_cache.find(hash);
-                        #endif
-                        if (it == m_parse_cache.end() || !parser->parse(buf, it->second))
-                        {
-                            parse_ok = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (!parse_ok)
-                {
-                    cleanup_parse_cache();
-                    return return_with_statistics(false);
-                }
-
-                // Send data to connections
                 m_in_connections.iterate([&](const auto& connections)
                 {
                     for (const auto& conn : connections)
                     {
-                        adam::buffer* buff_to_send = buf;
-                        
-                        if (conn->get_input_format()->get_parser())
-                        {
-                            const string_hash format_hash = conn->get_input_format()->get_name().get_hash();
-                            
-                            #if defined(ADAM_PORT_USE_VECTOR_PARSE_CACHE)
-                            auto it = std::find_if(m_parse_cache.cbegin(), m_parse_cache.cend(), [format_hash](const auto& entry) { return entry.first == format_hash; });
-                            if (it != m_parse_cache.cend()) buff_to_send = it->second;
-                            #else
-                            auto it = m_parse_cache.find(format_hash);
-                            if (it != m_parse_cache.end()) buff_to_send = it->second;
-                            #endif
-                        }
-
-                        conn->handle_data(buff_to_send);
+                        conn->handle_data(buf);
                     }
                 });
-
-                // Release internal format data
-                cleanup_parse_cache();
 
                 break;
             }

@@ -10,7 +10,8 @@
 
  
 #include "api/api-sdk.hpp"
-
+#include "configuration/configuration-item.hpp"
+#include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 
 namespace adam 
 {
@@ -20,20 +21,19 @@ namespace adam
      * @class parser
      * @brief A base class for data format parsers, providing a common interface for parsing data in different formats used in the ADAM system.
      */
-    class ADAM_SDK_API parser 
+    class ADAM_SDK_API parser : public configuration_item
     {
-
     public:
 
-        /** @brief Destroys the parser object and cleans up resources. */
+        static const configuration_parameter_list& get_default_parameters();
+
         virtual ~parser() = default;
 
         virtual bool parse(class buffer* buf, class buffer*& internal_data) = 0;
 
     protected:
 
-        /** @brief Constructs a new parsers object. */
-        parser() = default;
+        parser(const string_hashed& item_name = "parser"_ct, const configuration_parameter_list& default_params = get_default_parameters());
 
     };
 }

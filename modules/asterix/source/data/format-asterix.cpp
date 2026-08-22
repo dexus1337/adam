@@ -10,5 +10,15 @@
 
 namespace adam::modules::asterix
 {
-    ADAM_ASTERIX_API data_format data_format_asterix = data_format("asterix", new asterix_parser(), new asterix_encoder(), new asterix_analyzer(), get_adam_module());
+    static adam::default_factory<adam::parser, asterix_parser> asterix_parser_factory;
+    static adam::default_factory<adam::encoder, asterix_encoder> asterix_encoder_factory;
+
+    ADAM_ASTERIX_API data_format data_format_asterix = data_format
+    (
+        "asterix"_ct,
+        &asterix_parser_factory,
+        &asterix_encoder_factory,
+        new asterix_analyzer(),
+        get_adam_module()
+    );
 }

@@ -6,6 +6,32 @@
 
 namespace adam::modules::asterix
 {
+    const adam::configuration_parameter_list& asterix_parser::get_user_parameters()
+    {
+        static const adam::configuration_parameter_list params = []()
+        {
+            adam::configuration_parameter_list p;
+            auto user_params = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+            auto fwd = std::make_unique<adam::configuration_parameter_boolean>("forward_unknown_cats"_ct, true);
+            fwd->set_description(adam::language_english, "Forward unknown ASTERIX categories as raw data"_ct);
+            fwd->set_description(adam::language_german, "Unbekannte ASTERIX-Kategorien als Rohdaten weiterleiten"_ct);
+            user_params->add(std::move(fwd));
+            p.add(std::move(user_params));
+            return p;
+        }();
+        return params;
+    }
+
+    const adam::configuration_parameter_list& asterix_parser::get_default_parameters() { return get_user_parameters(); }
+
+    asterix_parser::asterix_parser(const adam::string_hashed& item_name, const adam::configuration_parameter_list& default_params)
+        : adam::parser(item_name, default_params),
+          m_forward_unknown_cats(nullptr)
+    {
+        auto* user_params = get_parameter<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
+        if (user_params) m_forward_unknown_cats = dynamic_cast<adam::configuration_parameter_boolean*>(user_params->get("forward_unknown_cats"_ct));
+    }
+
     //Foward declare
     static inline bool parse_item
     (
@@ -626,7 +652,12 @@ namespace adam::modules::asterix
             }
             else
             {
-                // Just add the current block TODO: we need parser settings to handle this kind of cases where uaps are unknown
+                if (m_forward_unknown_cats && !m_forward_unknown_cats->get_value())
+                {
+                    internal_data->release();
+                    internal_data = nullptr;
+                    return false;
+                }
                 raw_offset += block_len;
             }
        

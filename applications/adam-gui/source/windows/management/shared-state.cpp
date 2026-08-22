@@ -59,6 +59,9 @@ namespace adam::gui
     std::unordered_set<adam::string_hash> g_pending_inspector_connections_output;
     std::unordered_set<adam::string_hash> g_detached_inspector_connections_output;
 
+    std::unordered_set<adam::string_hash> g_expanded_conn_input_format_params;
+    std::unordered_set<adam::string_hash> g_expanded_conn_output_format_params;
+
     std::unordered_map<uint64_t, float> g_expanded_node_heights;
     std::unordered_map<uint64_t, float> g_expanded_inspector_heights;
     
