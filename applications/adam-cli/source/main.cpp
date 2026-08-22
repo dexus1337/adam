@@ -530,7 +530,7 @@ int main()
                         }
                     }
                 }
-                else if ((tokens[0] == "conn_fmt_in_set_param" || tokens[0] == "conn_parser_set_param") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                else if (tokens[0] == "conn_fmt_in_set_param" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
                 {
                     std::string conn_name = tokens[1];
                     std::string arg = (tokens.size() == 3) ? tokens[2] : "";
@@ -543,7 +543,7 @@ int main()
                         if (!candidates.empty()) handle_matches(candidates, arg, base);
                     }
                 }
-                else if ((tokens[0] == "conn_fmt_in_set_param" || tokens[0] == "conn_parser_set_param") && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                else if (tokens[0] == "conn_fmt_in_set_param" && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
                 {
                     std::string conn_name = tokens[1];
                     std::string param_name = tokens[2];
@@ -572,7 +572,7 @@ int main()
                         }
                     }
                 }
-                else if ((tokens[0] == "conn_fmt_out_set_param" || tokens[0] == "conn_encoder_set_param") && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
+                else if (tokens[0] == "conn_fmt_out_set_param" && ((tokens.size() == 2 && ends_with_space) || (tokens.size() == 3 && !ends_with_space)))
                 {
                     std::string conn_name = tokens[1];
                     std::string arg = (tokens.size() == 3) ? tokens[2] : "";
@@ -585,7 +585,7 @@ int main()
                         if (!candidates.empty()) handle_matches(candidates, arg, base);
                     }
                 }
-                else if ((tokens[0] == "conn_fmt_out_set_param" || tokens[0] == "conn_encoder_set_param") && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
+                else if (tokens[0] == "conn_fmt_out_set_param" && ((tokens.size() == 3 && ends_with_space) || (tokens.size() == 4 && !ends_with_space)))
                 {
                     std::string conn_name = tokens[1];
                     std::string param_name = tokens[2];

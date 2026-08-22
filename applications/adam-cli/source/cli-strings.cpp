@@ -124,17 +124,17 @@ namespace adam::cli
             { cmd_string_id::desc_cli_params,             { "Lists the current values of all CLI parameters", "Listet die aktuellen Werte aller CLI-Parameter auf" } },
             { cmd_string_id::desc_cli_set_param,          { "Sets a parameter of the CLI", "Setzt einen Parameter der CLI" } },
             { cmd_string_id::usage_cli_set_param,         { "Usage: cli_set_param <param_name> <value>", "Verwendung: cli_set_param <param_name> <value>" } },
-            { cmd_string_id::desc_conn_fmt_in_params,     { "Lists all input format / parser parameters of a connection", "Listet alle Eingabeformat-/Parser-Parameter einer Verbindung auf" } },
+            { cmd_string_id::desc_conn_fmt_in_params,     { "Lists input format parameters of a connection", "Listet Eingabeformat-Parameter einer Verbindung auf" } },
             { cmd_string_id::usage_conn_fmt_in_params,    { "Usage: conn_fmt_in_params <conn_name>", "Verwendung: conn_fmt_in_params <conn_name>" } },
-            { cmd_string_id::desc_conn_fmt_in_params_info,{ "Lists valid input format / parser parameters and rules of a connection", "Listet gültige Eingabeformat-/Parser-Parameter und Regeln einer Verbindung auf" } },
+            { cmd_string_id::desc_conn_fmt_in_params_info,{ "Lists valid input format parameters and rules of a connection", "Listet gültige Eingabeformat-Parameter und Regeln einer Verbindung auf" } },
             { cmd_string_id::usage_conn_fmt_in_params_info,{ "Usage: conn_fmt_in_params_info <conn_name>", "Verwendung: conn_fmt_in_params_info <conn_name>" } },
-            { cmd_string_id::desc_conn_fmt_in_set_param,  { "Sets an input format / parser parameter of a connection", "Setzt einen Eingabeformat-/Parser-Parameter einer Verbindung" } },
+            { cmd_string_id::desc_conn_fmt_in_set_param,  { "Sets an input format parameter of a connection", "Setzt einen Eingabeformat-Parameter einer Verbindung" } },
             { cmd_string_id::usage_conn_fmt_in_set_param, { "Usage: conn_fmt_in_set_param <conn_name> <param_name> <value>", "Verwendung: conn_fmt_in_set_param <conn_name> <param_name> <value>" } },
-            { cmd_string_id::desc_conn_fmt_out_params,    { "Lists all output format / encoder parameters of a connection", "Listet alle Ausgabeformat-/Encoder-Parameter einer Verbindung auf" } },
+            { cmd_string_id::desc_conn_fmt_out_params,    { "Lists output format parameters of a connection", "Listet Ausgabeformat-Parameter einer Verbindung auf" } },
             { cmd_string_id::usage_conn_fmt_out_params,   { "Usage: conn_fmt_out_params <conn_name>", "Verwendung: conn_fmt_out_params <conn_name>" } },
-            { cmd_string_id::desc_conn_fmt_out_params_info,{ "Lists valid output format / encoder parameters and rules of a connection", "Listet gültige Ausgabeformat-/Encoder-Parameter und Regeln einer Verbindung auf" } },
+            { cmd_string_id::desc_conn_fmt_out_params_info,{ "Lists valid output format parameters and rules of a connection", "Listet gültige Ausgabeformat-Parameter und Regeln einer Verbindung auf" } },
             { cmd_string_id::usage_conn_fmt_out_params_info,{ "Usage: conn_fmt_out_params_info <conn_name>", "Verwendung: conn_fmt_out_params_info <conn_name>" } },
-            { cmd_string_id::desc_conn_fmt_out_set_param, { "Sets an output format / encoder parameter of a connection", "Setzt einen Ausgabeformat-/Encoder-Parameter einer Verbindung" } },
+            { cmd_string_id::desc_conn_fmt_out_set_param, { "Sets an output format parameter of a connection", "Setzt einen Ausgabeformat-Parameter einer Verbindung" } },
             { cmd_string_id::usage_conn_fmt_out_set_param,{ "Usage: conn_fmt_out_set_param <conn_name> <param_name> <value>", "Verwendung: conn_fmt_out_set_param <conn_name> <param_name> <value>" } }
         };
 
