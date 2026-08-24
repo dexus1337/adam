@@ -209,12 +209,41 @@ TEST_F(can_profile_test, parser_and_analyzer_integration)
     EXPECT_EQ(expansions[0].data_type, adam::analyzer::expanded_data::type_table);
     EXPECT_EQ(expansions[0].table_rows.size(), 6);
 
-    // Check first signal row: Index 0, RIZ_HL
+    // Check first signal row: Index 0, RIZ_HL (multi-bit: 0 to 7)
     EXPECT_EQ(expansions[0].table_rows[0].columns[0], "0");
     EXPECT_EQ(expansions[0].table_rows[0].columns[1], "RIZ_HL");
+    EXPECT_EQ(expansions[0].table_rows[0].columns[3], "Bits [0:7]");
     EXPECT_EQ(expansions[0].table_rows[0].columns[4], "0x2A");
     EXPECT_EQ(expansions[0].table_rows[0].columns[5], "42");
 
+    // Check single bit signal from 0x0000 (Central Locking)
+    uint8_t raw_bytes_0[sizeof(can_message) + 8] = {};
+    auto* msg_0 = reinterpret_cast<can_message*>(raw_bytes_0);
+    msg_0->id.bits.std_id = 0x0000;
+    msg_0->dlc = 8;
+    raw_bytes_0[sizeof(can_message)] = 0x01; // KG_KL_AKT bit 0 set
+
+    auto* buf_0 = adam::buffer_manager::get().request_buffer(sizeof(raw_bytes_0));
+    ASSERT_NE(buf_0, nullptr);
+    std::memcpy(buf_0->data(), raw_bytes_0, sizeof(raw_bytes_0));
+    buf_0->set_size(sizeof(raw_bytes_0));
+
+    adam::buffer* parsed_buf_0 = nullptr;
+    EXPECT_TRUE(parser.parse(buf_0, parsed_buf_0));
+    ASSERT_NE(parsed_buf_0, nullptr);
+
+    std::vector<adam::analyzer::expanded_data> expansions_0;
+    EXPECT_TRUE(analyzer.analyze_expanded(parsed_buf_0->get_data_as<uint8_t>(), parsed_buf_0->get_size(), nullptr, 0, 0, expansions_0));
+    ASSERT_GE(expansions_0.size(), 1);
+    EXPECT_EQ(expansions_0[0].table_rows[0].columns[0], "0");
+    EXPECT_EQ(expansions_0[0].table_rows[0].columns[1], "KG_KL_AKT");
+    EXPECT_EQ(expansions_0[0].table_rows[0].columns[3], "Bit [0]");
+    EXPECT_EQ(expansions_0[0].table_rows[0].columns[4], "0x1");
+    EXPECT_EQ(expansions_0[0].table_rows[0].columns[5], "1");
+
+    buf_0->release();
+    parsed_buf_0->release();
     buf->release();
     parsed_buf->release();
 }
+

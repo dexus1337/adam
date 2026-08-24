@@ -141,8 +141,6 @@ namespace adam
 
         bool result = true;
 
-        if (!m_b_valid_data_chain || !m_started->get_value()) return false;
-
         buffer* parsed_buf = nullptr;
         if (m_parser && !m_parser->parse(buf, parsed_buf)) return false;
 
@@ -154,6 +152,8 @@ namespace adam
             for (const auto& inspector : inspectors) 
                 inspector->handle_data(current_buf);
         });
+
+        if (!m_b_valid_data_chain || !m_started->get_value()) return false;
 
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 

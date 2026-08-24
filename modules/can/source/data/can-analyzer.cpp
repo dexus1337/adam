@@ -5,8 +5,6 @@
 #include <string>
 #include <cstdio>
 #include <format>
-#include <bitset>
-#include <algorithm>
 
 /**
  * @file    can-analyzer.cpp
@@ -48,12 +46,12 @@ namespace adam::modules::can
         {
             column_font_normal, // Frame ID
             column_font_normal, // Timestamp
-            column_font_mono,   // ID
+            column_font_normal, // ID
             column_font_normal, // ECU
             column_font_normal, // Name
             column_font_normal, // DLC
             column_font_normal, // Signals
-            column_font_mono    // Data
+            column_font_normal  // Data
         };
 
         m_column_weights = 
@@ -85,9 +83,9 @@ namespace adam::modules::can
             column_font_normal, // Index
             column_font_normal, // Signal
             column_font_normal, // Description
-            column_font_mono,   // Bit Range
-            column_font_mono,   // Raw (Hex)
-            column_font_mono    // Raw (Dec)
+            column_font_normal, // Bit Range
+            column_font_normal, // Raw (Hex)
+            column_font_normal  // Raw (Dec)
         };
 
         m_expandable_columns_weights =
@@ -218,7 +216,14 @@ namespace adam::modules::can
                 sub_r.columns.push_back(std::to_string(sig.index));
                 sub_r.columns.push_back(sig.name);
                 sub_r.columns.push_back(sig.description);
-                sub_r.columns.push_back(std::format("Bits [{}:{}]", sig.bit_offset, sig.bit_offset + sig.bit_length - 1));
+                if (sig.bit_length <= 1)
+                {
+                    sub_r.columns.push_back(std::format("Bit [{}]", sig.bit_offset));
+                }
+                else
+                {
+                    sub_r.columns.push_back(std::format("Bits [{}:{}]", sig.bit_offset, sig.bit_offset + sig.bit_length - 1));
+                }
                 sub_r.columns.push_back(std::format("0x{:X}", raw_val));
                 sub_r.columns.push_back(std::to_string(raw_val));
 
@@ -227,49 +232,6 @@ namespace adam::modules::can
 
             out_expansions.push_back(std::move(ed));
         }
-
-        // Also add bit layout text inspector
-        adam::analyzer::expanded_data text_ed;
-        text_ed.data_type = adam::analyzer::expanded_data::type_text;
-
-        std::string text;
-        if (msg.get_data_length() == 0)
-        {
-            text = "No data bytes (DLC = 0)";
-        }
-        else
-        {
-            for (int chunk_start = 0; chunk_start < msg.get_data_length(); chunk_start += 4)
-            {
-                std::string line_byte_nr = "Byte Nr:    ";
-                std::string line_byte    = "Byte:       ";
-                std::string line_bit_nr  = "Bit Nr:     ";
-                std::string line_bits    = "Bits:       ";
-
-                int chunk_end = std::min(static_cast<int>(msg.get_data_length()), chunk_start + 4);
-
-                for (int i = chunk_start; i < chunk_end; ++i)
-                {
-                    line_byte_nr += std::format("{:<13}", i);
-                    line_byte    += std::format("{:<13}", std::format("0x{:02X}", msg.get_data()[i]));
-                    line_bit_nr  += std::format("{:<5}{:<8}", i * 8, i * 8 + 4);
-                    
-                    std::string bits_str = std::format("{} {}", 
-                        std::bitset<4>((msg.get_data()[i] >> 4) & 0x0F).to_string(), 
-                        std::bitset<4>(msg.get_data()[i] & 0x0F).to_string());
-                    line_bits    += std::format("{:<13}", bits_str);
-                }
-
-                text += line_byte_nr + "\n" + line_byte + "\n" + line_bit_nr + "\n" + line_bits + "\n";
-                if (chunk_end < msg.get_data_length())
-                {
-                    text += "\n";
-                }
-            }
-        }
-
-        text_ed.text_content = std::move(text);
-        out_expansions.push_back(std::move(text_ed));
 
         return true;
     }
