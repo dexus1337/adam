@@ -49,7 +49,7 @@ namespace adam::modules::can
          * 
          * @return The length of the data (0-8 bytes).
          */
-        inline uint8_t     get_data_length()    const { return (dlc & 0x7); }
+        inline uint8_t     get_data_length()    const { return (dlc > 8) ? 8 : dlc; }
 
         /**
          * @brief Gets the total length of the message in bytes.

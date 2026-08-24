@@ -97,7 +97,7 @@ namespace adam::modules::asterix::cat062::ref
     // -------------------------------------------------------------------------------------------------------------- //
     const auto cat062_ref_gen62_items = std::to_array<const field_spec>
     ({
-        {  1, item_type_variable,    0,      0, "Spare/Placeholder"                                                    },
+        {  1, item_type_variable,    1,      1, "Spare/Placeholder"                                                    },
     });
 
     uap cat062_ref_g62_uap(62, "CAT062 REF GEN62 " CAT062_REF_VERSION ""_ct, cat062_ref_gen62_items.data(), cat062_ref_gen62_items.size());

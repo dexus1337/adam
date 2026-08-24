@@ -420,7 +420,7 @@ inline std::vector<uint8_t> build_cat021_message()
     push_u8(0x08);
 
     // 37 – I021/271 Surface Capabilities and Characteristics (variable, 1 byte, FX=0)
-    push_u8(0x71);
+    push_u8(0x70);
 
     // 38 – I021/132 Message Amplitude (1 byte)
     push_u8(0x32);
@@ -486,6 +486,18 @@ inline std::vector<uint8_t> build_cat021_message()
     raw[1] = static_cast<uint8_t>(block_len >> 8);
     raw[2] = static_cast<uint8_t>(block_len & 0xFF);
 
+    for (size_t i = 0; i < raw.size(); i+= 16)
+    {
+        for (size_t n = 0; n < 16; n++)
+        {
+            if (i+n >= raw.size()) continue;
+
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)raw[i+n] << " ";
+        }
+
+        std::cout << std::endl;
+    }
+   
     return raw;
 }
 
@@ -653,7 +665,7 @@ inline std::vector<uint8_t> build_cat062_message()
     raw.insert(raw.end(), {'P', 'R', 'E', 'C', 'A', 'L'});     // 18: PEC (6 B)
 
     // 22 – I062/270 Target Size & Orientation (variable, 1 byte, FX=0)
-    push_u8(0x27);
+    push_u8(0x20);
 
     // 23 – I062/300 Vehicle Fleet Identification (1 byte)
     push_u8(0x30);
@@ -789,6 +801,18 @@ inline std::vector<uint8_t> build_cat062_message()
     raw[1] = static_cast<uint8_t>(block_len >> 8);
     raw[2] = static_cast<uint8_t>(block_len & 0xFF);
 
+    for (size_t i = 0; i < raw.size(); i+= 16)
+    {
+        for (size_t n = 0; n < 16; n++)
+        {
+            if (i+n >= raw.size()) continue;
+
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)raw[i+n] << " ";
+        }
+
+        std::cout << std::endl;
+    }
+   
     return raw;
 }
 

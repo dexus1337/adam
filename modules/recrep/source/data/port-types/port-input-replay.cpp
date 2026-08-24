@@ -134,12 +134,9 @@ namespace adam::modules::recrep
         // get_file_format returns the resolved format name hash (e.g. "pcap"_ct) for a given path,
         // or 0 if the file should be excluded. Computing it once here avoids repeated lookups in
         // open_next_file() and try_open_as().
-        const bool is_any          = (m_data_format_param->get_value() == "any"_ct);
-        const auto& fmap           = get_format_map();
+        const bool is_any = (m_data_format_param->get_value() == "any"_ct);
+        const auto& fmap = get_format_map();
         const string_hash param_fmt = is_any ? 0 : m_data_format_param->get_value().get_hash();
-        const string_hashed expected_ext_hashed = is_any
-            ? string_hashed{}
-            : string_hashed("." + std::string(m_data_format_param->get_value()));
 
         // Returns the format name hash for the file, or 0 if the extension is not accepted.
         auto get_file_format = [&](const std::string& p) -> string_hash
@@ -150,28 +147,31 @@ namespace adam::modules::recrep
                 const auto it = fmap.find(ext.get_hash());
                 return (it != fmap.end()) ? it->second.get_hash() : 0;
             }
-            return (ext == expected_ext_hashed) ? param_fmt : 0;
+            if (param_fmt == "pcap"_ct && ext == ".pcap"_ct) return "pcap"_ct;
+            if (param_fmt == "rff"_ct && ext == ".rff"_ct) return "rff"_ct;
+            return 0;
         };
 
         if (file_mode == "single_file"_ct)
         {
-            const std::string file = std::string(path);
+            const std::string file = path.c_str();
             const string_hash fh   = get_file_format(file);
             if (fh) m_files.push_back({file, fh});
         }
         else if (file_mode == "multiple_files"_ct)
         {
+            std::string path_str = path.c_str();
             size_t start = 0;
-            size_t end = path.find(';');
+            size_t end = path_str.find(';');
             while (end != std::string::npos)
             {
-                std::string file = std::string(path.substr(start, end - start));
+                std::string file = path_str.substr(start, end - start);
                 const string_hash fh = get_file_format(file);
                 if (!file.empty() && fh) m_files.push_back({std::move(file), fh});
                 start = end + 1;
-                end = path.find(';', start);
+                end = path_str.find(';', start);
             }
-            std::string file = std::string(path.substr(start));
+            std::string file = path_str.substr(start);
             const string_hash fh = get_file_format(file);
             if (!file.empty() && fh) m_files.push_back({std::move(file), fh});
         }
@@ -179,7 +179,8 @@ namespace adam::modules::recrep
         {
             try
             {
-                for (const auto& entry : std::filesystem::directory_iterator(path.empty() ? "." : path.c_str()))
+                const std::string dir_path = path.c_str();
+                for (const auto& entry : std::filesystem::directory_iterator(dir_path.empty() ? "." : dir_path))
                 {
                     if (entry.is_regular_file())
                     {
@@ -334,17 +335,19 @@ namespace adam::modules::recrep
 
     bool port_input_replay::open_next_file()
     {
-        if (m_file_stream.is_open())
-            m_file_stream.close();
+        if (m_file_stream.is_open()) m_file_stream.close();
+        if (m_files.empty()) return false;
 
-        while (get_state() != state_stopped)
+        size_t attempts = 0;
+        const size_t max_attempts = m_files.size();
+
+        while (get_state() != state_stopped && attempts < max_attempts)
         {
             if (m_current_file_index >= m_files.size())
             {
                 if (m_mode_param && m_mode_param->get_value() == "loop"_ct)
                 {
                     m_current_file_index = 0;
-                    if (m_files.empty()) return false;
                     m_is_first_packet = true;
                 }
                 else
@@ -352,6 +355,8 @@ namespace adam::modules::recrep
                     return false;
                 }
             }
+
+            attempts++;
 
             // Format hash was already resolved during file collection in start() - no ext lookup needed.
             const auto& [file_path, fmt_hash] = m_files[m_current_file_index];
@@ -377,58 +382,137 @@ namespace adam::modules::recrep
 
     bool port_input_replay::read(buffer*& buff) 
     {
-        auto* state_data = get_state_buffer()->data_as<replay_state_buffer_data>();
+        buff = nullptr;
 
-        if (!m_file_stream.is_open())
+        while (is_running() || get_state() == state_starting)
         {
-            if (!open_next_file())
+            if (!m_file_stream.is_open())
             {
-                set_state(state_inactive);
-                return false;
-            }
-        }
-
-        switch (m_file_format)
-        {
-            case "pcap"_ct:
-            {
-                pcap::block_header bh;
-                m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
-                if (m_file_stream.gcount() != sizeof(bh))
+                if (!open_next_file())
                 {
-                    if (!open_next_file())
-                    {
-                        set_state(state_inactive);
-                        return false;
-                    }
-                    return read(buff);
+                    set_state(state_inactive);
+                    return false;
                 }
+            }
 
-                std::chrono::nanoseconds packet_ts(static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + bh.ts_usec * 1000ull);
+            auto* state_data = get_state_buffer()->data_as<replay_state_buffer_data>();
 
-                // Sleep logic for set speed
-                if (m_speed_param->get_value() > 0.0)
+            switch (m_file_format)
+            {
+                case "pcap"_ct:
                 {
-                    if (m_is_first_packet)
+                    pcap::block_header bh;
+                    m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
+                    if (m_file_stream.gcount() != sizeof(bh))
                     {
-                        m_is_first_packet           = false;
-                        m_first_packet_timestamp_ns = packet_ts;
-                        m_replay_start_time         = std::chrono::steady_clock::now();
+                        if (!open_next_file())
+                        {
+                            set_state(state_inactive);
+                            return false;
+                        }
+                        continue;
+                    }
+
+                    std::chrono::nanoseconds packet_ts(static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + bh.ts_usec * 1000ull);
+
+                    // Sleep logic for set speed
+                    if (m_speed_param->get_value() > 0.0)
+                    {
+                        if (m_is_first_packet)
+                        {
+                            m_is_first_packet           = false;
+                            m_first_packet_timestamp_ns = packet_ts;
+                            m_replay_start_time         = std::chrono::steady_clock::now();
+                        }
+                        else
+                        {
+                            auto elapsed_packet_time    = packet_ts - m_first_packet_timestamp_ns;
+                            auto adjusted_elapsed_time  = std::chrono::duration_cast<std::chrono::nanoseconds>
+                            (
+                                std::chrono::duration<double, std::nano>(static_cast<double>(elapsed_packet_time.count()) / m_speed_param->get_value())
+                            );
+                            auto expected_time          = m_replay_start_time + adjusted_elapsed_time;
+                            
+                            while (is_running())
+                            {
+                                auto now = std::chrono::steady_clock::now();
+                                if (now >= expected_time) break;
+                                
+                                auto sleep_duration = expected_time - now;
+                                if (sleep_duration > std::chrono::milliseconds(5))
+                                {
+                                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                                }
+                                else
+                                {
+                                    std::this_thread::sleep_until(expected_time);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    buff = buffer_manager::get().request_buffer(bh.incl_len);
+                    if (!buff) return false;
+
+                    m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.incl_len);
+                    buff->set_size(bh.incl_len);
+                    
+                    if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
+                    {
+                        uint64_t absolute_ts = static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull;
+                        uint64_t offset = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch() - std::chrono::steady_clock::now().time_since_epoch()).count();
+                        buff->set_timestamp(absolute_ts - offset);
                     }
                     else
                     {
-                        auto elapsed_packet_time    = packet_ts - m_first_packet_timestamp_ns;
-                        auto adjusted_elapsed_time  = std::chrono::duration_cast<std::chrono::nanoseconds>
+                        buff->set_timestamp();
+                    }
+
+                    return true;
+                }
+                case "rff"_ct:
+                {
+                    rff::block_header bh;
+                    m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
+                    if (m_file_stream.gcount() != sizeof(bh))
+                    {
+                        if (!open_next_file())
+                        {
+                            set_state(state_inactive);
+                            return false;
+                        }
+                        continue;
+                    }
+
+                    // time_diff_ms is the absolute ms offset from the start of the recording
+                    // (file_header.time_start). ALL packets, including the first, are scheduled at
+                    // m_replay_start_time + time_diff_ms / speed. A packet at offset 0 sends immediately;
+                    // a packet at offset 5000ms delays 5 seconds - which is the intended behaviour.
+                    std::chrono::nanoseconds packet_ts_ns(static_cast<uint64_t>(bh.time_diff_ms) * 1000000ull);
+
+                    // Sleep logic for set speed
+                    if (m_speed_param->get_value() > 0.0)
+                    {
+                        if (m_is_first_packet)
+                        {
+                            // Anchor wall-clock baseline at the moment the first read() is entered.
+                            // This absorbs any file-open / header-parse latency without skewing the offset.
+                            m_is_first_packet   = false;
+                            m_replay_start_time = std::chrono::steady_clock::now();
+                        }
+
+                        auto adjusted_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>
                         (
-                            std::chrono::duration<double, std::nano>(static_cast<double>(elapsed_packet_time.count()) / m_speed_param->get_value())
+                            std::chrono::duration<double, std::nano>(static_cast<double>(packet_ts_ns.count()) / m_speed_param->get_value())
                         );
-                        auto expected_time          = m_replay_start_time + adjusted_elapsed_time;
-                        
+                        auto expected_time = m_replay_start_time + adjusted_elapsed_time;
+
                         while (is_running())
                         {
                             auto now = std::chrono::steady_clock::now();
                             if (now >= expected_time) break;
-                            
+
                             auto sleep_duration = expected_time - now;
                             if (sleep_duration > std::chrono::milliseconds(5))
                             {
@@ -441,104 +525,35 @@ namespace adam::modules::recrep
                             }
                         }
                     }
-                }
 
-                buff = buffer_manager::get().request_buffer(bh.incl_len);
-                if (!buff)
+                    buff = buffer_manager::get().request_buffer(bh.block_size_bytes);
+                    if (!buff) return false;
+
+                    m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.block_size_bytes);
+                    buff->set_size(bh.block_size_bytes);
+                    
+                    if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
+                    {
+                        uint64_t absolute_ts = state_data->file_time_start + packet_ts_ns.count();
+                        uint64_t offset = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch() - std::chrono::steady_clock::now().time_since_epoch()).count();
+                        buff->set_timestamp(absolute_ts - offset);
+                    }
+                    else
+                    {
+                        buff->set_timestamp();
+                    }
+
+                    return true;
+                }
+                default:
+                {
+                    set_state(state_inactive);
                     return false;
-
-                m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.incl_len);
-                buff->set_size(bh.incl_len);
-                
-                if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
-                {
-                    uint64_t absolute_ts = static_cast<uint64_t>(bh.ts_sec) * 1000000000ull + static_cast<uint64_t>(bh.ts_usec) * 1000ull;
-                    uint64_t offset = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch() - std::chrono::steady_clock::now().time_since_epoch()).count();
-                    buff->set_timestamp(absolute_ts - offset);
                 }
-                else
-                {
-                    buff->set_timestamp();
-                }
-
-                return true;
             }
-            case "rff"_ct:
-            {
-                rff::block_header bh;
-                m_file_stream.read(reinterpret_cast<char*>(&bh), sizeof(bh));
-                if (m_file_stream.gcount() != sizeof(bh))
-                {
-                    if (!open_next_file())
-                    {
-                        set_state(state_inactive);
-                        return false;
-                    }
-                    return read(buff);
-                }
-
-                // time_diff_ms is the absolute ms offset from the start of the recording
-                // (file_header.time_start). ALL packets, including the first, are scheduled at
-                // m_replay_start_time + time_diff_ms / speed. A packet at offset 0 sends immediately;
-                // a packet at offset 5000ms delays 5 seconds - which is the intended behaviour.
-                std::chrono::nanoseconds packet_ts_ns(static_cast<uint64_t>(bh.time_diff_ms) * 1000000ull);
-
-                // Sleep logic for set speed
-                if (m_speed_param->get_value() > 0.0)
-                {
-                    if (m_is_first_packet)
-                    {
-                        // Anchor wall-clock baseline at the moment the first read() is entered.
-                        // This absorbs any file-open / header-parse latency without skewing the offset.
-                        m_is_first_packet   = false;
-                        m_replay_start_time = std::chrono::steady_clock::now();
-                    }
-
-                    auto adjusted_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>
-                    (
-                        std::chrono::duration<double, std::nano>(static_cast<double>(packet_ts_ns.count()) / m_speed_param->get_value())
-                    );
-                    auto expected_time = m_replay_start_time + adjusted_elapsed_time;
-
-                    while (is_running())
-                    {
-                        auto now = std::chrono::steady_clock::now();
-                        if (now >= expected_time) break;
-
-                        auto sleep_duration = expected_time - now;
-                        if (sleep_duration > std::chrono::milliseconds(5))
-                        {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                        }
-                        else
-                        {
-                            std::this_thread::sleep_until(expected_time);
-                            break;
-                        }
-                    }
-                }
-
-                buff = buffer_manager::get().request_buffer(bh.block_size_bytes);
-                if (!buff)
-                    return false;
-
-                m_file_stream.read(reinterpret_cast<char*>(buff->data()), bh.block_size_bytes);
-                buff->set_size(bh.block_size_bytes);
-                
-                if (m_timestamps_param && m_timestamps_param->get_value() == "original"_ct)
-                {
-                    uint64_t absolute_ts = state_data->file_time_start + packet_ts_ns.count();
-                    uint64_t offset = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch() - std::chrono::steady_clock::now().time_since_epoch()).count();
-                    buff->set_timestamp(absolute_ts - offset);
-                }
-                else
-                {
-                    buff->set_timestamp();
-                }
-
-                return true;
-            };
         }
+
+        set_state(state_inactive);
         return false;
     }
 

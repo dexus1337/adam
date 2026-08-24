@@ -168,7 +168,7 @@ namespace adam::modules::recrep
         oss << std::put_time(&tm_info, "%d%m%y_%H%M%S_") << std::setfill('0') << std::setw(3) << ms.count();
         std::string time_str = oss.str();
 
-        std::string extension = "." + m_data_format_param->get_value();
+        std::string extension = (m_data_format_param->get_value() == "rff"_ct) ? ".rff" : ".pcap";
 
         std::string file_name;
         if (m_file_mode_param->get_value() == "chunked"_ct)
@@ -238,10 +238,7 @@ namespace adam::modules::recrep
         if (!buff || !m_file_stream.is_open()) 
             return false;
 
-        if (m_first_packet_timestamp_ns == 0)
-        {
-            m_first_packet_timestamp_ns = buff->get_timestamp();
-        }
+        if (m_first_packet_timestamp_ns == 0) m_first_packet_timestamp_ns = buff->get_timestamp();
 
         bool is_chunked = m_file_mode_param->get_value() == "chunked"_ct;
         
@@ -253,10 +250,7 @@ namespace adam::modules::recrep
             if (chunk_mode == "size"_ct)
             {
                 uint64_t max_size_bytes = m_chunk_size_param->get_value() * 1024ull * 1024ull;
-                if (m_current_chunk_bytes + sizeof(pcap::block_header) + buff->get_size() >= max_size_bytes)
-                {
-                    should_chunk = true;
-                }
+                if (m_current_chunk_bytes + sizeof(pcap::block_header) + buff->get_size() >= max_size_bytes) should_chunk = true;
             }
             else if (chunk_mode == "time"_ct)
             {
@@ -267,19 +261,13 @@ namespace adam::modules::recrep
                 else
                 {
                     uint64_t max_duration_ns = m_chunk_duration_param->get_value() * 1000000000ull;
-                    if (buff->get_timestamp() >= m_first_packet_timestamp_ns + max_duration_ns)
-                    {
-                        should_chunk = true;
-                    }
+                    if (buff->get_timestamp() >= m_first_packet_timestamp_ns + max_duration_ns) should_chunk = true;
                 }
             }
 
             if (should_chunk)
             {
-                if (!open_next_file())
-                {
-                    return false;
-                }
+                if (!open_next_file()) return false;
                 m_first_packet_timestamp_ns = buff->get_timestamp();
             }
         }
@@ -299,12 +287,17 @@ namespace adam::modules::recrep
             m_file_stream.write(buff->get_begin_as<char>(), buff->get_size());
 
             m_current_chunk_bytes += sizeof(ph) + buff->get_size();
+            m_last_packet_timestamp_ns = buff->get_timestamp();
         }
         else if (m_data_format_param->get_value() == "rff"_ct)
         {
             rff::block_header ph = {};
             
-            uint64_t elapsed_ns = buff->get_timestamp() > m_file_start_timestamp_ns ? buff->get_timestamp() - m_file_start_timestamp_ns : 0;
+            uint64_t elapsed_ns = 0;
+            if (buff->get_timestamp() >= m_first_packet_timestamp_ns && m_first_packet_timestamp_ns > 0)
+            {
+                elapsed_ns = buff->get_timestamp() - m_first_packet_timestamp_ns;
+            }
             ph.time_diff_ms     = static_cast<uint32_t>(elapsed_ns / 1000000ull);
             ph.block_size_bytes = static_cast<uint16_t>(buff->get_size());
 
@@ -331,9 +324,9 @@ namespace adam::modules::recrep
             fh.time_start = rff::to_time_string(m_file_start_tm);
 
             std::tm end_tm = m_file_start_tm;
-            if (m_last_packet_timestamp_ns > m_file_start_timestamp_ns)
+            if (m_last_packet_timestamp_ns >= m_first_packet_timestamp_ns && m_first_packet_timestamp_ns > 0)
             {
-                uint64_t elapsed_ns = m_last_packet_timestamp_ns - m_file_start_timestamp_ns;
+                uint64_t elapsed_ns = m_last_packet_timestamp_ns - m_first_packet_timestamp_ns;
                 std::tm start_copy = m_file_start_tm;
                 std::time_t start_epoch = std::mktime(&start_copy);
                 std::time_t end_epoch = start_epoch + static_cast<std::time_t>(elapsed_ns / 1000000000ull);

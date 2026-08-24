@@ -3,9 +3,9 @@
 /**
  * @file    can-analyzer.hpp
  * @author  dexus1337
- * @brief   Defines the analyzer for the can data format.
+ * @brief   Defines the analyzer for the CAN data format with profile-aware decoding.
  * @version 1.0
- * @date    11.07.2026
+ * @date    24.08.2026
  */
 
 #include <adam-core.hpp>
@@ -14,9 +14,11 @@
 
 namespace adam::modules::can
 {
+    class can_profile;
+
     /**
      * @class can_analyzer
-     * @brief Analyzes raw can buffers and extracts tabular data for the GUI inspector.
+     * @brief Analyzes raw CAN buffers and extracts tabular data and expandable signal details.
      */
     class ADAM_CAN_API can_analyzer : public adam::analyzer
     {
@@ -31,5 +33,6 @@ namespace adam::modules::can
         bool analyze_expanded(const uint8_t* data, size_t size, const uint8_t* ref_data, size_t ref_size, size_t row_idx, std::vector<expanded_data>& out_expansions) const override;
 
     private:
+        const can_profile* get_profile() const;
     };
 }
