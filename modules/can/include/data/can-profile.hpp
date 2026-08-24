@@ -9,6 +9,7 @@
  */
 
 #include "api/api-can.hpp"
+#include "types/byteswap.hpp"
 #include <adam-core.hpp>
 #include <cstdint>
 #include <vector>

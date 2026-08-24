@@ -75,7 +75,8 @@ namespace adam::modules::can
             "Description",
             "Bit Range",
             "Raw (Hex)",
-            "Raw (Dec)"
+            "Raw (Dec)",
+            "Raw (String)"
         };
 
         m_expandable_columns_fonts =
@@ -85,17 +86,19 @@ namespace adam::modules::can
             column_font_normal, // Description
             column_font_normal, // Bit Range
             column_font_normal, // Raw (Hex)
-            column_font_normal  // Raw (Dec)
+            column_font_normal, // Raw (Dec)
+            column_font_normal  // Raw (String)
         };
 
         m_expandable_columns_weights =
         {
-            0.08f,              // Index
-            0.18f,              // Signal
-            0.38f,              // Description
-            0.14f,              // Bit Range
+            0.06f,              // Index
+            0.16f,              // Signal
+            0.34f,              // Description
+            0.12f,              // Bit Range
             0.11f,              // Raw (Hex)
-            0.11f               // Raw (Dec)
+            0.11f,              // Raw (Dec)
+            0.10f               // Raw (String)
         };
     }
 
@@ -212,6 +215,21 @@ namespace adam::modules::can
                 const auto& sig = msg_spec->signals[i];
                 uint64_t raw_val = extract_raw_signal(msg.get_data(), msg.get_data_length(), sig);
 
+                std::string str_val;
+                size_t num_bytes = (sig.bit_length + 7) / 8;
+                for (size_t b = 0; b < num_bytes; ++b)
+                {
+                    uint8_t ch = static_cast<uint8_t>((raw_val >> (b * 8)) & 0xFF);
+                    if (ch >= 32 && ch <= 126)
+                    {
+                        str_val += static_cast<char>(ch);
+                    }
+                    else
+                    {
+                        str_val += '.';
+                    }
+                }
+
                 row sub_r;
                 sub_r.columns.push_back(std::to_string(sig.index));
                 sub_r.columns.push_back(sig.name);
@@ -226,6 +244,7 @@ namespace adam::modules::can
                 }
                 sub_r.columns.push_back(std::format("0x{:X}", raw_val));
                 sub_r.columns.push_back(std::to_string(raw_val));
+                sub_r.columns.push_back(std::move(str_val));
 
                 ed.table_rows.push_back(std::move(sub_r));
             }

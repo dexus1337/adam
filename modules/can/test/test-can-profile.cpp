@@ -215,6 +215,7 @@ TEST_F(can_profile_test, parser_and_analyzer_integration)
     EXPECT_EQ(expansions[0].table_rows[0].columns[3], "Bits [0:7]");
     EXPECT_EQ(expansions[0].table_rows[0].columns[4], "0x2A");
     EXPECT_EQ(expansions[0].table_rows[0].columns[5], "42");
+    EXPECT_EQ(expansions[0].table_rows[0].columns[6], "*");
 
     // Check single bit signal from 0x0000 (Central Locking)
     uint8_t raw_bytes_0[sizeof(can_message) + 8] = {};
@@ -240,6 +241,7 @@ TEST_F(can_profile_test, parser_and_analyzer_integration)
     EXPECT_EQ(expansions_0[0].table_rows[0].columns[3], "Bit [0]");
     EXPECT_EQ(expansions_0[0].table_rows[0].columns[4], "0x1");
     EXPECT_EQ(expansions_0[0].table_rows[0].columns[5], "1");
+    EXPECT_EQ(expansions_0[0].table_rows[0].columns[6], ".");
 
     buf_0->release();
     parsed_buf_0->release();
