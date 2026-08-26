@@ -129,11 +129,12 @@ namespace adam::lib::imgui
         ImFontConfig mono_config;
         std::strncpy(mono_config.Name, "monospace", sizeof(mono_config.Name));
         mono_config.Name[sizeof(mono_config.Name) - 1] = '\0';
+        mono_config.GlyphOffset = ImVec2(0.0f, 1.5f);
 
         ImFont* mono_font = nullptr;
 
         if (std::filesystem::exists("font.ttf"))
-            mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f);
+            mono_font = io.Fonts->AddFontFromFileTTF("font.ttf", 16.0f, &mono_config);
         #if defined(ADAM_PLATFORM_WINDOWS)
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\consola.ttf")) 
             mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);

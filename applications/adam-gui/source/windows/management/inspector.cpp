@@ -140,129 +140,24 @@ namespace adam::gui
         }
 
         float window_border_size = ImGui::GetStyle().WindowBorderSize;
-        float spacing_h = ImGui::GetStyle().ItemSpacing.y;
         float text_content_h = num_rows > 0 ? (line_h * num_rows) : 0.0f;
         float child_padding_h = (4.0f * dpi_scale) * 2.0f;
         float child_border_h = window_border_size * 2.0f;
-        
-        float calc_h = text_content_h + child_padding_h + child_border_h;
-        float button_h = ImGui::GetFrameHeight();
-        float container_padding_h = (6.0f * dpi_scale) * 2.0f;
-        float container_border_h = window_border_size * 2.0f;
-        float reserved_container_elements_h = button_h + spacing_h + container_padding_h + container_border_h;
+        float child_h = text_content_h + child_padding_h + child_border_h;
 
-        float child_h = calc_h;
-        float container_h = child_h + reserved_container_elements_h;
-
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(ImGui::GetStyle().WindowPadding.x, 6.0f * dpi_scale));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * dpi_scale, 4.0f * dpi_scale));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f * dpi_scale);
 
         ImGui::PushID(actual_index);
-        if (ImGui::BeginChild("##hex_container", ImVec2(target_width, container_h), true))
+        const bool is_child_visible = ImGui::BeginChild("##hex_child", ImVec2(target_width, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        if (is_child_visible)
         {
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f * dpi_scale, 2.0f * dpi_scale));
-
-            float avail_w = ImGui::GetContentRegionAvail().x;
-            float button_w = (avail_w - ImGui::GetStyle().ItemSpacing.x * 2.0f) / 3.0f;
-
-            bool has_sel = s_hex_sel.has_selection(actual_index);
-            size_t sel_min_idx = 0;
-            size_t sel_max_idx = 0;
-            if (has_sel)
+            if (ImGui::GetIO().Fonts->Fonts[1])
             {
-                s_hex_sel.get_range(sel_min_idx, sel_max_idx);
-                if (sel_max_idx >= display_len) sel_max_idx = display_len > 0 ? display_len - 1 : 0;
+                ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
             }
 
-            size_t copy_start = has_sel ? sel_min_idx : 0;
-            size_t copy_len   = has_sel ? (sel_max_idx - sel_min_idx + 1) : display_len;
-
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_hex, lang), ImVec2(button_w, button_h)))
-            {
-                static std::string s_copy_str;
-                s_copy_str.clear();
-                s_copy_str.reserve(copy_len * 3);
-                for (size_t j = 0; j < copy_len; ++j)
-                {
-                    char hex[4];
-                    snprintf(hex, sizeof(hex), "%02X ", data[copy_start + j]);
-                    s_copy_str += hex;
-                }
-                if (!s_copy_str.empty())
-                {
-                    s_copy_str.pop_back();
-                }
-                ImGui::SetClipboardText(s_copy_str.c_str());
-            }
-            ImGui::SameLine();
-
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_ascii, lang), ImVec2(button_w, button_h)))
-            {
-                static std::string s_copy_str;
-                s_copy_str.clear();
-                s_copy_str.reserve(copy_len);
-                for (size_t j = 0; j < copy_len; ++j)
-                {
-                    char c = data[copy_start + j];
-                    s_copy_str += (c >= 32 && c <= 126) ? c : '.';
-                }
-                ImGui::SetClipboardText(s_copy_str.c_str());
-            }
-            ImGui::SameLine();
-
-            if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_hex_dump, lang), ImVec2(button_w, button_h)))
-            {
-                static std::string s_copy_str;
-                s_copy_str.clear();
-                size_t num_copy_rows = (copy_len + 15) / 16;
-                s_copy_str.reserve(num_copy_rows * 80);
-                for (size_t offset = 0; offset < copy_len; offset += 16)
-                {
-                    char line_buf[256];
-                    int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(copy_start + offset));
-                    size_t chunk = std::min(static_cast<size_t>(16), copy_len - offset);
-                    for (size_t j = 0; j < 16; ++j)
-                    {
-                        if (j == 8)
-                        {
-                            line_buf[printed++] = ' ';
-                        }
-                        if (j < chunk)
-                        {
-                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", data[copy_start + offset + j]);
-                        }
-                        else
-                        {
-                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
-                        }
-                    }
-                    line_buf[printed++] = ' ';
-                    line_buf[printed++] = ' ';
-                    line_buf[printed++] = '|';
-                    for (size_t j = 0; j < chunk; ++j)
-                    {
-                        char c = data[copy_start + offset + j];
-                        line_buf[printed++] = (c >= 32 && c <= 126) ? c : '.';
-                    }
-                    line_buf[printed++] = '|';
-                    line_buf[printed++] = '\n';
-                    line_buf[printed] = '\0';
-                    s_copy_str += line_buf;
-                }
-                ImGui::SetClipboardText(s_copy_str.c_str());
-            }
-
-            ImGui::PopStyleVar();
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * dpi_scale, 4.0f * dpi_scale));
-
-            if (ImGui::BeginChild("##hex_child", ImVec2(-FLT_MIN, child_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
-            {
-                if (ImGui::GetIO().Fonts->Fonts[1])
-                {
-                    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
-                }
-
-                ImFont* font = ImGui::GetFont();
+            ImFont* font = ImGui::GetFont();
                 float font_size = ImGui::GetFontSize();
                 float char_w = ImGui::CalcTextSize("A").x;
                 float text_h = ImGui::GetTextLineHeight();
@@ -676,13 +571,11 @@ namespace adam::gui
                     ImGui::EndPopup();
                 }
             }
+
             ImGui::EndChild();
-            ImGui::PopStyleVar();
+            ImGui::PopID();
+            ImGui::PopStyleVar(2);
         }
-        ImGui::EndChild();
-        ImGui::PopID();
-        ImGui::PopStyleVar(2);
-    }
 
     static void calculate_custom_clipper
     (
@@ -839,7 +732,7 @@ namespace adam::gui
         {
             if (ImGui::BeginChild("##HexDumpRegion", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
             {
-                if (ImGui::TreeNodeEx("Hex Dump"))
+                if (ImGui::TreeNodeEx(get_gui_string(gui_string_id::lbl_hex_view, lang)))
                 {
                     ImGui::Unindent();
                     const uint8_t* hex_data = port_data.data_pool.data() + port_data.buffers[b_idx].offset;
@@ -860,6 +753,7 @@ namespace adam::gui
                         ImGui::GetContentRegionAvail().x
                     );
                         
+                    ImGui::Indent();
                     ImGui::TreePop();
                 }
             }

@@ -21,7 +21,7 @@ using namespace adam;
 using namespace adam::modules;
 using namespace adam::modules::asterix;
 
-class category_filter_test : public ::testing::Test
+class filter_category_test : public ::testing::Test
 {
 protected:
     void SetUp() override
@@ -94,7 +94,7 @@ protected:
 
 // ─── Initialization & Parameter Tests ────────────────────────────────────────
 
-TEST_F(category_filter_test, initial_properties)
+TEST_F(filter_category_test, initial_properties)
 {
     EXPECT_EQ(filter->get_type_name(), "asterix-category-filter"_ct);
     EXPECT_EQ(filter->get_input_format()->get_name(), "asterix"_ct);
@@ -115,7 +115,7 @@ TEST_F(category_filter_test, initial_properties)
 
 // ─── Null and Empty Input ───────────────────────────────────────────────────
 
-TEST_F(category_filter_test, handle_null_buffer)
+TEST_F(filter_category_test, handle_null_buffer)
 {
     adam::buffer* null_buf = nullptr;
     EXPECT_FALSE(filter->handle_data(null_buf));
@@ -123,7 +123,7 @@ TEST_F(category_filter_test, handle_null_buffer)
 
 // ─── Whitelist Mode: Full Match (Keep All) ──────────────────────────────────
 
-TEST_F(category_filter_test, whitelist_all_match_keeps_frame_unmodified)
+TEST_F(filter_category_test, whitelist_all_match_keeps_frame_unmodified)
 {
     set_mode("whitelist");
     set_cats("48; 62");
@@ -152,7 +152,7 @@ TEST_F(category_filter_test, whitelist_all_match_keeps_frame_unmodified)
 
 // ─── Whitelist Mode: Partial Match (Filter Out Some) ────────────────────────
 
-TEST_F(category_filter_test, whitelist_partial_match_removes_non_matching)
+TEST_F(filter_category_test, whitelist_partial_match_removes_non_matching)
 {
     set_mode("whitelist");
     set_cats("48, 1"); // Keep CAT 48 and CAT 1, discard CAT 62
@@ -193,7 +193,7 @@ TEST_F(category_filter_test, whitelist_partial_match_removes_non_matching)
 
 // ─── Whitelist Mode: No Match (Discard Frame) ───────────────────────────────
 
-TEST_F(category_filter_test, whitelist_no_match_discards_all)
+TEST_F(filter_category_test, whitelist_no_match_discards_all)
 {
     set_mode("whitelist");
     set_cats("21; 34");
@@ -216,7 +216,7 @@ TEST_F(category_filter_test, whitelist_no_match_discards_all)
 
 // ─── Whitelist Mode: Empty Category List ────────────────────────────────────
 
-TEST_F(category_filter_test, whitelist_empty_cats_discards_all)
+TEST_F(filter_category_test, whitelist_empty_cats_discards_all)
 {
     set_mode("whitelist");
     set_cats("");
@@ -232,7 +232,7 @@ TEST_F(category_filter_test, whitelist_empty_cats_discards_all)
 
 // ─── Blacklist Mode: No Match on Blacklist (Keep All) ───────────────────────
 
-TEST_F(category_filter_test, blacklist_no_match_keeps_all)
+TEST_F(filter_category_test, blacklist_no_match_keeps_all)
 {
     set_mode("blacklist");
     set_cats("1; 21");
@@ -257,7 +257,7 @@ TEST_F(category_filter_test, blacklist_no_match_keeps_all)
 
 // ─── Blacklist Mode: Partial Match (Filter Out Blacklisted) ─────────────────
 
-TEST_F(category_filter_test, blacklist_partial_match_removes_blacklisted)
+TEST_F(filter_category_test, blacklist_partial_match_removes_blacklisted)
 {
     set_mode("blacklist");
     set_cats("62");
@@ -289,7 +289,7 @@ TEST_F(category_filter_test, blacklist_partial_match_removes_blacklisted)
 
 // ─── Blacklist Mode: Full Match on Blacklist (Discard All) ──────────────────
 
-TEST_F(category_filter_test, blacklist_all_match_discards_all)
+TEST_F(filter_category_test, blacklist_all_match_discards_all)
 {
     set_mode("blacklist");
     set_cats("48; 62");
@@ -305,7 +305,7 @@ TEST_F(category_filter_test, blacklist_all_match_discards_all)
 
 // ─── Blacklist Mode: Empty Category List (Keep All) ─────────────────────────
 
-TEST_F(category_filter_test, blacklist_empty_cats_keeps_all)
+TEST_F(filter_category_test, blacklist_empty_cats_keeps_all)
 {
     set_mode("blacklist");
     set_cats("");
@@ -325,7 +325,7 @@ TEST_F(category_filter_test, blacklist_empty_cats_keeps_all)
 
 // ─── Delimiter and Format Parsing Tests ─────────────────────────────────────
 
-TEST_F(category_filter_test, parses_various_delimiters_and_formats)
+TEST_F(filter_category_test, parses_various_delimiters_and_formats)
 {
     // Test comma, semicolon, whitespace, and hex parsing
     set_mode("whitelist");
@@ -362,7 +362,7 @@ TEST_F(category_filter_test, parses_various_delimiters_and_formats)
 
 // ─── Statistics Tracking Across Multiple Invocations ────────────────────────
 
-TEST_F(category_filter_test, state_buffer_statistics_accumulation)
+TEST_F(filter_category_test, state_buffer_statistics_accumulation)
 {
     set_mode("whitelist");
     set_cats("48");
@@ -404,7 +404,7 @@ TEST_F(category_filter_test, state_buffer_statistics_accumulation)
 
 // ─── End-to-End Pipeline: Parse -> Filter -> Encode -> Re-parse ─────────────
 
-TEST_F(category_filter_test, end_to_end_parse_filter_encode)
+TEST_F(filter_category_test, end_to_end_parse_filter_encode)
 {
     set_mode("whitelist");
     set_cats("62"); // Keep only CAT 62, drop CAT 48 and CAT 1

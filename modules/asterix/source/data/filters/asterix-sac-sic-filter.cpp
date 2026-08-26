@@ -1,4 +1,4 @@
-#include "data/filters/asterix-sac-sic-replacer.hpp"
+#include "data/filters/asterix-sac-sic-filter.hpp"
 
 #include "data/format-asterix.hpp"
 #include "module/internals/essential/module-essential.hpp"
@@ -16,22 +16,26 @@
 
 namespace adam::modules::asterix
 {
-    const configuration_parameter_list& sac_sic_replacer::get_user_parameters()
+    const configuration_parameter_list& sac_sic_filter::get_user_parameters()
     {
         static adam::configuration_parameter_list params = []() 
         {
             adam::configuration_parameter_list p;
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
             
-            auto source_param = std::make_unique<configuration_parameter_string>("source_sac_sic"_ct, ""_ct);
-            source_param->set_description(language_english, "Semicolon or comma separated list of source SAC/SIC patterns to match (e.g. 103/x; x/63; 103/200; x/x)."_ct);
-            source_param->set_description(language_german, "Durch Semikolon oder Komma getrennte Liste von Quell-SAC/SIC-Mustern (z.B. 103/x; x/63; 103/200; x/x)."_ct);
-            up->add(std::move(source_param));
+            configuration_parameter_string::presets_container mode_presets = {};
+            mode_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("whitelist"_ct, "whitelist"_ct));
+            mode_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("blacklist"_ct, "blacklist"_ct));
 
-            auto target_param = std::make_unique<configuration_parameter_string>("target_sac_sic"_ct, "x/x"_ct);
-            target_param->set_description(language_english, "Target SAC/SIC to inject (e.g. 105/x; x/200; 105/200; x/x). 'x' preserves the original value."_ct);
-            target_param->set_description(language_german, "Ziel-SAC/SIC zum Einfügen (z.B. 105/x; x/200; 105/200; x/x). 'x' behält den Originalwert bei."_ct);
-            up->add(std::move(target_param));
+            auto mode_param = std::make_unique<configuration_parameter_string>("filter_mode"_ct, "whitelist"_ct, std::move(mode_presets));
+            mode_param->set_description(language_english, "The filtering mode: whitelist (only allow matching SAC/SIC) or blacklist (drop matching SAC/SIC)."_ct);
+            mode_param->set_description(language_german, "Der Filtermodus: Whitelist (nur passende SAC/SIC zulassen) oder Blacklist (passende SAC/SIC verwerfen)."_ct);
+            up->add(std::move(mode_param));
+
+            auto sac_sic_param = std::make_unique<configuration_parameter_string>("sac_sic"_ct, ""_ct);
+            sac_sic_param->set_description(language_english, "Semicolon or comma separated list of SAC/SIC patterns (e.g. 103/x; x/63; 103/200)."_ct);
+            sac_sic_param->set_description(language_german, "Durch Semikolon oder Komma getrennte Liste von SAC/SIC-Mustern (z.B. 103/x; x/63; 103/200)."_ct);
+            up->add(std::move(sac_sic_param));
             
             p.add(std::move(up));
             return p;
@@ -39,7 +43,7 @@ namespace adam::modules::asterix
         return params;
     }
 
-    sac_sic_replacer::sac_sic_replacer(const string_hashed& name) : filter(name)
+    sac_sic_filter::sac_sic_filter(const string_hashed& name) : filter(name)
     {
         get_parameter<configuration_parameter_string>("type"_ct)->set_value(type_name());
         get_parameter<configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
@@ -50,13 +54,8 @@ namespace adam::modules::asterix
         add_parameters(get_user_parameters());
 
         auto* user_params = get_parameter<configuration_parameter_list_sorted>("user_parameters"_ct);
-        m_source_param = user_params->get<configuration_parameter_string>("source_sac_sic"_ct);
-        m_target_param = user_params->get<configuration_parameter_string>("target_sac_sic"_ct);
-
-        for (size_t i = 0; i < 65536; ++i)
-        {
-            m_replacement_lut[i] = { static_cast<uint8_t>(i >> 8), static_cast<uint8_t>(i & 0xFF), false };
-        }
+        m_filter_mode_param = user_params->get<configuration_parameter_string>("filter_mode"_ct);
+        m_sac_sic_param     = user_params->get<configuration_parameter_string>("sac_sic"_ct);
     }
 
     static std::string trim_string(const std::string& str)
@@ -106,21 +105,17 @@ namespace adam::modules::asterix
         }
     }
 
-    void sac_sic_replacer::update_parsed_patterns()
+    void sac_sic_filter::update_parsed_patterns()
     {
-        if (m_last_source_hash == m_source_param->get_value() && m_last_target_hash == m_target_param->get_value()) return;
+        if (m_last_sac_sic_hash == m_sac_sic_param->get_value()) return;
 
-        m_last_source_hash = m_source_param->get_value();
-        m_last_target_hash = m_target_param->get_value();
+        m_last_sac_sic_hash = m_sac_sic_param->get_value();
+        std::string current_str = std::string(m_last_sac_sic_hash);
 
-        std::string source_str = std::string(m_last_source_hash);
-        std::string target_str = std::string(m_last_target_hash);
+        m_match_lut.reset();
+        m_has_patterns = false;
 
-        std::bitset<65536> source_match_lut;
-        source_match_lut.reset();
-        m_has_source_patterns = false;
-
-        auto parse_source_token = [&source_match_lut, this](const std::string& token)
+        auto parse_token = [this](const std::string& token)
         {
             std::string trimmed = trim_string(token);
             if (trimmed.empty()) return;
@@ -169,17 +164,17 @@ namespace adam::modules::asterix
                 }
             }
 
-            m_has_source_patterns = true;
+            m_has_patterns = true;
 
             if (any_sac && any_sic)
             {
-                source_match_lut.set();
+                m_match_lut.set();
             }
             else if (any_sac)
             {
                 for (size_t s = 0; s < 256; ++s)
                 {
-                    source_match_lut.set((s << 8) | sic_val);
+                    m_match_lut.set((s << 8) | sic_val);
                 }
             }
             else if (any_sic)
@@ -187,89 +182,27 @@ namespace adam::modules::asterix
                 const size_t base = static_cast<size_t>(sac_val) << 8;
                 for (size_t i = 0; i < 256; ++i)
                 {
-                    source_match_lut.set(base | i);
+                    m_match_lut.set(base | i);
                 }
             }
             else
             {
-                source_match_lut.set((static_cast<size_t>(sac_val) << 8) | sic_val);
+                m_match_lut.set((static_cast<size_t>(sac_val) << 8) | sic_val);
             }
         };
 
         size_t start = 0;
-        size_t end = source_str.find_first_of(";,");
+        size_t end = current_str.find_first_of(";,");
         while (end != std::string::npos)
         {
-            parse_source_token(source_str.substr(start, end - start));
+            parse_token(current_str.substr(start, end - start));
             start = end + 1;
-            end = source_str.find_first_of(";,", start);
+            end = current_str.find_first_of(";,", start);
         }
-        parse_source_token(source_str.substr(start));
-
-        // Parse target pattern
-        bool target_any_sac = true;
-        bool target_any_sic = true;
-        uint8_t target_sac = 0;
-        uint8_t target_sic = 0;
-
-        std::string trimmed_target = trim_string(target_str);
-        if (!trimmed_target.empty())
-        {
-            size_t slash_pos = trimmed_target.find_first_of("/:\\");
-            if (slash_pos == std::string::npos)
-            {
-                if (!is_wildcard(trimmed_target))
-                {
-                    if (parse_uint8(trimmed_target, target_sac))
-                    {
-                        target_any_sac = false;
-                    }
-                }
-            }
-            else
-            {
-                std::string t_sac_str = trim_string(trimmed_target.substr(0, slash_pos));
-                std::string t_sic_str = trim_string(trimmed_target.substr(slash_pos + 1));
-
-                if (!is_wildcard(t_sac_str))
-                {
-                    if (parse_uint8(t_sac_str, target_sac))
-                    {
-                        target_any_sac = false;
-                    }
-                }
-
-                if (!is_wildcard(t_sic_str))
-                {
-                    if (parse_uint8(t_sic_str, target_sic))
-                    {
-                        target_any_sic = false;
-                    }
-                }
-            }
-        }
-
-        // Build full 65,536-entry replacement LUT
-        for (size_t s = 0; s < 256; ++s)
-        {
-            for (size_t i = 0; i < 256; ++i)
-            {
-                const size_t key = (s << 8) | i;
-                if (m_has_source_patterns && source_match_lut.test(key))
-                {
-                    uint8_t new_sac = target_any_sac ? static_cast<uint8_t>(s) : target_sac;
-                    uint8_t new_sic = target_any_sic ? static_cast<uint8_t>(i) : target_sic;
-                    m_replacement_lut[key] = { new_sac, new_sic, (new_sac != s || new_sic != i) };
-                }
-                else
-                {
-                    m_replacement_lut[key] = { static_cast<uint8_t>(s), static_cast<uint8_t>(i), false };
-                }
-            }
-        }
+        parse_token(current_str.substr(start));
     }
 
-    bool sac_sic_replacer::handle_data(buffer*& buf)
+    bool sac_sic_filter::handle_data(buffer*& buf)
     {
         if (!buf) return false;
 
@@ -281,6 +214,8 @@ namespace adam::modules::asterix
 
         update_parsed_patterns();
 
+        const bool is_whitelist = (m_filter_mode_param->get_value() == "whitelist"_ct);
+
         auto* stats = get_state_buffer_data();
         if (stats)
         {
@@ -288,8 +223,18 @@ namespace adam::modules::asterix
             stats->total_bytes_recieved += data_size;
         }
 
-        if (!m_has_source_patterns)
+        if (!m_has_patterns)
         {
+            if (is_whitelist)
+            {
+                if (stats)
+                {
+                    stats->total_buffers_discarded++;
+                    stats->total_bytes_discarded += data_size;
+                }
+                return false;
+            }
+
             if (stats)
             {
                 stats->total_buffers_forwarded++;
@@ -298,7 +243,11 @@ namespace adam::modules::asterix
             return true;
         }
 
-        bool frame_modified = false;
+        uint32_t total_records   = 0;
+        uint32_t kept_records    = 0;
+        uint32_t removed_records = 0;
+        uint32_t kept_blocks     = 0;
+
         const uap* cached_base_uap = nullptr;
         uint8_t cached_cat = 0xFF;
 
@@ -312,9 +261,15 @@ namespace adam::modules::asterix
                 cached_base_uap = uap_pool::get().get_uap(cached_cat);
             }
 
+            uint32_t records_in_block      = 0;
+            uint32_t kept_records_in_block = 0;
+
             for (auto& rec : blk)
             {
                 if (rec.is_removed()) continue;
+
+                total_records++;
+                records_in_block++;
 
                 const uap* active_uap = nullptr;
                 if (cached_base_uap)
@@ -329,26 +284,52 @@ namespace adam::modules::asterix
                     }
                 }
 
-                if (active_uap && m_has_source_patterns)
+                bool match = false;
+                if (active_uap && m_has_patterns)
                 {
-                    const auto* const_raw = active_uap->get_record_sac_sic(&rec, ref_buf);
-                    if (const_raw)
+                    const auto* raw = active_uap->get_record_sac_sic(&rec, ref_buf);
+                    if (raw)
                     {
-                        const size_t key = (static_cast<size_t>(const_raw->sac) << 8) | const_raw->sic;
-                        const auto& rep = m_replacement_lut[key];
-                        if (rep.changed)
-                        {
-                            auto* raw = const_cast<raw_sac_sic*>(const_raw);
-                            raw->sac = rep.new_sac;
-                            raw->sic = rep.new_sic;
-                            frame_modified = true;
-                        }
+                        const size_t key = (static_cast<size_t>(raw->sac) << 8) | raw->sic;
+                        match = m_match_lut.test(key);
                     }
                 }
+
+                const bool keep = is_whitelist ? match : !match;
+
+                if (keep)
+                {
+                    kept_records++;
+                    kept_records_in_block++;
+                }
+                else
+                {
+                    rec.set_removed(true);
+                    removed_records++;
+                }
+            }
+
+            if (kept_records_in_block == 0 && records_in_block > 0)
+            {
+                blk.set_removed(true);
+            }
+            else if (kept_records_in_block > 0)
+            {
+                kept_blocks++;
             }
         }
 
-        if (frame_modified)
+        if (kept_records == 0)
+        {
+            if (stats)
+            {
+                stats->total_buffers_discarded++;
+                stats->total_bytes_discarded += data_size;
+            }
+            return false;
+        }
+
+        if (removed_records > 0)
         {
             root_frame->set_modified(true);
         }

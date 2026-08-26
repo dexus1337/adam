@@ -83,6 +83,9 @@ namespace adam::modules::asterix
         auto* root_frame = buf->begin_as<frame>();
         if (!root_frame) return false;
 
+        adam::buffer* ref_buf = buf->get_referenced_buffer();
+        const uint32_t data_size = (ref_buf && ref_buf->get_size() > 0) ? ref_buf->get_size() : buf->get_size();
+
         update_parsed_cats();
 
         const bool is_whitelist = (m_mode_param->get_value() == "whitelist"_ct);
@@ -91,7 +94,7 @@ namespace adam::modules::asterix
         if (stats)
         {
             stats->total_buffers_recieved++;
-            stats->total_bytes_recieved += buf->get_size();
+            stats->total_bytes_recieved += data_size;
         }
 
         uint32_t total_blocks = 0;
@@ -122,7 +125,7 @@ namespace adam::modules::asterix
             if (stats)
             {
                 stats->total_buffers_discarded++;
-                stats->total_bytes_discarded += buf->get_size();
+                stats->total_bytes_discarded += data_size;
             }
             return false;
         }
@@ -135,7 +138,7 @@ namespace adam::modules::asterix
         if (stats)
         {
             stats->total_buffers_forwarded++;
-            stats->total_bytes_forwarded += buf->get_size();
+            stats->total_bytes_forwarded += data_size;
         }
 
         return true;

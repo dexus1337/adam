@@ -166,7 +166,13 @@ namespace adam
         m_processors.iterate([&](const auto& processors) 
         {
             for (auto* processor : processors) 
-                result &= processor->handle_data(current_buf);
+            {
+                if (!processor->handle_data(current_buf))
+                {
+                    result = false;
+                    break;
+                }
+            }
         });
 
         if (!result)

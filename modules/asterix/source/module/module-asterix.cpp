@@ -5,6 +5,7 @@
 #include "data/converters/asterix-to-text-converter.hpp"
 #include "data/filters/asterix-sac-sic-replacer.hpp"
 #include "data/filters/asterix-category-filter.hpp"
+#include "data/filters/asterix-sac-sic-filter.hpp"
 #include "data/asterix-parser.hpp"
 #include "data/asterix-encoder.hpp"
 
@@ -13,8 +14,9 @@ namespace adam::modules::asterix
     static module_asterix global_instance = adam::modules::asterix::module_asterix();
 
     static default_factory<processor,   category_filter>    category_filter_factory     = default_factory<processor,  category_filter>();
+    static default_factory<processor,   sac_sic_filter>     sac_sic_filter_factory      = default_factory<processor,  sac_sic_filter>();
     static default_factory<processor,   to_text_converter>  to_text_converter_factory   = default_factory<processor,  to_text_converter>();
-    static default_factory<processor,   sac_sic_replacer>   sac_sic_filter_factory      = default_factory<processor,  sac_sic_replacer>();
+    static default_factory<processor,   sac_sic_replacer>   sac_sic_replacer_factory    = default_factory<processor,  sac_sic_replacer>();
     static default_factory<parser,      asterix_parser>     asterix_parser_factory      = default_factory<parser,     asterix_parser>();
     static default_factory<encoder,     asterix_encoder>    asterix_encoder_factory     = default_factory<encoder,    asterix_encoder>();
 
@@ -50,6 +52,12 @@ namespace adam::modules::asterix
 
         m_processor_factories.emplace
         (
+            sac_sic_filter::type_name(), 
+            registry::factory_data_processor(&sac_sic_filter_factory, &sac_sic_filter::get_user_parameters(), data_format_asterix.get_name(), this->get_name(), data_format_asterix.get_name(), this->get_name())
+        );
+
+        m_processor_factories.emplace
+        (
             to_text_converter::type_name(), 
             registry::factory_data_processor(&to_text_converter_factory, nullptr /*&to_text_converter::get_user_parameters()*/, data_format_asterix.get_name(), this->get_name(), 0, 0)
         );
@@ -57,7 +65,7 @@ namespace adam::modules::asterix
         m_processor_factories.emplace
         (
             sac_sic_replacer::type_name(), 
-            registry::factory_data_processor(&sac_sic_filter_factory, &sac_sic_replacer::get_user_parameters(), data_format_asterix.get_name(), this->get_name(), data_format_asterix.get_name(), this->get_name())
+            registry::factory_data_processor(&sac_sic_replacer_factory, &sac_sic_replacer::get_user_parameters(), data_format_asterix.get_name(), this->get_name(), data_format_asterix.get_name(), this->get_name())
         );
     }
 

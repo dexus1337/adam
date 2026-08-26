@@ -3,19 +3,35 @@
 /**
  * @file    asterix-sac-sic-replacer.hpp
  * @author  dexus1337
- * @brief   Defines a filter that replaces SAC/SIC codes in Asterix messages
- * @version 1.0
- * @date    16.07.2026
+ * @brief   Defines a filter that replaces SAC/SIC codes in Asterix messages using pattern matching.
+ * @version 2.0
+ * @date    26.08.2026
  */
 
 #include "api/api-asterix.hpp"
 #include <adam-core.hpp>
 
+#include <vector>
+#include <string>
+#include <bitset>
+#include <array>
+
 namespace adam::modules::asterix
 {
     /**
+     * @struct replacement_entry
+     * @brief Precomputed SAC/SIC replacement mapping.
+     */
+    struct replacement_entry
+    {
+        uint8_t new_sac = 0;
+        uint8_t new_sic = 0;
+        bool    changed = false;
+    };
+
+    /**
      * @class sac_sic_replacer
-     * @brief A processor that replaces the SAC and SIC values in an Asterix data stream.
+     * @brief A processor that replaces SAC and SIC values based on source and target patterns.
      */
     class ADAM_ASTERIX_API sac_sic_replacer : public adam::filter
     {
@@ -32,7 +48,14 @@ namespace adam::modules::asterix
         virtual bool handle_data(buffer*& buf) override;
 
     private:
-        adam::configuration_parameter_integer* m_sac_param; /**< Fast-access pointer to the new SAC parameter. */
-        adam::configuration_parameter_integer* m_sic_param; /**< Fast-access pointer to the new SIC parameter. */
+        void update_parsed_patterns();
+
+        adam::configuration_parameter_string* m_source_param; /**< Source SAC/SIC pattern (e.g. 103/x, x/63, x/x). */
+        adam::configuration_parameter_string* m_target_param; /**< Target SAC/SIC to inject (e.g. 105/x, x/200, x/x). */
+
+        string_hashed                                    m_last_source_hash;
+        string_hashed                                    m_last_target_hash;
+        std::array<replacement_entry, 65536>             m_replacement_lut;
+        bool                                             m_has_source_patterns = false;
     };
 }

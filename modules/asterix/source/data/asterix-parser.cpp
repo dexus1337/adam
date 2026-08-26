@@ -2,10 +2,19 @@
 #include "data/asterix-types.hpp"
 #include "data/asterix-uap.hpp"
 #include "data/format-asterix.hpp"
+#include "module/module-asterix.hpp"
 #include <adam-core.hpp>
+#include <format>
 
 namespace adam::modules::asterix
 {
+    static inline adam::controller* get_active_controller()
+    {
+        auto* mod = get_adam_module();
+        if (!mod) return nullptr;
+        return mod->get_controller();
+    }
+
     const adam::configuration_parameter_list& asterix_parser::get_user_parameters()
     {
         static const adam::configuration_parameter_list params = []()
@@ -54,6 +63,8 @@ namespace adam::modules::asterix
         uint32_t scan_offset = 0;
         bock_count = 0;
 
+        if (raw_length < min_block_length) return false;
+
         while (scan_offset < raw_length)
         {
             if (scan_offset + sizeof(raw_block_header) > raw_length)
@@ -71,7 +82,6 @@ namespace adam::modules::asterix
 
             if (p_needed_internal_size)
             {
-
                 uint8_t category = raw_block_head->category;
                 const uap* active_uap = uap_pool::get().get_uap(category);
                 uint32_t max_frn = active_uap ? active_uap->get_highest_frn() : 40;
@@ -88,7 +98,7 @@ namespace adam::modules::asterix
             }
         }
 
-        return true;
+        return bock_count > 0;
     }
 
     static inline bool critical_parser_error(adam::buffer*& internal_data)
@@ -515,6 +525,13 @@ namespace adam::modules::asterix
         // Quickly prepass the frame to get number of blocks and filter out invalid frames
         if (!prepass_blocks(raw_data, raw_length, block_count, &internal_size)) return false;
 
+        if (block_count == 0)
+        {
+            if (auto* ctrl = get_active_controller())
+                ctrl->log(adam::log::warning, std::format("ASTERIX Parser: Frame contains 0 blocks (raw_length={})", raw_length));
+            return false;
+        }
+
         if (!internal_data || internal_data->get_capacity() < internal_size)
         {
             if (internal_data)
@@ -532,6 +549,7 @@ namespace adam::modules::asterix
         out_offset += sizeof(frame);
 
         uint32_t last_block_offset = 0;
+        uint16_t parsed_block_count = 0;
 
         while (raw_offset < raw_length)
         {
@@ -540,15 +558,34 @@ namespace adam::modules::asterix
             const auto* raw_block_head  = reinterpret_cast<const raw_block_header*>(raw_data + block_start_raw);
 
             if (raw_offset + sizeof(raw_block_header) > raw_length) 
-                return critical_parser_error(internal_data);
+            {
+                if (auto* ctrl = get_active_controller())
+                    ctrl->log(adam::log::warning, std::format("ASTERIX Parser: Incomplete block header at offset {} (raw_length={})", raw_offset, raw_length));
+
+                break;
+            }
 
             uint16_t block_len = raw_block_head->get_length();
             if (block_len < min_block_length || block_start_raw + block_len > raw_length) 
-                return critical_parser_error(internal_data);
+            {
+                if (auto* ctrl = get_active_controller())
+                    ctrl->log(adam::log::warning, std::format("ASTERIX Parser: Invalid block length {} for CAT {} at offset {} (raw_length={})", block_len, raw_block_head->category, block_start_raw, raw_length));
+
+                break;
+            }
 
             uint32_t block_end_raw = block_start_raw + block_len;
 
-            // At this point we have a valid block. No need to count blocks (for now) since we already did that in the prepass_blocks function
+            const bool has_uap = (raw_block_head->get_uap() != nullptr);
+            if (!has_uap && m_forward_unknown_cats && !m_forward_unknown_cats->get_value())
+            {
+                if (auto* ctrl = get_active_controller())
+                    ctrl->log(adam::log::warning, std::format("ASTERIX Parser: Dropped unknown category CAT {} block at offset {} (forward_unknown_cats=false)", raw_block_head->category, block_start_raw));
+
+                raw_offset += block_len;
+                
+                continue;
+            }
 
             // Reserve space for block
             uint32_t block_offset = out_offset;
@@ -561,12 +598,13 @@ namespace adam::modules::asterix
             }
 
             last_block_offset = block_offset;
+            parsed_block_count++;
 
             uint16_t record_count       = 0;
             uint16_t record_items_count = 0;
             uint32_t last_record_offset = 0;
 
-            if (raw_block_head->get_uap())
+            if (has_uap)
             {
                 // Parse records in the block
                 raw_offset += sizeof(raw_block_header);
@@ -580,7 +618,8 @@ namespace adam::modules::asterix
                 
                     if (!parse_fspec(raw_data, raw_offset, raw_length, active_frns))
                     {
-                        // TODO: Log FSPEC invalid, move to next block
+                        if (auto* ctrl = get_active_controller())
+                            ctrl->log(adam::log::warning, std::format("ASTERIX Parser: Invalid FSPEC in CAT {} block at record offset {}", raw_block_head->category, record_start_raw));
                         raw_offset = block_end_raw; break;
                     }
 
@@ -591,7 +630,8 @@ namespace adam::modules::asterix
                     const uap* active_uap = raw_rec_head->retrieve_uap(raw_block_head, fspec_size, raw_length);
                     if (!active_uap)
                     {
-                        // TODO: Log UAP not available, move to next block
+                        if (auto* ctrl = get_active_controller())
+                            ctrl->log(adam::log::warning, std::format("ASTERIX Parser: No UAP available for CAT {} record at offset {}", raw_block_head->category, record_start_raw));
                         raw_offset = block_end_raw; break;
                     }
                     
@@ -630,8 +670,9 @@ namespace adam::modules::asterix
                         child_offset
                     ))
                     {
+                        if (auto* ctrl = get_active_controller())
+                            ctrl->log(adam::log::warning, std::format("ASTERIX Parser: Failed to parse items in CAT {} record at offset {}", active_uap->get_cat_number(), record_start_raw));
                         break;
-                        // TODO log, and then?
                     }
 
                     out_offset += child_offset - child_items_offset; // Move out_offset to the end of the child items
@@ -652,12 +693,6 @@ namespace adam::modules::asterix
             }
             else
             {
-                if (m_forward_unknown_cats && !m_forward_unknown_cats->get_value())
-                {
-                    internal_data->release();
-                    internal_data = nullptr;
-                    return false;
-                }
                 raw_offset += block_len;
             }
        
@@ -670,9 +705,17 @@ namespace adam::modules::asterix
             cur_blk->flags        = block_flag_none;
         }
 
+        if (parsed_block_count == 0)
+        {
+            if (auto* ctrl = get_active_controller())
+                ctrl->log(adam::log::warning, "ASTERIX Parser: All blocks in frame were dropped/unknown");
+
+            return critical_parser_error(internal_data);
+        }
+
         auto* cur_frame = internal_data->at<frame>(frame_off);
-        cur_frame->block_count = block_count;
-        cur_frame->flags       = frame_flag_none;
+        cur_frame->block_count = parsed_block_count;
+        cur_frame->flags       = (parsed_block_count != block_count) ? frame_flag_modified : frame_flag_none;
         cur_frame->reserved    = 0;
         
         internal_data->set_size(out_offset);
