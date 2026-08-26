@@ -149,8 +149,15 @@ namespace adam
         // Run data through input inspectors
         m_inspectors_input.iterate([&](const auto& inspectors) 
         {
+            if (inspectors.empty()) return;
+
+            buffer* inspector_buf = current_buf->clone();
+            if (!inspector_buf) return;
+
             for (const auto& inspector : inspectors) 
-                inspector->handle_data(current_buf);
+                inspector->handle_data(inspector_buf);
+
+            inspector_buf->release();
         });
 
         if (!m_b_valid_data_chain || !m_started->get_value()) return false;
@@ -165,7 +172,7 @@ namespace adam
         if (!result)
         {
             if (parsed_buf) parsed_buf->release();
-                return false;
+            return false;
         }
 
         // Run data through output inspectors

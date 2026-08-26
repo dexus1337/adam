@@ -89,6 +89,8 @@ namespace adam::modules::asterix
         // Iterate over blocks
         for (const auto& block : *root_frame)
         {
+            if (block.is_removed()) continue;
+
             if (block.record_count == 0)
             {
                 row r;
@@ -105,6 +107,8 @@ namespace adam::modules::asterix
                 // Iterate over records in the block
                 for (const auto& rec : block)
                 {
+                    if (rec.is_removed()) continue;
+                    
                     const auto* used_uap = rec.find_used_uap();
                     const auto* raw_data = buf->get_referenced_buffer();
                     const auto* sac_sic  = used_uap ? used_uap->get_record_sac_sic(&rec, raw_data) : nullptr;
@@ -138,6 +142,8 @@ namespace adam::modules::asterix
         size_t current_row = 0;
         for (const auto& block : *root_frame)
         {
+            if (block.is_removed()) continue;
+
             if (block.record_count == 0)
             {
                 current_row++;
@@ -146,6 +152,8 @@ namespace adam::modules::asterix
 
             for (const auto& rec : block)
             {
+                if (rec.is_removed()) continue;
+
                 if (current_row != row_idx)
                 {
                     current_row++;

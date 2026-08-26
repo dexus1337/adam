@@ -80,6 +80,42 @@ namespace adam::gui
         }
     }
 
+    struct hex_selection_state
+    {
+        int    buffer_id   = -1;
+        int    start_idx   = -1;
+        int    end_idx     = -1;
+        bool   is_dragging = false;
+
+        bool has_selection(int buf_id) const
+        {
+            return buf_id == buffer_id && start_idx >= 0 && end_idx >= 0;
+        }
+
+        void get_range(size_t& out_min, size_t& out_max) const
+        {
+            if (start_idx <= end_idx)
+            {
+                out_min = static_cast<size_t>(start_idx);
+                out_max = static_cast<size_t>(end_idx);
+            }
+            else
+            {
+                out_min = static_cast<size_t>(end_idx);
+                out_max = static_cast<size_t>(start_idx);
+            }
+        }
+
+        bool is_selected(int buf_id, size_t idx) const
+        {
+            if (!has_selection(buf_id)) return false;
+            size_t min_idx, max_idx;
+            get_range(min_idx, max_idx);
+            return idx >= min_idx && idx <= max_idx;
+        }
+    };
+    static hex_selection_state s_hex_sel;
+
     static void draw_inspector_hex_dump
     (
         const uint8_t* data,
@@ -129,15 +165,27 @@ namespace adam::gui
             float avail_w = ImGui::GetContentRegionAvail().x;
             float button_w = (avail_w - ImGui::GetStyle().ItemSpacing.x * 2.0f) / 3.0f;
 
+            bool has_sel = s_hex_sel.has_selection(actual_index);
+            size_t sel_min_idx = 0;
+            size_t sel_max_idx = 0;
+            if (has_sel)
+            {
+                s_hex_sel.get_range(sel_min_idx, sel_max_idx);
+                if (sel_max_idx >= display_len) sel_max_idx = display_len > 0 ? display_len - 1 : 0;
+            }
+
+            size_t copy_start = has_sel ? sel_min_idx : 0;
+            size_t copy_len   = has_sel ? (sel_max_idx - sel_min_idx + 1) : display_len;
+
             if (ImGui::Button(get_gui_string(gui_string_id::btn_copy_hex, lang), ImVec2(button_w, button_h)))
             {
                 static std::string s_copy_str;
                 s_copy_str.clear();
-                s_copy_str.reserve(size * 3);
-                for (size_t j = 0; j < size; ++j)
+                s_copy_str.reserve(copy_len * 3);
+                for (size_t j = 0; j < copy_len; ++j)
                 {
                     char hex[4];
-                    snprintf(hex, sizeof(hex), "%02X ", data[j]);
+                    snprintf(hex, sizeof(hex), "%02X ", data[copy_start + j]);
                     s_copy_str += hex;
                 }
                 if (!s_copy_str.empty())
@@ -152,18 +200,11 @@ namespace adam::gui
             {
                 static std::string s_copy_str;
                 s_copy_str.clear();
-                s_copy_str.reserve(size);
-                for (size_t j = 0; j < size; ++j)
+                s_copy_str.reserve(copy_len);
+                for (size_t j = 0; j < copy_len; ++j)
                 {
-                    char c = data[j];
-                    if (c >= 32 && c <= 126)
-                    {
-                        s_copy_str += c;
-                    }
-                    else
-                    {
-                        s_copy_str += '.';
-                    }
+                    char c = data[copy_start + j];
+                    s_copy_str += (c >= 32 && c <= 126) ? c : '.';
                 }
                 ImGui::SetClipboardText(s_copy_str.c_str());
             }
@@ -173,12 +214,13 @@ namespace adam::gui
             {
                 static std::string s_copy_str;
                 s_copy_str.clear();
-                s_copy_str.reserve(num_rows * 80);
-                for (size_t offset = 0; offset < display_len; offset += 16)
+                size_t num_copy_rows = (copy_len + 15) / 16;
+                s_copy_str.reserve(num_copy_rows * 80);
+                for (size_t offset = 0; offset < copy_len; offset += 16)
                 {
                     char line_buf[256];
-                    int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
-                    size_t chunk = std::min(static_cast<size_t>(16), display_len - offset);
+                    int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(copy_start + offset));
+                    size_t chunk = std::min(static_cast<size_t>(16), copy_len - offset);
                     for (size_t j = 0; j < 16; ++j)
                     {
                         if (j == 8)
@@ -187,7 +229,7 @@ namespace adam::gui
                         }
                         if (j < chunk)
                         {
-                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", data[offset + j]);
+                            printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", data[copy_start + offset + j]);
                         }
                         else
                         {
@@ -199,7 +241,7 @@ namespace adam::gui
                     line_buf[printed++] = '|';
                     for (size_t j = 0; j < chunk; ++j)
                     {
-                        char c = data[offset + j];
+                        char c = data[copy_start + offset + j];
                         line_buf[printed++] = (c >= 32 && c <= 126) ? c : '.';
                     }
                     line_buf[printed++] = '|';
@@ -220,6 +262,11 @@ namespace adam::gui
                     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
                 }
 
+                ImFont* font = ImGui::GetFont();
+                float font_size = ImGui::GetFontSize();
+                float char_w = ImGui::CalcTextSize("A").x;
+                float text_h = ImGui::GetTextLineHeight();
+
                 static constexpr const char* dummy_line = "0000:  00 11 22 33 44 55 66 77  88 99 AA BB CC DD EE FF   |0123456789ABCDEF|";
                 float text_w = ImGui::CalcTextSize(dummy_line).x;
                 float avail_w2 = ImGui::GetContentRegionAvail().x;
@@ -228,6 +275,25 @@ namespace adam::gui
                 {
                     offset_x = 4.0f * dpi_scale;
                 }
+
+                float header_w = char_w * 7.0f;
+                float byte_w = char_w * 3.0f;
+                float ascii_start_x = header_w + 16.0f * byte_w + char_w * 2.0f;
+
+                ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                ImVec2 mouse_pos = ImGui::GetMousePos();
+                bool is_window_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+                bool is_mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+                bool is_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+
+                ImU32 col_text     = ImGui::GetColorU32(ImGuiCol_Text);
+                ImU32 col_disabled = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+                ImU32 col_addr     = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+                ImU32 col_border   = ImGui::GetColorU32(ImGuiCol_Border);
+                ImU32 col_sel_bg   = ImGui::GetColorU32(ImVec4(0.26f, 0.59f, 0.98f, 0.45f));
+                ImU32 col_sel_text = col_text;
+
+                int hovered_byte_idx = -1;
 
                 ImGuiListClipper hex_clipper;
                 hex_clipper.Begin(static_cast<int>(num_rows), line_h);
@@ -238,166 +304,376 @@ namespace adam::gui
                         size_t offset = row * 16;
                         size_t chunk = std::min(static_cast<size_t>(16), display_len - offset);
 
-                        char line_buf[256];
-                        int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(offset));
+                        ImVec2 cursor_screen_pos = ImGui::GetCursorScreenPos();
+                        float row_x = cursor_screen_pos.x + offset_x;
+                        float row_y = cursor_screen_pos.y;
 
-                        for (size_t j = 0; j < 16; ++j)
+                        // Per-row hit testing
+                        if (is_window_hovered && mouse_pos.y >= row_y && mouse_pos.y < row_y + line_h)
                         {
-                            if (j == 8)
-                            {
-                                line_buf[printed++] = ' ';
-                            }
-                            if (j < chunk)
-                            {
-                                printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", data[offset + j]);
-                            }
-                            else
-                            {
-                                printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
-                            }
-                        }
-
-                        line_buf[printed++] = ' ';
-                        line_buf[printed++] = ' ';
-                        line_buf[printed++] = '|';
-
-                        for (size_t j = 0; j < chunk; ++j)
-                        {
-                            if (j < chunk)
-                            {
-                                char c = data[offset + j];
-                                if (c >= 32 && c <= 126)
-                                {
-                                    line_buf[printed++] = c;
-                                }
-                                else
-                                {
-                                    line_buf[printed++] = '.';
-                                }
-                            }
-                            else
-                            {
-                                line_buf[printed++] = ' ';
-                            }
-                        }
-                        line_buf[printed++] = '|';
-                        line_buf[printed] = '\0';
-
-                        ImGui::SetCursorPosX(offset_x);
-                        ImGui::TextUnformatted(line_buf);
-
-                        if (ImGui::IsItemHovered())
-                        {
-                            ImVec2 mouse_pos = ImGui::GetMousePos();
-                            ImVec2 item_min = ImGui::GetItemRectMin();
-                            float rel_x = mouse_pos.x - item_min.x;
-
-                            char header_buf[32];
-                            snprintf(header_buf, sizeof(header_buf), "%04X:  ", static_cast<unsigned int>(offset));
-                            float header_w = ImGui::CalcTextSize(header_buf).x;
-                            float byte_w = ImGui::CalcTextSize("00 ").x;
-                            float space_w = ImGui::CalcTextSize(" ").x;
-
-                            int hovered_byte = -1;
-                            if (rel_x >= header_w && rel_x < header_w + 16 * byte_w + space_w)
+                            float rel_x = mouse_pos.x - row_x;
+                            if (rel_x >= header_w && rel_x < header_w + 16.0f * byte_w + char_w)
                             {
                                 float hex_rel_x = rel_x - header_w;
-                                if (hex_rel_x >= 8 * byte_w)
+                                if (hex_rel_x >= 8.0f * byte_w)
                                 {
-                                    hex_rel_x -= space_w;
+                                    hex_rel_x -= char_w;
                                 }
                                 if (hex_rel_x >= 0.0f)
                                 {
-                                    hovered_byte = static_cast<int>(hex_rel_x / byte_w);
+                                    int byte_col = static_cast<int>(hex_rel_x / byte_w);
+                                    if (byte_col >= 0 && byte_col < static_cast<int>(chunk))
+                                    {
+                                        hovered_byte_idx = static_cast<int>(offset + byte_col);
+                                    }
                                 }
                             }
-                            else
+                            else if (rel_x >= ascii_start_x && rel_x < ascii_start_x + 16.0f * char_w)
                             {
-                                float ascii_start_x = header_w + 16 * byte_w + space_w + ImGui::CalcTextSize("  |").x;
-                                float char_w = ImGui::CalcTextSize("A").x;
-                                if (rel_x >= ascii_start_x && rel_x < ascii_start_x + 16 * char_w)
+                                int byte_col = static_cast<int>((rel_x - ascii_start_x) / char_w);
+                                if (byte_col >= 0 && byte_col < static_cast<int>(chunk))
                                 {
-                                    hovered_byte = static_cast<int>((rel_x - ascii_start_x) / char_w);
-                                }
-                            }
-
-                            if (hovered_byte >= 0 && hovered_byte < static_cast<int>(chunk))
-                            {
-                                size_t exact_offset = offset + hovered_byte;
-                                uint8_t byte_val = data[exact_offset];
-
-                                bool copy_requested = false;
-                                if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-                                {
-                                    copy_requested = true;
-                                }
-
-                                ImGui::BeginTooltip();
-                                ImGui::Text("Offset: 0x%04X (%zu)", static_cast<unsigned int>(exact_offset), exact_offset);
-                                ImGui::Separator();
-                                ImGui::Text("Hex:    0x%02X", byte_val);
-                                ImGui::Text("Dec:    %u", byte_val);
-                                ImGui::Text("Signed: %d", static_cast<int8_t>(byte_val));
-                                
-                                char bin_str[9];
-                                for (int b = 7; b >= 0; --b)
-                                {
-                                    bin_str[7 - b] = ((byte_val >> b) & 1) ? '1' : '0';
-                                }
-                                bin_str[8] = '\0';
-                                ImGui::Text("Bin:    0b%s", bin_str);
-                                
-                                if (byte_val >= 32 && byte_val <= 126)
-                                {
-                                    ImGui::Text("ASCII:  '%c'", byte_val);
-                                }
-                                else
-                                {
-                                    ImGui::Text("ASCII:  Non-printable");
-                                }
-
-                                if (exact_offset + 1 < display_len)
-                                {
-                                    uint16_t val_u16 = *reinterpret_cast<const uint16_t*>(data + exact_offset);
-                                    ImGui::Spacing();
-                                    ImGui::Text("Int16:  %d", static_cast<int16_t>(val_u16));
-                                    ImGui::Text("UInt16: %u", val_u16);
-                                }
-                                if (exact_offset + 3 < display_len)
-                                {
-                                    uint32_t val_u32 = *reinterpret_cast<const uint32_t*>(data + exact_offset);
-                                    float val_f32 = *reinterpret_cast<const float*>(data + exact_offset);
-                                    ImGui::Spacing();
-                                    ImGui::Text("Int32:  %d", static_cast<int32_t>(val_u32));
-                                    ImGui::Text("UInt32: %u", val_u32);
-                                    ImGui::Text("Float:  %g", val_f32);
-                                }
-                                if (exact_offset + 7 < display_len)
-                                {
-                                    uint64_t val_u64 = *reinterpret_cast<const uint64_t*>(data + exact_offset);
-                                    double val_f64 = *reinterpret_cast<const double*>(data + exact_offset);
-                                    ImGui::Spacing();
-                                    ImGui::Text("Int64:  %lld", static_cast<long long>(val_u64));
-                                    ImGui::Text("UInt64: %llu", static_cast<unsigned long long>(val_u64));
-                                    ImGui::Text("Double: %g", val_f64);
-                                }
-
-                                ImGui::EndTooltip();
-
-                                if (copy_requested)
-                                {
-                                    char byte_hex_str[8];
-                                    snprintf(byte_hex_str, sizeof(byte_hex_str), "%02X", byte_val);
-                                    ImGui::SetClipboardText(byte_hex_str);
+                                    hovered_byte_idx = static_cast<int>(offset + byte_col);
                                 }
                             }
                         }
+
+                        // 1. Address column
+                        char addr_buf[16];
+                        snprintf(addr_buf, sizeof(addr_buf), "%04X:  ", static_cast<unsigned int>(offset));
+                        draw_list->AddText(font, font_size, ImVec2(row_x, row_y), col_addr, addr_buf);
+
+                        // 2. Hex bytes
+                        for (size_t j = 0; j < 16; ++j)
+                        {
+                            float byte_pos_x = row_x + header_w + j * byte_w + (j >= 8 ? char_w : 0.0f);
+                            if (j < chunk)
+                            {
+                                size_t byte_idx = offset + j;
+                                uint8_t byte_val = data[byte_idx];
+                                bool selected = s_hex_sel.is_selected(actual_index, byte_idx);
+
+                                if (selected)
+                                {
+                                    ImVec2 b_min(byte_pos_x - char_w * 0.15f, row_y);
+                                    ImVec2 b_max(byte_pos_x + char_w * 2.15f, row_y + text_h);
+                                    draw_list->AddRectFilled(b_min, b_max, col_sel_bg, 2.0f * dpi_scale);
+                                }
+
+                                char byte_hex[4];
+                                snprintf(byte_hex, sizeof(byte_hex), "%02X", byte_val);
+                                ImU32 text_col = selected ? col_sel_text : (byte_val == 0 ? col_disabled : col_text);
+                                draw_list->AddText(font, font_size, ImVec2(byte_pos_x, row_y), text_col, byte_hex);
+                            }
+                        }
+
+                        // 3. ASCII column delimiters & characters
+                        draw_list->AddText(font, font_size, ImVec2(row_x + ascii_start_x - char_w, row_y), col_border, "|");
+
+                        for (size_t j = 0; j < chunk; ++j)
+                        {
+                            size_t byte_idx = offset + j;
+                            uint8_t byte_val = data[byte_idx];
+                            bool selected = s_hex_sel.is_selected(actual_index, byte_idx);
+                            float ascii_pos_x = row_x + ascii_start_x + j * char_w;
+
+                            if (selected)
+                            {
+                                ImVec2 a_min(ascii_pos_x, row_y);
+                                ImVec2 a_max(ascii_pos_x + char_w, row_y + text_h);
+                                draw_list->AddRectFilled(a_min, a_max, col_sel_bg, 2.0f * dpi_scale);
+                            }
+
+                            char c_str[2] = { (byte_val >= 32 && byte_val <= 126) ? static_cast<char>(byte_val) : '.', '\0' };
+                            ImU32 ascii_col = selected ? col_sel_text : (byte_val == 0 ? col_disabled : (byte_val >= 32 && byte_val <= 126 ? col_text : col_disabled));
+                            draw_list->AddText(font, font_size, ImVec2(ascii_pos_x, row_y), ascii_col, c_str);
+                        }
+
+                        draw_list->AddText(font, font_size, ImVec2(row_x + ascii_start_x + 16.0f * char_w, row_y), col_border, "|");
+
+                        ImGui::SetCursorPosX(offset_x);
+                        ImGui::Dummy(ImVec2(text_w, text_h));
                     }
                 }
 
                 if (ImGui::GetIO().Fonts->Fonts[1])
                 {
                     ImGui::PopFont();
+                }
+
+                // Selection state machine
+                if (is_clicked && is_window_hovered)
+                {
+                    if (hovered_byte_idx >= 0)
+                    {
+                        if (ImGui::GetIO().KeyShift && s_hex_sel.has_selection(actual_index))
+                        {
+                            s_hex_sel.end_idx = hovered_byte_idx;
+                        }
+                        else
+                        {
+                            s_hex_sel.buffer_id = actual_index;
+                            s_hex_sel.start_idx = hovered_byte_idx;
+                            s_hex_sel.end_idx   = hovered_byte_idx;
+                            s_hex_sel.is_dragging = true;
+                        }
+                    }
+                    else
+                    {
+                        s_hex_sel.buffer_id = -1;
+                        s_hex_sel.start_idx = -1;
+                        s_hex_sel.end_idx   = -1;
+                        s_hex_sel.is_dragging = false;
+                    }
+                }
+                else if (is_mouse_down && s_hex_sel.is_dragging && s_hex_sel.buffer_id == actual_index)
+                {
+                    if (hovered_byte_idx >= 0)
+                    {
+                        s_hex_sel.end_idx = hovered_byte_idx;
+                    }
+                }
+                else if (!is_mouse_down)
+                {
+                    s_hex_sel.is_dragging = false;
+                }
+
+                // Context menu & tooltip setup
+                struct context_range
+                {
+                    size_t offset = 0;
+                    size_t len    = 0;
+                };
+                static context_range s_ctx;
+
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && is_window_hovered)
+                {
+                    if (s_hex_sel.has_selection(actual_index))
+                    {
+                        size_t s_min, s_max;
+                        s_hex_sel.get_range(s_min, s_max);
+                        s_ctx.offset = s_min;
+                        s_ctx.len    = s_max - s_min + 1;
+                    }
+                    else if (hovered_byte_idx >= 0)
+                    {
+                        s_ctx.offset = static_cast<size_t>(hovered_byte_idx);
+                        s_ctx.len    = 1;
+                    }
+                    else
+                    {
+                        s_ctx.offset = 0;
+                        s_ctx.len    = display_len;
+                    }
+                    ImGui::OpenPopup("##hex_context_menu");
+                }
+
+                bool is_popup_open = ImGui::IsPopupOpen("##hex_context_menu");
+
+                auto push_mono = []()
+                {
+                    if (ImGui::GetIO().Fonts->Fonts[1])
+                    {
+                        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
+                    }
+                };
+                auto pop_mono = []()
+                {
+                    if (ImGui::GetIO().Fonts->Fonts[1])
+                    {
+                        ImGui::PopFont();
+                    }
+                };
+
+                // Context menu popup
+                if (ImGui::BeginPopup("##hex_context_menu"))
+                {
+                    size_t c_offset = s_ctx.offset;
+                    size_t c_len    = s_ctx.len;
+                    if (c_offset + c_len > display_len) c_len = display_len > c_offset ? display_len - c_offset : 0;
+
+                    if (c_len == 1)
+                    {
+                        uint8_t b_val = data[c_offset];
+                        ImGui::TextDisabled("Byte at 0x%04X (%zu)", static_cast<unsigned int>(c_offset), c_offset);
+                        ImGui::Separator();
+
+                        char h_str[8]; snprintf(h_str, sizeof(h_str), "%02X", b_val);
+                        if (ImGui::MenuItem("Copy Hex", h_str)) ImGui::SetClipboardText(h_str);
+
+                        char d_str[16]; snprintf(d_str, sizeof(d_str), "%u", b_val);
+                        if (ImGui::MenuItem("Copy Decimal (UInt8)", d_str)) ImGui::SetClipboardText(d_str);
+
+                        char s_str[16]; snprintf(s_str, sizeof(s_str), "%d", static_cast<int8_t>(b_val));
+                        if (ImGui::MenuItem("Copy Signed (Int8)", s_str)) ImGui::SetClipboardText(s_str);
+
+                        char bin_str[16];
+                        for (int b = 7; b >= 0; --b) bin_str[7 - b] = ((b_val >> b) & 1) ? '1' : '0';
+                        bin_str[8] = '\0';
+                        char bin_disp[20]; snprintf(bin_disp, sizeof(bin_disp), "0b%s", bin_str);
+                        if (ImGui::MenuItem("Copy Binary", bin_disp)) ImGui::SetClipboardText(bin_disp);
+
+                        char a_str[4]; snprintf(a_str, sizeof(a_str), "%c", (b_val >= 32 && b_val <= 126) ? static_cast<char>(b_val) : '.');
+                        if (ImGui::MenuItem("Copy ASCII", a_str)) ImGui::SetClipboardText(a_str);
+                    }
+                    else if (c_len > 1)
+                    {
+                        ImGui::TextDisabled("Selection: 0x%04X - 0x%04X (%zu bytes)", static_cast<unsigned int>(c_offset), static_cast<unsigned int>(c_offset + c_len - 1), c_len);
+                        ImGui::Separator();
+
+                        std::string h_copy;
+                        for (size_t k = 0; k < c_len; ++k)
+                        {
+                            char h[4]; snprintf(h, sizeof(h), "%02X ", data[c_offset + k]); h_copy += h;
+                        }
+                        if (!h_copy.empty()) h_copy.pop_back();
+
+                        std::string h_preview;
+                        size_t max_prev_h = std::min(c_len, size_t(8));
+                        for (size_t k = 0; k < max_prev_h; ++k)
+                        {
+                            char h[4]; snprintf(h, sizeof(h), "%02X ", data[c_offset + k]); h_preview += h;
+                        }
+                        if (c_len > 8) h_preview += "...";
+                        else if (!h_preview.empty()) h_preview.pop_back();
+                        if (ImGui::MenuItem("Copy Hex", h_preview.c_str())) ImGui::SetClipboardText(h_copy.c_str());
+
+                        std::string a_copy;
+                        for (size_t k = 0; k < c_len; ++k)
+                        {
+                            char c = data[c_offset + k]; a_copy += (c >= 32 && c <= 126) ? c : '.';
+                        }
+                        std::string a_preview = "\"" + (c_len > 16 ? a_copy.substr(0, 16) + "..." : a_copy) + "\"";
+                        if (ImGui::MenuItem("Copy ASCII", a_preview.c_str())) ImGui::SetClipboardText(a_copy.c_str());
+
+                        std::string b_copy;
+                        for (size_t k = 0; k < c_len; ++k)
+                        {
+                            uint8_t bv = data[c_offset + k];
+                            for (int b = 7; b >= 0; --b) b_copy += ((bv >> b) & 1) ? '1' : '0';
+                            b_copy += ' ';
+                        }
+                        if (!b_copy.empty()) b_copy.pop_back();
+
+                        std::string b_preview;
+                        size_t max_prev_b = std::min(c_len, size_t(4));
+                        for (size_t k = 0; k < max_prev_b; ++k)
+                        {
+                            uint8_t bv = data[c_offset + k];
+                            for (int b = 7; b >= 0; --b) b_preview += ((bv >> b) & 1) ? '1' : '0';
+                            b_preview += ' ';
+                        }
+                        if (c_len > 4) b_preview += "...";
+                        else if (!b_preview.empty()) b_preview.pop_back();
+                        if (ImGui::MenuItem("Copy Binary", b_preview.c_str())) ImGui::SetClipboardText(b_copy.c_str());
+
+                        if (c_len == 2)
+                        {
+                            uint16_t v_le; std::memcpy(&v_le, data + c_offset, 2);
+                            uint16_t v_be = (static_cast<uint16_t>(data[c_offset]) << 8) | data[c_offset + 1];
+
+                            ImGui::Separator();
+                            std::string s_le = std::to_string(static_cast<int16_t>(v_le));
+                            std::string s_be = std::to_string(static_cast<int16_t>(v_be));
+                            if (ImGui::MenuItem("Copy Int16 (LE)", s_le.c_str())) ImGui::SetClipboardText(s_le.c_str());
+                            if (ImGui::MenuItem("Copy Int16 (BE)", s_be.c_str())) ImGui::SetClipboardText(s_be.c_str());
+
+                            std::string u_le = std::to_string(v_le);
+                            std::string u_be = std::to_string(v_be);
+                            if (ImGui::MenuItem("Copy UInt16 (LE)", u_le.c_str())) ImGui::SetClipboardText(u_le.c_str());
+                            if (ImGui::MenuItem("Copy UInt16 (BE)", u_be.c_str())) ImGui::SetClipboardText(u_be.c_str());
+                        }
+                        else if (c_len == 4)
+                        {
+                            uint32_t v_le; float vf_le;
+                            std::memcpy(&v_le, data + c_offset, 4);
+                            std::memcpy(&vf_le, data + c_offset, 4);
+
+                            uint32_t v_be = (static_cast<uint32_t>(data[c_offset]) << 24) |
+                                            (static_cast<uint32_t>(data[c_offset + 1]) << 16) |
+                                            (static_cast<uint32_t>(data[c_offset + 2]) << 8) |
+                                            static_cast<uint32_t>(data[c_offset + 3]);
+                            uint32_t swapped_be = adam::swap_4(reinterpret_cast<const uint8_t*>(&v_le));
+                            float vf_be; std::memcpy(&vf_be, &swapped_be, 4);
+
+                            ImGui::Separator();
+                            std::string s_le = std::to_string(static_cast<int32_t>(v_le));
+                            std::string s_be = std::to_string(static_cast<int32_t>(v_be));
+                            if (ImGui::MenuItem("Copy Int32 (LE)", s_le.c_str())) ImGui::SetClipboardText(s_le.c_str());
+                            if (ImGui::MenuItem("Copy Int32 (BE)", s_be.c_str())) ImGui::SetClipboardText(s_be.c_str());
+
+                            std::string u_le = std::to_string(v_le);
+                            std::string u_be = std::to_string(v_be);
+                            if (ImGui::MenuItem("Copy UInt32 (LE)", u_le.c_str())) ImGui::SetClipboardText(u_le.c_str());
+                            if (ImGui::MenuItem("Copy UInt32 (BE)", u_be.c_str())) ImGui::SetClipboardText(u_be.c_str());
+
+                            char f_le_buf[32]; snprintf(f_le_buf, sizeof(f_le_buf), "%g", vf_le);
+                            char f_be_buf[32]; snprintf(f_be_buf, sizeof(f_be_buf), "%g", vf_be);
+                            if (ImGui::MenuItem("Copy Float (LE)", f_le_buf)) ImGui::SetClipboardText(f_le_buf);
+                            if (ImGui::MenuItem("Copy Float (BE)", f_be_buf)) ImGui::SetClipboardText(f_be_buf);
+                        }
+                        else if (c_len >= 8)
+                        {
+                            uint64_t v_le; double vd_le;
+                            std::memcpy(&v_le, data + c_offset, 8);
+                            std::memcpy(&vd_le, data + c_offset, 8);
+
+                            uint64_t v_be = 0;
+                            for (int k = 0; k < 8; ++k) v_be = (v_be << 8) | data[c_offset + k];
+                            uint64_t swapped_be = adam::swap_8(reinterpret_cast<const uint8_t*>(&v_le));
+                            double vd_be; std::memcpy(&vd_be, &swapped_be, 8);
+
+                            ImGui::Separator();
+                            std::string s_le = std::to_string(static_cast<long long>(v_le));
+                            std::string s_be = std::to_string(static_cast<long long>(v_be));
+                            if (ImGui::MenuItem("Copy Int64 (LE)", s_le.c_str())) ImGui::SetClipboardText(s_le.c_str());
+                            if (ImGui::MenuItem("Copy Int64 (BE)", s_be.c_str())) ImGui::SetClipboardText(s_be.c_str());
+
+                            std::string u_le = std::to_string(v_le);
+                            std::string u_be = std::to_string(v_be);
+                            if (ImGui::MenuItem("Copy UInt64 (LE)", u_le.c_str())) ImGui::SetClipboardText(u_le.c_str());
+                            if (ImGui::MenuItem("Copy UInt64 (BE)", u_be.c_str())) ImGui::SetClipboardText(u_be.c_str());
+
+                            char d_le_buf[32]; snprintf(d_le_buf, sizeof(d_le_buf), "%g", vd_le);
+                            char d_be_buf[32]; snprintf(d_be_buf, sizeof(d_be_buf), "%g", vd_be);
+                            if (ImGui::MenuItem("Copy Double (LE)", d_le_buf)) ImGui::SetClipboardText(d_le_buf);
+                            if (ImGui::MenuItem("Copy Double (BE)", d_be_buf)) ImGui::SetClipboardText(d_be_buf);
+                        }
+
+                        ImGui::Separator();
+                        if (ImGui::MenuItem("Copy Formatted Hex Dump"))
+                        {
+                            std::string s_dump;
+                            size_t num_copy_rows = (c_len + 15) / 16;
+                            s_dump.reserve(num_copy_rows * 80);
+                            for (size_t offset = 0; offset < c_len; offset += 16)
+                            {
+                                char line_buf[256];
+                                int printed = snprintf(line_buf, sizeof(line_buf), "%04X:  ", static_cast<unsigned int>(c_offset + offset));
+                                size_t chunk = std::min(static_cast<size_t>(16), c_len - offset);
+                                for (size_t j = 0; j < 16; ++j)
+                                {
+                                    if (j == 8) line_buf[printed++] = ' ';
+                                    if (j < chunk) printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "%02X ", data[c_offset + offset + j]);
+                                    else printed += snprintf(line_buf + printed, sizeof(line_buf) - printed, "   ");
+                                }
+                                line_buf[printed++] = ' ';
+                                line_buf[printed++] = ' ';
+                                line_buf[printed++] = '|';
+                                for (size_t j = 0; j < chunk; ++j)
+                                {
+                                    char c = data[c_offset + offset + j];
+                                    line_buf[printed++] = (c >= 32 && c <= 126) ? c : '.';
+                                }
+                                line_buf[printed++] = '|';
+                                line_buf[printed++] = '\n';
+                                line_buf[printed] = '\0';
+                                s_dump += line_buf;
+                            }
+                            ImGui::SetClipboardText(s_dump.c_str());
+                        }
+                    }
+                    ImGui::EndPopup();
                 }
             }
             ImGui::EndChild();

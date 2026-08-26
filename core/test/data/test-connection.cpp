@@ -316,6 +316,82 @@ TEST_F(connection_test, connection_output_inspector_receives_data)
     out_port.stop();
 }
 
+TEST_F(connection_test, connection_input_inspector_receives_cloned_buffer_isolated_from_processors)
+{
+    class mutating_filter_processor : public adam::processor
+    {
+    public:
+        mutating_filter_processor(const adam::string_hashed& name) : adam::processor(name) {}
+        const adam::string_hashed_ct& get_type_name() const override { static adam::string_hashed_ct type = "mutating_filter"_ct; return type; }
+
+        bool handle_data(adam::buffer*& buf) override
+        {
+            if (!buf) return false;
+            // Mutate in-place to simulate in-place filtering
+            std::memset(buf->begin(), 0xFF, buf->get_size());
+            // Filter out / drop
+            return false;
+        }
+    };
+
+    test_port in_port("in_port"_ct);
+    in_port.start();
+
+    test_port out_port("out_port"_ct);
+    out_port.start();
+
+    mutating_filter_processor proc("mut_filter"_ct);
+
+    adam::connection conn("conn"_ct);
+    conn.ports_input().push_back(&in_port);
+    conn.processors().push_back(&proc);
+    conn.ports_output().push_back(&out_port);
+
+    EXPECT_TRUE(conn.check_valid_chain());
+    EXPECT_TRUE(conn.start());
+
+    std::atomic<int> callback_count = 0;
+    std::vector<uint8_t> captured_data;
+    auto inspector = std::make_shared<adam::data_inspector>();
+    EXPECT_TRUE(inspector->create("conn"_ct.get_hash() ^ adam::string_hashed_ct("input").get_hash()));
+    EXPECT_TRUE(inspector->start_inspecting([&callback_count, &captured_data](adam::buffer* inspected_buf)
+    {
+        if (inspected_buf)
+        {
+            const auto* data = inspected_buf->get_begin_as<uint8_t>();
+            captured_data.assign(data, data + inspected_buf->get_size());
+        }
+        callback_count++;
+    }));
+
+    conn.inspectors_input().push_back(inspector);
+
+    adam::buffer* buf = adam::buffer_manager::get().request_buffer(512);
+    uint8_t initial_bytes[] = { 0x11, 0x22, 0x33, 0x44 };
+    std::memcpy(buf->begin(), initial_bytes, sizeof(initial_bytes));
+    buf->set_size(sizeof(initial_bytes));
+
+    // Connection should return false because processor dropped the frame
+    EXPECT_FALSE(conn.handle_data(buf));
+
+    // Allow inspector thread to process
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    EXPECT_EQ(callback_count.load(), 1);
+    ASSERT_EQ(captured_data.size(), sizeof(initial_bytes));
+    // Verify inspector received the original unmutated data (not 0xFF)
+    EXPECT_EQ(std::memcmp(captured_data.data(), initial_bytes, sizeof(initial_bytes)), 0);
+
+    // Output port must not have received anything
+    auto* stats = out_port.get_state_buffer()->data_as<adam::port::state_buffer_data>();
+    EXPECT_EQ(stats->total_buffers_recieved, 0u);
+
+    buf->release();
+    inspector->destroy();
+    in_port.stop();
+    out_port.stop();
+}
+
 TEST_F(connection_test, connection_format_runtime_change_dataflow)
 {
     adam::data_format formatA("formatA"_ct, &counting_mock_parser_A_factory, &mock_encoder_factory);

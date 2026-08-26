@@ -3,6 +3,7 @@
 #include "data/format-asterix.hpp"
 #include "module/internals/essential/module-essential.hpp"
 #include "module/module-asterix.hpp"
+#include "data/asterix-internal.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
 
@@ -56,8 +57,7 @@ namespace adam::modules::asterix
 
     void category_filter::update_parsed_cats()
     {
-        if (m_last_cats_hash == m_cats_param->get_value())
-            return;
+        if (m_last_cats_hash == m_cats_param->get_value()) return;
 
         m_last_cats_hash = m_cats_param->get_value();
         std::string current_cats_str = std::string(m_last_cats_hash);
@@ -80,116 +80,63 @@ namespace adam::modules::asterix
     {
         if (!buf) return false;
 
+        auto* root_frame = buf->begin_as<frame>();
+        if (!root_frame) return false;
+
         update_parsed_cats();
 
         const bool is_whitelist = (m_mode_param->get_value() == "whitelist"_ct);
 
-        const uint8_t* current = buf->get_begin_as<uint8_t>();
-        const uint8_t* end = current + buf->get_size();
-
-        uint32_t message_count = 0;
-        uint32_t kept_count = 0;
-        uint32_t kept_bytes = 0;
-        uint32_t discarded_bytes = 0;
-
-        const uint8_t* first_kept_ptr = nullptr;
-        const uint8_t* last_kept_ptr = nullptr;
-        uint32_t last_kept_len = 0;
-
-        /*while (current + sizeof(asterix_category) <= end)
+        auto* stats = get_state_buffer_data();
+        if (stats)
         {
-            const asterix_category* msg = reinterpret_cast<const asterix_category*>(current);
-            uint8_t len = msg->get_length();
-            if (current + len > end) break;
+            stats->total_buffers_recieved++;
+            stats->total_bytes_recieved += buf->get_size();
+        }
 
-            uint32_t id = msg->get_id();
-            bool contains = (m_parsed_cats.find(id) != m_parsed_cats.end());
+        uint32_t total_blocks = 0;
+        uint32_t kept_blocks = 0;
+        uint32_t removed_blocks = 0;
 
-            if ((is_whitelist && contains) || (!is_whitelist && !contains))
+        for (auto& blk : *root_frame)
+        {
+            if (blk.is_removed()) continue;
+
+            total_blocks++;
+            const bool match = (m_parsed_cats.find(blk.category) != m_parsed_cats.end());
+            const bool keep  = is_whitelist ? match : !match;
+
+            if (keep)
             {
-                if (!first_kept_ptr) first_kept_ptr = current;
-                last_kept_ptr = current;
-                last_kept_len = len;
-                kept_count++;
-                kept_bytes += len;
+                kept_blocks++;
             }
             else
             {
-                discarded_bytes += len;
+                blk.set_removed(true);
+                removed_blocks++;
             }
-
-            message_count++;
-            current += len;
-        }*/
-
-        auto* stats = get_state_buffer_data();
-        stats->total_buffers_recieved++;
-        stats->total_bytes_recieved += buf->get_size();
-
-        if (kept_count == 0)
-        {
-            stats->total_buffers_discarded++;
-            stats->total_bytes_discarded += buf->get_size();
-
-            return false; 
         }
 
-        if (kept_count == message_count)
+        if (kept_blocks == 0)
+        {
+            if (stats)
+            {
+                stats->total_buffers_discarded++;
+                stats->total_bytes_discarded += buf->get_size();
+            }
+            return false;
+        }
+
+        if (removed_blocks > 0)
+        {
+            root_frame->set_modified(true);
+        }
+
+        if (stats)
         {
             stats->total_buffers_forwarded++;
             stats->total_bytes_forwarded += buf->get_size();
-            return true;
         }
-
-        stats->total_bytes_discarded += discarded_bytes;
-
-        uint32_t contiguous_kept_size = static_cast<uint32_t>((last_kept_ptr + last_kept_len) - first_kept_ptr);
-        if (kept_bytes == contiguous_kept_size)
-        {
-            uint32_t offset = static_cast<uint32_t>(first_kept_ptr - buf->get_begin_as<uint8_t>());
-            buf->move_start_pos(offset);
-            buf->set_size(kept_bytes);
-            stats->total_buffers_forwarded++;
-            stats->total_bytes_forwarded += kept_bytes;
-            return true;
-        }
-
-        auto new_size = kept_bytes;
-        buffer* new_buf = buffer_manager::get().request_buffer(new_size);
-        if (!new_buf)
-            return true;
-
-        new_buf->set_timestamp(buf->get_timestamp());
-        new_buf->set_data_format(buf->get_data_format());
-        new_buf->set_start_pos(0);
-        new_buf->set_size(new_size);
-
-        uint8_t* write_ptr = new_buf->begin_as<uint8_t>();
-        current = buf->get_begin_as<uint8_t>();
-        
-        /*while (current + sizeof(asterix_category) <= end)
-        {
-            const asterix_category* msg = reinterpret_cast<const asterix_category*>(current);
-            uint8_t len = msg->get_length();
-            if (current + len > end) break;
-
-            uint32_t id = msg->get_id();
-            bool contains = (m_parsed_cats.find(id) != m_parsed_cats.end());
-
-            if ((is_whitelist && contains) || (!is_whitelist && !contains))
-            {
-                std::memcpy(write_ptr, current, len);
-                write_ptr += len;
-            }
-            
-            current += len;
-        }*/
-
-        buf->release();
-        buf = new_buf;
-
-        stats->total_buffers_forwarded++;
-        stats->total_bytes_forwarded += kept_bytes;
 
         return true;
     }

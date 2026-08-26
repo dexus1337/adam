@@ -234,6 +234,7 @@ namespace adam::modules::asterix
         if (!frm->is_modified() && ref_buf)
         {
             buf = ref_buf;
+            buf->add_ref();
             return true;
         }
 
@@ -243,54 +244,50 @@ namespace adam::modules::asterix
 
         uint32_t out_offset = 0;
 
-        for (uint16_t b = 0; b < frm->block_count; ++b)
+        for (const auto& blk : *frm)
         {
-            const block* blk = frm->get_block(b);
-            if (!blk) continue;
+            if (blk.is_removed()) continue;
 
-            if (!blk->is_modified() && ref_buf)
+            if (!blk.is_modified() && ref_buf)
             {
                 // Fast path: copy entire unmodified block
-                buf->fill_data(ref_buf->get_at<uint8_t>(blk->raw_offset), blk->raw_length, out_offset);
-                out_offset += blk->raw_length;
+                buf->fill_data(ref_buf->get_at<uint8_t>(blk.raw_offset), blk.raw_length, out_offset);
+                out_offset += blk.raw_length;
+                continue;
             }
-            else
+
+            // Write Block Header
+            uint32_t block_start_offset = out_offset;
+
+            // Write Category
+            buf->fill_data(&blk.category, 1, out_offset);
+            out_offset += 1;
+
+            // Write placeholder for length (2 bytes)
+            uint16_t zero_len = 0;
+            buf->fill_data(&zero_len, 2, out_offset);
+            out_offset += 2;
+
+            // Write records
+            for (const auto& rec : blk)
             {
-                // Write Block Header
-                uint32_t block_start_offset = out_offset;
+                if (rec.is_removed()) continue;
 
-                // Write Category
-                buf->fill_data(&blk->category, 1, out_offset);
-                out_offset += 1;
-
-                // Write placeholder for length (2 bytes)
-                uint16_t zero_len = 0;
-                buf->fill_data(&zero_len, 2, out_offset);
-                out_offset += 2;
-
-                // Write records
-                for (uint16_t r = 0; r < blk->record_count; ++r)
+                if (!rec.is_modified() && ref_buf)
                 {
-                    const record* rec = blk->get_record(r);
-                    if (!rec) continue;
-
-                    if (!rec->is_modified() && ref_buf)
-                    {
-                        // Fast path: copy entire unmodified record
-                        buf->fill_data(ref_buf->get_at<uint8_t>(rec->raw_offset), rec->raw_length, out_offset);
-                        out_offset += rec->raw_length;
-                    }
-                    else
-                    {
-                        encode_record(buf, out_offset, rec, ref_buf);
-                    }
+                    // Fast path: copy entire unmodified record
+                    buf->fill_data(ref_buf->get_at<uint8_t>(rec.raw_offset), rec.raw_length, out_offset);
+                    out_offset += rec.raw_length;
+                    continue;
                 }
 
-                // Update final block length in big-endian
-                uint16_t block_len = static_cast<uint16_t>(out_offset - block_start_offset);
-                uint16_t be_block_len = adam::swap_2(reinterpret_cast<const uint8_t*>(&block_len));
-                buf->fill_data(&be_block_len, 2, block_start_offset + 1);
+                encode_record(buf, out_offset, &rec, ref_buf);
             }
+
+            // Update final block length in big-endian
+            uint16_t block_len = static_cast<uint16_t>(out_offset - block_start_offset);
+            uint16_t be_block_len = adam::swap_2(reinterpret_cast<const uint8_t*>(&block_len));
+            buf->fill_data(&be_block_len, 2, block_start_offset + 1);
         }
 
         buf->set_size(out_offset);

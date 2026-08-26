@@ -89,9 +89,15 @@ TEST_F(iterator_test_record_item, iterator_traits)
 {
     using Itr = record::item_iterator;
     static_assert(std::is_same_v<Itr::iterator_category, std::forward_iterator_tag>);
-    static_assert(std::is_same_v<Itr::value_type,        const item>);
-    static_assert(std::is_same_v<Itr::pointer,           const item*>);
-    static_assert(std::is_same_v<Itr::reference,         const item&>);
+    static_assert(std::is_same_v<Itr::value_type,        item>);
+    static_assert(std::is_same_v<Itr::pointer,           item*>);
+    static_assert(std::is_same_v<Itr::reference,         item&>);
+
+    using ConstItr = record::const_item_iterator;
+    static_assert(std::is_same_v<ConstItr::iterator_category, std::forward_iterator_tag>);
+    static_assert(std::is_same_v<ConstItr::value_type,        item>);
+    static_assert(std::is_same_v<ConstItr::pointer,           const item*>);
+    static_assert(std::is_same_v<ConstItr::reference,         const item&>);
     SUCCEED(); // compile-time checks passed
 }
 
