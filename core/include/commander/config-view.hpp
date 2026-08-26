@@ -2,7 +2,7 @@
 
 /**
  * @file    config-view.hpp
- * @author  Antigravity
+ * @author  dexus1337
  * @brief   Defines a view for configurations in the commander.
  */
 

@@ -31,12 +31,11 @@ namespace adam::modules::recrep
         #pragma pack(pop)
 
         static ADAM_CONSTEXPR const char* time_format_string = "%m/%d/%y %H:%M:%S"; // MM/dd/yy hh:mm:ss
-        using time_string        = text_field<19>;
-        using ref_name_string    = text_field<12>;
-        using user_string        = text_field<11>;
-        using system_id_string   = text_field<5>;
-        using data_source_string = text_field<16>;
-        using interface_string   = text_field<5>;
+        using time_string           = text_field<19>;
+        using ref_file_string       = text_field<12>;
+        using system_id_string      = text_field<5>;
+        using interface_name_string = text_field<16>;
+        using interface_id_string   = text_field<5>;
 
         ADAM_RECREP_API time_string to_time_string(const std::tm& tm_val);
         ADAM_RECREP_API std::tm     from_time_string(const time_string& ts);
@@ -57,25 +56,29 @@ namespace adam::modules::recrep
         {
             static ADAM_CONSTEXPR uint32_t magic_number = 0x20464652u; //52 46 46 20 -> "RFF "
 
-            time_string         time_start          = time_string();
-            time_string         time_end            = time_string();
-            ref_name_string     ref_name            = ref_name_string();
-            version_string      version             = version_string();
-            user_string         user                = user_string();
-            uint32_t            file_size_bytes     = 0;
-            char                reserved_0[6]       = {};
-            uint32_t            magic               = magic_number;
-            char                reserved_1[4]       = {};
-            uint8_t             file_format         = 2;
-            uint8_t             data_format         = 0;
-            system_id_string    system_id           = system_id_string();
-            uint8_t             unit_id             = 0;
-            uint8_t             interface_type      = 0;
-            data_source_string  data_source         = data_source_string();
-            interface_string    interface           = interface_string();
-            uint8_t             protocol            = 0;
-            uint16_t            channel_id          = 0;
-            int32_t             speed               = 0;
+            time_string             time_start          = time_string();
+            time_string             time_end            = time_string();
+            ref_file_string         ref_file            = ref_file_string();
+            version_string          version             = version_string();
+            uint8_t                 error_logging       = false;
+            uint16_t                num_errors          = 0;
+            uint8_t                 orig_file_format    = 0;
+            uint32_t                latest_record       = 0;
+            uint32_t                oldest_record       = 0;
+            uint32_t                file_size_bytes     = 0;
+            char                    reserved_0[6]       = {};
+            uint32_t                magic               = magic_number;
+            char                    reserved_1[4]       = {};
+            uint8_t                 recording_format    = 2;
+            uint8_t                 data_format         = 0;
+            system_id_string        system_id           = system_id_string();
+            uint8_t                 unit_id             = 0;
+            uint8_t                 interface_type      = 0;
+            interface_name_string   interface_name      = interface_name_string();
+            interface_id_string     interface_id        = interface_id_string();
+            uint8_t                 protocol            = 0;
+            uint16_t                channel_id          = 0;
+            int32_t                 speed               = 0;
         };
         #pragma pack(pop)
         static_assert(sizeof(file_header) == 128, "rff::file_header size is not 128 bytes");

@@ -2,7 +2,7 @@
 
 /**
  * @file    can-message-filter.hpp
- * @author  Antigravity
+ * @author  dexus1337
  * @brief   Defines a filter that includes or excludes CAN messages based on their ID.
  * @version 1.0
  * @date    19.07.2026

@@ -4,6 +4,7 @@
 #include "data/format-asterix.hpp"
 #include "data/converters/asterix-to-text-converter.hpp"
 #include "data/filters/asterix-sac-sic-replacer.hpp"
+#include "data/filters/asterix-category-filter.hpp"
 #include "data/asterix-parser.hpp"
 #include "data/asterix-encoder.hpp"
 
@@ -11,10 +12,11 @@ namespace adam::modules::asterix
 {
     static module_asterix global_instance = adam::modules::asterix::module_asterix();
 
-    static default_factory<processor, to_text_converter>    to_text_converter_factory = default_factory<processor, to_text_converter>();
-    static default_factory<processor, sac_sic_replacer>     sac_sic_filter_factory    = default_factory<processor, sac_sic_replacer>();
-    static default_factory<parser, asterix_parser>          asterix_parser_factory    = default_factory<parser, asterix_parser>();
-    static default_factory<encoder, asterix_encoder>        asterix_encoder_factory   = default_factory<encoder, asterix_encoder>();
+    static default_factory<processor,   category_filter>    category_filter_factory     = default_factory<processor,  category_filter>();
+    static default_factory<processor,   to_text_converter>  to_text_converter_factory   = default_factory<processor,  to_text_converter>();
+    static default_factory<processor,   sac_sic_replacer>   sac_sic_filter_factory      = default_factory<processor,  sac_sic_replacer>();
+    static default_factory<parser,      asterix_parser>     asterix_parser_factory      = default_factory<parser,     asterix_parser>();
+    static default_factory<encoder,     asterix_encoder>    asterix_encoder_factory     = default_factory<encoder,    asterix_encoder>();
 
     module_asterix::module_asterix() : module("asterix", version)
     {
@@ -40,6 +42,12 @@ namespace adam::modules::asterix
                         "Dies ist ein binäres Datenformat für den Austausch von Flugsicherungsdaten.");
 
         // Export the factory for the controller to dynamically create this port type!
+        m_processor_factories.emplace
+        (
+            category_filter::type_name(), 
+            registry::factory_data_processor(&category_filter_factory, &category_filter::get_user_parameters(), data_format_asterix.get_name(), this->get_name(), data_format_asterix.get_name(), this->get_name())
+        );
+
         m_processor_factories.emplace
         (
             to_text_converter::type_name(), 

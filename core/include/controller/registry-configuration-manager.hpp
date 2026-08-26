@@ -2,7 +2,7 @@
 
 /**
  * @file    registry-configuration-manager.hpp
- * @author  Antigravity
+ * @author  dexus1337
  * @brief   Defines a manager for handling portable configurations within the ADAM system.
  */
 
