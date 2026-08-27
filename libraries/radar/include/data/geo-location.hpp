@@ -18,19 +18,17 @@ namespace adam::lib::radar
         geo_location(const adam::string_hashed& item_name, const adam::configuration_parameter_list& child_params = adam::configuration_parameter_list());
         virtual ~geo_location() = default;
 
-        float get_lat() const;
-        float get_lon() const;
-        const adam::string_hashed& get_label() const; 
+        inline float                      get_lat()   const { return static_cast<float>(m_p_lat->get_value()); }
+        inline float                      get_lon()   const { return static_cast<float>(m_p_lon->get_value()); }
+        inline const adam::string_hashed& get_label() const { return m_p_name->get_value(); }
 
-        void set_lat(float lat);
-        void set_lon(float lon);
-        void set_label(const adam::string_hashed& name);
+        inline void                       set_lat(float lat)                         { m_p_lat->set_value(static_cast<double>(lat)); }
+        inline void                       set_lon(float lon)                         { m_p_lon->set_value(static_cast<double>(lon)); }
+        inline void                       set_label(const adam::string_hashed& name) { m_p_name->set_value(name); }
 
     protected:
-        void cache_geo_parameters();
-
-        adam::configuration_parameter_double* m_p_lat = nullptr;
-        adam::configuration_parameter_double* m_p_lon = nullptr;
+        adam::configuration_parameter_double* m_p_lat  = nullptr;
+        adam::configuration_parameter_double* m_p_lon  = nullptr;
         adam::configuration_parameter_string* m_p_name = nullptr;
     };
 }

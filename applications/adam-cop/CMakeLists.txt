@@ -37,6 +37,7 @@ target_include_directories(adam-cop PRIVATE
     "${imgui_dir}"
     "${imgui_dir}/backends"
     "../../libraries/radar/include"
+    "../../modules/asterix/include"
 )
 
 target_link_libraries(adam-cop PRIVATE

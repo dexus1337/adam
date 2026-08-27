@@ -12,3 +12,5 @@
 
 #include "data/geo-location.hpp"
 #include "data/site.hpp"
+
+#include "multi-sensor-tracker/multi-sensor-tracker.hpp"

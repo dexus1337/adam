@@ -62,6 +62,7 @@
 #include "types/queue-shared.hpp"
 #include "types/queue-shared-duplex.hpp"
 #include "types/vector-double-buffer.hpp"
+#include "types/map-double-buffer.hpp"
 #include "version/version.hpp"
 #include "logger/log.hpp"
 #include "logger/logger.hpp"

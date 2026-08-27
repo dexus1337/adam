@@ -144,7 +144,7 @@ namespace adam::cop
         return { lat, lon };
     }
 
-    void world_map::draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const std::vector<std::unique_ptr<site>>& sites, const char* add_waypoint_text)
+    void world_map::draw(const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<waypoint>>& waypoints, const std::vector<std::unique_ptr<drawable_site>>& sites, const char* add_waypoint_text)
     {
         m_tile_engine.update();
 
@@ -668,7 +668,7 @@ namespace adam::cop
         }
     }
 
-    void world_map::render_sites(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<site>>& sites)
+    void world_map::render_sites(ImDrawList* draw_list, const ImVec2& pos, const ImVec2& size, const map_render_options& options, const std::vector<std::unique_ptr<drawable_site>>& sites)
     {
         for (const auto& s : sites)
         {
@@ -717,6 +717,35 @@ namespace adam::cop
                             draw_list->AddLine(screen_pt, line_end, col_sector_line, 1.0f);
                         }
                     }
+
+                    // Display active antenna rotation sweep beam & phosphor trail
+                    if (s->has_live_rotation())
+                    {
+                        float az_rad = static_cast<float>(s->get_current_azimuth_deg() * 0.017453292519943295) - 1.57079632679f;
+                        
+                        // Phosphor trail wedge (trailing 25 degrees)
+                        constexpr int trail_segments = 10;
+                        constexpr float trail_span_rad = 25.0f * 0.017453292519943295f;
+                        float seg_step = trail_span_rad / static_cast<float>(trail_segments);
+
+                        for (int i = 0; i < trail_segments; ++i)
+                        {
+                            float a0 = az_rad - static_cast<float>(i + 1) * seg_step;
+                            float a1 = az_rad - static_cast<float>(i) * seg_step;
+                            float trail_factor = 1.0f - (static_cast<float>(i) / static_cast<float>(trail_segments));
+                            int alpha = static_cast<int>(trail_factor * trail_factor * 90.0f);
+                            ImU32 col_trail = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, alpha);
+
+                            ImVec2 p0(screen_pt.x + std::cos(a0) * radius_px, screen_pt.y + std::sin(a0) * radius_px);
+                            ImVec2 p1(screen_pt.x + std::cos(a1) * radius_px, screen_pt.y + std::sin(a1) * radius_px);
+                            draw_list->AddTriangleFilled(screen_pt, p0, p1, col_trail);
+                        }
+
+                        // Main antenna sweep line
+                        ImVec2 beam_end(screen_pt.x + std::cos(az_rad) * radius_px, screen_pt.y + std::sin(az_rad) * radius_px);
+                        draw_list->AddLine(screen_pt, beam_end, col_primary, 1.8f);
+                        draw_list->AddCircleFilled(beam_end, 2.5f, col_primary);
+                    }
                 }
             }
 
@@ -743,8 +772,23 @@ namespace adam::cop
             draw_list->AddQuad(p_top, p_right, p_bottom, p_left, col_primary, 1.8f);
 
             // Label Callout
-            char badge[128];
-            snprintf(badge, sizeof(badge), "%s (SAC:%llu SIC:%llu)", s->get_label().c_str(), static_cast<unsigned long long>(s->get_sac()), static_cast<unsigned long long>(s->get_sic()));
+            char badge[192];
+            if (s->has_live_rotation())
+            {
+                snprintf(badge, sizeof(badge), "%s [%llu/%llu] Az:%.1f° (%.1f RPM)",
+                         s->get_label().c_str(),
+                         static_cast<unsigned long long>(s->get_sac()),
+                         static_cast<unsigned long long>(s->get_sic()),
+                         s->get_current_azimuth_deg(),
+                         s->get_rotation_rpm());
+            }
+            else
+            {
+                snprintf(badge, sizeof(badge), "%s (SAC:%llu SIC:%llu)",
+                         s->get_label().c_str(),
+                         static_cast<unsigned long long>(s->get_sac()),
+                         static_cast<unsigned long long>(s->get_sic()));
+            }
 
             ImVec2 label_size = ImGui::CalcTextSize(badge);
             float box_w = label_size.x + 12.0f;

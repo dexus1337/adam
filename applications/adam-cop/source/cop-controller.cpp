@@ -7,6 +7,10 @@
  */
 
 #include "cop-controller.hpp"
+#include <fstream>
+#include <data/asterix-internal.hpp>
+#include <data/asterix-types.hpp>
+#include <data/categories/034/cat034-structs.hpp>
 
 using namespace adam::string_hashed_ct_literals;
 
@@ -81,16 +85,12 @@ namespace adam::cop
         , m_p_waypoints_list(get_parameter<configuration_parameter_list_sorted>("waypoints"_ct))
         , m_p_sites_list(get_parameter<configuration_parameter_list_sorted>("sites"_ct))
     {
-        load("adam-cop-config.adamcopcfg");
-        load_waypoints_from_config();
-        load_sites_from_config();
+        load();
     }
 
     cop_controller::~cop_controller()
     {
-        sync_waypoints_to_config();
-        sync_sites_to_config();
-        save("adam-cop-config.adamcopcfg");
+        save();
         stop();
     }
 
@@ -124,19 +124,19 @@ namespace adam::cop
 
     std::vector<log_entry> cop_controller::get_log_history() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        adam::spinlock::guard lock(m_lock);
         return m_log_history;
     }
 
     bool cop_controller::is_log_history_empty() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        adam::spinlock::guard lock(m_lock);
         return m_log_history.empty();
     }
 
     void cop_controller::clear_log_history()
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        adam::spinlock::guard lock(m_lock);
         m_log_history.clear();
     }
 
@@ -162,14 +162,20 @@ namespace adam::cop
             return;
         }
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        adam::spinlock::guard lock(m_lock);
         m_deferred_commander_actions.push_back(std::move(action));
     }
 
     void cop_controller::add_waypoint(std::unique_ptr<waypoint> wp)
     {
+        if (!wp)
+        {
+            return;
+        }
+
         m_waypoints.push_back(std::move(wp));
-        save_config();
+        save();
+        request_redraw();
     }
 
     void cop_controller::remove_waypoint(adam::string_hash item_hash)
@@ -182,104 +188,52 @@ namespace adam::cop
         if (it != m_waypoints.end())
         {
             m_waypoints.erase(it);
-            save_config();
+            save();
+            request_redraw();
         }
     }
 
     void cop_controller::clear_waypoints()
     {
         m_waypoints.clear();
-        sync_waypoints_to_config();
-        save_config();
+        save();
+        request_redraw();
     }
 
-    void cop_controller::save_config()
-    {
-        sync_waypoints_to_config();
-        sync_sites_to_config();
-        save("adam-cop-config.adamcopcfg");
-    }
-
-    void cop_controller::load_waypoints_from_config()
-    {
-        m_waypoints.clear();
-        if (!m_p_waypoints_list)
-        {
-            return;
-        }
-
-        for (const auto& hash : m_p_waypoints_list->get_order())
-        {
-            auto* p = m_p_waypoints_list->get<configuration_parameter_list>(hash);
-            if (!p)
-            {
-                continue;
-            }
-
-            auto wp = std::make_unique<waypoint>(p->get_name());
-            wp->parameters().copy_values_from(p);
-            m_waypoints.push_back(std::move(wp));
-        }
-    }
-
-    void cop_controller::sync_waypoints_to_config()
-    {
-        if (!m_p_waypoints_list)
-        {
-            return;
-        }
-
-        m_p_waypoints_list->clear();
-        uint32_t wp_id = 0;
-        for (const auto& wp : m_waypoints)
-        {
-            if (!wp)
-            {
-                continue;
-            }
-
-            auto p = wp->get_parameters().clone();
-            
-            char id_str[128];
-            snprintf(id_str, sizeof(id_str), "wp_%u_%f_%f", ++wp_id, wp->get_lat(), wp->get_lon());
-            p->set_name(adam::string_hashed(&id_str[0]));
-            
-            m_p_waypoints_list->add(std::move(p));
-        }
-    }
-
-    void cop_controller::add_site(std::unique_ptr<site> s)
+    void cop_controller::add_site(std::unique_ptr<drawable_site> s)
     {
         if (!s)
         {
             return;
         }
 
+        m_tracker.register_site(s.get());
         m_sites.push_back(std::move(s));
-        save_config();
+        save();
         request_redraw();
     }
 
     void cop_controller::remove_site(adam::string_hash item_hash)
     {
-        auto it = std::find_if(m_sites.begin(), m_sites.end(), [item_hash](const std::unique_ptr<site>& s) 
+        auto it = std::find_if(m_sites.begin(), m_sites.end(), [item_hash](const std::unique_ptr<drawable_site>& s) 
         { 
             return s->get_name().get_hash() == item_hash; 
         });
 
         if (it != m_sites.end())
         {
+            m_tracker.unregister_site(it->get());
             m_sites.erase(it);
-            save_config();
+            save();
             request_redraw();
         }
     }
 
     void cop_controller::clear_sites()
     {
+        m_tracker.clear_sites();
         m_sites.clear();
-        sync_sites_to_config();
-        save_config();
+        save();
         request_redraw();
     }
 
@@ -300,7 +254,7 @@ namespace adam::cop
             m_p_auto_detect_sites->set_value(enable);
         }
 
-        save_config();
+        save();
         request_redraw();
     }
 
@@ -310,52 +264,128 @@ namespace adam::cop
         set_auto_detect_sites(true);
     }
 
-    void cop_controller::load_sites_from_config()
+    bool cop_controller::save(adam::string_hashed::view filepath) const
     {
-        m_sites.clear();
-        if (!m_p_sites_list)
+        if (m_p_waypoints_list)
         {
-            return;
-        }
-
-        for (const auto& hash : m_p_sites_list->get_order())
-        {
-            auto* p = m_p_sites_list->get<configuration_parameter_list>(hash);
-            if (!p)
+            m_p_waypoints_list->clear();
+            uint32_t wp_id = 0;
+            for (const auto& wp : m_waypoints)
             {
-                continue;
-            }
+                if (!wp)
+                {
+                    continue;
+                }
 
-            auto s = std::make_unique<site>(p->get_name());
-            s->parameters().copy_values_from(p);
-            m_sites.push_back(std::move(s));
+                auto p = wp->get_parameters().clone();
+                char id_str[128];
+                snprintf(id_str, sizeof(id_str), "wp_%u_%f_%f", ++wp_id, wp->get_lat(), wp->get_lon());
+                p->set_name(adam::string_hashed(&id_str[0]));
+                m_p_waypoints_list->add(std::move(p));
+            }
         }
+
+        if (m_p_sites_list)
+        {
+            m_p_sites_list->clear();
+            uint32_t site_id = 0;
+            for (const auto& s : m_sites)
+            {
+                if (!s)
+                {
+                    continue;
+                }
+
+                auto p = s->get_parameters().clone();
+                char id_str[128];
+                snprintf(id_str, sizeof(id_str), "site_%u_%llu_%f_%f", ++site_id, static_cast<unsigned long long>(s->get_sacsic()), s->get_lat(), s->get_lon());
+                p->set_name(adam::string_hashed(&id_str[0]));
+                m_p_sites_list->add(std::move(p));
+            }
+        }
+
+        return configuration_item::save(filepath);
     }
 
-    void cop_controller::sync_sites_to_config()
+    bool cop_controller::load(adam::string_hashed::view filepath)
     {
-        if (!m_p_sites_list)
+        std::ifstream ifs(std::string(filepath), std::ios::binary);
+        if (!ifs)
         {
-            return;
+            return false;
         }
 
-        m_p_sites_list->clear();
-        uint32_t site_id = 0;
-        for (const auto& s : m_sites)
+        uint32_t magic = 0;
+        configuration_parameter::read_binary(ifs, magic);
+        if (magic != 0xadacf116)
         {
-            if (!s)
+            return false;
+        }
+
+        version_info ver;
+        configuration_parameter::read_binary(ifs, ver);
+        uint32_t loaded_version = make_version(ver.major, ver.minor, ver.patch);
+        if (get_major(loaded_version) > get_major(core_version))
+        {
+            return false;
+        }
+
+        auto loaded_root = configuration_parameter::deserialize(ifs);
+        if (!loaded_root || loaded_root->get_type() != configuration_parameter::type_list)
+        {
+            return false;
+        }
+
+        auto* root_list = static_cast<configuration_parameter_list*>(loaded_root.get());
+        m_parameters.copy_values_from(root_list);
+
+        // Load waypoints
+        m_waypoints.clear();
+        if (auto* src_waypoints = root_list->get<configuration_parameter_list>("waypoints"_ct))
+        {
+            if (m_p_waypoints_list)
             {
-                continue;
+                m_p_waypoints_list->copy_from(src_waypoints);
             }
 
-            auto p = s->get_parameters().clone();
-            
-            char id_str[128];
-            snprintf(id_str, sizeof(id_str), "site_%u_%llu_%f_%f", ++site_id, static_cast<unsigned long long>(s->get_sacsic()), s->get_lat(), s->get_lon());
-            p->set_name(adam::string_hashed(&id_str[0]));
-            
-            m_p_sites_list->add(std::move(p));
+            for (const auto& [name, p] : src_waypoints->get_children())
+            {
+                if (!p)
+                {
+                    continue;
+                }
+
+                auto wp = std::make_unique<waypoint>(name);
+                wp->parameters().copy_values_from(p.get());
+                m_waypoints.push_back(std::move(wp));
+            }
         }
+
+        // Load sites and populate multi_sensor_tracker
+        m_sites.clear();
+        m_tracker.clear_sites();
+        if (auto* src_sites = root_list->get<configuration_parameter_list>("sites"_ct))
+        {
+            if (m_p_sites_list)
+            {
+                m_p_sites_list->copy_from(src_sites);
+            }
+
+            for (const auto& [name, p] : src_sites->get_children())
+            {
+                if (!p)
+                {
+                    continue;
+                }
+
+                auto s = std::make_unique<drawable_site>(name);
+                s->parameters().copy_values_from(p.get());
+                m_tracker.register_site(s.get());
+                m_sites.push_back(std::move(s));
+            }
+        }
+
+        return !ifs.bad();
     }
 
     void cop_controller::update_loop()
@@ -371,7 +401,7 @@ namespace adam::cop
 
             if (!commander_active || !log_sink_active)
             {
-                if (std::chrono::duration_cast<std::chrono::seconds>(now - last_reconnect_attempt).count() >= 5)
+                if (now - last_reconnect_attempt >= std::chrono::seconds(5))
                 {
                     last_reconnect_attempt = now;
 
@@ -384,7 +414,7 @@ namespace adam::cop
                         }
 
                         {
-                            std::lock_guard<std::mutex> lock(m_radar_mutex);
+                            adam::spinlock::guard lock(m_radar_lock);
                             m_radar_inspectors.clear();
                         }
 
@@ -416,7 +446,7 @@ namespace adam::cop
             {
                 std::vector<std::function<void()>> actions_to_run;
                 {
-                    std::lock_guard<std::mutex> lock(m_mutex);
+                    adam::spinlock::guard lock(m_lock);
                     actions_to_run = std::move(m_deferred_commander_actions);
                 }
                 for (auto& action : actions_to_run)
@@ -429,7 +459,7 @@ namespace adam::cop
             }
             else
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+                adam::spinlock::guard lock(m_lock);
                 m_deferred_commander_actions.clear();
             }
 
@@ -452,7 +482,7 @@ namespace adam::cop
 
                 if (!local_logs.empty())
                 {
-                    std::lock_guard<std::mutex> lock(m_mutex);
+                    adam::spinlock::guard lock(m_lock);
                     m_log_history.insert(m_log_history.end(), local_logs.begin(), local_logs.end());
                     if (m_log_history.size() > m_max_log_history)
                     {
@@ -473,7 +503,7 @@ namespace adam::cop
         }
 
         {
-            std::lock_guard<std::mutex> lock(m_radar_mutex);
+            adam::spinlock::guard lock(m_radar_lock);
             for (auto& [key, inspector] : m_radar_inspectors)
             {
                 if (!inspector)
@@ -497,110 +527,138 @@ namespace adam::cop
         m_commander.destroy();
     }
 
-    void cop_controller::handle_radar_data(adam::string_hash conn_hash, bool is_input, const uint8_t* data, size_t size, uint64_t timestamp)
+    void cop_controller::handle_radar_data(adam::string_hash conn_hash, bool is_input, adam::buffer* buf, uint64_t timestamp)
     {
-        if (!data || size == 0)
+        if (!buf)
         {
             return;
         }
 
+        adam::buffer* ref_buf = buf->get_referenced_buffer();
+        const adam::buffer* payload_buf = ref_buf ? ref_buf : buf;
+        const uint8_t* raw_data_ptr = payload_buf->get_begin_as<uint8_t>();
+        size_t raw_size = payload_buf->get_size();
+
         {
-            std::lock_guard<std::mutex> lock(m_radar_mutex);
+            adam::spinlock::guard lock(m_radar_lock);
             auto& stats = m_radar_stats[{ conn_hash, is_input }];
             stats.msg_count++;
-            stats.total_bytes += size;
+            stats.total_bytes += raw_size;
             stats.last_timestamp = timestamp;
-            format_stream_preview_hex(data, size, stats.last_preview_hex, sizeof(stats.last_preview_hex));
+            if (raw_data_ptr && raw_size > 0)
+            {
+                format_stream_preview_hex(raw_data_ptr, raw_size, stats.last_preview_hex, sizeof(stats.last_preview_hex));
+            }
         }
 
-        // ASTERIX data inspection: Auto-detect radar sites & CAT034 North Marker coordinates
-        if (size >= 4)
+        const auto* root_frame = buf->get_begin_as<adam::modules::asterix::frame>();
+        if (root_frame && buf->get_size() >= sizeof(adam::modules::asterix::frame))
         {
-            uint8_t cat = data[0];
-            uint16_t len = (static_cast<uint16_t>(data[1]) << 8) | data[2];
-            if (len >= 4 && len <= size)
+            for (const auto& blk : *root_frame)
             {
-                size_t offset = 3;
-                size_t fspec_len = 0;
-                while (offset + fspec_len < len)
+                if (blk.is_removed() || blk.category != 34)
                 {
-                    uint8_t fbyte = data[offset + fspec_len];
-                    fspec_len++;
-                    if ((fbyte & 0x01) == 0)
-                    {
-                        break;
-                    }
+                    continue;
                 }
 
-                if (offset + fspec_len + 2 <= len)
+                for (const auto& rec : blk)
                 {
-                    uint8_t first_fspec = data[offset];
-                    if ((first_fspec & 0x80) != 0)
+                    if (rec.is_removed())
                     {
-                        uint8_t sac = data[offset + fspec_len];
-                        uint8_t sic = data[offset + fspec_len + 1];
+                        continue;
+                    }
 
-                        if (is_auto_detect_sites())
+                    // FRN 1: I034/340 Data Source Identifier (SAC/SIC)
+                    const auto* item_sacsic = rec.get_item(1);
+                    if (!item_sacsic || !item_sacsic->is_populated())
+                    {
+                        continue;
+                    }
+
+                    const auto* sacsic_data = item_sacsic->get_data_as<const adam::modules::asterix::raw_sac_sic>(payload_buf);
+                    if (!sacsic_data)
+                    {
+                        continue;
+                    }
+
+                    uint8_t sac = sacsic_data->get_sac();
+                    uint8_t sic = sacsic_data->get_sic();
+
+                    // FRN 2: Message Type (I034/000)
+                    uint8_t msg_type = 0;
+                    const auto* item_msg_type = rec.get_item(2);
+                    if (item_msg_type && item_msg_type->is_populated())
+                    {
+                        const auto* mt = item_msg_type->get_data_as<const uint8_t>(payload_buf);
+                        if (mt)
                         {
-                            bool site_exists = false;
-                            for (const auto& s : m_sites)
-                            {
-                                if (s && s->get_sac() == sac && s->get_sic() == sic)
-                                {
-                                    site_exists = true;
-                                    break;
-                                }
-                            }
-
-                            if (!site_exists)
-                            {
-                                char site_name[64];
-                                snprintf(site_name, sizeof(site_name), "Site %u/%u", sac, sic);
-                                auto new_site = std::make_unique<site>(adam::string_hashed(&site_name[0]));
-                                new_site->set_sac(sac);
-                                new_site->set_sic(sic);
-                                new_site->set_label(adam::string_hashed(&site_name[0]));
-                                new_site->set_auto_retrieve_coords(true);
-                                new_site->set_auto_calc_range(true);
-                                m_sites.push_back(std::move(new_site));
-                                sync_sites_to_config();
-                                save_config();
-                            }
+                            msg_type = *mt;
                         }
+                    }
 
-                        // CAT034 North Marker Sensor Position in WGS-84 (Item 030)
-                        if (cat == 34)
+                    // Auto-detect radar sites on first sector crossing or north marker
+                    if (is_auto_detect_sites() && !m_tracker.has_site(sac, sic))
+                    {
+                        char site_name[64];
+                        snprintf(site_name, sizeof(site_name), "Site %u/%u", sac, sic);
+                        auto new_site = std::make_unique<drawable_site>(adam::string_hashed(&site_name[0]));
+                        new_site->set_sac(sac);
+                        new_site->set_sic(sic);
+                        new_site->set_label(adam::string_hashed(&site_name[0]));
+                        new_site->set_auto_retrieve_coords(true);
+                        new_site->set_auto_calc_range(true);
+                        m_tracker.register_site(new_site.get());
+                        m_sites.push_back(std::move(new_site));
+                        save();
+                    }
+
+                    auto* s = m_tracker.get_site(sac, sic);
+                    if (!s)
+                    {
+                        continue;
+                    }
+
+                    // FRN 4: Sector Number (I034/020)
+                    const auto* item_sec = rec.get_item(4);
+                    if (item_sec && item_sec->is_populated())
+                    {
+                        const auto* sec_data = item_sec->get_data_as<const uint8_t>(payload_buf);
+                        if (sec_data)
                         {
-                            size_t item_offset = offset + fspec_len + 2;
-                            if ((first_fspec & 0x40) != 0 && item_offset < len)
-                            {
-                                item_offset += 1;
-                            }
+                            uint8_t sector = *sec_data;
+                            double azimuth_deg = static_cast<double>(sector) * (360.0 / 256.0);
+                            s->set_current_sector(sector);
+                            s->set_current_azimuth_deg(azimuth_deg);
+                            s->set_last_sector_time(timestamp);
+                        }
+                    }
+                    else if (msg_type == adam::modules::asterix::cat034::message_type_north_marker)
+                    {
+                        s->set_current_sector(0);
+                        s->set_current_azimuth_deg(0.0);
+                        s->set_last_north_marker_time(timestamp);
+                    }
 
-                            if ((first_fspec & 0x20) != 0 && item_offset + 6 <= len)
-                            {
-                                int32_t raw_lat = (static_cast<int32_t>(data[item_offset]) << 24) |
-                                                  (static_cast<int32_t>(data[item_offset + 1]) << 16) |
-                                                  (static_cast<int32_t>(data[item_offset + 2]) << 8);
-                                raw_lat >>= 8;
+                    // FRN 5: Antenna Rotation Period (I034/041)
+                    const auto* item_rot = rec.get_item(5);
+                    if (item_rot && item_rot->is_populated())
+                    {
+                        const auto* rot_data = item_rot->get_data_as<const adam::modules::asterix::cat034::raw_antenna_rotation_period>(payload_buf);
+                        if (rot_data)
+                        {
+                            s->set_rotation_period_s(rot_data->get_period_s());
+                        }
+                    }
 
-                                int32_t raw_lon = (static_cast<int32_t>(data[item_offset + 3]) << 24) |
-                                                  (static_cast<int32_t>(data[item_offset + 4]) << 16) |
-                                                  (static_cast<int32_t>(data[item_offset + 5]) << 8);
-                                raw_lon >>= 8;
-
-                                double decoded_lat = static_cast<double>(raw_lat) * (180.0 / 8388608.0);
-                                double decoded_lon = static_cast<double>(raw_lon) * (180.0 / 8388608.0);
-
-                                for (auto& s : m_sites)
-                                {
-                                    if (s && s->get_sac() == sac && s->get_sic() == sic && s->get_auto_retrieve_coords())
-                                    {
-                                        s->set_lat(static_cast<float>(decoded_lat));
-                                        s->set_lon(static_cast<float>(decoded_lon));
-                                    }
-                                }
-                            }
+                    // FRN 11: 3D-Position of Data Source (I034/120)
+                    const auto* item_pos = rec.get_item(11);
+                    if (item_pos && item_pos->is_populated())
+                    {
+                        const auto* pos_data = item_pos->get_data_as<const adam::modules::asterix::cat034::raw_position_3d>(payload_buf);
+                        if (pos_data && s->get_auto_retrieve_coords())
+                        {
+                            s->set_lat(static_cast<float>(pos_data->get_latitude()));
+                            s->set_lon(static_cast<float>(pos_data->get_longitude()));
                         }
                     }
                 }
@@ -609,7 +667,37 @@ namespace adam::cop
 
         radar_data_callback cb;
         {
-            std::lock_guard<std::mutex> lock(m_radar_mutex);
+            adam::spinlock::guard lock(m_radar_lock);
+            cb = m_radar_data_callback;
+        }
+
+        if (cb)
+        {
+            cb(conn_hash, is_input, raw_data_ptr, raw_size, timestamp);
+        }
+
+        request_redraw();
+    }
+
+    void cop_controller::handle_radar_data(adam::string_hash conn_hash, bool is_input, const uint8_t* data, size_t size, uint64_t timestamp)
+    {
+        if (!data || size == 0)
+        {
+            return;
+        }
+
+        {
+            adam::spinlock::guard lock(m_radar_lock);
+            auto& stats = m_radar_stats[{ conn_hash, is_input }];
+            stats.msg_count++;
+            stats.total_bytes += size;
+            stats.last_timestamp = timestamp;
+            format_stream_preview_hex(data, size, stats.last_preview_hex, sizeof(stats.last_preview_hex));
+        }
+
+        radar_data_callback cb;
+        {
+            adam::spinlock::guard lock(m_radar_lock);
             cb = m_radar_data_callback;
         }
 
@@ -623,7 +711,7 @@ namespace adam::cop
 
     void cop_controller::set_radar_data_callback(radar_data_callback cb)
     {
-        std::lock_guard<std::mutex> lock(m_radar_mutex);
+        adam::spinlock::guard lock(m_radar_lock);
         m_radar_data_callback = std::move(cb);
     }
 
@@ -636,7 +724,7 @@ namespace adam::cop
             enqueue_commander_action([this, conn_hash, is_input, key]()
             {
                 {
-                    std::lock_guard<std::mutex> lock(m_radar_mutex);
+                    adam::spinlock::guard lock(m_radar_lock);
                     if (m_radar_inspectors.find(key) != m_radar_inspectors.end())
                     {
                         return;
@@ -651,15 +739,13 @@ namespace adam::cop
                         return;
                     }
 
-                    const uint8_t* data_ptr = buf->get_begin_as<uint8_t>();
-                    size_t data_size = buf->get_size();
                     uint64_t ts = buf->get_timestamp();
                     if (ts == 0)
                     {
                         ts = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
                     }
 
-                    this->handle_radar_data(conn_hash, is_input, data_ptr, data_size, ts);
+                    this->handle_radar_data(conn_hash, is_input, buf, ts);
                 };
 
                 adam::response_status status = adam::response_status::failed;
@@ -674,7 +760,7 @@ namespace adam::cop
 
                 if (status == adam::response_status::success && new_inspector)
                 {
-                    std::lock_guard<std::mutex> lock(m_radar_mutex);
+                    adam::spinlock::guard lock(m_radar_lock);
                     m_radar_inspectors[key] = new_inspector;
                 }
             });
@@ -685,7 +771,7 @@ namespace adam::cop
             {
                 adam::data_inspector* inspector_to_destroy = nullptr;
                 {
-                    std::lock_guard<std::mutex> lock(m_radar_mutex);
+                    adam::spinlock::guard lock(m_radar_lock);
                     auto it = m_radar_inspectors.find(key);
                     if (it != m_radar_inspectors.end())
                     {
@@ -713,13 +799,13 @@ namespace adam::cop
 
     bool cop_controller::is_radar_stream_enabled(adam::string_hash conn_hash, bool is_input) const
     {
-        std::lock_guard<std::mutex> lock(m_radar_mutex);
+        adam::spinlock::guard lock(m_radar_lock);
         return m_radar_inspectors.find({ conn_hash, is_input }) != m_radar_inspectors.end();
     }
 
     bool cop_controller::get_radar_stream_stats(adam::string_hash conn_hash, bool is_input, radar_stream_stats& out_stats) const
     {
-        std::lock_guard<std::mutex> lock(m_radar_mutex);
+        adam::spinlock::guard lock(m_radar_lock);
         auto it = m_radar_stats.find({ conn_hash, is_input });
         if (it == m_radar_stats.end())
         {
@@ -733,7 +819,7 @@ namespace adam::cop
 
     void cop_controller::clear_radar_stream_stats()
     {
-        std::lock_guard<std::mutex> lock(m_radar_mutex);
+        adam::spinlock::guard lock(m_radar_lock);
         m_radar_stats.clear();
         request_redraw();
     }

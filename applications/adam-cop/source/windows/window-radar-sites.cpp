@@ -97,7 +97,7 @@ namespace adam::cop
             char id_tag[64];
             snprintf(id_tag, sizeof(id_tag), "site_%d_%d", new_site_sac, new_site_sic);
 
-            auto s = std::make_unique<site>(adam::string_hashed(std::string(id_tag)));
+            auto s = std::make_unique<drawable_site>(adam::string_hashed(std::string(id_tag)));
             s->set_label(adam::string_hashed(label));
             s->set_sac(static_cast<uint8_t>(new_site_sac));
             s->set_sic(static_cast<uint8_t>(new_site_sic));
@@ -111,7 +111,7 @@ namespace adam::cop
     /**
      * @brief Renders the expanded 2-column parameter form for a radar site.
      */
-    static void draw_site_expanded_params(cop_controller& ctrl, const std::unique_ptr<site>& s, adam::language lang,
+    static void draw_site_expanded_params(cop_controller& ctrl, const std::unique_ptr<drawable_site>& s, adam::language lang,
                                           adam::string_hash& picking_site_coords_hash)
     {
         if (!s)
@@ -359,13 +359,39 @@ namespace adam::cop
             ImGui::SetTooltip("Sector Crossings Opacity");
         }
 
+        // Row 6: Live CAT034 Antenna Rotation & Sector Crossing
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("CAT034");
+        ImGui::TableSetColumnIndex(1);
+
+        if (s->has_live_rotation())
+        {
+            ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.4f, 1.0f), "Az: %.1f°", s->get_current_azimuth_deg());
+            ImGui::SameLine();
+            ImGui::TextDisabled("|");
+            ImGui::SameLine();
+            ImGui::Text("Sec: %u/256", static_cast<uint32_t>(s->get_current_sector()));
+            ImGui::SameLine();
+            ImGui::TextDisabled("|");
+            ImGui::SameLine();
+            ImGui::Text("%.2f s", s->get_rotation_period_s());
+            ImGui::SameLine();
+            ImGui::TextDisabled("(%.1f RPM)", s->get_rotation_rpm());
+        }
+        else
+        {
+            ImGui::TextDisabled("Waiting for CAT034 sector crossings...");
+        }
+
         ImGui::EndTable();
     }
 
     /**
      * @brief Renders a radar site item row with header and expandable body.
      */
-    static bool draw_site_item(cop_controller& ctrl, world_map& map, const std::unique_ptr<site>& s, adam::language lang,
+    static bool draw_site_item(cop_controller& ctrl, world_map& map, const std::unique_ptr<drawable_site>& s, adam::language lang,
                                std::vector<adam::string_hash>& expanded_sites, adam::string_hash& picking_site_coords_hash)
     {
         if (!s)
