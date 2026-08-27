@@ -9,6 +9,7 @@
 #include "data/asterix-parser.hpp"
 #include "data/asterix-encoder.hpp"
 #include "data/asterix-internal.hpp"
+#include "data/asterix-uap.hpp"
 #include "memory/buffer/buffer-manager.hpp"
 #include "memory/buffer/buffer.hpp"
 #include "configuration/parameters/configuration-parameter-list-sorted.hpp"
