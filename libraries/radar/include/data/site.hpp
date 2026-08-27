@@ -19,6 +19,8 @@ namespace adam::lib::radar
         site(const adam::string_hashed& item_name, const adam::configuration_parameter_list& child_params = adam::configuration_parameter_list());
         virtual ~site() = default;
 
+        static uint32_t generate_random_color();
+
         inline bool     get_auto_calc_range()       const { return m_p_auto_calc_range->get_value(); }
         inline bool     get_auto_retrieve_coords()  const { return m_p_auto_retrieve_coords->get_value(); }
         inline uint32_t get_color()                 const { return static_cast<uint32_t>(m_p_color->get_value()); }

@@ -33,7 +33,11 @@ namespace adam::cop
         static int    new_site_sac   = 0;
         static int    new_site_sic   = 0;
         static char   new_site_label[64] = "";
-        static ImVec4 new_site_color = ImVec4(0.0f, 0.85f, 1.0f, 1.0f);
+        static ImVec4 new_site_color = []()
+        {
+            uint32_t c = site::generate_random_color();
+            return ImVec4(((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, 1.0f);
+        }();
 
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted("SAC:");
@@ -105,6 +109,8 @@ namespace adam::cop
             ctrl.add_site(std::move(s));
 
             new_site_label[0] = '\0';
+            uint32_t next_c = site::generate_random_color();
+            new_site_color = ImVec4(((next_c >> 16) & 0xFF) / 255.0f, ((next_c >> 8) & 0xFF) / 255.0f, (next_c & 0xFF) / 255.0f, 1.0f);
         }
     }
 
