@@ -10,7 +10,7 @@
 
 #include <adam-core.hpp>
 
-namespace adam::cop
+namespace adam::lib::radar
 {
     class geo_location : public adam::configuration_item
     {

@@ -53,7 +53,7 @@ TEST_F(encoder_test, unmodified_frame_returns_original_buffer)
 
     // Optimization: since the frame was not modified, it must reuse the original buffer directly
     EXPECT_EQ(encoded, raw_buf);
-    EXPECT_EQ(encoded->get_ref_count(), 2u);
+    EXPECT_EQ(encoded->get_ref_count(), 3u); // 1 = initial since we requestet, 2 because its reference of the internal, 3 because its encoded
 
     adam::buffer_manager::get().return_buffer(encoded);
     adam::buffer_manager::get().return_buffer(internal);

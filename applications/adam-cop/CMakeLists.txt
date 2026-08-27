@@ -36,7 +36,7 @@ add_executable(adam-cop
 target_include_directories(adam-cop PRIVATE
     "${imgui_dir}"
     "${imgui_dir}/backends"
-    "../../modules/recrep/include"
+    "../../libraries/radar/include"
 )
 
 target_link_libraries(adam-cop PRIVATE
@@ -44,6 +44,7 @@ target_link_libraries(adam-cop PRIVATE
     adam-imgui
     adam-network
     adam-image
+    adam-radar
     SDL3::SDL3
     OpenGL::GL
 )

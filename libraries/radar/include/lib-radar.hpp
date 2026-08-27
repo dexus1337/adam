@@ -9,3 +9,6 @@
 #pragma once
 
 #include "coordinates/wgs-84.hpp"
+
+#include "data/geo-location.hpp"
+#include "data/site.hpp"

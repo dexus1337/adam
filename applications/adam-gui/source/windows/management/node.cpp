@@ -6,16 +6,19 @@
  * @date    12.06.2026
  */
 
-#include "node.hpp"
-#include "shared-state.hpp"
-#include "../main-window.hpp"
-#include "controller/controller.hpp"
-#include <data/port-types/port-input-replay.hpp>
-#include <configuration/parameters/configuration-parameter-boolean.hpp>
+#include <adam-core.hpp>
+#include <adam-recrep.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <chrono>
+
+
+#include "node.hpp"
+#include "shared-state.hpp"
+#include "../main-window.hpp"
+#include "controller/controller.hpp"
 
 namespace adam::gui
 {

@@ -8,20 +8,23 @@
  * @date    05.08.2026
  */
 
-#include "coastlines.hpp"
-#include "tile-engine.hpp"
-#include "tile-provider.hpp"
-#include "../data/waypoint.hpp"
-#include "../data/site.hpp"
 #include <imgui.h>
+#include <lib-radar.hpp>
 
 #include <vector>
 #include <array>
 #include <string>
 #include <cstdint>
 
+#include "coastlines.hpp"
+#include "tile-engine.hpp"
+#include "tile-provider.hpp"
+#include "../data/waypoint.hpp"
+
 namespace adam::cop
 {
+    using namespace adam::lib::radar;
+
     enum class projection_type
     {
         equirectangular = 0,

@@ -1,8 +1,8 @@
-#include "site.hpp"
+#include "data/site.hpp"
 
 using namespace adam::string_hashed_ct_literals;
 
-namespace adam::cop
+namespace adam::lib::radar
 {
     static adam::configuration_parameter_list build_site_params()
     {
@@ -12,8 +12,8 @@ namespace adam::cop
         p.add(std::make_unique<adam::configuration_parameter_integer>("sac"_ct, 0));
         p.add(std::make_unique<adam::configuration_parameter_integer>("sic"_ct, 0));
         p.add(std::make_unique<adam::configuration_parameter_integer>("sacsic"_ct, 0));
-        p.add(std::make_unique<adam::configuration_parameter_boolean>("auto_retrieve_coords"_ct, false));
         p.add(std::make_unique<adam::configuration_parameter_double>("range_nm"_ct, 120.0));
+        p.add(std::make_unique<adam::configuration_parameter_boolean>("auto_retrieve_coords"_ct, false));
         p.add(std::make_unique<adam::configuration_parameter_boolean>("auto_calc_range"_ct, false));
         p.add(std::make_unique<adam::configuration_parameter_boolean>("show_range"_ct, true));
         p.add(std::make_unique<adam::configuration_parameter_double>("range_alpha"_ct, 0.25));
@@ -29,8 +29,8 @@ namespace adam::cop
         , m_p_sac(get_parameter<adam::configuration_parameter_integer>("sac"_ct))
         , m_p_sic(get_parameter<adam::configuration_parameter_integer>("sic"_ct))
         , m_p_sacsic(get_parameter<adam::configuration_parameter_integer>("sacsic"_ct))
-        , m_p_auto_retrieve_coords(get_parameter<adam::configuration_parameter_boolean>("auto_retrieve_coords"_ct))
         , m_p_range_nm(get_parameter<adam::configuration_parameter_double>("range_nm"_ct))
+        , m_p_auto_retrieve_coords(get_parameter<adam::configuration_parameter_boolean>("auto_retrieve_coords"_ct))
         , m_p_auto_calc_range(get_parameter<adam::configuration_parameter_boolean>("auto_calc_range"_ct))
         , m_p_show_range(get_parameter<adam::configuration_parameter_boolean>("show_range"_ct))
         , m_p_range_alpha(get_parameter<adam::configuration_parameter_double>("range_alpha"_ct))

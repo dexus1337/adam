@@ -43,6 +43,7 @@ add_executable(adam-gui
 target_include_directories(adam-gui PRIVATE
     "${imgui_dir}"
     "${imgui_dir}/backends"
+    "../../libraries/image/include"
     "../../modules/recrep/include"
 )
 

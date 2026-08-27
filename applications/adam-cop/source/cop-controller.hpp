@@ -9,9 +9,7 @@
  */
 
 #include <adam-core.hpp>
-#include "data/waypoint.hpp"
-#include "data/site.hpp"
-#include "data/radar-stream.hpp"
+#include <lib-radar.hpp>
 
 #include <vector>
 #include <string>
@@ -22,8 +20,13 @@
 #include <mutex>
 #include <functional>
 
+#include "data/radar-stream.hpp"
+#include "data/waypoint.hpp"
+
 namespace adam::cop
 {
+    using namespace adam::lib::radar;
+
     struct log_entry
     {
         uint64_t timestamp;

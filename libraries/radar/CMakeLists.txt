@@ -11,9 +11,3 @@ target_include_directories(adam-radar PUBLIC
 target_link_libraries(adam-radar PUBLIC
     adam-core
 )
-
-if(WIN32)
-    target_link_libraries(adam-radar PRIVATE wininet)
-else()
-    target_link_libraries(adam-radar PRIVATE curl)
-endif()

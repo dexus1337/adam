@@ -8,11 +8,13 @@
  * @date    09.08.2026
  */
 
-#include "geo-location.hpp"
+#include <adam-core.hpp>
+
+#include <lib-radar.hpp>
 
 namespace adam::cop
 {
-    class waypoint : public geo_location
+    class waypoint : public adam::lib::radar::geo_location
     {
     public:
         waypoint(const adam::string_hashed& item_name);

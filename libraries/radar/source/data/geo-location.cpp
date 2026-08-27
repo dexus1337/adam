@@ -1,8 +1,8 @@
-#include "geo-location.hpp"
+#include "data/geo-location.hpp"
 
 using namespace adam::string_hashed_ct_literals;
 
-namespace adam::cop
+namespace adam::lib::radar
 {
     static adam::configuration_parameter_list build_geo_location_params(const adam::configuration_parameter_list& child_params)
     {

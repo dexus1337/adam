@@ -10,7 +10,7 @@
 
 #include "geo-location.hpp"
 
-namespace adam::cop
+namespace adam::lib::radar
 {
     class site : public geo_location
     {
