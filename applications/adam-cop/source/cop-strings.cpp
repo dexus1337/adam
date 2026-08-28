@@ -120,14 +120,20 @@ namespace adam::cop
             { tooltip_cat034_north_marker, { "This data originates from CAT034 North Marker Data", "Diese Daten stammen aus CAT034 North Marker Daten" } },
             { lbl_range_nm, { "Range (NM):", "Reichweite (NM):" } },
             { lbl_auto_calc_range, { "Calculate from received data", "Aus empfangenen Daten berechnen" } },
+            { lbl_show_range, { "Show Range", "Reichweite anzeigen" } },
+            { lbl_show_azimuth, { "Show Azimuth", "Azimut anzeigen" } },
+            { lbl_show_sectors, { "Show Sectors", "Sektoren anzeigen" } },
             { lbl_show_sector_crossings, { "Show Sector Crossings", "Sektorübergänge anzeigen" } },
+            { lbl_show_name, { "Show Name", "Name anzeigen" } },
+            { lbl_show_sacsic, { "Show SAC/SIC", "SAC/SIC anzeigen" } },
+            { lbl_show_rotation_duration, { "Show Rotation Duration", "Rotationsdauer anzeigen" } },
+            { lbl_filter_sites, { "Filter sites...", "Stationen filtern..." } },
             { lbl_no_sites, { "No radar sites configured. Add a site or enable auto-detection.", "Keine Radar-Stationen konfiguriert. Station hinzufügen oder automatische Erkennung aktivieren." } },
             { btn_add_site, { "Add Site", "Station hinzufügen" } },
             { btn_clear_sites, { "Clear All Sites", "Alle Stationen löschen" } },
             { lbl_sac_sic, { "SAC/SIC", "SAC/SIC" } },
             { lbl_auto, { "Auto", "Auto" } },
             { tooltip_auto_calc_range, { "Calculate range from received data", "Reichweite aus empfangenen Daten berechnen" } },
-            { lbl_show_range, { "Show Range", "Reichweite anzeigen" } },
             { lbl_options, { "Options", "Optionen" } },
             { btn_set_from_map, { "Set from Map", "Auf Karte wählen" } },
             { lbl_picking_map_pos, { "Click on map to set site position (Esc to cancel)", "Auf die Karte klicken, um Position festzulegen (Esc zum Abbrechen)" } },
@@ -135,7 +141,13 @@ namespace adam::cop
             { msg_confirm_clear_waypoints, { "Are you sure you want to delete all waypoints?", "Möchten Sie wirklich alle Wegpunkte löschen?" } },
             { msg_confirm_clear_sites, { "Are you sure you want to delete all radar sites?", "Möchten Sie wirklich alle Radarstationen löschen?" } },
             { btn_delete_all, { "Delete All", "Alle löschen" } },
-            { btn_cancel, { "Cancel", "Abbrechen" } }
+            { btn_cancel, { "Cancel", "Abbrechen" } },
+            { menu_select_all, { "Select All", "Alle auswählen" } },
+            { menu_deselect_all, { "Deselect All", "Auswahl aufheben" } },
+            { menu_invert_selection, { "Invert Selection", "Auswahl umkehren" } },
+            { menu_enable_selected, { "Enable Selected", "Ausgewählte aktivieren" } },
+            { menu_disable_selected, { "Disable Selected", "Ausgewählte deaktivieren" } },
+            { menu_delete_selected, { "Delete Selected", "Ausgewählte löschen" } }
         };
 
         auto it = translations.find(id);

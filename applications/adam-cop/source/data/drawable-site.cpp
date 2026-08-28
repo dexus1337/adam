@@ -17,8 +17,13 @@ namespace adam::cop
         adam::configuration_parameter_list p(child_params);
         p.add(std::make_unique<adam::configuration_parameter_boolean>("show_range"_ct, true));
         p.add(std::make_unique<adam::configuration_parameter_double>("range_alpha"_ct, 0.25));
-        p.add(std::make_unique<adam::configuration_parameter_boolean>("show_sector_crossings"_ct, false));
-        p.add(std::make_unique<adam::configuration_parameter_double>("sector_crossings_alpha"_ct, 0.60));
+        p.add(std::make_unique<adam::configuration_parameter_boolean>("show_azimuth"_ct, true));
+        p.add(std::make_unique<adam::configuration_parameter_double>("azimuth_alpha"_ct, 0.60));
+        p.add(std::make_unique<adam::configuration_parameter_boolean>("show_sectors"_ct, false));
+        p.add(std::make_unique<adam::configuration_parameter_double>("sectors_alpha"_ct, 0.30));
+        p.add(std::make_unique<adam::configuration_parameter_boolean>("show_name"_ct, true));
+        p.add(std::make_unique<adam::configuration_parameter_boolean>("show_sacsic"_ct, true));
+        p.add(std::make_unique<adam::configuration_parameter_boolean>("show_rotation_duration"_ct, true));
         return p;
     }
 
@@ -26,8 +31,13 @@ namespace adam::cop
         : site(item_name, build_drawable_site_params(child_params))
         , m_p_show_range(get_parameter<adam::configuration_parameter_boolean>("show_range"_ct))
         , m_p_range_alpha(get_parameter<adam::configuration_parameter_double>("range_alpha"_ct))
-        , m_p_show_sector_crossings(get_parameter<adam::configuration_parameter_boolean>("show_sector_crossings"_ct))
-        , m_p_sector_crossings_alpha(get_parameter<adam::configuration_parameter_double>("sector_crossings_alpha"_ct))
+        , m_p_show_azimuth(get_parameter<adam::configuration_parameter_boolean>("show_azimuth"_ct))
+        , m_p_azimuth_alpha(get_parameter<adam::configuration_parameter_double>("azimuth_alpha"_ct))
+        , m_p_show_sectors(get_parameter<adam::configuration_parameter_boolean>("show_sectors"_ct))
+        , m_p_sectors_alpha(get_parameter<adam::configuration_parameter_double>("sectors_alpha"_ct))
+        , m_p_show_name(get_parameter<adam::configuration_parameter_boolean>("show_name"_ct))
+        , m_p_show_sacsic(get_parameter<adam::configuration_parameter_boolean>("show_sacsic"_ct))
+        , m_p_show_rotation_duration(get_parameter<adam::configuration_parameter_boolean>("show_rotation_duration"_ct))
     {
     }
 }

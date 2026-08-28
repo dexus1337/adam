@@ -119,14 +119,20 @@ namespace adam::cop
         tooltip_cat034_north_marker,
         lbl_range_nm,
         lbl_auto_calc_range,
+        lbl_show_range,
+        lbl_show_azimuth,
+        lbl_show_sectors,
         lbl_show_sector_crossings,
+        lbl_show_name,
+        lbl_show_sacsic,
+        lbl_show_rotation_duration,
+        lbl_filter_sites,
         lbl_no_sites,
         btn_add_site,
         btn_clear_sites,
         lbl_sac_sic,
         lbl_auto,
         tooltip_auto_calc_range,
-        lbl_show_range,
         lbl_options,
         btn_set_from_map,
         lbl_picking_map_pos,
@@ -134,7 +140,13 @@ namespace adam::cop
         msg_confirm_clear_waypoints,
         msg_confirm_clear_sites,
         btn_delete_all,
-        btn_cancel
+        btn_cancel,
+        menu_select_all,
+        menu_deselect_all,
+        menu_invert_selection,
+        menu_enable_selected,
+        menu_disable_selected,
+        menu_delete_selected
     };
 
     const char* get_cop_string(cop_string_id id, adam::language lang);

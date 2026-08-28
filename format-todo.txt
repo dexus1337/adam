@@ -1,3 +1,5 @@
+Lets refator te cop sites a little bit
+
 We need to be able to filter sites in the site view. Also bulk select and atleast disable/enable via context menu. Maybe also enable/disable the drawing settings.
 
 Currently, we have the option to show range and show sector crossings. 
@@ -8,3 +10,9 @@ Show Azimuth
 Show Sectors
 
 And obviously adjust the machanics behand that
+
+In addition, we nned options to disable the name and sac/sic rendering, as well as the rotation duration. In general, 
+we should also have the rotation duration in seconds and not just the rpm.
+
+
+As always, dont slowdwn anything, we still need best possible perormane for our real time displaying.

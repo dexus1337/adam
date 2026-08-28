@@ -682,14 +682,8 @@ namespace adam::cop
             uint32_t c = s->get_color();
             ImU32 col_primary = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
 
-            // Coverage / Range Ring & Sector Crossings
+            // Coverage / Range Ring & Sector Crossings & Azimuth Beam
             double range_nm = s->get_range_nm();
-            float range_alpha = static_cast<float>(s->get_range_alpha());
-            float sector_alpha = static_cast<float>(s->get_sector_crossings_alpha());
-
-            ImU32 col_ring = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(range_alpha * 255.0f * 0.4f));
-            ImU32 col_ring_outline = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(range_alpha * 255.0f));
-            ImU32 col_sector_line = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(sector_alpha * 255.0f));
 
             if (range_nm > 0.0)
             {
@@ -701,13 +695,20 @@ namespace adam::cop
                 {
                     if (s->get_show_range())
                     {
+                        float range_alpha = static_cast<float>(s->get_range_alpha());
+                        ImU32 col_ring = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(range_alpha * 255.0f * 0.4f));
+                        ImU32 col_ring_outline = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(range_alpha * 255.0f));
+
                         draw_list->AddCircleFilled(screen_pt, radius_px, col_ring, 64);
                         draw_list->AddCircle(screen_pt, radius_px, col_ring_outline, 64, 1.2f);
                     }
 
-                    // Sector Crossings (32 radial azimuth lines by default)
-                    if (s->get_show_sector_crossings())
+                    // Sector Crossings (32 radial azimuth lines)
+                    if (s->get_show_sectors())
                     {
+                        float sectors_alpha = static_cast<float>(s->get_sectors_alpha());
+                        ImU32 col_sector_line = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(sectors_alpha * 255.0f));
+
                         constexpr int sector_count = 32;
                         constexpr float angle_step = 6.28318530718f / static_cast<float>(sector_count);
                         for (int i = 0; i < sector_count; ++i)
@@ -719,8 +720,10 @@ namespace adam::cop
                     }
 
                     // Display active antenna rotation sweep beam & phosphor trail
-                    if (s->has_live_rotation())
+                    if (s->get_show_azimuth() && s->has_live_rotation())
                     {
+                        float az_alpha = static_cast<float>(s->get_azimuth_alpha());
+                        ImU32 col_beam = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, static_cast<int>(az_alpha * 255.0f));
                         float az_rad = static_cast<float>(s->get_current_azimuth_deg() * 0.017453292519943295) - 1.57079632679f;
                         
                         // Phosphor trail wedge (trailing 25 degrees)
@@ -733,7 +736,7 @@ namespace adam::cop
                             float a0 = az_rad - static_cast<float>(i + 1) * seg_step;
                             float a1 = az_rad - static_cast<float>(i) * seg_step;
                             float trail_factor = 1.0f - (static_cast<float>(i) / static_cast<float>(trail_segments));
-                            int alpha = static_cast<int>(trail_factor * trail_factor * 90.0f);
+                            int alpha = static_cast<int>(trail_factor * trail_factor * 90.0f * az_alpha);
                             ImU32 col_trail = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, alpha);
 
                             ImVec2 p0(screen_pt.x + std::cos(a0) * radius_px, screen_pt.y + std::sin(a0) * radius_px);
@@ -743,8 +746,8 @@ namespace adam::cop
 
                         // Main antenna sweep line
                         ImVec2 beam_end(screen_pt.x + std::cos(az_rad) * radius_px, screen_pt.y + std::sin(az_rad) * radius_px);
-                        draw_list->AddLine(screen_pt, beam_end, col_primary, 1.8f);
-                        draw_list->AddCircleFilled(beam_end, 2.5f, col_primary);
+                        draw_list->AddLine(screen_pt, beam_end, col_beam, 1.8f);
+                        draw_list->AddCircleFilled(beam_end, 2.5f, col_beam);
                     }
                 }
             }
@@ -755,11 +758,6 @@ namespace adam::cop
             {
                 continue;
             }
-
-            ImVec4 bg_color = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
-            bg_color.w = std::min(bg_color.w, 0.90f);
-            ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(bg_color);
-            ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
 
             // Radar Diamond Icon
             float r = 10.0f;
@@ -772,34 +770,70 @@ namespace adam::cop
             draw_list->AddQuad(p_top, p_right, p_bottom, p_left, col_primary, 1.8f);
 
             // Label Callout
-            char badge[192];
+            char badge[256];
+            size_t offset = 0;
+            badge[0] = '\0';
+
+            if (s->get_show_name() && !s->get_label().empty())
+            {
+                offset += snprintf(badge + offset, sizeof(badge) - offset, "%s", s->get_label().c_str());
+            }
+
+            if (s->get_show_sacsic())
+            {
+                if (offset > 0 && offset < sizeof(badge) - 1)
+                {
+                    badge[offset++] = ' ';
+                    badge[offset] = '\0';
+                }
+                offset += snprintf(badge + offset, sizeof(badge) - offset, "[%llu/%llu]",
+                                  static_cast<unsigned long long>(s->get_sac()),
+                                  static_cast<unsigned long long>(s->get_sic()));
+            }
+
             if (s->has_live_rotation())
             {
-                snprintf(badge, sizeof(badge), "%s [%llu/%llu] Az:%.1f° (%.1f RPM)",
-                         s->get_label().c_str(),
-                         static_cast<unsigned long long>(s->get_sac()),
-                         static_cast<unsigned long long>(s->get_sic()),
-                         s->get_current_azimuth_deg(),
-                         s->get_rotation_rpm());
+                if (s->get_show_azimuth())
+                {
+                    if (offset > 0 && offset < sizeof(badge) - 1)
+                    {
+                        badge[offset++] = ' ';
+                        badge[offset] = '\0';
+                    }
+                    offset += snprintf(badge + offset, sizeof(badge) - offset, "Az:%.1f°", s->get_current_azimuth_deg());
+                }
+
+                if (s->get_show_rotation_duration())
+                {
+                    if (offset > 0 && offset < sizeof(badge) - 1)
+                    {
+                        badge[offset++] = ' ';
+                        badge[offset] = '\0';
+                    }
+                    offset += snprintf(badge + offset, sizeof(badge) - offset, "%.2fs (%.1f RPM)",
+                                      s->get_rotation_period_s(),
+                                      s->get_rotation_rpm());
+                }
             }
-            else
+
+            if (offset > 0)
             {
-                snprintf(badge, sizeof(badge), "%s (SAC:%llu SIC:%llu)",
-                         s->get_label().c_str(),
-                         static_cast<unsigned long long>(s->get_sac()),
-                         static_cast<unsigned long long>(s->get_sic()));
+                ImVec4 bg_color = ImGui::GetStyleColorVec4(ImGuiCol_PopupBg);
+                bg_color.w = std::min(bg_color.w, 0.90f);
+                ImU32 col_bg = ImGui::ColorConvertFloat4ToU32(bg_color);
+                ImU32 col_text = ImGui::GetColorU32(ImGuiCol_Text);
+
+                ImVec2 label_size = ImGui::CalcTextSize(badge);
+                float box_w = label_size.x + 12.0f;
+                float box_h = label_size.y + 8.0f;
+                
+                ImVec2 tag_pos = ImVec2(screen_pt.x + r + 8.0f, screen_pt.y - box_h * 0.5f);
+
+                draw_list->AddRectFilled(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_bg, 4.0f);
+                draw_list->AddRect(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_primary, 4.0f, 0, 1.2f);
+
+                draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 4.0f), col_text, badge);
             }
-
-            ImVec2 label_size = ImGui::CalcTextSize(badge);
-            float box_w = label_size.x + 12.0f;
-            float box_h = label_size.y + 8.0f;
-            
-            ImVec2 tag_pos = ImVec2(screen_pt.x + r + 8.0f, screen_pt.y - box_h * 0.5f);
-
-            draw_list->AddRectFilled(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_bg, 4.0f);
-            draw_list->AddRect(tag_pos, ImVec2(tag_pos.x + box_w, tag_pos.y + box_h), col_primary, 4.0f, 0, 1.2f);
-
-            draw_list->AddText(ImVec2(tag_pos.x + 6.0f, tag_pos.y + 4.0f), col_text, badge);
         }
     }
 
