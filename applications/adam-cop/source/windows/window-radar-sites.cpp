@@ -132,9 +132,9 @@ namespace adam::cop
         }
 
         // Case-insensitive substring search in site label
-        const std::string& label = s->get_label().string();
+        const auto& label = s->get_label();
         auto it = std::search(label.begin(), label.end(), filter, filter + strlen(filter),
-                              [](char ch1, char ch2) { return std::tolower(ch1) == std::tolower(ch2); });
+                              [](char ch1, char ch2) { return std::tolower(static_cast<unsigned char>(ch1)) == std::tolower(static_cast<unsigned char>(ch2)); });
         if (it != label.end())
         {
             return true;
@@ -948,4 +948,3 @@ namespace adam::cop
         ImGui::End();
     }
 }
-
