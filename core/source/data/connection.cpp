@@ -137,6 +137,7 @@ namespace adam
 
     bool connection::handle_data(buffer*& buf)
     {
+        // A connected should be able to be used by inspectors to inspect the input, even if it is not running
         if (!buf) return false;
 
         bool result = true;
@@ -160,7 +161,12 @@ namespace adam
             inspector_buf->release();
         });
 
-        if (!m_b_valid_data_chain || !m_started->get_value()) return false;
+        // Here we check if the connectionn is started and is allowed to pass on the data, if not, return
+        if (!m_b_valid_data_chain || !m_started->get_value())
+        {
+            if (parsed_buf) parsed_buf->release();
+            return false;
+        }
 
         // Run data through the processor chain
         m_processors.iterate([&](const auto& processors) 
@@ -175,6 +181,7 @@ namespace adam
             }
         });
 
+        // If any filter fully discarded the data (return false) we abort here
         if (!result)
         {
             if (parsed_buf) parsed_buf->release();
