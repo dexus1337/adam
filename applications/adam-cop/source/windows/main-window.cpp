@@ -295,7 +295,8 @@ namespace adam::cop
         draw_menu_bar(lang);
 
         // 1. Layers & Controls Window
-        layers_window_context layers_ctx = {
+        layers_window_context layers_ctx = 
+        {
             m_map_options,
             m_p_map_layer_params,
             m_p_show_control_panel,
@@ -306,11 +307,11 @@ namespace adam::cop
         };
         draw_layers_window(layers_ctx, lang);
 
-        // 2. Waypoints Window
-        draw_waypoints_window(m_ctrl, m_map, lang, m_p_show_waypoints);
-
-        // 3. Radar Sites Window
+        // 2. Radar Sites Window
         draw_radar_sites_window(m_ctrl, m_map, lang, m_p_show_sites, m_picking_site_coords_hash);
+
+        // 3. Waypoints Window
+        draw_waypoints_window(m_ctrl, m_map, lang, m_p_show_waypoints);
 
         // 4. Data Sources (ASTERIX) Window
         draw_data_sources_window(m_ctrl, lang, m_p_show_data_sources);
