@@ -14,10 +14,25 @@ using namespace adam::string_hashed_ct_literals;
 static ADAM_CONSTEXPR int event_redraw_count            = 3;
 static ADAM_CONSTEXPR int default_gui_mode_redraw_time  = 1000;
 
+#if defined(ADAM_PLATFORM_ANDROID)
+#include <unistd.h>
+#include <cstdlib>
+#endif
+
 std::unique_ptr<adam::gui::gui_controller> g_gui_ctrl;
     
 int main(int, char**) 
 {
+    #if defined(ADAM_PLATFORM_ANDROID)
+    char* pref_path = SDL_GetPrefPath("adam", "gui");
+    if (pref_path && pref_path[0] != '\0')
+    {
+        setenv("TMPDIR", pref_path, 1);
+        chdir(pref_path);
+        SDL_free(pref_path);
+    }
+    #endif
+
     g_gui_ctrl = std::make_unique<adam::gui::gui_controller>();
 
     adam::lib::imgui::renderer_context renderer_ctx;

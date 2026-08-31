@@ -114,6 +114,11 @@ namespace adam::lib::imgui
             default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 16.0f);
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\segoeui.ttf"))
             default_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 16.0f);
+        #elif defined(ADAM_PLATFORM_ANDROID)
+        if (std::filesystem::exists("/system/fonts/Roboto-Regular.ttf"))
+            default_font = io.Fonts->AddFontFromFileTTF("/system/fonts/Roboto-Regular.ttf", 16.0f);
+        else if (std::filesystem::exists("/system/fonts/DroidSans.ttf"))
+            default_font = io.Fonts->AddFontFromFileTTF("/system/fonts/DroidSans.ttf", 16.0f);
         #elif defined(ADAM_PLATFORM_LINUX)
         if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSans.ttf"))
             default_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSans.ttf", 16.0f);
@@ -145,6 +150,11 @@ namespace adam::lib::imgui
             mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\consola.ttf", 16.0f, &mono_config);
         else if (std::filesystem::exists("C:\\Windows\\Fonts\\cour.ttf")) 
             mono_font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\cour.ttf", 16.0f, &mono_config);
+        #elif defined(ADAM_PLATFORM_ANDROID)
+        else if (std::filesystem::exists("/system/fonts/DroidSansMono.ttf"))
+            mono_font = io.Fonts->AddFontFromFileTTF("/system/fonts/DroidSansMono.ttf", 16.0f, &mono_config);
+        else if (std::filesystem::exists("/system/fonts/CutiveMono.ttf"))
+            mono_font = io.Fonts->AddFontFromFileTTF("/system/fonts/CutiveMono.ttf", 16.0f, &mono_config);
         #elif defined(ADAM_PLATFORM_LINUX)
         else if (std::filesystem::exists("/usr/share/fonts/dejavu/DejaVuSansMono.ttf"))
             mono_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/dejavu/DejaVuSansMono.ttf", 16.0f, &mono_config);
@@ -161,9 +171,13 @@ namespace adam::lib::imgui
             mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Monaco.ttf", 16.0f, &mono_config);
         #endif
 
-        io.FontDefault      = default_font;
+        if (!mono_font)
+            mono_font = io.Fonts->AddFontDefault(&mono_config);
 
-        io.Fonts->Fonts[1]  = mono_font;
+        io.FontDefault = default_font;
+
+        if (io.Fonts->Fonts.Size > 1)
+            io.Fonts->Fonts[1] = mono_font;
     }
 
     #if defined(ADAM_PLATFORM_WINDOWS)

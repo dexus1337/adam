@@ -102,15 +102,31 @@ namespace adam::gui
             start_core();
     }
 
+#if defined(ADAM_PLATFORM_ANDROID)
+#include <android/log.h>
+#endif
+
     void gui_controller::start_core()
     {
+        #if defined(ADAM_PLATFORM_ANDROID)
+        __android_log_print(ANDROID_LOG_INFO, "ADAM_GUI", "gui_controller::start_core() invoked");
+        #endif
         std::lock_guard<std::mutex> lock(m_core_mutex);
         auto& ctrl = adam::controller::get();
         if (ctrl.is_active())
+        {
+            #if defined(ADAM_PLATFORM_ANDROID)
+            __android_log_print(ANDROID_LOG_INFO, "ADAM_GUI", "start_core: ctrl already active");
+            #endif
             return;
+        }
 
         adam::controller::cleanup_zombie_shared_memory();
-        if (ctrl.run(true))
+        bool ok = ctrl.run(true);
+        #if defined(ADAM_PLATFORM_ANDROID)
+        __android_log_print(ANDROID_LOG_INFO, "ADAM_GUI", "start_core: ctrl.run(true) = %d", ok);
+        #endif
+        if (ok)
             m_owns_core = true;
     }
 
@@ -187,6 +203,9 @@ namespace adam::gui
 
                         m_commander.connect();
                         commander_active = m_commander.is_active();
+                        #if defined(ADAM_PLATFORM_ANDROID)
+                        __android_log_print(ANDROID_LOG_INFO, "ADAM_GUI", "update_loop: m_commander.connect() -> active=%d", commander_active);
+                        #endif
                     }
 
                     if (!log_sink_active)

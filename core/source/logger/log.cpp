@@ -5,6 +5,10 @@
 #include <algorithm>
 
 
+#if defined(ADAM_PLATFORM_ANDROID) || defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 namespace adam
 {
     log::log(level t, std::string_view txt)
@@ -20,6 +24,15 @@ namespace adam
             std::copy_n(txt.data(), count, m_text);
 
             m_text[count] = '\0';
+
+            #if defined(ADAM_PLATFORM_ANDROID) || defined(__ANDROID__)
+            android_LogPriority prio = ANDROID_LOG_INFO;
+            if (t == level::warning) prio = ANDROID_LOG_WARN;
+            else if (t == level::error) prio = ANDROID_LOG_ERROR;
+            else if (t == level::fatal) prio = ANDROID_LOG_FATAL;
+            else if (t == level::trace) prio = ANDROID_LOG_DEBUG;
+            __android_log_print(prio, "ADAM", "%.*s", static_cast<int>(count), m_text);
+            #endif
         }
     }
 

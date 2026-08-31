@@ -18,3 +18,10 @@ android/app/src/main/jniLibs/arm64-v8a/libadam-module-network.so
 android/app/src/main/jniLibs/arm64-v8a/libadam-module-recrep.so
 android/app/src/main/jniLibs/arm64-v8a/libadam-module-serial.so
 android/app/src/main/jniLibs/arm64-v8a/libSDL3.so
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/local.properties

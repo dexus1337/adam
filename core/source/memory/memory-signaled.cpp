@@ -1,5 +1,11 @@
 #include "memory/memory-signaled.hpp"
 
+#if defined(ADAM_PLATFORM_ANDROID)
+#include <android/log.h>
+#include <cstring>
+#include <cerrno>
+#endif
+
 namespace adam 
 {
     memory_signaled::memory_signaled(const string_hashed& name) 
@@ -34,6 +40,9 @@ namespace adam
         m_sem = reinterpret_cast<sem_t*>(m_shared_memory_base);
         if (sem_init(m_sem, 1, 0) == -1) 
         {
+            #if defined(ADAM_PLATFORM_ANDROID)
+            __android_log_print(ANDROID_LOG_ERROR, "ADAM_SHM", "memory_signaled::create failed sem_init '%s': %s (%d)", get_name().c_str(), strerror(errno), errno);
+            #endif
             memory::destroy();
             return false;
         }
