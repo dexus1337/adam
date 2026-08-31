@@ -14,10 +14,6 @@
 #include "memory/buffer/buffer-manager.hpp"
 #include "commander/commander.hpp"
 
-#if defined(ADAM_PLATFORM_ANDROID)
-#include <android/log.h>
-#endif
-
 
 namespace adam
 {
@@ -138,33 +134,19 @@ namespace adam
             m_destroy_state = destroy_state_none;
         }
 
-        #if defined(ADAM_PLATFORM_ANDROID)
-        __android_log_print(ANDROID_LOG_INFO, "ADAM_CORE", "controller::run(async=%d) starting...", async);
-        #endif
-
         this->log(log::info, get_log_event_text(log_event::adam_started, get_language()));
 
         if (!buffer_manager::get().initialize())
         {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_ERROR, "ADAM_CORE", "controller::run: buffer_manager::initialize failed");
-            #endif
             destroy();
             return false;
         }
         
         if (!m_master_queue.create(0x100))
         {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_ERROR, "ADAM_CORE", "controller::run: m_master_queue.create(0x100) failed");
-            #endif
             destroy();
             return false;
         }
-
-        #if defined(ADAM_PLATFORM_ANDROID)
-        __android_log_print(ANDROID_LOG_INFO, "ADAM_CORE", "controller::run: master_queue created successfully!");
-        #endif
 
         m_registry.resume_active_items();
 
@@ -321,13 +303,7 @@ namespace adam
         status resp     = status_unavailable;
         master_queue mq = master_queue(string_hashed(master_queue_name));
 
-        if (!mq.open())
-        {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_WARN, "ADAM_CORE", "request_master_queue: mq.open() failed for queue %d", mqr);
-            #endif
-            return status_unavailable;
-        }
+        if (!mq.open()) return status_unavailable;
 
         queue_master_request_data data;
 
@@ -338,19 +314,7 @@ namespace adam
         std::memcpy(data.client_name, client_name.c_str(), len);
         data.client_name[len] = '\0';
 
-        if (!mq.post_request(data, resp, 300))
-        {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_WARN, "ADAM_CORE", "request_master_queue: post_request timed out for queue %d", mqr);
-            #endif
-            resp = status_failed;
-        }
-        else
-        {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_INFO, "ADAM_CORE", "request_master_queue: queue %d -> resp %d", mqr, resp);
-            #endif
-        }
+        if (!mq.post_request(data, resp, 300)) resp = status_failed;
 
         mq.destroy();
 

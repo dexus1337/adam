@@ -12,6 +12,7 @@
 #include <chrono>
 #include <fstream>
 #include <sstream>
+#include <cstring>
 
 namespace adam::os
 {
@@ -146,7 +147,16 @@ namespace adam::os
     void* load_library(const char* path)
     {
         #ifdef ADAM_PLATFORM_LINUX
-        return dlopen(path, RTLD_LAZY);
+        void* handle = dlopen(path, RTLD_LAZY);
+        #if defined(ADAM_PLATFORM_ANDROID)
+        if (!handle && path)
+        {
+            const char* last_slash = std::strrchr(path, '/');
+            if (last_slash)
+                handle = dlopen(last_slash + 1, RTLD_LAZY);
+        }
+        #endif
+        return handle;
         #elif defined(ADAM_PLATFORM_WINDOWS)
         return LoadLibraryA(path);
         #else

@@ -135,6 +135,10 @@ namespace adam
                         if (entry.path().extension() != ".so") continue;
                         #endif
 
+                        #if defined(ADAM_PLATFORM_ANDROID)
+                        if (!entry.path().filename().string().starts_with("libadam-module-")) continue;
+                        #endif
+
                         possible_module_paths.push_back(entry.path());
                         valid_file_paths.push_back(string_hashed(entry.path().string()));
                     }

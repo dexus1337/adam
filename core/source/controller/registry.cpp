@@ -23,6 +23,10 @@
 #include <string>
 #include <array>
 #include <cstdlib>
+
+#if defined(ADAM_PLATFORM_ANDROID)
+#include <dlfcn.h>
+#endif
 #include <algorithm>
 #include <ctime>
 
@@ -94,7 +98,18 @@ namespace adam
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, language_english));
             
             auto module_paths = std::make_unique<configuration_parameter_list>("module_paths"_ct);
+            #if defined(ADAM_PLATFORM_ANDROID)
+            Dl_info dlinfo;
+            if (dladdr((void*)&registry::get_default_parameters, &dlinfo) && dlinfo.dli_fname)
+            {
+                std::filesystem::path p(dlinfo.dli_fname);
+                module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, string_hashed(p.parent_path().string())));
+            }
+            else
+                module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
+            #else
             module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
+            #endif
             p.add(std::move(module_paths));
 
             auto config_paths = std::make_unique<configuration_parameter_list>("config_paths"_ct);

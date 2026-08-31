@@ -8,7 +8,6 @@
 #include <cstdlib>
 
 #if defined(ADAM_PLATFORM_ANDROID)
-#include <android/log.h>
 #include <cstring>
 #include <cerrno>
 
@@ -68,12 +67,7 @@ static inline std::string get_android_shm_path(const char* name)
 static inline int android_shm_open(const char* name, int flags, mode_t mode)
 {
     std::string path = get_android_shm_path(name);
-    int fd = open(path.c_str(), flags, mode);
-    if (fd == -1)
-        __android_log_print(ANDROID_LOG_ERROR, "ADAM_SHM", "shm_open '%s' failed: %s (%d)", path.c_str(), strerror(errno), errno);
-    else
-        __android_log_print(ANDROID_LOG_DEBUG, "ADAM_SHM", "shm_open '%s' -> fd=%d", path.c_str(), fd);
-    return fd;
+    return open(path.c_str(), flags, mode);
 }
 
 static inline int android_shm_unlink(const char* name)
@@ -122,13 +116,7 @@ namespace adam
         shm_unlink(linux_name.c_str());
         
         int fd = shm_open(linux_name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
-        if (fd == -1)
-        {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_ERROR, "ADAM_SHM", "memory::create failed shm_open '%s': %s (%d)", linux_name.c_str(), strerror(errno), errno);
-            #endif
-            return false;
-        }
+        if (fd == -1) return false;
 
         // Ensure permissions are correctly set
         fchmod(fd, 0666);
@@ -140,9 +128,6 @@ namespace adam
         // Set the size of the shared memory segment
         if (ftruncate(fd, buffer_size) == -1) 
         {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_ERROR, "ADAM_SHM", "memory::create failed ftruncate '%s' (%llu): %s (%d)", linux_name.c_str(), static_cast<unsigned long long>(buffer_size), strerror(errno), errno);
-            #endif
             close(fd);
             return false;
         }
@@ -151,13 +136,7 @@ namespace adam
 
         close(fd); // fd is no longer needed after mmap
         
-        if (start == MAP_FAILED)
-        {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_ERROR, "ADAM_SHM", "memory::create failed mmap '%s': %s (%d)", linux_name.c_str(), strerror(errno), errno);
-            #endif
-            return false;
-        }
+        if (start == MAP_FAILED) return false;
         
         m_shared_memory_base = start;
         success = (start != MAP_FAILED);
@@ -202,20 +181,11 @@ namespace adam
         else linux_name = "/" + std::string(m_name.c_str());
         
         int fd = shm_open(linux_name.c_str(), O_RDWR, 0666);
-        if (fd == -1)
-        {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_WARN, "ADAM_SHM", "memory::open failed shm_open '%s': %s (%d)", linux_name.c_str(), strerror(errno), errno);
-            #endif
-            return false;
-        }
+        if (fd == -1) return false;
 
         struct stat shm_stats;
         if (fstat(fd, &shm_stats) == -1) 
         {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_ERROR, "ADAM_SHM", "memory::open failed fstat '%s': %s (%d)", linux_name.c_str(), strerror(errno), errno);
-            #endif
             close(fd);
             return false;
         }
@@ -224,13 +194,7 @@ namespace adam
 
         close(fd); // fd is no longer needed after mmap
         
-        if (start == MAP_FAILED)
-        {
-            #if defined(ADAM_PLATFORM_ANDROID)
-            __android_log_print(ANDROID_LOG_ERROR, "ADAM_SHM", "memory::open failed mmap '%s': %s (%d)", linux_name.c_str(), strerror(errno), errno);
-            #endif
-            return false;
-        }
+        if (start == MAP_FAILED) return false;
         
         m_shared_memory_base    = start;
         m_shared_memory_size    = shm_stats.st_size;
