@@ -1,6 +1,11 @@
 #include "renderer-setup.hpp"
 
+#if defined(ADAM_PLATFORM_ANDROID) || defined(__ANDROID__)
+#include <GLES3/gl3.h>
+#include <SDL3/SDL_opengles2.h>
+#else
 #include <SDL3/SDL_opengl.h>
+#endif
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
 
@@ -284,6 +289,12 @@ namespace adam::lib::imgui
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+            #elif defined(ADAM_PLATFORM_ANDROID) || defined(__ANDROID__)
+            ctx.glsl_version = "#version 300 es";
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
             #else
             ctx.glsl_version = "#version 130";
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);

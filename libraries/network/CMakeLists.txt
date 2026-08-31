@@ -14,6 +14,13 @@ target_link_libraries(adam-network PUBLIC
 
 if(WIN32)
     target_link_libraries(adam-network PRIVATE wininet)
+elseif(ANDROID)
+    find_package(CURL QUIET)
+    if(CURL_FOUND)
+        target_link_libraries(adam-network PRIVATE CURL::libcurl)
+        target_compile_definitions(adam-network PRIVATE ADAM_HAS_CURL)
+    endif()
 else()
     target_link_libraries(adam-network PRIVATE curl)
+    target_compile_definitions(adam-network PRIVATE ADAM_HAS_CURL)
 endif()

@@ -4,7 +4,7 @@
 #if defined(ADAM_PLATFORM_WINDOWS)
 #include <windows.h>
 #include <wininet.h>
-#else
+#elif defined(ADAM_HAS_CURL)
 #include <curl/curl.h>
 #endif
 
@@ -43,7 +43,7 @@ namespace adam::lib::network
 
         return !out_bytes.empty();
     }
-    #else
+    #elif defined(ADAM_HAS_CURL)
     static size_t curl_write_callback(void* contents, size_t size, size_t nmemb, void* userp)
     {
         size_t total_size = size * nmemb;
@@ -72,6 +72,14 @@ namespace adam::lib::network
         curl_easy_cleanup(curl);
 
         return (res == CURLE_OK && !out_bytes.empty());
+    }
+    #else
+    bool download_file(const std::string& url, const std::string& user_agent, std::vector<uint8_t>& out_bytes)
+    {
+        (void)url;
+        (void)user_agent;
+        (void)out_bytes;
+        return false;
     }
     #endif
 }

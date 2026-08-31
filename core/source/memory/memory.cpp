@@ -5,6 +5,50 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstdlib>
+
+#if defined(ADAM_PLATFORM_ANDROID)
+static inline std::string get_android_shm_path(const char* name)
+{
+    const char* tmp = std::getenv("TMPDIR");
+    std::string base = (tmp && tmp[0] != '\0') ? tmp : "/data/local/tmp";
+    if (name && name[0] != '/')
+    {
+        base += "/";
+    }
+    if (name)
+    {
+        base += name;
+    }
+    return base;
+}
+
+static inline int android_shm_open(const char* name, int flags, mode_t mode)
+{
+    std::string path = get_android_shm_path(name);
+    int fd = open(path.c_str(), flags, mode);
+    if (fd == -1)
+    {
+        std::string fallback = (name && name[0] == '/') ? (name + 1) : (name ? name : "adam_shm");
+        fd = open(fallback.c_str(), flags, mode);
+    }
+    return fd;
+}
+
+static inline int android_shm_unlink(const char* name)
+{
+    std::string path = get_android_shm_path(name);
+    int res = unlink(path.c_str());
+    if (res != 0)
+    {
+        std::string fallback = (name && name[0] == '/') ? (name + 1) : (name ? name : "adam_shm");
+        res = unlink(fallback.c_str());
+    }
+    return res;
+}
+#define shm_open android_shm_open
+#define shm_unlink android_shm_unlink
+#endif
 #endif
 
 namespace adam 

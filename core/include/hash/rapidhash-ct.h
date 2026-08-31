@@ -382,7 +382,7 @@ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_internal(const type *key, si
           }
       }
     }
-    a=rapid_ct_read64(p+(i-16)/sizeof(type)) ^ i;  b=rapid_ct_read64(p+(i-8)/sizeof(type));
+    a=rapid_ct_read64(p + i / sizeof(type) - 16 / sizeof(type)) ^ i;  b=rapid_ct_read64(p + i / sizeof(type) - 8 / sizeof(type));
   }
   a ^= secret[1];
   b ^= seed;
@@ -453,7 +453,7 @@ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_internal(const type *key, si
             }
         }
       }
-      a=rapid_ct_read64(p+(i-16)/sizeof(type)) ^ i;  b=rapid_ct_read64(p+(i-8)/sizeof(type));
+      a=rapid_ct_read64(p + i / sizeof(type) - 16 / sizeof(type)) ^ i;  b=rapid_ct_read64(p + i / sizeof(type) - 8 / sizeof(type));
     }
     a ^= secret[1];
     b ^= seed;
@@ -513,7 +513,7 @@ RAPIDHASH_CT_INLINE_CONSTEVAL uint64_t rapidhash_ct_internal(const type *key, si
             seed = rapid_ct_mix(rapid_ct_read64(p + 16 / sizeof(type)) ^ secret[2], rapid_ct_read64(p + 24 / sizeof(type)) ^ seed);
         }
       }
-      a=rapid_ct_read64(p+(i-16)/sizeof(type)) ^ i;  b=rapid_ct_read64(p+(i-8)/sizeof(type));
+      a=rapid_ct_read64(p + i / sizeof(type) - 16 / sizeof(type)) ^ i;  b=rapid_ct_read64(p + i / sizeof(type) - 8 / sizeof(type));
     }
     a ^= secret[1];
     b ^= seed;

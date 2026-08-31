@@ -9,6 +9,11 @@ namespace adam::gui
         static configuration_parameter_list params = []() 
         {
             configuration_parameter_list p;
+            #if defined(ADAM_PLATFORM_ANDROID) || defined(__ANDROID__)
+            p.add(std::make_unique<configuration_parameter_integer>("adam_mode"_ct, 1));
+            #else
+            p.add(std::make_unique<configuration_parameter_integer>("adam_mode"_ct, 0));
+            #endif
             p.add(std::make_unique<configuration_parameter_boolean>("show_log"_ct, true));
             p.add(std::make_unique<configuration_parameter_integer>("gui_mode"_ct, 0));
             p.add(std::make_unique<configuration_parameter_integer>("fps_limit"_ct, 4));
@@ -46,12 +51,19 @@ namespace adam::gui
         m_commander_active(false)
     {
         load("adam-gui-config.adamguicfg");
+        m_p_adam_mode = static_cast<adam::configuration_parameter_integer*>(get_parameters().get("adam_mode"_ct));
     }
 
     gui_controller::~gui_controller()
     {
         save("adam-gui-config.adamguicfg");
         stop();
+    }
+
+    std::vector<log_entry> gui_controller::get_log_history() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_log_history;
     }
 
     void gui_controller::start()
@@ -69,25 +81,54 @@ namespace adam::gui
 
         if (m_worker_thread.joinable())
             m_worker_thread.join();
+
+        stop_core();
     }
 
-    bool gui_controller::is_commander_active() const
+    void gui_controller::set_adam_mode(int mode)
     {
-        return m_commander_active.load(std::memory_order_relaxed);
+        if (!m_p_adam_mode)
+            return;
+
+        int current_mode = static_cast<int>(m_p_adam_mode->get_value());
+        if (current_mode == mode)
+            return;
+
+        m_p_adam_mode->set_value(mode);
+
+        if (mode == 0)
+            stop_core();
+        else if (mode == 1)
+            start_core();
     }
 
-    std::vector<log_entry> gui_controller::get_log_history() const
+    void gui_controller::start_core()
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_log_history;
+        std::lock_guard<std::mutex> lock(m_core_mutex);
+        auto& ctrl = adam::controller::get();
+        if (ctrl.is_active())
+            return;
+
+        adam::controller::cleanup_zombie_shared_memory();
+        if (ctrl.run(true))
+            m_owns_core = true;
     }
 
-    bool gui_controller::is_log_history_empty() const
+    void gui_controller::stop_core()
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_log_history.empty();
+        std::lock_guard<std::mutex> lock(m_core_mutex);
+        if (!m_owns_core)
+            return;
+
+        if (m_log_sink.is_active())
+            m_log_sink.destroy();
+
+        m_commander.destroy();
+        adam::controller::get().destroy();
+        m_owns_core = false;
+        m_commander_active.store(false, std::memory_order_relaxed);
     }
-    
+
     void gui_controller::clear_log_history()
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -140,6 +181,10 @@ namespace adam::gui
                         }
 
                         m_commander.destroy();
+
+                        if (m_p_adam_mode && m_p_adam_mode->get_value() == 1)
+                            start_core();
+
                         m_commander.connect();
                         commander_active = m_commander.is_active();
                     }
@@ -163,9 +208,7 @@ namespace adam::gui
             }
 
             if (commander_active != m_commander_active.load(std::memory_order_relaxed))
-            {
                 request_redraw();
-            }
 
             // Process any pending commander actions queued by the UI
             if (commander_active)

@@ -3,6 +3,7 @@
 #include "gui-controller.hpp"
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <thread>
@@ -23,7 +24,11 @@ int main(int, char**)
 
     adam::lib::imgui::renderer_config config;
     config.window_title = "ADAM GUI";
+    #if defined(ADAM_PLATFORM_ANDROID)
+    config.enable_viewports = false;
+    #else
     config.enable_viewports = true;
+    #endif
 
     if (!adam::lib::imgui::initialize(renderer_ctx, config))
     {

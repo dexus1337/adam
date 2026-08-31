@@ -132,6 +132,7 @@ namespace adam::gui
 
         m_p_show_log            = static_cast<adam::configuration_parameter_boolean*>(params.get("show_log"_ct));
         m_p_show_performance    = static_cast<adam::configuration_parameter_boolean*>(params.get("show_performance"_ct));
+        m_p_adam_mode           = static_cast<adam::configuration_parameter_integer*>(params.get("adam_mode"_ct));
         m_p_gui_mode            = static_cast<adam::configuration_parameter_integer*>(params.get("gui_mode"_ct));
         m_p_fps_limit           = static_cast<adam::configuration_parameter_integer*>(params.get("fps_limit"_ct));
         m_p_perf_ovly_location  = static_cast<adam::configuration_parameter_integer*>(params.get("perf_ovly_location"_ct));
@@ -541,6 +542,24 @@ namespace adam::gui
         }
         if (ImGui::BeginMenu(get_gui_string(gui_string_id::menu_settings, lang)))
         {
+            if (m_p_adam_mode)
+            {
+                int current_mode = static_cast<int>(m_p_adam_mode->get_value());
+                const char* preview_mode = (current_mode == 1)
+                    ? get_gui_string(gui_string_id::adam_mode_integrated, lang)
+                    : get_gui_string(gui_string_id::adam_mode_standalone, lang);
+
+                if (ImGui::BeginCombo(get_gui_string(gui_string_id::menu_adam_mode, lang), preview_mode))
+                {
+                    if (ImGui::Selectable(get_gui_string(gui_string_id::adam_mode_standalone, lang), current_mode == 0))
+                        m_ctrl.set_adam_mode(0);
+                    if (ImGui::Selectable(get_gui_string(gui_string_id::adam_mode_integrated, lang), current_mode == 1))
+                        m_ctrl.set_adam_mode(1);
+                    ImGui::EndCombo();
+                }
+                ImGui::Separator();
+            }
+
             const char* preview_mode = (m_p_gui_mode->get_value() == 1) ? get_gui_string(gui_string_id::gui_mode_immediate, lang) : get_gui_string(gui_string_id::gui_mode_default, lang);
             if (ImGui::BeginCombo(get_gui_string(gui_string_id::menu_gui_mode, lang), preview_mode))
             {

@@ -8,15 +8,13 @@ if(NOT imgui_dir)
     message(FATAL_ERROR "IMGUI_ROOT environment variable is not set. Please set it to the path of Dear ImGui.")
 endif()
 
-# We only need the headers to compile the tools, but we'll include SDL3 and OpenGL3 for consistency if needed
-find_package(SDL3 REQUIRED)
-find_package(OpenGL REQUIRED)
+if(NOT ANDROID)
+    find_package(OpenGL REQUIRED)
+endif()
 
 file(GLOB_RECURSE imgui_tools_source_files "source/*.cpp")
 
 add_library(adam-imgui STATIC ${imgui_tools_source_files})
-
-
 
 target_include_directories(adam-imgui PUBLIC
     "include"
@@ -27,9 +25,15 @@ target_include_directories(adam-imgui PUBLIC
 target_link_libraries(adam-imgui PUBLIC
     adam-core
     SDL3::SDL3
-    OpenGL::GL
 )
+
+if(ANDROID)
+    target_link_libraries(adam-imgui PUBLIC GLESv3 EGL log)
+else()
+    target_link_libraries(adam-imgui PUBLIC OpenGL::GL)
+endif()
 
 if(WIN32)
     target_link_libraries(adam-imgui PRIVATE d3d11 dxgi d3dcompiler)
 endif()
+

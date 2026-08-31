@@ -7,6 +7,8 @@
 
 #if defined(__APPLE__)
 #include <OpenGL/gl3.h>
+#elif defined(ADAM_PLATFORM_ANDROID) || defined(__ANDROID__)
+#include <GLES3/gl3.h>
 #else
 #include <GL/gl.h>
 #endif
