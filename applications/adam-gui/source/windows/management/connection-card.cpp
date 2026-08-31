@@ -829,10 +829,11 @@ namespace adam::gui
         adam::connection_view* conn
     )
     {
-        ImColor line_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
-        ImColor grey_col = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_invalid_light) : get_gui_color(gui_color_id::node_connection_line_invalid);
-        ImColor default_col = conn->valid_chain ? line_col : grey_col;
-        float line_thickness = 5.f * dpi_scale;
+        ImColor     line_col             = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_light) : get_gui_color(gui_color_id::node_connection_line);
+        ImColor     grey_col             = is_light_theme ? get_gui_color(gui_color_id::node_connection_line_invalid_light) : get_gui_color(gui_color_id::node_connection_line_invalid);
+        ImColor     default_col          = conn->valid_chain ? line_col : grey_col;
+        float       line_thickness       = 5.f * dpi_scale;
+        const bool  is_connection_active = conn && conn->valid_chain && conn->started;
 
         if (conn->processors.empty() && !conn->inputs.empty() && !conn->outputs.empty() && (conn->inputs.size() > 1 || conn->outputs.size() > 1))
         {
@@ -845,8 +846,8 @@ namespace adam::gui
             {
                 ImVec2 pin_out = pin_out_data.pos;
                 float b_strength = (mid_x - pin_out.x) * 0.5f;
-                ImColor cur_line_col = get_activity_color(pin_out_data.activity, default_col);
-                if (pin_out_data.activity != line_activity_state::inactive)
+                ImColor cur_line_col = is_connection_active ? get_activity_color(pin_out_data.activity, default_col) : default_col;
+                if (is_connection_active && pin_out_data.activity != line_activity_state::inactive)
                 {
                     combined_input_activity = pin_out_data.activity;
                 }
@@ -860,8 +861,11 @@ namespace adam::gui
             {
                 ImVec2 pin_in = pin_in_data.pos;
                 float b_strength = (pin_in.x - mid_x) * 0.5f;
-                pin_in_data.activity = combined_input_activity;
-                ImColor cur_line_col = get_activity_color(combined_input_activity, default_col);
+                if (is_connection_active)
+                {
+                    pin_in_data.activity = combined_input_activity;
+                }
+                ImColor cur_line_col = is_connection_active ? get_activity_color(combined_input_activity, default_col) : default_col;
 
                 draw_list->AddBezierCubic(
                     p_mid, ImVec2(mid_x + b_strength, center_y), ImVec2(pin_in.x - b_strength, pin_in.y), pin_in,
@@ -875,14 +879,14 @@ namespace adam::gui
                 for (const auto& pin_out_data : stage_pins_out[s])
                 {
                     ImVec2 pin_out = pin_out_data.pos;
-                    ImColor cur_line_col = get_activity_color(pin_out_data.activity, default_col);
+                    ImColor cur_line_col = is_connection_active ? get_activity_color(pin_out_data.activity, default_col) : default_col;
 
                     for (auto& pin_in_data : stage_pins_in[s + 1])
                     {
                         ImVec2 pin_in = pin_in_data.pos;
                         float b_strength = (pin_in.x - pin_out.x) * 0.5f;
 
-                        if (pin_out_data.activity != line_activity_state::inactive)
+                        if (is_connection_active && pin_out_data.activity != line_activity_state::inactive)
                         {
                             pin_in_data.activity = pin_out_data.activity;
                         }
@@ -896,10 +900,10 @@ namespace adam::gui
             }
         }
 
-        auto draw_pin_dot = [&](const connection_pin_data& pin, bool is_status_dot)
+        auto draw_pin_dot = [&](const connection_pin_data& pin, bool is_status_dot, bool allow_activity = true)
         {
             float dot_radius = ImGui::GetTextLineHeight() / 2 - ImGui::GetStyle().CellPadding.y;
-            ImColor dot_col = is_status_dot ? pin.col : get_activity_color(pin.activity, default_col);
+            ImColor dot_col = is_status_dot ? pin.col : (allow_activity ? get_activity_color(pin.activity, default_col) : default_col);
             draw_list->AddCircleFilled(pin.pos, dot_radius, dot_col);
         };
 
@@ -918,11 +922,11 @@ namespace adam::gui
         {
             for (const auto& pin_in : stage_pins_in[s])
             {
-                draw_pin_dot(pin_in, false);
+                draw_pin_dot(pin_in, false, is_connection_active);
             }
             for (const auto& pin_out : stage_pins_out[s])
             {
-                draw_pin_dot(pin_out, false);
+                draw_pin_dot(pin_out, false, is_connection_active);
             }
         }
 
@@ -931,7 +935,7 @@ namespace adam::gui
         {
             for (const auto& pin_in : stage_pins_in[total_stages - 1])
             {
-                draw_pin_dot(pin_in, false);
+                draw_pin_dot(pin_in, false, is_connection_active);
             }
             for (const auto& pin_out : stage_pins_out[total_stages - 1])
             {
@@ -1493,7 +1497,7 @@ namespace adam::gui
                 {
                     p_out.format_name = conn->output_format.c_str();
                 }
-                if (proc_it != ctrl.commander().registry().get_processors().end())
+                if (conn->started && conn->valid_chain && proc_it != ctrl.commander().registry().get_processors().end())
                 {
                     line_activity_state act = get_processor_activity(fid, proc_it->second.get());
                     p_in.activity = act;
