@@ -39,23 +39,8 @@ namespace adam
                     target = *factory_params;
             }
         }
-
-        inline void populate_user_params_from_factory(const configuration_parameter_list* factory_params, configuration_parameter_list& target)
-        {
-            if (!factory_params)
-                return;
-
-            if (auto* user_params = factory_params->get("user_parameters"_ct))
-            {
-                if (auto* list = dynamic_cast<const configuration_parameter_list*>(user_params))
-                    target = *list;
-            }
-            else if (factory_params->get_name() == "user_parameters"_ct)
-            {
-                target = *factory_params;
-            }
-        }
     }
+    
     commander::commander(const string_hashed_ct& client_name) 
      :  m_queue_command(),
         m_queue_event(),

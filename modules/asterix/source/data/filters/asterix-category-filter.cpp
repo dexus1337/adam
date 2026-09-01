@@ -97,7 +97,6 @@ namespace adam::modules::asterix
             stats->total_bytes_recieved += data_size;
         }
 
-        uint32_t total_blocks = 0;
         uint32_t kept_blocks = 0;
         uint32_t removed_blocks = 0;
 
@@ -105,7 +104,6 @@ namespace adam::modules::asterix
         {
             if (blk.is_removed()) continue;
 
-            total_blocks++;
             const bool match = (m_parsed_cats.find(blk.category) != m_parsed_cats.end());
             const bool keep  = is_whitelist ? match : !match;
 

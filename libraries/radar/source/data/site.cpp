@@ -35,8 +35,8 @@ namespace adam::lib::radar
         , m_p_enabled(get_parameter<adam::configuration_parameter_boolean>("enabled"_ct))
         , m_p_color(get_parameter<adam::configuration_parameter_integer>("color"_ct))
         , m_p_sacsic(get_parameter<adam::configuration_parameter_integer>("sacsic"_ct))
-        , m_p_range_nm(get_parameter<adam::configuration_parameter_double>("range_nm"_ct))
         , m_p_auto_retrieve_coords(get_parameter<adam::configuration_parameter_boolean>("auto_retrieve_coords"_ct))
+        , m_p_range_nm(get_parameter<adam::configuration_parameter_double>("range_nm"_ct))
         , m_p_auto_calc_range(get_parameter<adam::configuration_parameter_boolean>("auto_calc_range"_ct))
     {
         if (get_color() == 0)

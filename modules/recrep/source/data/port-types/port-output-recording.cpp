@@ -29,12 +29,7 @@ namespace adam::modules::recrep
 
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
             
-            configuration_parameter_string::presets_container data_format_presets = {};
-            
-            data_format_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("pcap"_ct, "pcap"_ct));
-            data_format_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("rff"_ct, "rff"_ct));
-
-            auto data_format_param = std::make_unique<adam::configuration_parameter_string>("data_format"_ct, "pcap"_ct, std::move(data_format_presets));
+            auto data_format_param = std::make_unique<adam::configuration_parameter_string>("data_format"_ct, "pcap"_ct, port_file_base::create_data_format_presets(false));
             data_format_param->set_description(language_english, "The recording data format."_ct);
             data_format_param->set_description(language_german, "Das Aufnahmeformat."_ct);
             up->add(std::move(data_format_param));
@@ -49,7 +44,7 @@ namespace adam::modules::recrep
             file_mode_param->set_description(language_german, "Der Betriebsmodus für den Ausgangsport, entweder Schreiben in eine einzelne Datei oder mehrere Dateien (nach Zeit)."_ct);
             up->add(std::move(file_mode_param));
 
-            auto path_param = std::make_unique<adam::configuration_parameter_string>("path"_ct);
+            auto path_param = std::make_unique<adam::configuration_parameter_string>("path"_ct, get_default_storage_path());
             path_param->set_description(language_english, "The path where the recording file(s) are stored."_ct);
             path_param->set_description(language_german, "Der Pfad wo die Aufnahmedatei(en) gespeichert werden."_ct);
             up->add(std::move(path_param));
@@ -84,7 +79,7 @@ namespace adam::modules::recrep
     }
 
     port_output_recording::port_output_recording(const string_hashed& item_name) 
-     :  port_output(item_name)
+     :  port_file<port_output>(item_name)
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
         get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
@@ -104,12 +99,11 @@ namespace adam::modules::recrep
         set_state(state_starting);
         auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
 
-        m_data_format_param    = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
+        bind_file_parameters(user_params);
         m_file_mode_param      = user_params->get<adam::configuration_parameter_string>("file_mode"_ct);
         m_chunk_mode_param     = user_params->get<adam::configuration_parameter_string>("chunk_mode"_ct);
         m_chunk_size_param     = user_params->get<adam::configuration_parameter_integer>("chunk_size"_ct);
         m_chunk_duration_param = user_params->get<adam::configuration_parameter_integer>("chunk_duration"_ct);
-        m_path_param           = user_params->get<adam::configuration_parameter_string>("path"_ct);
 
         m_current_chunk_index = 0;
         
@@ -168,7 +162,7 @@ namespace adam::modules::recrep
         oss << std::put_time(&tm_info, "%d%m%y_%H%M%S_") << std::setfill('0') << std::setw(3) << ms.count();
         std::string time_str = oss.str();
 
-        std::string extension = (m_data_format_param->get_value() == "rff"_ct) ? ".rff" : ".pcap";
+        std::string extension = std::string(get_current_extension());
 
         std::string file_name;
         if (m_file_mode_param->get_value() == "chunked"_ct)
@@ -180,15 +174,7 @@ namespace adam::modules::recrep
             file_name = std::format("{}_{}{}", configuration_item::get_name().c_str(), time_str, extension);
         }
 
-        std::string final_path;
-        if (m_path_param->get_value().empty())
-        {
-            final_path = file_name;
-        }
-        else
-        {
-            final_path = (std::filesystem::path(m_path_param->get_value().c_str()) / file_name).string();
-        }
+        std::string final_path = resolve_file_path(file_name);
 
         m_file_stream.open(final_path, std::ios::binary | std::ios::out | std::ios::trunc);
         if (!m_file_stream.is_open())

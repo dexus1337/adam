@@ -39,6 +39,9 @@ namespace adam
         ADAM_CONSTEVAL string_hashed_ct_template(const char_type* str, size_t len) 
             : m_text(str), m_length(len), m_hash(rapidhash_ct(str, len * sizeof(char_type))) { }
 
+        ADAM_CONSTEXPR string_hashed_ct_template(const string_hashed_ct_template&) = default;
+        ADAM_CONSTEXPR string_hashed_ct_template(string_hashed_ct_template&&)      = default;
+
         inline ADAM_CONSTEXPR hash_datatype get_hash()  const { return m_hash; }
         
         /** @brief Implicit conversion operator to the underlying hash type, allowing direct usage in switch statements. */
@@ -66,6 +69,7 @@ namespace adam
 
         /** @brief Assigns the value of another string_hashed_ct_template object to this one. */
         string_hashed_ct_template& operator=(const string_hashed_ct_template&) = delete;
+        string_hashed_ct_template& operator=(string_hashed_ct_template&&)      = delete;
 
     private:
         const char_type*    m_text;

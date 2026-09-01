@@ -126,6 +126,7 @@ namespace adam::gui
         float target_width
     )
     {
+        (void)lang;
         size_t display_len = size;
         size_t num_rows = (display_len + 15) / 16;
 
@@ -362,23 +363,6 @@ namespace adam::gui
                     }
                     ImGui::OpenPopup("##hex_context_menu");
                 }
-
-                bool is_popup_open = ImGui::IsPopupOpen("##hex_context_menu");
-
-                auto push_mono = []()
-                {
-                    if (ImGui::GetIO().Fonts->Fonts[1])
-                    {
-                        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[1]);
-                    }
-                };
-                auto pop_mono = []()
-                {
-                    if (ImGui::GetIO().Fonts->Fonts[1])
-                    {
-                        ImGui::PopFont();
-                    }
-                };
 
                 // Context menu popup
                 if (ImGui::BeginPopup("##hex_context_menu"))
@@ -1589,7 +1573,6 @@ namespace adam::gui
             g_connection_output_to_expand_in_inspector = 0;
         }
 
-        size_t num_expanded = 0;
         for (const auto& [hash, p_view] : ports)
         {
             if (g_expanded_inspector_ports.count(hash))
@@ -1598,16 +1581,11 @@ namespace adam::gui
                 bool has_inspector = inspectors.find(hash) != inspectors.end();
                 if (has_inspector || has_data)
                 {
-                    num_expanded++;
                     g_pending_inspector_ports.erase(hash);
                 }
                 else
                 {
-                    if (g_pending_inspector_ports.count(hash))
-                    {
-                        num_expanded++;
-                    }
-                    else
+                    if (!g_pending_inspector_ports.count(hash))
                     {
                         g_expanded_inspector_ports.erase(hash);
                     }
@@ -1623,13 +1601,14 @@ namespace adam::gui
                 bool has_inspector = connection_input_inspectors.find(hash) != connection_input_inspectors.end();
                 if (has_inspector || has_data)
                 {
-                    num_expanded++;
                     g_pending_inspector_connections_input.erase(hash);
                 }
                 else
                 {
-                    if (g_pending_inspector_connections_input.count(hash)) num_expanded++;
-                    else g_expanded_inspector_connections_input.erase(hash);
+                    if (!g_pending_inspector_connections_input.count(hash))
+                    {
+                        g_expanded_inspector_connections_input.erase(hash);
+                    }
                 }
             }
 
@@ -1639,13 +1618,14 @@ namespace adam::gui
                 bool has_inspector = connection_output_inspectors.find(hash) != connection_output_inspectors.end();
                 if (has_inspector || has_data)
                 {
-                    num_expanded++;
                     g_pending_inspector_connections_output.erase(hash);
                 }
                 else
                 {
-                    if (g_pending_inspector_connections_output.count(hash)) num_expanded++;
-                    else g_expanded_inspector_connections_output.erase(hash);
+                    if (!g_pending_inspector_connections_output.count(hash))
+                    {
+                        g_expanded_inspector_connections_output.erase(hash);
+                    }
                 }
             }
         }

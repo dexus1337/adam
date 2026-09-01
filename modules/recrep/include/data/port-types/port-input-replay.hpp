@@ -11,6 +11,7 @@
 
 #include "api/api-recrep.hpp"
 #include "commander/messages/message-structs.hpp"
+#include "data/port-types/port-file.hpp"
  
 #include <adam-core.hpp>
 
@@ -26,7 +27,7 @@ namespace adam::modules::recrep
      * @class port_input_replay
      * @brief Defines an input port that allows reading data from replay files, providing functionality for replaying recorded data in the ADAM system.
      */
-    class ADAM_RECREP_API port_input_replay : public port_input
+    class ADAM_RECREP_API port_input_replay : public port_file<port_input>
     {
     public:
 
@@ -41,23 +42,20 @@ namespace adam::modules::recrep
 
         struct replay_state_buffer_data : public adam::port::state_buffer_data
         {
-            char file_name[max_name_length];
-            uint64_t file_time_start;
-            uint64_t file_time_end;
-            uint64_t replay_start_time;
+            char        file_name[max_name_length];
+            uint64_t    file_time_start;
+            uint64_t    file_time_end;
+            uint64_t    replay_start_time;
         };
 
-        static std::string_view get_log_event_text(log_event event, language lang);
-
-        static const configuration_parameter_list& get_user_parameters();
-
-        /** @brief Returns the map of supported format name hashes to their file extensions (e.g. "pcap"_ct -> ".pcap"). */
-        static const std::unordered_map<string_hash, string_hashed_ct>& get_format_map();
+        static std::string_view                                             get_log_event_text(log_event event, language lang);
+        static const configuration_parameter_list&                         get_user_parameters();
+        static const std::unordered_map<string_hash, string_hashed_ct>&     get_format_map();
 
         port_input_replay(const string_hashed& item_name);
         virtual ~port_input_replay();
         
-        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; }; /**< THANK YOU MSCV for your really good constexp eval. Thats why we have to do such beautiful things */
+        virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
 
         /** @brief Checks for available file(s) */
         virtual bool start() override;
@@ -70,21 +68,11 @@ namespace adam::modules::recrep
 
     private:
 
-        adam::configuration_parameter_double* m_speed_param;
-        adam::configuration_parameter_string* m_mode_param;
-        adam::configuration_parameter_string* m_data_format_param;
-        adam::configuration_parameter_string* m_timestamps_param;
+        adam::configuration_parameter_double*   m_speed_param;
+        adam::configuration_parameter_string*   m_mode_param;
+        adam::configuration_parameter_string*   m_timestamps_param;
 
         bool open_next_file();
-
-        /**
-         * @brief Attempts to open the currently-open m_file_stream as the given format.
-         * Reads and validates the format-specific file header. On success, advances
-         * m_current_file_index, fills the state buffer and sets m_is_first_packet.
-         * @param fmt_hash  Hash of the format name (e.g. "pcap"_ct or "rff"_ct).
-         * @param log_errors  When false, suppresses log output (used in "any" mode probing).
-         * @return true if the file was successfully validated as the given format.
-         */
         bool try_open_as(string_hash fmt_hash, bool log_errors = true);
 
         std::vector<std::pair<std::string, string_hash>>    m_files; // path + resolved format hash

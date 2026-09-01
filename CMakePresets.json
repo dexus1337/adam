@@ -24,7 +24,6 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "cl.exe",
                 "CMAKE_CXX_COMPILER": "cl.exe",
-                "CMAKE_SYSTEM_NAME": "Windows",
                 "CMAKE_CXX_FLAGS": "/W4 /EHsc /MP -DADAM_PLATFORM_WINDOWS"
             }
         },
@@ -40,7 +39,6 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "gcc.exe",
                 "CMAKE_CXX_COMPILER": "g++.exe",
-                "CMAKE_SYSTEM_NAME": "Windows",
                 "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -DADAM_PLATFORM_WINDOWS"
             }
         },

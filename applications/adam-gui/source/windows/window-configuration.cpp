@@ -85,6 +85,7 @@ namespace adam::gui
         float dpi_scale
     )
     {
+        (void)dpi_scale;
         ImGui::BeginChild("##RightPathsPanel", ImVec2(0.0f, panel_height), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         
         ImGui::TextUnformatted(get_gui_string(gui_string_id::lbl_configuration_paths, lang));
@@ -526,7 +527,6 @@ namespace adam::gui
             initial_sync = false;
         }
 
-        float content_w = ImGui::GetContentRegionAvail().x;
         float panel_height = ImGui::GetContentRegionAvail().y * 0.333f;
         if (panel_height < 220.0f * dpi_scale)
         {

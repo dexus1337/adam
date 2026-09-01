@@ -8,7 +8,9 @@ if(NOT imgui_dir)
     message(FATAL_ERROR "IMGUI_ROOT environment variable is not set. Please set it to the path of Dear ImGui.")
 endif()
 
-find_package(SDL3 REQUIRED)
+if(NOT TARGET SDL3::SDL3)
+    find_package(SDL3 REQUIRED)
+endif()
 find_package(OpenGL REQUIRED)
 
 # Grab the core ImGui files and the SDL3/OpenGL3 backends

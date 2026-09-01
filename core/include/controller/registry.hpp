@@ -55,10 +55,11 @@ namespace adam
             status_error_connection_not_found
         };
 
-        static std::string_view get_status_text(status status, language lang);
+        static std::string_view                         get_status_text(status status, language lang);
+        static string_hashed                            get_default_module_path();
 
         /** @brief Retrieves the default configuration parameters for ports. */
-        static const configuration_parameter_list& get_default_parameters();
+        static const configuration_parameter_list&     get_default_parameters();
 
         using data_format_map               = std::unordered_map<string_hash, const data_format*>;                              /**< A type alias for a map of data formats supported by a module, indexed by their hashed string names for efficient lookup. */
         

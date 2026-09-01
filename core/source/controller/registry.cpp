@@ -90,6 +90,19 @@ namespace adam
         }
     }
 
+    string_hashed registry::get_default_module_path()
+    {
+        #if defined(ADAM_PLATFORM_ANDROID)
+        Dl_info dlinfo;
+        if (dladdr((void*)&registry::get_default_parameters, &dlinfo) && dlinfo.dli_fname)
+        {
+            std::filesystem::path p(dlinfo.dli_fname);
+            return string_hashed(p.parent_path().string());
+        }
+        #endif
+        return "./modules/"_ct;
+    }
+
     const configuration_parameter_list& registry::get_default_parameters()
     {
         static adam::configuration_parameter_list params = []() 
@@ -98,18 +111,7 @@ namespace adam
             p.add(std::make_unique<configuration_parameter_integer>("language"_ct, language_english));
             
             auto module_paths = std::make_unique<configuration_parameter_list>("module_paths"_ct);
-            #if defined(ADAM_PLATFORM_ANDROID)
-            Dl_info dlinfo;
-            if (dladdr((void*)&registry::get_default_parameters, &dlinfo) && dlinfo.dli_fname)
-            {
-                std::filesystem::path p(dlinfo.dli_fname);
-                module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, string_hashed(p.parent_path().string())));
-            }
-            else
-                module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
-            #else
-            module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
-            #endif
+            module_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, get_default_module_path()));
             p.add(std::move(module_paths));
 
             auto config_paths = std::make_unique<configuration_parameter_list>("config_paths"_ct);
@@ -967,15 +969,21 @@ namespace adam
 
         if (auto* mod_paths = get_parameter<configuration_parameter_list>("module_paths"_ct))
         {
+            const auto default_path = get_default_module_path();
             if (auto* param_0 = mod_paths->get("0"_ct))
             {
                 if (auto* str_param = dynamic_cast<configuration_parameter_string*>(param_0))
-                    str_param->set_value("./modules/");
+                {
+                    #if defined(ADAM_PLATFORM_ANDROID)
+                    str_param->set_value(default_path);
+                    #else
+                    if (str_param->get_value().empty() || str_param->get_value() == "./modules/"_ct)
+                        str_param->set_value(default_path);
+                    #endif
+                }
             }
             else
-            {
-                mod_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, "./modules/"_ct));
-            }
+                mod_paths->add(std::make_unique<configuration_parameter_string>("0"_ct, default_path));
         }
         
         if (auto* cfg_paths = get_parameter<configuration_parameter_list>("config_paths"_ct))

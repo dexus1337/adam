@@ -10,6 +10,7 @@
 
  
 #include "api/api-recrep.hpp"
+#include "data/port-types/port-file.hpp"
  
 #include <adam-core.hpp>
 
@@ -24,7 +25,7 @@ namespace adam::modules::recrep
      * @class port_output_recording
      * @brief Defines an output port that allows recording data to files, providing functionality for capturing and saving data in the ADAM system.
      */
-    class ADAM_RECREP_API port_output_recording : public port_output
+    class ADAM_RECREP_API port_output_recording : public port_file<port_output>
     {
     public:
 
@@ -35,9 +36,8 @@ namespace adam::modules::recrep
             file_open_failed
         };
 
-        static std::string_view get_log_event_text(log_event event, language lang);
-
-        static const configuration_parameter_list& get_user_parameters();
+        static std::string_view                         get_log_event_text(log_event event, language lang);
+        static const configuration_parameter_list&     get_user_parameters();
 
         port_output_recording(const string_hashed& item_name);
         virtual ~port_output_recording();
@@ -59,22 +59,19 @@ namespace adam::modules::recrep
         void close_current_file(bool acquire_spinlock);
         void finalize_current_file();
 
-        adam::configuration_parameter_string*   m_data_format_param     = nullptr;
         adam::configuration_parameter_string*   m_file_mode_param       = nullptr;
         adam::configuration_parameter_string*   m_chunk_mode_param      = nullptr;
         adam::configuration_parameter_integer*  m_chunk_size_param      = nullptr;
         adam::configuration_parameter_integer*  m_chunk_duration_param  = nullptr;
-        adam::configuration_parameter_string*   m_path_param            = nullptr;
 
+        std::ofstream                           m_file_stream           = {};
 
-        std::ofstream   m_file_stream           = {};
+        size_t                                  m_current_chunk_index   = 0;
+        size_t                                  m_current_chunk_bytes   = 0;
+        uint64_t                                m_first_packet_timestamp_ns = 0;
+        uint64_t                                m_last_packet_timestamp_ns  = 0;
 
-        size_t          m_current_chunk_index   = 0;
-        size_t          m_current_chunk_bytes   = 0;
-        uint64_t        m_first_packet_timestamp_ns = 0;
-        uint64_t        m_last_packet_timestamp_ns  = 0;
-
-        std::tm         m_file_start_tm         = {};
-        uint64_t        m_file_start_timestamp_ns = 0;
+        std::tm                                 m_file_start_tm         = {};
+        uint64_t                                m_file_start_timestamp_ns = 0;
     };
 }

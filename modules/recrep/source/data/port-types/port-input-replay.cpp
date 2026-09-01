@@ -27,13 +27,7 @@ namespace adam::modules::recrep
 
             auto up = std::make_unique<adam::configuration_parameter_list_sorted>("user_parameters"_ct);
             
-            configuration_parameter_string::presets_container data_format_presets = {};
-            
-            data_format_presets.emplace("0"_ct, std::make_unique<adam::configuration_parameter_string>("any"_ct, "any"_ct));
-            data_format_presets.emplace("1"_ct, std::make_unique<adam::configuration_parameter_string>("pcap"_ct, "pcap"_ct));
-            data_format_presets.emplace("2"_ct, std::make_unique<adam::configuration_parameter_string>("rff"_ct, "rff"_ct));
-
-            auto data_format_param = std::make_unique<adam::configuration_parameter_string>("data_format"_ct, "any"_ct, std::move(data_format_presets));
+            auto data_format_param = std::make_unique<adam::configuration_parameter_string>("data_format"_ct, "any"_ct, port_file_base::create_data_format_presets(true));
             data_format_param->set_description(language_english, "The recording data format. 'any' will try all known formats (pcap, rff)."_ct);
             data_format_param->set_description(language_german, "Das Aufnahmeformat. 'any' versucht alle bekannten Formate (pcap, rff)."_ct);
             up->add(std::move(data_format_param));
@@ -49,7 +43,7 @@ namespace adam::modules::recrep
             file_mode_param->set_description(language_german, "Der Betriebsmodus für den Eingangsport, entweder Lesen aus einer einzelnen Datei, mehreren Dateien (getrennt durch Semikolon) oder aus einem Verzeichnis von Dateien."_ct);
             up->add(std::move(file_mode_param));
 
-            auto path_param = std::make_unique<adam::configuration_parameter_string>("path"_ct);
+            auto path_param = std::make_unique<adam::configuration_parameter_string>("path"_ct, get_default_storage_path());
             path_param->set_description(language_english, "The path to the recording file(s) or the directory."_ct);
             path_param->set_description(language_german, "Der Pfad zu Aufnahmedatei(en) oder das Verzeichnis."_ct);
             up->add(std::move(path_param));
@@ -88,7 +82,7 @@ namespace adam::modules::recrep
     }
 
     port_input_replay::port_input_replay(const string_hashed& item_name) 
-     :  port_input(item_name, sizeof(replay_state_buffer_data))
+     :  port_file<port_input>(item_name, sizeof(replay_state_buffer_data))
     {
         get_parameter<adam::configuration_parameter_string>("type"_ct)->set_value(type_name());
         get_parameter<adam::configuration_parameter_string>("type_origin_module"_ct)->set_value(get_adam_module()->get_name());
@@ -100,14 +94,7 @@ namespace adam::modules::recrep
 
     const std::unordered_map<string_hash, string_hashed_ct>& port_input_replay::get_format_map()
     {
-        // Format name hash -> file extension (as string_hashed for O(1) comparison in loops).
-        // Constructed from string_hashed_ct literals so no string processing occurs at runtime.
-        static const std::unordered_map<string_hash, string_hashed_ct> formats =
-        {
-            { ".pcap"_ct.get_hash(), "pcap"_ct },
-            { ".rff"_ct.get_hash(),  "rff"_ct  }
-        };
-        return formats;
+        return port_file_base::get_format_map();
     }
 
     bool port_input_replay::start() 
@@ -122,34 +109,17 @@ namespace adam::modules::recrep
 
         auto user_params = get_parameter<adam::configuration_parameter_list>("user_parameters"_ct);
 
+        bind_file_parameters(user_params);
         m_speed_param       = user_params->get<adam::configuration_parameter_double>("speed"_ct);
         m_mode_param        = user_params->get<adam::configuration_parameter_string>("mode"_ct);
-        m_data_format_param = user_params->get<adam::configuration_parameter_string>("data_format"_ct);
         m_timestamps_param  = user_params->get<adam::configuration_parameter_string>("timestamps"_ct);
 
         auto file_mode = user_params->get<adam::configuration_parameter_string>("file_mode"_ct)->get_value();
-        auto path      = user_params->get<adam::configuration_parameter_string>("path"_ct)->get_value();
+        auto path      = get_path_value();
 
-        // For "any", accept any extension registered in the format map; otherwise match exactly.
-        // get_file_format returns the resolved format name hash (e.g. "pcap"_ct) for a given path,
-        // or 0 if the file should be excluded. Computing it once here avoids repeated lookups in
-        // open_next_file() and try_open_as().
-        const bool is_any = (m_data_format_param->get_value() == "any"_ct);
-        const auto& fmap = get_format_map();
-        const string_hash param_fmt = is_any ? 0 : m_data_format_param->get_value().get_hash();
-
-        // Returns the format name hash for the file, or 0 if the extension is not accepted.
         auto get_file_format = [&](const std::string& p) -> string_hash
         {
-            const string_hashed ext(std::filesystem::path(p).extension().string());
-            if (is_any)
-            {
-                const auto it = fmap.find(ext.get_hash());
-                return (it != fmap.end()) ? it->second.get_hash() : 0;
-            }
-            if (param_fmt == "pcap"_ct && ext == ".pcap"_ct) return "pcap"_ct;
-            if (param_fmt == "rff"_ct && ext == ".rff"_ct) return "rff"_ct;
-            return 0;
+            return port_file_base::resolve_file_format(p, m_data_format_param->get_value());
         };
 
         if (file_mode == "single_file"_ct)

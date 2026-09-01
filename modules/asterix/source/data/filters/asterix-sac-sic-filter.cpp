@@ -243,10 +243,8 @@ namespace adam::modules::asterix
             return true;
         }
 
-        uint32_t total_records   = 0;
         uint32_t kept_records    = 0;
         uint32_t removed_records = 0;
-        uint32_t kept_blocks     = 0;
 
         const uap* cached_base_uap = nullptr;
         uint8_t cached_cat = 0xFF;
@@ -268,7 +266,6 @@ namespace adam::modules::asterix
             {
                 if (rec.is_removed()) continue;
 
-                total_records++;
                 records_in_block++;
 
                 const uap* active_uap = nullptr;
@@ -312,10 +309,6 @@ namespace adam::modules::asterix
             if (kept_records_in_block == 0 && records_in_block > 0)
             {
                 blk.set_removed(true);
-            }
-            else if (kept_records_in_block > 0)
-            {
-                kept_blocks++;
             }
         }
 

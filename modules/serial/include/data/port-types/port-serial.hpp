@@ -34,16 +34,16 @@ namespace adam::modules::serial
         virtual const string_hashed_ct& get_type_name() const override { static string_hashed_ct name = type_name(); return name; };
         
         /** @brief Starts the port. Initializes Serial Communication */
-        virtual bool start();
+        virtual bool start() override;
 
         /** @brief Stops the port. Cleans up resources used by Serial Communication */
-        virtual bool stop();
+        virtual bool stop() override;
 
         /** @brief Protoype function for data input */
-        virtual bool read(buffer*& buff);
+        virtual bool read(buffer*& buff) override;
 
         /** @brief Protoype function for data output. */
-        virtual bool write(buffer* buff);
+        virtual bool write(buffer* buff) override;
 
         enum class serial_error_t : int
         {
