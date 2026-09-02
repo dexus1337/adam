@@ -16,7 +16,8 @@
 
 namespace adam::modules::can
 {
-    can_analyzer::can_analyzer()
+    can_analyzer::can_analyzer(const can_profile* profile)
+        : m_profile(profile)
     {
         m_columns = 
         {
@@ -100,11 +101,6 @@ namespace adam::modules::can
             0.11f,              // Raw (Dec)
             0.10f               // Raw (String)
         };
-    }
-
-    const can_profile* can_analyzer::get_profile() const
-    {
-        return can_profile_pool::get().get_default_profile();
     }
 
     bool can_analyzer::analyze(const adam::buffer* buf, std::vector<row>& results) const
@@ -210,38 +206,29 @@ namespace adam::modules::can
             adam::analyzer::expanded_data ed;
             ed.data_type = adam::analyzer::expanded_data::type_table;
 
+            auto endian = profile ? profile->get_endianness() : can_profile::little_endian;
+
             for (size_t i = 0; i < msg_spec->signal_count; ++i)
             {
                 const auto& sig = msg_spec->signals[i];
-                uint64_t raw_val = extract_raw_signal(msg.get_data(), msg.get_data_length(), sig);
+                uint64_t raw_val = extract_raw_signal(msg.get_data(), msg.get_data_length(), sig, endian);
 
                 std::string str_val;
                 size_t num_bytes = (sig.bit_length + 7) / 8;
                 for (size_t b = 0; b < num_bytes; ++b)
                 {
-                    uint8_t ch = static_cast<uint8_t>((raw_val >> (b * 8)) & 0xFF);
-                    if (ch >= 32 && ch <= 126)
-                    {
-                        str_val += static_cast<char>(ch);
-                    }
-                    else
-                    {
-                        str_val += '.';
-                    }
+                    size_t shift = (endian == can_profile::big_endian) ? ((num_bytes - 1 - b) * 8) : (b * 8);
+                    uint8_t ch = static_cast<uint8_t>((raw_val >> shift) & 0xFF);
+                    if (ch >= 32 && ch <= 126) str_val += static_cast<char>(ch);
+                    else str_val += '.';
                 }
 
                 row sub_r;
                 sub_r.columns.push_back(std::to_string(sig.index));
                 sub_r.columns.push_back(sig.name);
                 sub_r.columns.push_back(sig.description);
-                if (sig.bit_length <= 1)
-                {
-                    sub_r.columns.push_back(std::format("Bit [{}]", sig.bit_offset));
-                }
-                else
-                {
-                    sub_r.columns.push_back(std::format("Bits [{}:{}]", sig.bit_offset, sig.bit_offset + sig.bit_length - 1));
-                }
+                if (sig.bit_length <= 1) sub_r.columns.push_back(std::format("Bit [{}]", sig.bit_offset));
+                else sub_r.columns.push_back(std::format("Bits [{}:{}]", sig.bit_offset, sig.bit_offset + sig.bit_length - 1));
                 sub_r.columns.push_back(std::format("0x{:X}", raw_val));
                 sub_r.columns.push_back(std::to_string(raw_val));
                 sub_r.columns.push_back(std::move(str_val));

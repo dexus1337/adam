@@ -18,10 +18,12 @@ namespace adam::modules::can
         const string_hashed_ct&     name,
         const string_hashed_ct&     description,
         const can_message_spec*     messages,
-        size_t                      message_count
+        size_t                      message_count,
+        endianness                  endian
     )
         : m_name(name),
-          m_description(description)
+          m_description(description),
+          m_endianness(endian)
     {
         std::memset(m_std_id_table, 0, sizeof(m_std_id_table));
 
@@ -50,16 +52,13 @@ namespace adam::modules::can
     can_profile_pool::can_profile_pool()
     {
         // Self-initialize with default profiles
-        register_profile(&profiles::mercedes::w209::get_profile());
-        register_profile(&profiles::mercedes::w209::get_can_c_profile());
+        register_profile(&profiles::mercedes::w209::can_b::get_profile());
+        register_profile(&profiles::mercedes::w209::can_c::get_profile());
     }
 
     void can_profile_pool::register_profile(can_profile* profile)
     {
-        if (!profile)
-        {
-            return;
-        }
+        if (!profile) return;
 
         m_profiles.push_back(profile);
         m_profiles_by_hash.emplace(profile->get_name().get_hash(), profile);
@@ -68,10 +67,7 @@ namespace adam::modules::can
     const can_profile* can_profile_pool::get_profile(string_hash name_hash) const
     {
         auto it = m_profiles_by_hash.find(name_hash);
-        if (it != m_profiles_by_hash.end())
-        {
-            return it->second;
-        }
+        if (it != m_profiles_by_hash.end()) return it->second;
 
         return nullptr;
     }
@@ -83,10 +79,7 @@ namespace adam::modules::can
 
     const can_profile* can_profile_pool::get_default_profile() const
     {
-        if (m_profiles.empty())
-        {
-            return nullptr;
-        }
+        if (m_profiles.empty()) return nullptr;
 
         return m_profiles.front();
     }

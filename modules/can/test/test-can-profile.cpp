@@ -35,9 +35,9 @@ protected:
     }
 };
 
-TEST_F(can_profile_test, w209_profile_lookup_and_signals)
+TEST_F(can_profile_test, w209_can_b_profile_lookup_and_signals)
 {
-    const auto& profile = profiles::mercedes::w209::get_profile();
+    const auto& profile = profiles::mercedes::w209::can_b::get_profile();
     EXPECT_EQ(profile.get_name(), "Mercedes W209 CAN-B"_ct);
 
     // Lookup EZS_A10 (0x010A)
@@ -80,7 +80,7 @@ TEST_F(can_profile_test, w209_profile_lookup_and_signals)
 
 TEST_F(can_profile_test, signal_bit_extraction)
 {
-    const auto& profile = profiles::mercedes::w209::get_profile();
+    const auto& profile = profiles::mercedes::w209::can_b::get_profile();
     const auto* msg_ezs_a10 = profile.find_message(0x010A, false);
     ASSERT_NE(msg_ezs_a10, nullptr);
 
@@ -120,7 +120,7 @@ TEST_F(can_profile_test, signal_bit_extraction)
 
 TEST_F(can_profile_test, w209_can_c_profile_lookup_and_signals)
 {
-    const auto& profile = profiles::mercedes::w209::get_can_c_profile();
+    const auto& profile = profiles::mercedes::w209::can_c::get_profile();
     EXPECT_EQ(profile.get_name(), "Mercedes W209 CAN-C"_ct);
 
     // Lookup BS_208h (0x0208)
@@ -141,7 +141,7 @@ TEST_F(can_profile_test, w209_can_c_profile_lookup_and_signals)
     const auto* msg_ms_308 = profile.find_message(0x0308, false);
     ASSERT_NE(msg_ms_308, nullptr);
     EXPECT_STREQ(msg_ms_308->ecu_name, "MS_308h");
-    EXPECT_EQ(msg_ms_308->signal_count, 27);
+    EXPECT_EQ(msg_ms_308->signal_count, 28);
 }
 
 TEST_F(can_profile_test, profile_pool_singleton)
@@ -247,5 +247,133 @@ TEST_F(can_profile_test, parser_and_analyzer_integration)
     parsed_buf_0->release();
     buf->release();
     parsed_buf->release();
+}
+
+TEST_F(can_profile_test, profile_endianness_setting)
+{
+    static const can_signal_spec test_signals[] =
+    {
+        { 0, "SIG_16", "16-bit signal", 0, 16 }
+    };
+
+    static const can_message_spec test_messages[] =
+    {
+        { 0x0123, false, 8, "TEST_ECU", "Test Message", test_signals, 1 }
+    };
+
+    can_profile prof_le
+    (
+        "Test LE"_ct,
+        "Test Little Endian Profile"_ct,
+        test_messages,
+        1,
+        can_profile::little_endian
+    );
+
+    EXPECT_EQ(prof_le.get_endianness(), can_profile::little_endian);
+
+    prof_le.set_endianness(can_profile::big_endian);
+    EXPECT_EQ(prof_le.get_endianness(), can_profile::big_endian);
+
+    can_profile prof_be
+    (
+        "Test BE"_ct,
+        "Test Big Endian Profile"_ct,
+        test_messages,
+        1,
+        can_profile::big_endian
+    );
+
+    EXPECT_EQ(prof_be.get_endianness(), can_profile::big_endian);
+}
+
+TEST_F(can_profile_test, endianness_signal_extraction)
+{
+    // 16-bit signal in bytes 0-1
+    can_signal_spec sig_16 = { 0, "VAL_16", "16-bit", 0, 16 };
+    // 32-bit signal in bytes 2-5
+    can_signal_spec sig_32 = { 1, "VAL_32", "32-bit", 16, 32 };
+    // 14-bit signal spanning byte 6 (6 bits: 50..55) and byte 7 (8 bits: 56..63) -> bits 50..63
+    can_signal_spec sig_14 = { 2, "VAL_14", "14-bit", 50, 14 };
+
+    uint8_t payload[8] =
+    {
+        0x12, 0x34,                         // Bytes 0-1
+        0x01, 0x02, 0x03, 0x04,             // Bytes 2-5
+        0x34, 0x49                          // Bytes 6-7: (0x0D << 2) = 0x34 in byte 6, 0x49 in byte 7
+    };
+
+    // Little endian interpretation:
+    // Byte 0 is LSB, Byte 1 is MSB
+    uint64_t val_16_le = extract_raw_signal(payload, 8, sig_16, can_profile::little_endian);
+    EXPECT_EQ(val_16_le, 0x3412);
+
+    // Big endian interpretation:
+    // Byte 0 is MSB, Byte 1 is LSB
+    uint64_t val_16_be = extract_raw_signal(payload, 8, sig_16, can_profile::big_endian);
+    EXPECT_EQ(val_16_be, 0x1234);
+
+    // 32-bit little endian
+    uint64_t val_32_le = extract_raw_signal(payload, 8, sig_32, can_profile::little_endian);
+    EXPECT_EQ(val_32_le, 0x04030201);
+
+    // 32-bit big endian
+    uint64_t val_32_be = extract_raw_signal(payload, 8, sig_32, can_profile::big_endian);
+    EXPECT_EQ(val_32_be, 0x01020304);
+
+    // 14-bit signal:
+    // Byte 6 (start_byte): 6 bits (offset 50..55, so bit 2..7 of byte 6). Byte 6 has (0x34 >> 2) & 0x3F = 0x0D.
+    // Byte 7 (end_byte): 8 bits (offset 56..63, so bit 0..7 of byte 7). Byte 7 has 0x49.
+    // Little endian: (0x49 << 6) | 0x0D = 0x124D
+    uint64_t val_14_le = extract_raw_signal(payload, 8, sig_14, can_profile::little_endian);
+    EXPECT_EQ(val_14_le, (0x49ULL << 6) | 0x0DULL);
+
+    // Big endian: (0x0D << 8) | 0x49 = 0x0D49
+    uint64_t val_14_be = extract_raw_signal(payload, 8, sig_14, can_profile::big_endian);
+    EXPECT_EQ(val_14_be, 0x0D49);
+}
+
+TEST_F(can_profile_test, analyzer_with_big_endian_profile)
+{
+    static const can_signal_spec be_signals[] =
+    {
+        { 0, "RPM", "Engine Speed", 0, 16 }
+    };
+
+    static const can_message_spec be_messages[] =
+    {
+        { 0x0300, false, 8, "ENGINE", "Speed Data", be_signals, 1 }
+    };
+
+    can_profile be_profile
+    (
+        "BE Engine"_ct,
+        "Big Endian Profile"_ct,
+        be_messages,
+        1,
+        can_profile::big_endian
+    );
+
+    uint8_t raw_bytes[sizeof(can_message) + 8] = {};
+    auto* msg = reinterpret_cast<can_message*>(raw_bytes);
+    msg->id.bits.std_id = 0x0300;
+    msg->dlc = 8;
+    // 2500 rpm = 0x09C4 in big-endian: Byte 0 = 0x09, Byte 1 = 0xC4
+    raw_bytes[sizeof(can_message) + 0] = 0x09;
+    raw_bytes[sizeof(can_message) + 1] = 0xC4;
+
+    can_analyzer analyzer(&be_profile);
+    EXPECT_EQ(analyzer.get_profile(), &be_profile);
+
+    std::vector<adam::analyzer::expanded_data> expansions;
+    bool ok = analyzer.analyze_expanded(raw_bytes, sizeof(raw_bytes), nullptr, 0, 0, expansions);
+    EXPECT_TRUE(ok);
+    ASSERT_EQ(expansions.size(), 1);
+    ASSERT_EQ(expansions[0].table_rows.size(), 1);
+
+    // Verify 0x09C4 (2500) decoded properly instead of 0xC409
+    EXPECT_EQ(expansions[0].table_rows[0].columns[1], "RPM");
+    EXPECT_EQ(expansions[0].table_rows[0].columns[4], "0x9C4");
+    EXPECT_EQ(expansions[0].table_rows[0].columns[5], "2500");
 }
 

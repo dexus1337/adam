@@ -20,10 +20,4 @@ namespace adam::modules::can::profiles::mercedes::w209
          */
         ADAM_CAN_API can_profile& get_profile();
     }
-
-    /**
-     * @brief Gets the singleton instance of the Mercedes W209 CAN-C profile.
-     * @return Reference to the CAN profile.
-     */
-    ADAM_CAN_API can_profile& get_can_c_profile();
 }
