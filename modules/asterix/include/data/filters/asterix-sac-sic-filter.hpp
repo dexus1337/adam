@@ -61,7 +61,7 @@ namespace adam::modules::asterix
         adam::configuration_parameter_string* m_sac_sic_param;     /**< Fast-access pointer to the sac/sic pattern string. */
 
         string_hashed         m_last_sac_sic_hash;
-        std::bitset<65536>    m_match_lut;                         /**< O(1) 8KB Bitset LUT for all 65,536 (SAC, SIC) pairs. */
+        std::bitset<0xffff>    m_match_lut;                         /**< O(1) 8KB Bitset LUT for all 65,536 (SAC, SIC) pairs. */
         bool                  m_has_patterns = false;
     };
 }

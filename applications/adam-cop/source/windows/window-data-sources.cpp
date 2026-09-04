@@ -43,12 +43,12 @@ namespace adam::cop
                 continue;
             }
 
-            if (conn->input_format.get_hash() == "asterix"_ct.get_hash())
+            if (conn->input_format == "asterix"_ct)
             {
                 streams.push_back({ conn_hash, conn->name, true, conn->input_format, conn->started });
             }
 
-            if (conn->output_format.get_hash() == "asterix"_ct.get_hash())
+            if (conn->output_format == "asterix"_ct)
             {
                 streams.push_back({ conn_hash, conn->name, false, conn->output_format, conn->started });
             }

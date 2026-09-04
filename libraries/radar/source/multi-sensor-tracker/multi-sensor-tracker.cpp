@@ -4,12 +4,10 @@
 namespace adam::lib::radar
 {
     multi_sensor_tracker::multi_sensor_tracker()
-        : m_sites_table(std::make_unique<std::atomic<site*>[]>(65536))
+        : m_sites_table(std::make_unique<std::atomic<site*>[]>(0xffff))
     {
-        for (size_t i = 0; i < 65536; ++i)
-        {
+        for (size_t i = 0; i < 0xffff; ++i)
             m_sites_table[i].store(nullptr, std::memory_order_relaxed);
-        }
     }
 
     site* multi_sensor_tracker::get_site(adam::string_hash name_hash) const
@@ -148,10 +146,10 @@ namespace adam::lib::radar
     void multi_sensor_tracker::clear_sites()
     {
         adam::spinlock::guard lock(m_write_lock);
-        for (size_t i = 0; i < 65536; ++i)
-        {
+
+        for (size_t i = 0; i < 0xffff; ++i)
             m_sites_table[i].store(nullptr, std::memory_order_release);
-        }
+        
         m_sites_list.clear();
         m_sites_by_name.clear();
 

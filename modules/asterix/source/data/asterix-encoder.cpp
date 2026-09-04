@@ -238,7 +238,7 @@ namespace adam::modules::asterix
             return true;
         }
 
-        uint32_t capacity = ref_buf ? ref_buf->get_capacity() : 65536;
+        uint32_t capacity = ref_buf ? ref_buf->get_capacity() : 0xffff;
         buf = adam::buffer_manager::get().request_buffer(capacity);
         if (!buf) return false;
 

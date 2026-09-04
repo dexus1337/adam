@@ -29,7 +29,7 @@ namespace adam::modules::network
         socket_t sock = static_cast<socket_t>(m_socket);
         if (sock == invalid_socket_val) return false;
 
-        uint8_t temp_buf[65536];
+        uint8_t temp_buf[0xffff];
         int     bytes_read = 0;
 
         while (is_running())

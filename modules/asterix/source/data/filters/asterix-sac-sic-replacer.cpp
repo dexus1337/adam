@@ -53,7 +53,7 @@ namespace adam::modules::asterix
         m_source_param = user_params->get<configuration_parameter_string>("source_sac_sic"_ct);
         m_target_param = user_params->get<configuration_parameter_string>("target_sac_sic"_ct);
 
-        for (size_t i = 0; i < 65536; ++i)
+        for (size_t i = 0; i < 0xffff; ++i)
         {
             m_replacement_lut[i] = { static_cast<uint8_t>(i >> 8), static_cast<uint8_t>(i & 0xFF), false };
         }
@@ -116,7 +116,7 @@ namespace adam::modules::asterix
         std::string source_str = std::string(m_last_source_hash);
         std::string target_str = std::string(m_last_target_hash);
 
-        std::bitset<65536> source_match_lut;
+        std::bitset<0xffff> source_match_lut;
         source_match_lut.reset();
         m_has_source_patterns = false;
 

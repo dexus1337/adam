@@ -55,7 +55,7 @@ namespace adam::modules::asterix
 
         string_hashed                                    m_last_source_hash;
         string_hashed                                    m_last_target_hash;
-        std::array<replacement_entry, 65536>             m_replacement_lut;
+        std::array<replacement_entry, 0xffff>             m_replacement_lut;
         bool                                             m_has_source_patterns = false;
     };
 }
